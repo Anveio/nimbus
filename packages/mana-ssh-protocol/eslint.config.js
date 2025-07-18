@@ -1,8 +1,3 @@
-import browserConfig from 'mana-ssh-eslint-config/browser';
+import baseConfig from 'mana-ssh-eslint-config'
 
-export default [
-  ...browserConfig,
-  {
-    ignores: ["dist/**"],
-  },
-];
+export default baseConfig

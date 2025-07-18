@@ -1,8 +1,3 @@
-import nodeConfig from '../mana-ssh-eslint-config/src/node.js';
+import baseConfig from 'mana-ssh-eslint-config'
 
-export default [
-  ...nodeConfig,
-  {
-    ignores: ["dist/**"],
-  },
-];
+export default baseConfig
