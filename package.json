@@ -1,0 +1,24 @@
+{
+  "name": "mana-ssh-web",
+  "private": true,
+  "version": "1.0.0",
+  "main": "index.js",
+  "packageManager": "bun@1.2.5",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo lint",
+    "test": "turbo run test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "workspaces": [
+    "packages/*",
+    "packages/mana-ssh-eslint-config"
+  ],
+  "devDependencies": {
+    "turbo": "^2.5.4"
+  }
+}
