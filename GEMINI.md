@@ -49,20 +49,7 @@ Each package within `packages/*` will be a self-contained NPM package with its o
   - **Purpose**: The public-facing package that bundles the protocol and transport layers into a single, easy-to-use API.
   - **Configuration**: Its `package.json` will declare a workspace dependency on `mana-ssh-protocol`. It will define the primary `main`, `module`, and `types` entry points for the published NPM package. `vite.config.ts` will be configured to generate the final bundled output and TypeScript declaration files (`.d.ts`).
 
-### 3. SSH Specification Adherence
 
-When executing any task, it is crucial to reference all relevant SSH-related RFCs and other official specifications. This ensures that the implementation is compliant, secure, and interoperable. Key specifications include, but are not limited to:
-
-- [RFC 4250](https://datatracker.ietf.org/doc/html/rfc4250): The Secure Shell (SSH) Protocol Assigned Numbers
-- [RFC 4251](https://datatracker.ietf.org/doc/html/rfc4251): The Secure Shell (SSH) Architecture
-- [RFC 4252](https://datatracker.ietf.org/doc/html/rfc4252): The Secure Shell (SSH) Authentication Protocol
-- [RFC 4253](https://datatracker.ietf.org/doc/html/rfc4253): The Secure Shell (SSH) Transport Layer Protocol
-- [RFC 4254](https://datatracker.ietf.org/doc/html/rfc4254): The Secure Shell (SSH) Connection Protocol
-- [RFC 4255](https://datatracker.ietf.org/doc/html/rfc4255): Using DNS to Securely Publish Secure Shell (SSH) Key Fingerprints
-- [RFC 4256](https://datatracker.ietf.org/doc/html/rfc4256): Generic Message Exchange Authentication for the Secure Shell Protocol (SSH)
-- [RFC 4716](https://datatracker.ietf.org/doc/html/rfc4716): The Secure Shell (SSH) Public Key File Format
-- [RFC 5656](https://datatracker.ietf.org/doc/html/rfc5656): Elliptic Curve Algorithm Integration in the Secure Shell Transport Layer
-- [OpenSSH Protocol Overview](https://www.openssh.com/protocol.html)
 
 </technical-details>
 

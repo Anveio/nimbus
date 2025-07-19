@@ -1,9 +1,7 @@
-import { WebSocketServer } from 'ws'
 import { Client } from 'ssh2'
+import { WebSocketServer } from 'ws'
 
-const wss = new WebSocketServer({ port: 8080, })
-
-export const stuff = ['hi', 'hello']
+const wss = new WebSocketServer({ port: 8080 })
 
 wss.on('connection', (ws) => {
   console.log('Client connected')
@@ -24,7 +22,7 @@ wss.on('connection', (ws) => {
         })
 
         // Pipe SSH stream data to the WebSocket
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // biome-ignore lint/suspicious/noExplicitAny: todo
         stream.on('data', (data: any) => {
           ws.send(data)
         })

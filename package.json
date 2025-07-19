@@ -1,26 +1,28 @@
 {
-  "name": "mana-ssh-web",
-  "private": true,
-  "version": "1.0.0",
-  "main": "index.js",
-  "packageManager": "bun@1.2.5",
-  "scripts": {
-    "build": "turbo run build",
-    "clean": "rm -rf node_modules .turbo",
-    "dev": "turbo run dev",
-    "lint": "turbo lint",
-    "test": "turbo run test"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
-  "workspaces": [
-    "packages/*",
-    "packages/mana-ssh-eslint-config"
-  ],
-  "devDependencies": {
-    "turbo": "^2.5.4",
-    "typescript": "^5.8.3"
-  }
+	"name": "mana-ssh-web",
+	"private": true,
+	"version": "1.0.0",
+	"packageManager": "bun@1.2.19",
+	"scripts": {
+		"build": "turbo build",
+		"clean": "turbo clean",
+		"dev": "turbo dev --parallel",
+		"lint": "turbo lint && manypkg check",
+		"test": "turbo test --parallel",
+		"format": "biome format --write .",
+		"typecheck": "turbo typecheck"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"description": "",
+	"workspaces": [
+		"packages/*"
+	],
+	"dependencies": {
+		"@biomejs/biome": "^2.1.2",
+		"@manypkg/cli": "^0.24.0",
+		"turbo": "^2.5.5",
+		"typescript": "^5.8.3"
+	}
 }
