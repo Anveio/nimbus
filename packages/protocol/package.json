@@ -15,7 +15,6 @@
   "dependencies": {},
   "devDependencies": {
     "ajv": "^8.17.1",
-    "mana-ssh-eslint-config": "workspace:*",
     "typescript": "^5.8.3",
     "vite": "^7.0.5",
     "vite-plugin-dts": "^4.5.4",

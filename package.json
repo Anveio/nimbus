@@ -1,28 +1,25 @@
 {
-	"name": "mana-ssh-web",
-	"private": true,
-	"version": "1.0.0",
-	"packageManager": "bun@1.2.19",
-	"scripts": {
-		"build": "turbo build",
-		"clean": "turbo clean",
-		"dev": "turbo dev --parallel",
-		"lint": "turbo lint && manypkg check",
-		"test": "turbo test --parallel",
-		"format": "biome format --write .",
-		"typecheck": "turbo typecheck"
-	},
-	"keywords": [],
-	"author": "",
-	"license": "ISC",
-	"description": "",
-	"workspaces": [
-		"packages/*"
-	],
-	"dependencies": {
-		"@biomejs/biome": "^2.1.2",
-		"@manypkg/cli": "^0.24.0",
-		"turbo": "^2.5.5",
-		"typescript": "^5.8.3"
-	}
+  "name": "mana-ssh-web",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "turbo build",
+    "clean": "git clean -xdf node_modules",
+    "clean:workspaces": "turbo clean",
+    "dev": "turbo dev --parallel",
+    "lint": "turbo lint && manypkg check",
+    "test": "turbo test --parallel",
+    "format": "biome format --write .",
+    "typecheck": "turbo typecheck"
+  },
+  "packageManager": "bun@1.2.19",
+  "dependencies": {
+    "@biomejs/biome": "^2.1.2",
+    "@manypkg/cli": "^0.24.0",
+    "turbo": "^2.5.5",
+    "typescript": "^5.8.3"
+  }
 }
