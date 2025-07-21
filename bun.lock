@@ -11,7 +11,7 @@
       },
     },
     "apps/ws-server": {
-      "name": "@manassh/mana-ssh-ws-server",
+      "name": "@mana-ssh/ws-server",
       "dependencies": {
         "@hono/zod-openapi": "^0.19.8",
         "@hono/zod-validator": "^0.7.0",
@@ -196,7 +196,7 @@
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.9", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.0.3", "@jridgewell/sourcemap-codec": "^1.4.10" } }, "sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ=="],
 
-    "@manassh/mana-ssh-ws-server": ["@manassh/mana-ssh-ws-server@workspace:apps/ws-server"],
+    "@mana-ssh/ws-server": ["@mana-ssh/ws-server@workspace:apps/ws-server"],
 
     "@manypkg/cli": ["@manypkg/cli@0.24.0", "", { "dependencies": { "@manypkg/get-packages": "^3.0.0", "detect-indent": "^7.0.1", "normalize-path": "^3.0.0", "p-limit": "^6.2.0", "package-json": "^10.0.1", "parse-github-url": "^1.0.3", "picocolors": "^1.1.1", "sembear": "^0.7.0", "semver": "^7.7.1", "tinyexec": "^1.0.1", "validate-npm-package-name": "^6.0.0" }, "bin": { "manypkg": "bin.js" } }, "sha512-O1vbx4TnwaeeDXlNaa+N0LIKg3JmI2gEG8JaGn97UuXgiXJIYlAhfepJTykICV0i0oQHvb0xNfNmvYhwJ/cGgA=="],
 

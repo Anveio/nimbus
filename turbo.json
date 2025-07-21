@@ -26,6 +26,9 @@
     "typecheck": {
       "dependsOn": ["^topo"],
       "outputs": []
+    },
+    "clean": {
+      "cache": false
     }
   }
 }

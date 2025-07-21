@@ -1,5 +1,5 @@
 {
-  "name": "@manassh/mana-ssh-ws-server",
+  "name": "@mana-ssh/ws-server",
   "types": "dist/index.d.ts",
   "files": [
     "dist"
