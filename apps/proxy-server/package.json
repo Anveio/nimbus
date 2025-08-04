@@ -1,0 +1,20 @@
+{
+  "name": "@mana-ssh/proxy-server",
+  "version": "0.0.1",
+  "private": true,
+  "description": "A WebSocket-to-TCP proxy for the ManaSSHWeb demonstration.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "echo 'Build script not implemented yet'",
+    "test": "echo 'Test script not implemented yet'"
+  },
+  "dependencies": {
+    "ws": "^8.17.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.3.3"
+  }
+}

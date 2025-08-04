@@ -1,3 +1,3 @@
 {
-  "extends": "@midday/tsconfig/base.json"
+  "extends": "@mana-ssh/tsconfig/base.json"
 }

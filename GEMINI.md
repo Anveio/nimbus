@@ -15,11 +15,11 @@ This document outlines the technical foundation for the ManaSSHWeb project. Our 
 
 ### Monorepo Structure
 
-The project will be organized as a monorepo to facilitate code sharing and modular development. The core components will be split into the following packages within the `packages` directory:
+The project is organized as a monorepo with a layered internal architecture to promote separation of concerns, testability, and extensibility. The core library is split into three packages:
 
-- `packages/mana-ssh-websocket`: This package will contain the low-level implementation of the WebSocket transport layer. It will be responsible for establishing and maintaining the WebSocket connection and handling raw data transmission.
-- `packages/mana-ssh-protocol`: This package will house the browser-specific implementation of the SSH protocol (transport, authentication, and connection layers). It will consume the WebSocket transport layer and handle the intricacies of the SSH handshake, encryption, and channel management.
-- `packages/mana-ssh-web`: This is the main, publicly exported library. It will aggregate the functionality from the protocol and transport layers, providing a clean, high-level API for developers to integrate into their web applications.
+-   `packages/protocol`: The heart of the library. This is a pure, transport-agnostic implementation of the SSH protocol (RFCs 4250-4254). It handles the state machine, cryptography, and message serialization. It has zero knowledge of the transport layer it runs on.
+-   `packages/websocket`: A lean, reusable transport layer implementation. It wraps the browser's native `WebSocket` API and exposes a standardized interface for sending and receiving data.
+-   `packages/web`: The primary, public-facing package that most users will consume. It provides a simple, high-level API by composing the `protocol` and `websocket` packages. It is responsible for high-level concerns like connection management, reconnection logic, and providing a seamless developer experience.
 
 </project-brief>
 
@@ -28,32 +28,56 @@ The project will be organized as a monorepo to facilitate code sharing and modul
 
 ### 1. Root-Level Configuration
 
-- **`package.json`**: Configured as the monorepo root with `"private": true` and a `workspaces` property pointing to `"packages/*"`. It will contain `devDependencies` for global tools like `typescript`, `turbo`, and `oxlint`. Scripts for `dev`, `build`, `test`, and `lint` will be defined to run via `turbo`.
-- **`turbo.json`**: Defines the dependency graph and task pipelines for the monorepo. The `build` pipeline will be configured to depend on the `build` output of internal package dependencies (`dependsOn: ["^build"]`) and cache outputs from `dist/**` and `tsconfig.tsbuildinfo` directories.
-- **`tsconfig.base.json`**: A base TypeScript configuration that all packages in the monorepo will extend. It will enforce strict type-checking rules (`strict: true`) and configure modern module resolution (`moduleResolution: "NodeNext"`) and target (`target: "ES2022"`) to ensure code quality and compatibility.
+- **`package.json`**: Configured as the monorepo root with `"private": true` and a `workspaces` property pointing to `"packages/*"` and `"apps/*"`. It contains `devDependencies` for global tools like `typescript` and `turbo`.
+- **`turbo.json`**: Defines the dependency graph and task pipelines for the monorepo.
+- **`tsconfig.base.json`**: A base TypeScript configuration that all packages in the monorepo will extend, enforcing strict type-checking and modern module resolution.
 
-### 2. Package Structure & Configuration
+### 2. Core Package Structure (`packages/*`)
 
-Each package within `packages/*` will be a self-contained NPM package with its own `package.json`, `vite.config.ts`, and `tsconfig.json`.
+- **`@mana-ssh/protocol`**:
+  - **Purpose**: The transport-agnostic core SSH protocol logic.
+  - **Configuration**: A simple package with no external dependencies. It is a dependency of `@mana-ssh/web`.
 
-- **`packages/mana-ssh-websocket`**:
+- **`@mana-ssh/websocket`**:
+  - **Purpose**: A lean wrapper around the browser's `WebSocket` API.
+  - **Configuration**: A simple package with no external dependencies. It is a dependency of `@mana-ssh/web`.
 
-  - **Purpose**: Provides a foundational, event-driven wrapper around the browser's `WebSocket` API.
-  - **Configuration**: Its `vite.config.ts` will be set to library mode to produce a standalone, distributable module. It will have no external production dependencies.
-
-- **`packages/mana-ssh-protocol`**:
-  - **Purpose**: Implements the core SSH2 protocol logic, handling cryptographic operations via the `WebCrypto` API.
-  - **Configuration**: Its `package.json` will declare a workspace dependency on `mana-ssh-websocket`. `vite.config.ts` will be configured for library mode.
-
-- **`packages/mana-ssh-web`**:
-  - **Purpose**: The public-facing package that bundles the protocol and transport layers into a single, easy-to-use API.
-  - **Configuration**: Its `package.json` will declare a workspace dependency on `mana-ssh-protocol`. It will define the primary `main`, `module`, and `types` entry points for the published NPM package. `vite.config.ts` will be configured to generate the final bundled output and TypeScript declaration files (`.d.ts`).
-
-
+- **`@mana-ssh/web`**:
+  - **Purpose**: The main, public-facing package that bundles the protocol and transport layers into a single, easy-to-use API.
+  - **Configuration**: Its `package.json` declares workspace dependencies on `@mana-ssh/protocol` and `@mana-ssh/websocket`. It defines the primary `main`, `module`, and `types` entry points for the published NPM package. Its `vite.config.ts` is configured to generate the final bundled output and TypeScript declaration files (`.d.ts`).
 
 </technical-details>
 
 <memory-bank>
+## Project Status (2025-08-03)
+
+### Accomplishments
+
+1.  **Core Architecture Refinement:** We have established a robust, three-package layered architecture for the core library to ensure separation of concerns, testability, and extensibility.
+    *   **`@mana-ssh/protocol`**: A pure, transport-agnostic implementation of the SSH protocol.
+    *   **`@mana-ssh/websocket`**: A lean, reusable transport layer for WebSockets.
+    *   **`@mana-ssh/web`**: The main, user-facing library that composes the other two packages to provide a simple, high-level API.
+    *   This structure was codified by creating the respective package directories, `package.json` files, and `README.md` files.
+
+2.  **Demonstration Environment Setup:** We have built a complete, end-to-end demonstration environment consisting of three applications:
+    *   **`apps/simulated-instance`**: A fully functional, interactive SSH server built with Node.js, `ssh2`, and `node-pty`. It runs on `localhost:2222`. We resolved a critical `node-pty` native module incompatibility by using `tsx` to run this component with the Node.js runtime instead of Bun.
+    *   **`apps/proxy-server`**: A WebSocket-to-TCP proxy server that bridges communication between the web client and the simulated SSH server. It listens on `localhost:8080`.
+    *   **`apps/terminal-web-app`**: A placeholder for the frontend application that will use the `@mana-ssh/web` library and `xterm.js`.
+
+### Next Steps: The Plan Forward
+
+With the foundational architecture and the backend demonstration environment now complete and documented, the next and final step is to implement the client-side logic.
+
+1.  **Implement the Terminal Web App (`apps/terminal-web-app`):**
+    *   **Location:** `apps/terminal-web-app/src/main.ts`.
+    *   **Technology:** TypeScript, Vite, `xterm.js`, and our newly architected `@mana-ssh/web` library.
+    *   **Functionality:**
+        *   Initialize an `xterm.js` instance and attach it to the DOM.
+        *   Import and use the `@mana-ssh/web` library to connect to the proxy server at `ws://localhost:8080`.
+        *   Establish a two-way data flow:
+            *   Pipe data from the SSH connection (via the library) into the `xterm.js` terminal.
+            *   Pipe user input from `xterm.js` (keystrokes) into the SSH connection via the library.
+        *   The goal is to have a fully interactive terminal in the browser, communicating with our simulated SSH server.
 </memory-bank>
 
 # Your user

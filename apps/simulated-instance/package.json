@@ -1,0 +1,22 @@
+{
+  "name": "@mana-ssh/simulated-instance",
+  "version": "0.0.1",
+  "private": true,
+  "description": "A simulated SSH server instance for demonstrating and testing the ManaSSHWeb library.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "echo 'Build script not implemented yet'",
+    "test": "echo 'Test script not implemented yet'"
+  },
+  "dependencies": {
+    "ssh2": "^1.15.0",
+    "node-pty": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/ssh2": "^1.15.0",
+    "typescript": "^5.3.3",
+    "tsx": "^4.7.2"
+  }
+}

@@ -1,8 +1,8 @@
 {
-  "name": "@mana-ssh/protocol",
+  "name": "@mana-ssh/websocket",
   "version": "0.0.1",
   "private": true,
-  "description": "The core, transport-agnostic SSH protocol implementation for ManaSSHWeb.",
+  "description": "A WebSocket transport layer for the ManaSSHWeb protocol.",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
