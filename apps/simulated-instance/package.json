@@ -11,11 +11,12 @@
     "test": "echo 'Test script not implemented yet'"
   },
   "dependencies": {
-    "ssh2": "^1.15.0",
-    "node-pty": "^1.0.0"
+    "@types/tar": "^6.1.13",
+    "dockerode": "^4.0.7",
+    "tar": "^7.4.3"
   },
   "devDependencies": {
-    "@types/ssh2": "^1.15.0",
+    "@types/dockerode": "^3.3.42",
     "typescript": "^5.3.3",
     "tsx": "^4.7.2"
   }

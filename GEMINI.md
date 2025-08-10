@@ -46,9 +46,58 @@ The project is organized as a monorepo with a layered internal architecture to p
   - **Purpose**: The main, public-facing package that bundles the protocol and transport layers into a single, easy-to-use API.
   - **Configuration**: Its `package.json` declares workspace dependencies on `@mana-ssh/protocol` and `@mana-ssh/websocket`. It defines the primary `main`, `module`, and `types` entry points for the published NPM package. Its `vite.config.ts` is configured to generate the final bundled output and TypeScript declaration files (`.d.ts`).
 
+### 3. `@mana-ssh/protocol` Implementation Details
+
+The core protocol package is implemented as a state machine that processes a raw byte stream.
+
+-   **`SshProtocol` Class**: The main class that manages the connection state.
+    -   **State Management**: Uses a `state` property (`pre-identification`, `kex-init-sent`, etc.) to track the handshake progress.
+    -   **Buffering**: Maintains an internal `Uint8Array` buffer to accumulate incoming data from the transport.
+-   **Handshake Logic**:
+    -   **Identification Exchange**: The `handleData` method first parses the server's identification string (`SSH-2.0-...`). Upon success, it transitions state and triggers the sending of the client's `KEXINIT`.
+    -   **Packet Deframing**: Once the identification is exchanged, the `_processPacketBuffer` method reads the first 4 bytes of the buffer to determine the packet length, waits for the full packet to arrive, and then slices it for processing.
+    -   **KEXINIT Handling**:
+        -   A `_createKexinitPayload` method constructs the client's key exchange message using a preferred list of modern, secure algorithms defined in `src/algorithms.ts`.
+        -   When the server's `KEXINIT` message is received, `_parseKexinitPayload` uses a custom `SshDataView` utility to read the name-lists.
+        -   `_negotiateAlgorithms` compares the client and server lists to select the commonly supported algorithm for each category.
+-   **Utilities**:
+    -   **`SshDataView`**: A utility class that extends `DataView` to simplify reading and writing SSH-specific data types (like length-prefixed strings) from/to an `ArrayBuffer`.
+
 </technical-details>
 
 <memory-bank>
+## Project Status (2025-08-04)
+
+### Accomplishments
+
+We have completed a major architectural refactor of the `apps/simulated-instance` package to enhance development fidelity and align with enterprise licensing requirements. The environment is now based on a containerized Amazon Linux 2023 instance, with first-class support for **Finch**, the open-source container engine from AWS.
+
+1.  **Finch Integration**:
+    *   **Goal**: To use Finch as the primary, recommended container runtime, avoiding Docker Desktop licensing constraints.
+    *   **Orchestrator Updated**: The `index.ts` script was refactored to be runtime-agnostic. It now automatically detects the correct container daemon socket, prioritizing `~/.finch/finch.sock` if it exists, and falling back to `/var/run/docker.sock`. This ensures a seamless experience for users of both Finch and Docker Desktop.
+    *   **Documentation Overhauled**: The `README.md` for the package was rewritten to position Finch as the primary tool, with detailed installation instructions. Docker Desktop is now presented as a supported alternative.
+
+2.  **Containerization of the Simulated Instance**:
+    *   **`Dockerfile` Created**: A `Dockerfile` builds a genuine AL2023 environment with a configured OpenSSH server.
+    *   **Dependencies Updated**: The package now uses `dockerode` to programmatically control the container runtime.
+    *   **Automated Workflow**: The `dev` script automatically builds the image, starts the container, and provides graceful cleanup on exit.
+
+### Next Steps: The Plan Forward
+
+With the new Finch-based simulated instance complete, the backend and demonstration environment is now significantly more robust and aligned with your goals. The next step is to return to the original plan of implementing the frontend.
+
+1.  **Implement the Terminal Web App (`apps/terminal-web-app`):**
+    *   **Location:** `apps/terminal-web-app/src/main.ts`.
+    *   **Technology:** TypeScript, Vite, `xterm.js`, and our `@mana-ssh/web` library.
+    *   **Functionality:**
+        *   Initialize an `xterm.js` instance and attach it to the DOM.
+        *   Import and use the `@mana-ssh/web` library to connect to the proxy server at `ws://localhost:8080`.
+        *   Establish a two-way data flow between `xterm.js` and the SSH connection.
+        *   The goal is a fully interactive terminal in the browser, communicating with our new AL2023 container.
+
+---
+*Previous entries below this line.*
+
 ## Project Status (2025-08-03)
 
 ### Accomplishments

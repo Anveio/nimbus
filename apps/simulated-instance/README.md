@@ -1,28 +1,65 @@
-# Simulated SSH Instance
+# Simulated SSH Instance (Finch / Docker)
 
 ## Purpose
 
-This application serves as a crucial component of the ManaSSHWeb demonstration and testing environment. It is a lightweight, cross-platform SSH server built entirely in Node.js using the `ssh2` and `node-pty` libraries.
+This application provides a high-fidelity, container-based development environment that simulates a real-world SSH target. It programmatically builds and runs a container with the **Amazon Linux 2023** operating system and a configured OpenSSH server.
 
-Its primary function is to simulate a real-world SSH target, allowing us to showcase a complete, end-to-end SSH connection that originates from a web browser, passes through a WebSocket proxy, and terminates in an interactive shell session.
+Its primary function is to serve as a realistic endpoint for testing and demonstrating the ManaSSHWeb library, ensuring that our client is developed against a genuine and modern server environment.
 
-## Role in the Architecture
+This package uses `dockerode` to automatically detect your container runtime (Finch or Docker) and manage the lifecycle of the AL2023 container, making the developer experience seamless.
 
-The ManaSSHWeb project aims to provide a secure and modern library for web-based SSH. To demonstrate this, we use the following architecture:
+---
 
-`[Web App with mana-ssh-web]` <--(WebSocket)--> `[Proxy Server]` <--(TCP)--> `[This Simulated Instance]`
+## Prerequisites: Container Runtime
 
-This simulated server fulfills the role of the final SSH endpoint. By building it in Node.js, we achieve several key advantages:
+To run this simulated instance, you **must** have a container runtime installed and running on your host machine. The orchestration script will fail if it cannot connect to a daemon socket.
 
-- **Portability:** It runs on any system with Node.js/Bun, requiring no system-level `sshd` configuration or Docker.
-- **Isolation:** It runs as a simple, unprivileged process, ensuring it doesn't interfere with the host machine's security or configuration.
-- **Interactivity:** By leveraging `node-pty`, it provides a true, interactive pseudo-terminal experience, making the demonstration feel authentic.
-- **Simplicity:** It allows anyone to clone the repository and run a full, end-to-end test with a single command.
+**Finch is the recommended tool for this project** as it is open-source and avoids the licensing complexities of Docker Desktop in enterprise environments.
 
-This approach ensures that developers can quickly and easily see the `mana-ssh-web` library in action without complex setup or external dependencies.
+### Step 1: Install Finch
 
-## Technical Note: Node.js Runner (`tsx`)
+First, install Finch on your operating system.
 
-While the ManaSSHWeb monorepo primarily uses `bun` as its package manager and runtime, this `simulated-instance` application is specifically executed with Node.js via the `tsx` runner.
+#### macOS
 
-This decision was made to ensure maximum compatibility and stability. The `node-pty` library, which is critical for providing an interactive pseudo-terminal, relies on native C++ addons. These native components can have compatibility issues with the Bun runtime. Using a standard Node.js runtime for this specific package guarantees that the native modules compile and run correctly across all platforms (macOS, Linux, and Windows), providing a reliable and seamless "out-of-the-box" experience for developers testing the library.
+**Method 1: Direct Download (Recommended)**
+
+1.  **Download Finch**: Go to the official Finch releases page on GitHub: [https://github.com/runfinch/finch/releases](https://github.com/runfinch/finch/releases)
+2.  **Select Asset**: Find the latest release and download the `.pkg` installer for your Mac's chip type (`x86_64` for Intel, `aarch64` for Apple Silicon).
+3.  **Run Installer**: Open the downloaded `.pkg` file and follow the installation prompts.
+
+**Method 2: Homebrew (Alternative)**
+
+1.  **Install Homebrew** (if you don't have it already):
+    ```bash
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    ```
+2.  **Install Finch**:
+    ```bash
+    brew install --cask finch
+    ```
+
+#### Windows & Linux
+
+Finch is under active development for other platforms. Please follow the official installation instructions on the project's GitHub page: [https://github.com/runfinch/finch](https://github.com/runfinch/finch)
+
+### Step 2: Getting Started with Finch
+
+After installing Finch for the first time, you must initialize its virtual machine.
+
+1.  **Initialize the VM (One-Time Setup)**:
+    This command creates and configures the Finch virtual machine. You only need to run this once.
+    ```bash
+    finch vm init
+    ```
+
+2.  **Start the VM (Every Session)**:
+    Before running the dev server, you must ensure the Finch VM is running.
+    ```bash
+    finch vm start
+    ```
+    You can check its status at any time with `finch vm status`. The dev script will fail if the VM is not running.
+
+### Alternative: Docker Desktop Installation
+
+If you already have Docker Desktop installed, the script will detect it and use it automatically. Please refer to the official Docker website for installation instructions: [https://www.docker.com/products/docker-desktop/](https://www.docker.com/products/docker-desktop/)
