@@ -22,5 +22,5 @@ RUN ssh-keygen -A
 # Expose the SSH port
 EXPOSE 22
 
-# Start the SSH daemon in the foreground
-CMD ["/usr/sbin/sshd", "-D"]
+# Start the SSH daemon in the foreground in debug mode
+CMD ["/usr/sbin/sshd", "-D", "-d"]

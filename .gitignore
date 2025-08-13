@@ -87,6 +87,3 @@ dist-ssr
 
 # SSH keys
 apps/simulated-instance/id_rsa
-apps/simulated-instance/id_rsa.pub
-
-.wrangler

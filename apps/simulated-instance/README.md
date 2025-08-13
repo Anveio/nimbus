@@ -6,21 +6,19 @@ This application provides a high-fidelity, container-based development environme
 
 Its primary function is to serve as a realistic endpoint for testing and demonstrating the ManaSSHWeb library, ensuring that our client is developed against a genuine and modern server environment.
 
-This package uses `dockerode` to automatically detect your container runtime (Finch or Docker) and manage the lifecycle of the AL2023 container, making the developer experience seamless.
+## Supported Environments
 
----
+This script is designed to be runtime-agnostic and seamlessly supports both **Finch** and **Docker Desktop**. It automatically detects which container daemon is running by searching for a valid socket in the following locations:
 
-## Prerequisites: Container Runtime
-
-To run this simulated instance, you **must** have a container runtime installed and running on your host machine. The orchestration script will fail if it cannot connect to a daemon socket.
+1.  `~/.finch/finch.sock` (Finch, standard path)
+2.  `/Applications/Finch/lima/data/finch/sock/finch.sock` (Finch, alternative macOS path)
+3.  `/var/run/docker.sock` (Docker Desktop, standard path)
 
 **Finch is the recommended tool for this project** as it is open-source and avoids the licensing complexities of Docker Desktop in enterprise environments.
 
-### Step 1: Install Finch
+---
 
-First, install Finch on your operating system.
-
-#### macOS
+#### macOS Installation
 
 **Method 1: Direct Download (Recommended)**
 
@@ -37,29 +35,68 @@ First, install Finch on your operating system.
 2.  **Install Finch**:
     ```bash
     brew install --cask finch
-    ```
 
-#### Windows & Linux
+```bash
+finch vm init
+```
 
-Finch is under active development for other platforms. Please follow the official installation instructions on the project's GitHub page: [https://github.com/runfinch/finch](https://github.com/runfinch/finch)
+Before running the dev server, you must ensure the Finch VM is running. **You will need to do this for every new terminal session or system restart.**
 
-### Step 2: Getting Started with Finch
+```bash
+finch vm start
+```
 
-After installing Finch for the first time, you must initialize its virtual machine.
+You can check its status at any time with `finch vm status`.
 
-1.  **Initialize the VM (One-Time Setup)**:
-    This command creates and configures the Finch virtual machine. You only need to run this once.
+## Usage
+
+Once your container runtime is running, you can start the simulated SSH instance.
+
+1.  **Navigate to the package directory**:
     ```bash
-    finch vm init
+    cd apps/simulated-instance
     ```
 
-2.  **Start the VM (Every Session)**:
-    Before running the dev server, you must ensure the Finch VM is running.
+2.  **Run the development server**:
     ```bash
-    finch vm start
+    bun dev
     ```
-    You can check its status at any time with `finch vm status`. The dev script will fail if the VM is not running.
 
-### Alternative: Docker Desktop Installation
+The script will then:
+1.  Build the `mana-ssh-instance` Docker image.
+2.  Start a container from that image.
+3.  Expose the container's SSH port (22) on `localhost:2222`.
 
-If you already have Docker Desktop installed, the script will detect it and use it automatically. Please refer to the official Docker website for installation instructions: [https://www.docker.com/products/docker-desktop/](https://www.docker.com/products/docker-desktop/)
+### Cleaning Up
+
+Closing bun automatically stops and removes the **container**, but it leaves the **image** cached on your system. This ensures that the next time you run `bun dev`, the instance starts almost instantly without needing a full rebuild.
+
+If you want to perform a complete cleanup and remove both the container and the underlying `mana-ssh-instance` image, you can run the dedicated `clean` script. This is useful when you want to reclaim disk space or ensure your next build is completely fresh.
+
+1.  **Navigate to the package directory**:
+    ```bash
+    cd apps/simulated-instance
+    ```
+
+2.  **Run the clean script**:
+    ```bash
+    bun run clean
+    ```
+
+This script will:
+1.  Stop the running container (if it exists).
+2.  Remove the container.
+3.  Remove the `mana-ssh-instance` image.
+
+---
+
+## Dependencies
+
+This package relies on a few key dependencies to manage the container lifecycle.
+
+### Production Dependencies
+
+-   **`dockerode`**: A library that provides a programmatic interface to the Docker (or Finch) daemon API. This is the core dependency used to build, start, stop, and remove the container.
+-   **`tar`**: Used to create a tarball stream of the build context (`Dockerfile`, keys, etc.) in memory. This stream is then passed to `dockerode` to build the image, which is more reliable across different container daemons than file-based context.
+
+ 
