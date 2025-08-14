@@ -9,12 +9,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@effect/platform-browser": "^0.70.0",
+    "@mana-ssh/web": "workspace:*",
     "xterm": "^5.3.0",
-    "xterm-addon-fit": "^0.8.0",
-    "@mana-ssh/web": "workspace:*"
+    "xterm-addon-fit": "^0.8.0"
   },
   "devDependencies": {
-    "typescript": "^5.3.3",
-    "vite": "^5.0.0"
+    "typescript": "^5.9.2",
+    "vite": "^7.1.2"
   }
 }

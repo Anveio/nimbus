@@ -1,0 +1,11 @@
+{
+  "extends": "@mana-ssh/tsconfig/base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx", "tailwind.config.ts"],
+  "exclude": ["node_modules"]
+}
