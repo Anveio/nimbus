@@ -2,10 +2,11 @@
   "extends": "@mana-ssh/tsconfig/base.json",
   "compilerOptions": {
     "baseUrl": ".",
+    "jsx": "react-jsx",
     "paths": {
       "@/*": ["./src/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", "tailwind.config.ts"],
+  "include": ["src", "../../types"],
   "exclude": ["node_modules"]
 }
