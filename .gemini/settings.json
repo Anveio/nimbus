@@ -1,3 +1,6 @@
 {
-  "contextFileName": ["context/effect-documentation.md"]
+  "contextFileName": [
+    "context/effect-documentation.md",
+    "context/bun-documentation.md"
+  ]
 }

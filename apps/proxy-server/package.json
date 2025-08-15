@@ -7,7 +7,7 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "echo 'Build script not implemented yet'",
+    "build": "tsc",
     "test": "echo 'Test script not implemented yet'"
   },
   "dependencies": {

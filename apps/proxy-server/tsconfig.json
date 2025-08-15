@@ -7,8 +7,8 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleDetection": "force",
-    "allowJs": true,
     "skipLibCheck": true,
+    "noEmit": true,
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"],
