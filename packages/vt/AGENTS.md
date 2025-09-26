@@ -25,3 +25,10 @@ Add fixtures for CSI/OSC/DCS dispatch to extend the TDD suite beyond classificat
 - Coverage now reports >70% branches for the parser, establishing a baseline before implementing DCS/OSC handling.
 
 Next immediate goals: extend CSI handling to ignore/error states, add OSC/DCS streaming, and backfill clause-referenced fixtures per the new roadmap.
+
+## 2024-10-17 – CSI guard rails
+
+- Added bounds checking to CSI parsing (parameter count, intermediate count, and integer overflow) with fallbacks into the `CsiIgnore` state per ECMA-48 guidance.
+- Implemented cancellation handling for CAN/SUB and ESC re-entry while parsing CSI, ensuring the parser safely returns to `ground` without emitting spurious events.
+- Expanded unit coverage to include overflow, cancellation, and repeated prefix edge cases; improved invariants in test helpers for clearer failures.
+- Coverage now stabilises around 76% lines on `parser.ts`, paving the way to tackle OSC/DCS states next.

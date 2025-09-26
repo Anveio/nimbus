@@ -13,7 +13,7 @@ function invariant(condition: unknown, message: string): asserts condition {
   }
 }
 
-class CollectingSink implements ParserEventSink {
+class TestSink implements ParserEventSink {
   readonly events: ParserEvent[] = []
   onEvent(event: ParserEvent): void {
     this.events.push(event)
@@ -23,7 +23,7 @@ class CollectingSink implements ParserEventSink {
 describe('ParserImpl basic behaviour', () => {
   it('emits print events for printable runs', () => {
     const parser = createParser()
-    const sink = new CollectingSink()
+    const sink = new TestSink()
 
     parser.write('hello', sink)
 
@@ -37,7 +37,7 @@ describe('ParserImpl basic behaviour', () => {
 
   it('emits execute events for C0 controls', () => {
     const parser = createParser()
-    const sink = new CollectingSink()
+    const sink = new TestSink()
 
     parser.write('\u0007', sink)
 
@@ -51,7 +51,7 @@ describe('ParserImpl basic behaviour', () => {
 
   it('transitions to escape state after ESC', () => {
     const parser = createParser()
-    const sink = new CollectingSink()
+    const sink = new TestSink()
 
     parser.write('\u001b', sink)
 
@@ -60,7 +60,7 @@ describe('ParserImpl basic behaviour', () => {
 
   it('dispatches ESC final bytes', () => {
     const parser = createParser()
-    const sink = new CollectingSink()
+    const sink = new TestSink()
 
     parser.write('\u001b7', sink)
 
@@ -78,7 +78,7 @@ describe('ParserImpl basic behaviour', () => {
 
   it('collects escape intermediates', () => {
     const parser = createParser()
-    const sink = new CollectingSink()
+    const sink = new TestSink()
 
     parser.write('\u001b(0', sink)
 
@@ -96,7 +96,7 @@ describe('ParserImpl basic behaviour', () => {
 
   it('parses simple CSI sequences', () => {
     const parser = createParser()
-    const sink = new CollectingSink()
+    const sink = new TestSink()
 
     parser.write('\u001b[31m', sink)
 
@@ -117,7 +117,7 @@ describe('ParserImpl basic behaviour', () => {
 
   it('supports C1 CSI introducer', () => {
     const parser = createParser()
-    const sink = new CollectingSink()
+    const sink = new TestSink()
 
     parser.write(new Uint8Array([0x9b, 0x41]), sink)
 
@@ -131,5 +131,51 @@ describe('ParserImpl basic behaviour', () => {
     )
     expect(event.finalByte).toBe('A'.charCodeAt(0))
     expect(event.params).toEqual([0])
+  })
+
+  it('ignores CSI sequences that exceed parameter count', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    const params = Array.from({ length: 17 }, () => '1').join(';')
+    parser.write(`\u001b[${params}m`, sink)
+
+    expect(sink.events).toHaveLength(0)
+    expect(parser.state).toBe(ParserState.Ground)
+  })
+
+  it('ignores CSI sequences with oversized parameter values', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write('\u001b[999999m', sink)
+
+    expect(sink.events).toHaveLength(0)
+    expect(parser.state).toBe(ParserState.Ground)
+  })
+
+  it('cancels CSI on CAN control', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write('\u001b[12\u0018A', sink)
+
+    expect(sink.events).toHaveLength(1)
+    const event = sink.events[0]
+    invariant(event, 'expected print event')
+    expect(event.type).toBe(ParserEventType.Print)
+    invariant(event.type === ParserEventType.Print, 'expected print event')
+    expect(Array.from(event.data)).toEqual(['A'.charCodeAt(0)])
+    expect(parser.state).toBe(ParserState.Ground)
+  })
+
+  it('enters CSI ignore with repeated private prefixes', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write('\u001b[?=1m', sink)
+
+    expect(sink.events).toHaveLength(0)
+    expect(parser.state).toBe(ParserState.Ground)
   })
 })

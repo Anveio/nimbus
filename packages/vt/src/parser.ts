@@ -7,6 +7,14 @@ import {
   ParserState,
 } from './types'
 
+const ESC = 0x1b
+const CSI_8BIT = 0x9b
+const CAN = 0x18
+const SUB = 0x1a
+const MAX_CSI_PARAMS = 16
+const MAX_CSI_INTERMEDIATES = 4
+const MAX_CSI_PARAM_VALUE = 65535
+
 class ParserImpl implements Parser {
   private context = createInitialContext()
   private readonly encoder = new TextEncoder()
@@ -53,6 +61,8 @@ class ParserImpl implements Parser {
         this.handleCsiIntermediate(byte, sink)
         break
       case ParserState.CsiIgnore:
+        this.handleCsiIgnore(byte)
+        break
       case ParserState.OscString:
       case ParserState.DcsEntry:
       case ParserState.DcsParam:
@@ -67,15 +77,17 @@ class ParserImpl implements Parser {
     }
   }
 
+  // ECMA-48 Annex B (ground state): emit printable characters, execute C0/C1,
+  // or transition to escape/CSI introducers.
   private handleGround(byte: number, sink: ParserEventSink): void {
-    if (byte === 0x1b) {
+    if (byte === ESC) {
       this.flushPrint(sink)
       this.context.state = ParserState.Escape
       this.resetIntermediates()
       return
     }
 
-    if (byte === 0x9b) {
+    if (byte === CSI_8BIT) {
       this.flushPrint(sink)
       this.enterCsiEntry()
       return
@@ -100,6 +112,7 @@ class ParserImpl implements Parser {
     }
   }
 
+  // Annex B escape state: collect intermediates or dispatch final byte.
   private handleEscape(byte: number, sink: ParserEventSink): void {
     if (byte === 0x5b) {
       this.enterCsiEntry()
@@ -122,6 +135,7 @@ class ParserImpl implements Parser {
     this.context.state = ParserState.Ground
   }
 
+  // Annex B escape intermediate: accept further 0x20–0x2F bytes before final.
   private handleEscapeIntermediate(byte: number, sink: ParserEventSink): void {
     if (byte >= 0x20 && byte <= 0x2f) {
       this.context.intermediates.push(byte)
@@ -137,9 +151,25 @@ class ParserImpl implements Parser {
     this.context.state = ParserState.Ground
   }
 
+  // Annex B CSI entry: manage private prefixes, parameters, or immediate final.
   private handleCsiEntry(byte: number, sink: ParserEventSink): void {
-    if (byte >= 0x3c && byte <= 0x3f && this.context.prefix === null) {
-      this.context.prefix = byte
+    if (byte === CAN || byte === SUB) {
+      this.cancelCsi()
+      return
+    }
+
+    if (byte === ESC) {
+      this.resetCsiContext()
+      this.context.state = ParserState.Escape
+      return
+    }
+
+    if (byte >= 0x3c && byte <= 0x3f) {
+      if (this.context.prefix === null) {
+        this.context.prefix = byte
+      } else {
+        this.enterCsiIgnore()
+      }
       return
     }
 
@@ -150,6 +180,11 @@ class ParserImpl implements Parser {
     }
 
     if (byte >= 0x20 && byte <= 0x2f) {
+      if (this.context.intermediates.length >= MAX_CSI_INTERMEDIATES) {
+        this.enterCsiIgnore()
+        return
+      }
+
       this.context.intermediates.push(byte)
       this.context.state = ParserState.CsiIntermediate
       return
@@ -160,13 +195,29 @@ class ParserImpl implements Parser {
       return
     }
 
-    this.context.state = ParserState.Ground
+    this.cancelCsi()
   }
 
+  // Annex B CSI param: gather decimal params and guard against overflow.
   private handleCsiParam(byte: number, sink: ParserEventSink): void {
+    if (byte === CAN || byte === SUB) {
+      this.cancelCsi()
+      return
+    }
+
+    if (byte === ESC) {
+      this.resetCsiContext()
+      this.context.state = ParserState.Escape
+      return
+    }
+
     if (byte >= 0x30 && byte <= 0x39) {
       const digit = byte - 0x30
       this.context.currentParam = (this.context.currentParam ?? 0) * 10 + digit
+
+      if ((this.context.currentParam ?? 0) > MAX_CSI_PARAM_VALUE) {
+        this.enterCsiIgnore()
+      }
       return
     }
 
@@ -176,6 +227,11 @@ class ParserImpl implements Parser {
     }
 
     if (byte >= 0x20 && byte <= 0x2f) {
+      if (this.context.intermediates.length >= MAX_CSI_INTERMEDIATES) {
+        this.enterCsiIgnore()
+        return
+      }
+
       this.context.intermediates.push(byte)
       this.context.state = ParserState.CsiIntermediate
       return
@@ -186,13 +242,28 @@ class ParserImpl implements Parser {
       return
     }
 
-    // On unexpected input, abort CSI and return to ground per spec guidance.
-    this.context.state = ParserState.Ground
-    this.resetCsiContext()
+    this.enterCsiIgnore()
   }
 
+  // Annex B CSI intermediate: collect 0x20–0x2F or await final dispatch.
   private handleCsiIntermediate(byte: number, sink: ParserEventSink): void {
+    if (byte === CAN || byte === SUB) {
+      this.cancelCsi()
+      return
+    }
+
+    if (byte === ESC) {
+      this.resetCsiContext()
+      this.context.state = ParserState.Escape
+      return
+    }
+
     if (byte >= 0x20 && byte <= 0x2f) {
+      if (this.context.intermediates.length >= MAX_CSI_INTERMEDIATES) {
+        this.enterCsiIgnore()
+        return
+      }
+
       this.context.intermediates.push(byte)
       return
     }
@@ -202,15 +273,55 @@ class ParserImpl implements Parser {
       return
     }
 
-    this.context.state = ParserState.Ground
-    this.resetCsiContext()
+    this.enterCsiIgnore()
   }
 
+  // Annex B CSI ignore: consume bytes until cancellation or termination.
+  private handleCsiIgnore(byte: number): void {
+    if (byte === CAN || byte === SUB) {
+      this.context.state = ParserState.Ground
+      return
+    }
+
+    if (byte === ESC) {
+      this.context.state = ParserState.Escape
+      return
+    }
+
+    if (byte >= 0x40 && byte <= 0x7e) {
+      this.context.state = ParserState.Ground
+    }
+  }
+
+  // Annex B note: invalid CSI routes to ignore state until final/CAN/SUB.
+  private enterCsiIgnore(): void {
+    if (this.context.state === ParserState.CsiIgnore) {
+      return
+    }
+
+    this.resetCsiContext()
+    this.context.state = ParserState.CsiIgnore
+  }
+
+  // ECMA-48 §8.3 (CAN/SUB): cancel the current control sequence.
+  private cancelCsi(): void {
+    this.resetCsiContext()
+    this.context.state = ParserState.Ground
+  }
+
+  // Annex B CSI dispatch: emit event unless validation failed.
   private finalizeCsi(finalByte: number, sink: ParserEventSink): void {
+    const params = this.resolveParams()
+
+    if (params.length > MAX_CSI_PARAMS) {
+      this.cancelCsi()
+      return
+    }
+
     const event: ParserEvent = {
       type: ParserEventType.CsiDispatch,
       finalByte,
-      params: this.resolveParams(),
+      params,
       intermediates: [...this.context.intermediates],
       prefix: this.context.prefix,
     }
@@ -221,6 +332,11 @@ class ParserImpl implements Parser {
   }
 
   private pushCurrentParam(): void {
+    if (this.context.params.length >= MAX_CSI_PARAMS) {
+      this.enterCsiIgnore()
+      return
+    }
+
     this.context.params.push(this.context.currentParam ?? 0)
     this.context.currentParam = null
   }
