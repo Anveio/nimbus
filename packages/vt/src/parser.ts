@@ -9,6 +9,7 @@ import {
   type C1HandlingMode,
   type SosPmApcKind,
 } from './types'
+import { getSpecC1Action } from './internal/c1-table'
 
 const ESC = 0x1b
 const CSI_8BIT = 0x9b
@@ -150,34 +151,31 @@ class ParserImpl implements Parser {
   }
 
   private handleC1Spec(byte: number, sink: ParserEventSink): void {
-    switch (byte) {
-      case CSI_8BIT:
-        this.flushPrint(sink)
+    const action = getSpecC1Action(byte)
+    if (!action) {
+      this.flushPrint(sink)
+      this.emitExecute(byte, sink)
+      return
+    }
+
+    this.flushPrint(sink)
+    switch (action.type) {
+      case 'enterCsi':
         this.enterCsiEntry()
         return
-      case OSC_8BIT:
-        this.flushPrint(sink)
+      case 'enterOsc':
         this.enterOscString()
         return
-      case DCS_8BIT:
-        this.flushPrint(sink)
+      case 'enterDcs':
         this.enterDcsEntry()
         return
-      case SOS_8BIT:
-        this.flushPrint(sink)
-        this.enterSosPmApc('SOS')
+      case 'enterSosPmApc':
+        this.enterSosPmApc(action.kind)
         return
-      case PM_8BIT:
-        this.flushPrint(sink)
-        this.enterSosPmApc('PM')
-        return
-      case APC_8BIT:
-        this.flushPrint(sink)
-        this.enterSosPmApc('APC')
-        return
-      default:
-        this.flushPrint(sink)
+      case 'execute':
         this.emitExecute(byte, sink)
+        return
+      case 'ignore':
         return
     }
   }

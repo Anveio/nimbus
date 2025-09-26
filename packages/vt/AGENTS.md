@@ -53,3 +53,30 @@ Next immediate goals: extend CSI handling to ignore/error states, add OSC/DCS st
 - **String length limits**: introduce configurable caps (default to VT220-safe values) for OSC/DCS/SOS payloads to avoid runaway buffers.
 - **Default parser options**: codify VT220 defaults (`c1Handling: 'spec'`, 7/8-bit acceptance, CSI default parameter behaviour) and document deviations.
 - **DEC control tests**: add fixtures for common VT220 sequences (DECRST/DECSET, DA/DA2, DECSLRM/DECSSTBM, Sixel DCS shell) to ensure the parser preserves parameters and intermediates.
+
+### Inspiration from Ghostty
+
+Ghostty Parser Architecture (Terminal/Parser.zig, parse_table.zig)
+
+Ghostty keeps the DEC/VT state machine in a table-driven parser. parse_table.zig generates a [256][State]Transition array at compile time: each incoming byte and current state look up a destination state plus a primitive “transition action” (print, execute, collect, dispatch, ignore, etc.).
+Parser.zig feeds bytes through that table and translates low-level actions into higher-level events (print, execute, csi_dispatch, osc_dispatch, dcs_hook/put/unhook, and dedicated APC state transitions). The parser returns an Action union so the terminal dispatcher can respond immediately to each event.
+“Anywhere” transitions (CAN/SUB, ESC, CSI, DCS, OSC, SOS/PM/APC) are encoded centrally, ensuring cancellation and introducers work regardless of the current state.
+CSI parameters support both ; and : separators, matching modern SGR semantics. Parameters are stored in reusable buffers with explicit separator metadata.
+OSC / DCS / APC Handling
+
+OSC parsing is delegated to osc.zig, which categorises common escape numbers (window title, clipboard, prompt markers, color ops, kitty, etc.). It assembles the payload incrementally and exposes typed commands, abstracting the text-processing complexity.
+DCS streams use dcs_hook/dcs_put/dcs_unhook: the parser collects parameters and intermediates, then passes through raw payload bytes (with BEL or ESC \ termination, CAN/SUB cancellation) so higher layers can decode protocols like Sixel or DECSLRM.
+SOS/PM/APC strings are handled exactly like OSC: enter string state, buffer data, terminate on BEL/ST, emit start/put/end actions. APC is used by Ghostty for hyperlinks and shell integration.
+Terminal State (Terminal.zig and related)
+
+The terminal keeps two Screen instances (primary/alternate), a Tabstops structure, cursor/mode flags, palette state, mouse handling, and selection metadata.
+modes.zig, cursor.zig, Tabstops.zig, etc., reflect DEC private modes and settings, storing both boolean modes and structured information (mouse events, modifyOtherKeys, status line, etc.).
+CSI/OSC/DCS events from the parser are routed into dedicated handlers (ansi.zig, csi.zig, dcs.zig, osc.zig) that update the terminal state—e.g., scrollback operations, palette updates, prompt tracking, kitty protocol, hyperlink management.
+Inspiration for @packages/vt
+
+Adopt a table-driven state machine: precompute [state][byte] transitions for speed and spec fidelity; this makes handling new states (SOS/PM/APC) straightforward and keeps control logic declarative.
+Return structured events (print, execute, csi, osc, dcs, sos/pm/apc) instead of mutating state; let downstream consumers (like the eventual screen renderer) decide how to apply them.
+Emulate Ghostty’s string handling: buffer OSC/DCS/SOS payloads, terminate on BEL/ESC \, allow cancellation, and surface typed payloads. For the VT220 roadmap this means adding SosPmApcDispatch events.
+Mirror Ghostty’s separation of concerns: parser yields events, terminal (future tui package) interprets them, while specialised modules manage colors, modes, hyperlinks, etc.
+Maintain per-feature configuration knobs akin to Ghostty’s build options: e.g., c1Handling, maximum string length, 7/8-bit acceptance, etc., so consumers can choose strict VT220 vs liberal behaviour.
+Using Ghostty as a guide, we can finish SOS/PM/APC support, flesh out C1 semantics, and add configuration/testing infrastructure that aligns with real-world VT220 expectations while keeping the parser small, fast, and purely functional.
