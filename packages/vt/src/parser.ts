@@ -112,24 +112,6 @@ class ParserImpl implements Parser {
       return
     }
 
-    if (byte === CSI_8BIT) {
-      this.flushPrint(sink)
-      this.enterCsiEntry()
-      return
-    }
-
-    if (byte === DCS_8BIT) {
-      this.flushPrint(sink)
-      this.enterDcsEntry()
-      return
-    }
-
-    if (byte === OSC_8BIT) {
-      this.flushPrint(sink)
-      this.enterOscString()
-      return
-    }
-
     if (byte <= 0x1f || byte === 0x7f) {
       this.flushPrint(sink)
       this.emitExecute(byte, sink)

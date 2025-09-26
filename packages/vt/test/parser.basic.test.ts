@@ -60,7 +60,7 @@ describe('ParserImpl basic behaviour', () => {
     const parser = createParser({ c1Handling: 'ignore' })
     const sink = new TestSink()
 
-    parser.write(new Uint8Array([0x9d, 0x07]), sink)
+    parser.write(new Uint8Array([0x9d]), sink)
 
     expect(sink.events).toHaveLength(0)
   })
