@@ -178,4 +178,52 @@ describe('ParserImpl basic behaviour', () => {
     expect(sink.events).toHaveLength(0)
     expect(parser.state).toBe(ParserState.Ground)
   })
+
+  it('parses OSC terminated by BEL', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write('\u001b]0;hello\u0007', sink)
+
+    expect(sink.events).toHaveLength(1)
+    const event = sink.events[0]
+    invariant(event && event.type === ParserEventType.OscDispatch, 'expected OSC')
+    expect(new TextDecoder().decode(event.data)).toBe('0;hello')
+  })
+
+  it('parses OSC terminated by ST', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write('\u001b]1;world\u001b\\', sink)
+
+    expect(sink.events).toHaveLength(1)
+    const event = sink.events[0]
+    invariant(event && event.type === ParserEventType.OscDispatch, 'expected OSC')
+    expect(new TextDecoder().decode(event.data)).toBe('1;world')
+  })
+
+  it('supports OSC 8-bit introducer', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write(new Uint8Array([0x9d, 0x32, 0x3b, 0x41, 0x07]), sink)
+
+    expect(sink.events).toHaveLength(1)
+    const event = sink.events[0]
+    invariant(event && event.type === ParserEventType.OscDispatch, 'expected OSC')
+    expect(new TextDecoder().decode(event.data)).toBe('2;A')
+  })
+
+  it('cancels OSC on CAN', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write('\u001b]52;foo\u0018bar', sink)
+
+    expect(sink.events).toHaveLength(1)
+    const event = sink.events[0]
+    invariant(event && event.type === ParserEventType.Print, 'expected print')
+    expect(new TextDecoder().decode(event.data)).toBe('bar')
+  })
 })

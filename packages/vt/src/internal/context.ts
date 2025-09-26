@@ -11,6 +11,8 @@ export interface ParserContext {
   currentParam: number | null;
   prefix: number | null;
   intermediates: number[];
+  oscBuffer: number[];
+  oscEscPending: boolean;
 }
 
 export const createInitialContext = (): ParserContext => ({
@@ -20,4 +22,6 @@ export const createInitialContext = (): ParserContext => ({
   currentParam: null,
   prefix: null,
   intermediates: [],
+  oscBuffer: [],
+  oscEscPending: false,
 });

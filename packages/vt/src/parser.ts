@@ -9,8 +9,11 @@ import {
 
 const ESC = 0x1b
 const CSI_8BIT = 0x9b
+const OSC_8BIT = 0x9d
+const ST_8BIT = 0x9c
 const CAN = 0x18
 const SUB = 0x1a
+const BEL = 0x07
 const MAX_CSI_PARAMS = 16
 const MAX_CSI_INTERMEDIATES = 4
 const MAX_CSI_PARAM_VALUE = 65535
@@ -64,6 +67,8 @@ class ParserImpl implements Parser {
         this.handleCsiIgnore(byte)
         break
       case ParserState.OscString:
+        this.handleOscString(byte, sink)
+        break
       case ParserState.DcsEntry:
       case ParserState.DcsParam:
       case ParserState.DcsIntermediate:
@@ -93,6 +98,12 @@ class ParserImpl implements Parser {
       return
     }
 
+    if (byte === OSC_8BIT) {
+      this.flushPrint(sink)
+      this.enterOscString()
+      return
+    }
+
     if (byte <= 0x1f || byte === 0x7f) {
       this.flushPrint(sink)
       this.emitExecute(byte, sink)
@@ -107,7 +118,11 @@ class ParserImpl implements Parser {
     if (byte >= 0x80 && byte <= 0x9f) {
       // Most C1 controls are not yet handled; treat as execute for now.
       this.flushPrint(sink)
-      this.emitExecute(byte, sink)
+      if (byte === OSC_8BIT) {
+        this.enterOscString()
+      } else {
+        this.emitExecute(byte, sink)
+      }
       return
     }
   }
@@ -116,6 +131,11 @@ class ParserImpl implements Parser {
   private handleEscape(byte: number, sink: ParserEventSink): void {
     if (byte === 0x5b) {
       this.enterCsiEntry()
+      return
+    }
+
+    if (byte === 0x5d) {
+      this.enterOscString()
       return
     }
 
@@ -293,6 +313,37 @@ class ParserImpl implements Parser {
     }
   }
 
+  // ECMA-48 §8.3.92 (OSC): capture string data until BEL or ST terminator.
+  private handleOscString(byte: number, sink: ParserEventSink): void {
+    if (this.context.oscEscPending) {
+      this.context.oscEscPending = false
+      if (byte === 0x5c) {
+        this.emitOscDispatch(sink)
+        return
+      }
+      this.context.oscBuffer.push(ESC)
+      this.handleOscString(byte, sink)
+      return
+    }
+
+    if (byte === ESC) {
+      this.context.oscEscPending = true
+      return
+    }
+
+    if (byte === CAN || byte === SUB) {
+      this.cancelOsc()
+      return
+    }
+
+    if (byte === BEL || byte === ST_8BIT) {
+      this.emitOscDispatch(sink)
+      return
+    }
+
+    this.context.oscBuffer.push(byte)
+  }
+
   // Annex B note: invalid CSI routes to ignore state until final/CAN/SUB.
   private enterCsiIgnore(): void {
     if (this.context.state === ParserState.CsiIgnore) {
@@ -306,6 +357,12 @@ class ParserImpl implements Parser {
   // ECMA-48 §8.3 (CAN/SUB): cancel the current control sequence.
   private cancelCsi(): void {
     this.resetCsiContext()
+    this.context.state = ParserState.Ground
+  }
+
+  private cancelOsc(): void {
+    this.context.oscBuffer = []
+    this.context.oscEscPending = false
     this.context.state = ParserState.Ground
   }
 
@@ -363,6 +420,12 @@ class ParserImpl implements Parser {
     this.context.state = ParserState.CsiEntry
   }
 
+  private enterOscString(): void {
+    this.context.oscBuffer = []
+    this.context.oscEscPending = false
+    this.context.state = ParserState.OscString
+  }
+
   private emitEscDispatch(finalByte: number, sink: ParserEventSink): void {
     const event: ParserEvent = {
       type: ParserEventType.EscDispatch,
@@ -382,6 +445,15 @@ class ParserImpl implements Parser {
       type: ParserEventType.Execute,
       codePoint,
     }
+    sink.onEvent(event)
+  }
+
+  private emitOscDispatch(sink: ParserEventSink): void {
+    const event: ParserEvent = {
+      type: ParserEventType.OscDispatch,
+      data: Uint8Array.from(this.context.oscBuffer),
+    }
+    this.cancelOsc()
     sink.onEvent(event)
   }
 

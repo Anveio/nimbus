@@ -32,3 +32,9 @@ Next immediate goals: extend CSI handling to ignore/error states, add OSC/DCS st
 - Implemented cancellation handling for CAN/SUB and ESC re-entry while parsing CSI, ensuring the parser safely returns to `ground` without emitting spurious events.
 - Expanded unit coverage to include overflow, cancellation, and repeated prefix edge cases; improved invariants in test helpers for clearer failures.
 - Coverage now stabilises around 76% lines on `parser.ts`, paving the way to tackle OSC/DCS states next.
+
+## 2024-10-17 – OSC capture
+
+- Implemented OSC string handling (BEL / ST terminators, CAN/SUB cancellation, ESC `]` and 0x9D introducers) with references to ECMA-48 §8.3.92.
+- Added buffering helpers and new parser context fields to track OSC state while preventing accidental ST embedding.
+- Extended parser tests to assert BEL/ST termination, 8-bit introducers, and cancellation behaviour; coverage climbed to ~78% lines / 77% branches for `parser.ts`.
