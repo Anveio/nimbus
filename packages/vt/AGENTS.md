@@ -44,3 +44,4 @@ Next immediate goals: extend CSI handling to ignore/error states, add OSC/DCS st
 - Wired up DCS entry/param/intermediate/passthrough states, emitting `DcsHook`, `DcsPut`, and `DcsUnhook` events per ECMA-48 §8.3.115, including CAN/SUB cancellation.
 - Added buffered streaming for DCS payloads with ESC `\` / ST termination and 8-bit introducer support, plus guardrails for overflow.
 - Expanded Vitest coverage to include hook/cancel flows and 8-bit DCS sequences.
+- Backfilled tests that hit every CSI/DCS transition (overflow, ignore, cancellation, ESC re-entry) so parser coverage exceeds 85% lines/branches.

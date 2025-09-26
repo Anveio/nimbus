@@ -380,10 +380,6 @@ class ParserImpl implements Parser {
 
   // Annex B note: invalid CSI routes to ignore state until final/CAN/SUB.
   private enterCsiIgnore(): void {
-    if (this.context.state === ParserState.CsiIgnore) {
-      return
-    }
-
     this.resetParamContext()
     this.context.state = ParserState.CsiIgnore
   }
@@ -538,11 +534,6 @@ class ParserImpl implements Parser {
     }
 
     if (byte >= 0x20 && byte <= 0x2f) {
-      if (this.context.intermediates.length >= MAX_CSI_INTERMEDIATES) {
-        this.enterDcsIgnore()
-        return
-      }
-
       this.context.intermediates.push(byte)
       this.context.state = ParserState.DcsIntermediate
       return
@@ -584,11 +575,6 @@ class ParserImpl implements Parser {
     }
 
     if (byte >= 0x20 && byte <= 0x2f) {
-      if (this.context.intermediates.length >= MAX_CSI_INTERMEDIATES) {
-        this.enterDcsIgnore()
-        return
-      }
-
       this.context.intermediates.push(byte)
       this.context.state = ParserState.DcsIntermediate
       return
