@@ -1,0 +1,26 @@
+{
+  "name": "@packages/vt",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "source": "./src/index.ts",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/**"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "biome lint .",
+    "lint:fix": "biome lint --apply ."
+  },
+  "devDependencies": {
+    "@mana-ssh/tsconfig": "workspace:*",
+    "@vitest/coverage-istanbul": "^0.34.6",
+    "fast-check": "^3.18.0",
+    "typescript": "^5.0.4",
+    "vitest": "^0.34.6"
+  }
+}

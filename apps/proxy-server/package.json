@@ -7,10 +7,14 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "tsup src/index.ts --format esm --clean",
-    "test": "vitest"
+    "build": "tsc",
+    "test": "vitest",
+    "lint": "biome lint .",
+    "lint:fix": "biome lint --apply ."
   },
   "dependencies": {
+    "@effect/platform": "^0.90.3",
+    "effect": "^3.17.7",
     "ws": "^8.17.0"
   },
   "devDependencies": {

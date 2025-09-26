@@ -27,5 +27,6 @@
   },
   "[json]": {
     "editor.defaultFormatter": "biomejs.biome"
-  }
+  },
+  "chatgpt.openOnStartup": true
 }

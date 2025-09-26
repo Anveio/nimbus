@@ -1,5 +1,5 @@
 {
-  "name": "@mana-ssh/websocket",
+  "name": "@mana-ssh/tui",
   "version": "0.0.1",
   "private": true,
   "description": "A WebSocket transport layer for the ManaSSHWeb protocol.",

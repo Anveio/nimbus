@@ -9,7 +9,9 @@
   "scripts": {
     "dev": "vite build --watch",
     "build": "vite build",
-    "test": "echo 'Test script not implemented yet'"
+    "test": "echo 'Test script not implemented yet'",
+    "lint": "biome lint .",
+    "lint:fix": "biome lint --apply ."
   },
   "dependencies": {
     "@mana-ssh/protocol": "workspace:*",

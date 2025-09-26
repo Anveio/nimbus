@@ -6,7 +6,9 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
-    "test": "echo 'Test script not implemented yet'"
+    "test": "echo 'Test script not implemented yet'",
+    "lint": "biome lint .",
+    "lint:fix": "biome lint --apply ."
   },
   "devDependencies": {
     "typescript": "^5.9.2"

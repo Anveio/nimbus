@@ -1,6 +1,7 @@
 {
   "contextFileName": [
     "context/effect-documentation.md",
-    "context/bun-workspaces-documentation.md"
+    "context/bun-workspaces-documentation.md",
+    "apps/proxy-server/README.md"
   ]
 }
