@@ -4,11 +4,11 @@ export { createParser } from './parser'
 export type {
   ByteFlag,
   C1HandlingMode,
-  type SosPmApcKind,
-  ParserOptions,
   Parser,
   ParserEvent,
   ParserEventSink,
   ParserEventType,
+  ParserOptions,
   ParserState,
+  SosPmApcKind,
 } from './types'

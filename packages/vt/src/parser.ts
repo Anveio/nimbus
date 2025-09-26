@@ -172,6 +172,9 @@ class ParserImpl implements Parser {
       case 'enterSosPmApc':
         this.enterSosPmApc(action.kind)
         return
+      case 'dispatchEscape':
+        this.dispatchEscFinal(action.final, sink)
+        return
       case 'execute':
         this.emitExecute(byte, sink)
         return
@@ -189,6 +192,12 @@ class ParserImpl implements Parser {
     }
 
     this.flushPrint(sink)
+    this.resetIntermediates()
+    this.context.state = ParserState.Escape
+    this.handleEscape(final, sink)
+  }
+
+  private dispatchEscFinal(final: number, sink: ParserEventSink): void {
     this.resetIntermediates()
     this.context.state = ParserState.Escape
     this.handleEscape(final, sink)

@@ -65,6 +65,57 @@ describe('ParserImpl basic behaviour', () => {
     expect(sink.events).toHaveLength(0)
   })
 
+  it('maps C1 IND to ESC D in spec mode', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write(new Uint8Array([0x84]), sink)
+
+    expect(sink.events).toHaveLength(1)
+    const event = sink.events[0]
+    invariant(event && event.type === ParserEventType.EscDispatch, 'expected ESC dispatch')
+    expect(event.finalByte).toBe('D'.charCodeAt(0))
+  })
+
+  it('maps C1 HTS to ESC H in spec mode', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write(new Uint8Array([0x88]), sink)
+
+    expect(sink.events).toHaveLength(1)
+    const event = sink.events[0]
+    invariant(event && event.type === ParserEventType.EscDispatch, 'expected ESC dispatch')
+    expect(event.finalByte).toBe('H'.charCodeAt(0))
+  })
+
+  it('maps C1 RI to ESC M in spec mode', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write(new Uint8Array([0x8d]), sink)
+
+    expect(sink.events).toHaveLength(1)
+    const event = sink.events[0]
+    invariant(event && event.type === ParserEventType.EscDispatch, 'expected ESC dispatch')
+    expect(event.finalByte).toBe('M'.charCodeAt(0))
+  })
+
+  it('maps C1 SS2/SS3 to ESC N/O in spec mode', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write(new Uint8Array([0x8e, 0x8f]), sink)
+
+    expect(sink.events).toHaveLength(2)
+    const first = sink.events[0]
+    const second = sink.events[1]
+    invariant(first && first.type === ParserEventType.EscDispatch, 'expected first ESC dispatch')
+    expect(first.finalByte).toBe('N'.charCodeAt(0))
+    invariant(second && second.type === ParserEventType.EscDispatch, 'expected second ESC dispatch')
+    expect(second.finalByte).toBe('O'.charCodeAt(0))
+  })
+
   it('parses SOS string via ESC', () => {
     const parser = createParser()
     const sink = new TestSink()
