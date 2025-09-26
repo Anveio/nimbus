@@ -4,20 +4,20 @@
  * Parser states as described by the VT500 state machine.
  */
 export enum ParserState {
-  Ground = "ground",
-  Escape = "escape",
-  EscapeIntermediate = "escape_intermediate",
-  CsiEntry = "csi_entry",
-  CsiParam = "csi_param",
-  CsiIntermediate = "csi_intermediate",
-  CsiIgnore = "csi_ignore",
-  OscString = "osc_string",
-  DcsEntry = "dcs_entry",
-  DcsParam = "dcs_param",
-  DcsIntermediate = "dcs_intermediate",
-  DcsIgnore = "dcs_ignore",
-  DcsPassthrough = "dcs_passthrough",
-  SosPmApcString = "sos_pm_apc_string",
+  Ground = 'ground',
+  Escape = 'escape',
+  EscapeIntermediate = 'escape_intermediate',
+  CsiEntry = 'csi_entry',
+  CsiParam = 'csi_param',
+  CsiIntermediate = 'csi_intermediate',
+  CsiIgnore = 'csi_ignore',
+  OscString = 'osc_string',
+  DcsEntry = 'dcs_entry',
+  DcsParam = 'dcs_param',
+  DcsIntermediate = 'dcs_intermediate',
+  DcsIgnore = 'dcs_ignore',
+  DcsPassthrough = 'dcs_passthrough',
+  SosPmApcString = 'sos_pm_apc_string',
 }
 
 /**
@@ -41,15 +41,15 @@ export enum ByteFlag {
  * Event types emitted by the parser.
  */
 export enum ParserEventType {
-  Print = "print",
-  Execute = "execute",
-  EscDispatch = "esc_dispatch",
-  CsiDispatch = "csi_dispatch",
-  OscDispatch = "osc_dispatch",
-  DcsHook = "dcs_hook",
-  DcsPut = "dcs_put",
-  DcsUnhook = "dcs_unhook",
-  Ignore = "ignore",
+  Print = 'print',
+  Execute = 'execute',
+  EscDispatch = 'esc_dispatch',
+  CsiDispatch = 'csi_dispatch',
+  OscDispatch = 'osc_dispatch',
+  DcsHook = 'dcs_hook',
+  DcsPut = 'dcs_put',
+  DcsUnhook = 'dcs_unhook',
+  Ignore = 'ignore',
 }
 
 /**
@@ -59,43 +59,49 @@ export type ParserEvent =
   | { readonly type: ParserEventType.Print; readonly data: Uint8Array }
   | { readonly type: ParserEventType.Execute; readonly codePoint: number }
   | {
-      readonly type: ParserEventType.EscDispatch;
-      readonly finalByte: number;
-      readonly intermediates: ReadonlyArray<number>;
+      readonly type: ParserEventType.EscDispatch
+      readonly finalByte: number
+      readonly intermediates: ReadonlyArray<number>
     }
   | {
-      readonly type: ParserEventType.CsiDispatch;
-      readonly finalByte: number;
-      readonly params: ReadonlyArray<number>;
-      readonly intermediates: ReadonlyArray<number>;
-      readonly prefix: number | null;
+      readonly type: ParserEventType.CsiDispatch
+      readonly finalByte: number
+      readonly params: ReadonlyArray<number>
+      readonly intermediates: ReadonlyArray<number>
+      readonly prefix: number | null
     }
   | {
-      readonly type: ParserEventType.OscDispatch;
-      readonly data: Uint8Array;
+      readonly type: ParserEventType.OscDispatch
+      readonly data: Uint8Array
     }
   | {
-      readonly type: ParserEventType.DcsHook;
-      readonly finalByte: number;
-      readonly params: ReadonlyArray<number>;
-      readonly intermediates: ReadonlyArray<number>;
+      readonly type: ParserEventType.DcsHook
+      readonly finalByte: number
+      readonly params: ReadonlyArray<number>
+      readonly intermediates: ReadonlyArray<number>
     }
   | { readonly type: ParserEventType.DcsPut; readonly data: Uint8Array }
   | { readonly type: ParserEventType.DcsUnhook }
-  | { readonly type: ParserEventType.Ignore };
+  | { readonly type: ParserEventType.Ignore }
 
 /**
  * API for receiving parser events.
  */
 export interface ParserEventSink {
-  onEvent(event: ParserEvent): void;
+  onEvent(event: ParserEvent): void
+}
+
+export type C1HandlingMode = 'spec' | 'escaped' | 'execute' | 'ignore'
+
+export interface ParserOptions {
+  readonly c1Handling?: C1HandlingMode
 }
 
 /**
  * Public interface for parser instances.
  */
 export interface Parser {
-  readonly state: ParserState;
-  write(input: Uint8Array | string, sink: ParserEventSink): void;
-  reset(): void;
+  readonly state: ParserState
+  write(input: Uint8Array | string, sink: ParserEventSink): void
+  reset(): void
 }

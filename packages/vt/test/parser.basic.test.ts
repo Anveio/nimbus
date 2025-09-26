@@ -21,6 +21,50 @@ class TestSink implements ParserEventSink {
 }
 
 describe('ParserImpl basic behaviour', () => {
+  it('defaults to spec C1 handling', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write(new Uint8Array([0x9d, 0x32, 0x3b, 0x41, 0x07]), sink)
+
+    expect(sink.events).toHaveLength(1)
+    const event = sink.events[0]
+    invariant(event && event.type === ParserEventType.OscDispatch, 'expected OSC dispatch')
+  })
+
+  it('allows escaped C1 handling', () => {
+    const parser = createParser({ c1Handling: 'escaped' })
+    const sink = new TestSink()
+
+    parser.write(new Uint8Array([0x9b, 0x41]), sink)
+
+    expect(sink.events).toHaveLength(1)
+    const event = sink.events[0]
+    invariant(event && event.type === ParserEventType.CsiDispatch, 'expected CSI dispatch')
+    expect(event.finalByte).toBe('A'.charCodeAt(0))
+  })
+
+  it('allows execute C1 handling', () => {
+    const parser = createParser({ c1Handling: 'execute' })
+    const sink = new TestSink()
+
+    parser.write(new Uint8Array([0x9d]), sink)
+
+    expect(sink.events).toHaveLength(1)
+    const event = sink.events[0]
+    invariant(event && event.type === ParserEventType.Execute, 'expected execute event')
+    expect(event.codePoint).toBe(0x9d)
+  })
+
+  it('allows ignoring C1 controls', () => {
+    const parser = createParser({ c1Handling: 'ignore' })
+    const sink = new TestSink()
+
+    parser.write(new Uint8Array([0x9d, 0x07]), sink)
+
+    expect(sink.events).toHaveLength(0)
+  })
+
   it('emits print events for printable runs', () => {
     const parser = createParser()
     const sink = new TestSink()

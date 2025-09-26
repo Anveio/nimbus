@@ -5,6 +5,8 @@ import {
   type ParserEventSink,
   ParserEventType,
   ParserState,
+  type ParserOptions,
+  type C1HandlingMode,
 } from './types'
 
 const ESC = 0x1b
@@ -17,13 +19,19 @@ const BEL = 0x07
 const DCS_8BIT = 0x90
 const DCS_THRESHOLD = 1024
 const MAX_CSI_PARAMS = 16
-const MAX_CSI_INTERMEDIATES = 4
+const MAX_CSI_INTERMEDIATES = 4 
 const MAX_CSI_PARAM_VALUE = 65535
+const DEFAULT_C1_MODE: C1HandlingMode = 'spec'
 
 class ParserImpl implements Parser {
   private context = createInitialContext()
   private readonly encoder = new TextEncoder()
   private printBuffer: number[] = []
+  private readonly c1Mode: C1HandlingMode
+
+  constructor(options: ParserOptions = {}) {
+    this.c1Mode = options.c1Handling ?? DEFAULT_C1_MODE
+  }
 
   get state(): ParserState {
     return this.context.state
@@ -134,17 +142,61 @@ class ParserImpl implements Parser {
     }
 
     if (byte >= 0x80 && byte <= 0x9f) {
-      // Most C1 controls are not yet handled; treat as execute for now.
-      this.flushPrint(sink)
-      if (byte === OSC_8BIT) {
-        this.enterOscString()
-      } else if (byte === DCS_8BIT) {
-        this.enterDcsEntry()
-      } else {
-        this.emitExecute(byte, sink)
-      }
+      this.handleC1(byte, sink)
       return
     }
+  }
+
+  private handleC1(byte: number, sink: ParserEventSink): void {
+    switch (this.c1Mode) {
+      case 'spec':
+        this.handleC1Spec(byte, sink)
+        return
+      case 'escaped':
+        this.handleC1Escaped(byte, sink)
+        return
+      case 'execute':
+        this.flushPrint(sink)
+        this.emitExecute(byte, sink)
+        return
+      case 'ignore':
+        this.flushPrint(sink)
+        return
+    }
+  }
+
+  private handleC1Spec(byte: number, sink: ParserEventSink): void {
+    switch (byte) {
+      case CSI_8BIT:
+        this.flushPrint(sink)
+        this.enterCsiEntry()
+        return
+      case OSC_8BIT:
+        this.flushPrint(sink)
+        this.enterOscString()
+        return
+      case DCS_8BIT:
+        this.flushPrint(sink)
+        this.enterDcsEntry()
+        return
+      default:
+        this.flushPrint(sink)
+        this.emitExecute(byte, sink)
+        return
+    }
+  }
+
+  private handleC1Escaped(byte: number, sink: ParserEventSink): void {
+    const final = byte - 0x40
+    if (final < 0x40 || final > 0x5f) {
+      this.flushPrint(sink)
+      this.emitExecute(byte, sink)
+      return
+    }
+
+    this.flushPrint(sink)
+    this.context.state = ParserState.Escape
+    this.handleEscape(final, sink)
   }
 
   // Annex B escape state: collect intermediates or dispatch final byte.
@@ -741,4 +793,5 @@ class ParserImpl implements Parser {
   }
 }
 
-export const createParser = (): Parser => new ParserImpl()
+export const createParser = (options: ParserOptions = {}): Parser =>
+  new ParserImpl(options)

@@ -3,6 +3,8 @@ export { classifyByte } from './classifier'
 export { createParser } from './parser'
 export type {
   ByteFlag,
+  C1HandlingMode,
+  ParserOptions,
   Parser,
   ParserEvent,
   ParserEventSink,
