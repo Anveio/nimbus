@@ -13,6 +13,8 @@ export interface ParserContext {
   intermediates: number[];
   oscBuffer: number[];
   oscEscPending: boolean;
+  dcsBuffer: number[];
+  dcsEscPending: boolean;
 }
 
 export const createInitialContext = (): ParserContext => ({
@@ -24,4 +26,6 @@ export const createInitialContext = (): ParserContext => ({
   intermediates: [],
   oscBuffer: [],
   oscEscPending: false,
+  dcsBuffer: [],
+  dcsEscPending: false,
 });

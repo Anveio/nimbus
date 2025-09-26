@@ -38,3 +38,9 @@ Next immediate goals: extend CSI handling to ignore/error states, add OSC/DCS st
 - Implemented OSC string handling (BEL / ST terminators, CAN/SUB cancellation, ESC `]` and 0x9D introducers) with references to ECMA-48 §8.3.92.
 - Added buffering helpers and new parser context fields to track OSC state while preventing accidental ST embedding.
 - Extended parser tests to assert BEL/ST termination, 8-bit introducers, and cancellation behaviour; coverage climbed to ~78% lines / 77% branches for `parser.ts`.
+
+## 2024-10-17 – DCS pass-through
+
+- Wired up DCS entry/param/intermediate/passthrough states, emitting `DcsHook`, `DcsPut`, and `DcsUnhook` events per ECMA-48 §8.3.115, including CAN/SUB cancellation.
+- Added buffered streaming for DCS payloads with ESC `\` / ST termination and 8-bit introducer support, plus guardrails for overflow.
+- Expanded Vitest coverage to include hook/cancel flows and 8-bit DCS sequences.

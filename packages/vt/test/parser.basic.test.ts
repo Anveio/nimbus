@@ -226,4 +226,53 @@ describe('ParserImpl basic behaviour', () => {
     invariant(event && event.type === ParserEventType.Print, 'expected print')
     expect(new TextDecoder().decode(event.data)).toBe('bar')
   })
+
+  it('emits DCS hook/put/unhook events', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write('\u001bP1;2+qhello\u001b\\', sink)
+
+    expect(sink.events).toHaveLength(3)
+    const [hook, put, unhook] = sink.events
+
+    invariant(hook && hook.type === ParserEventType.DcsHook, 'expected DCS hook')
+    expect(hook.params).toEqual([1, 2])
+    expect(hook.intermediates).toEqual(['+'.charCodeAt(0)])
+    expect(hook.finalByte).toBe('q'.charCodeAt(0))
+
+    invariant(put && put.type === ParserEventType.DcsPut, 'expected DCS put')
+    expect(new TextDecoder().decode(put.data)).toBe('hello')
+
+    invariant(unhook && unhook.type === ParserEventType.DcsUnhook, 'expected DCS unhook')
+  })
+
+  it('cancels DCS on CAN without unhook', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write('\u001bP0;0rdata\u0018', sink)
+
+    expect(sink.events).toHaveLength(2)
+    const [hook, put] = sink.events
+    invariant(hook && hook.type === ParserEventType.DcsHook, 'expected hook')
+    invariant(put && put.type === ParserEventType.DcsPut, 'expected data flush')
+    expect(new TextDecoder().decode(put.data)).toBe('data')
+  })
+
+  it('supports 8-bit DCS introducer', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write(new Uint8Array([0x90, 0x30, 0x6d, 0x41, 0x42, 0x9c]), sink)
+
+    expect(sink.events).toHaveLength(3)
+    const [hook, put, unhook] = sink.events
+    invariant(hook && hook.type === ParserEventType.DcsHook, 'hook')
+    expect(hook.params).toEqual([0])
+    expect(hook.finalByte).toBe('m'.charCodeAt(0))
+    invariant(put && put.type === ParserEventType.DcsPut, 'put')
+    expect(new TextDecoder().decode(put.data)).toBe('AB')
+    invariant(unhook && unhook.type === ParserEventType.DcsUnhook, 'unhook')
+  })
 })
