@@ -9,7 +9,7 @@ export interface ParserContext {
   collectBuffer: number[];
   params: number[];
   currentParam: number | null;
-  hasPrivatePrefix: boolean;
+  prefix: number | null;
   intermediates: number[];
 }
 
@@ -18,6 +18,6 @@ export const createInitialContext = (): ParserContext => ({
   collectBuffer: [],
   params: [],
   currentParam: null,
-  hasPrivatePrefix: false,
+  prefix: null,
   intermediates: [],
 });

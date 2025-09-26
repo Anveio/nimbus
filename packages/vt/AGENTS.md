@@ -14,3 +14,14 @@ Next Steps
 
 Populate the state/action tables that mirror the VT500 diagram and drive Parser.write off them.
 Add fixtures for CSI/OSC/DCS dispatch to extend the TDD suite beyond classification once the transition engine lands.
+
+---
+
+## 2024-10-16 – Initial ECMA-48 state-machine wiring
+
+- Added `docs/ecma48-foundation.md` to translate the ECMA-48 roadmap into concrete engineering phases (classification, state machine, dispatch, testing).
+- Implemented the first slice of the parser FSM (`ground`, `escape`, `escape intermediate`, and `CSI entry/param/intermediate`) emitting `Print`, `Execute`, `EscDispatch`, and `CsiDispatch` events.
+- Introduced unit tests that validate printable runs, C0 execution, ESC dispatch (including intermediates), and CSI parsing for both 7-bit and 8-bit introducers.
+- Coverage now reports >70% branches for the parser, establishing a baseline before implementing DCS/OSC handling.
+
+Next immediate goals: extend CSI handling to ignore/error states, add OSC/DCS streaming, and backfill clause-referenced fixtures per the new roadmap.
