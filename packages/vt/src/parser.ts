@@ -7,6 +7,7 @@ import {
   ParserState,
   type ParserOptions,
   type C1HandlingMode,
+  type SosPmApcKind,
 } from './types'
 
 const ESC = 0x1b
@@ -17,6 +18,9 @@ const CAN = 0x18
 const SUB = 0x1a
 const BEL = 0x07
 const DCS_8BIT = 0x90
+const SOS_8BIT = 0x98
+const PM_8BIT = 0x9e
+const APC_8BIT = 0x9f
 const DCS_THRESHOLD = 1024
 const MAX_CSI_PARAMS = 16
 const MAX_CSI_INTERMEDIATES = 4 
@@ -95,9 +99,7 @@ class ParserImpl implements Parser {
         this.handleDcsPassthrough(byte, sink)
         break
       case ParserState.SosPmApcString:
-        // Not implemented yet; fall back to ground to avoid lock up.
-        this.context.state = ParserState.Ground
-        this.handleGround(byte, sink)
+        this.handleSosPmApcString(byte, sink)
         break
     }
   }
@@ -161,6 +163,18 @@ class ParserImpl implements Parser {
         this.flushPrint(sink)
         this.enterDcsEntry()
         return
+      case SOS_8BIT:
+        this.flushPrint(sink)
+        this.enterSosPmApc('SOS')
+        return
+      case PM_8BIT:
+        this.flushPrint(sink)
+        this.enterSosPmApc('PM')
+        return
+      case APC_8BIT:
+        this.flushPrint(sink)
+        this.enterSosPmApc('APC')
+        return
       default:
         this.flushPrint(sink)
         this.emitExecute(byte, sink)
@@ -177,6 +191,7 @@ class ParserImpl implements Parser {
     }
 
     this.flushPrint(sink)
+    this.resetIntermediates()
     this.context.state = ParserState.Escape
     this.handleEscape(final, sink)
   }
@@ -195,6 +210,21 @@ class ParserImpl implements Parser {
 
     if (byte === 0x50) {
       this.enterDcsEntry()
+      return
+    }
+
+    if (byte === 0x58) {
+      this.enterSosPmApc('SOS')
+      return
+    }
+
+    if (byte === 0x5e) {
+      this.enterSosPmApc('PM')
+      return
+    }
+
+    if (byte === 0x5f) {
+      this.enterSosPmApc('APC')
       return
     }
 
@@ -403,6 +433,36 @@ class ParserImpl implements Parser {
     this.context.oscBuffer.push(byte)
   }
 
+  private handleSosPmApcString(byte: number, sink: ParserEventSink): void {
+    if (this.context.sosPmApcEscPending) {
+      this.context.sosPmApcEscPending = false
+      if (byte === 0x5c) {
+        this.emitSosPmApcDispatch(sink)
+        return
+      }
+      this.context.sosPmApcBuffer.push(ESC)
+      this.handleSosPmApcString(byte, sink)
+      return
+    }
+
+    if (byte === ESC) {
+      this.context.sosPmApcEscPending = true
+      return
+    }
+
+    if (byte === CAN || byte === SUB) {
+      this.cancelSosPmApc()
+      return
+    }
+
+    if (byte === BEL || byte === ST_8BIT) {
+      this.emitSosPmApcDispatch(sink)
+      return
+    }
+
+    this.context.sosPmApcBuffer.push(byte)
+  }
+
   private enterDcsIgnore(): void {
     if (this.context.state === ParserState.DcsIgnore) {
       return
@@ -434,6 +494,13 @@ class ParserImpl implements Parser {
   private cancelOsc(): void {
     this.context.oscBuffer = []
     this.context.oscEscPending = false
+    this.context.state = ParserState.Ground
+  }
+
+  private cancelSosPmApc(): void {
+    this.context.sosPmApcBuffer = []
+    this.context.sosPmApcEscPending = false
+    this.context.sosPmApcKind = null
     this.context.state = ParserState.Ground
   }
 
@@ -531,6 +598,13 @@ class ParserImpl implements Parser {
     this.context.oscBuffer = []
     this.context.oscEscPending = false
     this.context.state = ParserState.OscString
+  }
+
+  private enterSosPmApc(kind: SosPmApcKind): void {
+    this.context.sosPmApcBuffer = []
+    this.context.sosPmApcEscPending = false
+    this.context.sosPmApcKind = kind
+    this.context.state = ParserState.SosPmApcString
   }
 
   private enterDcsEntry(): void {
@@ -730,6 +804,22 @@ class ParserImpl implements Parser {
       data: Uint8Array.from(this.context.oscBuffer),
     }
     this.cancelOsc()
+    sink.onEvent(event)
+  }
+
+  private emitSosPmApcDispatch(sink: ParserEventSink): void {
+    const kind = this.context.sosPmApcKind
+    if (kind === null) {
+      this.cancelSosPmApc()
+      return
+    }
+
+    const event: ParserEvent = {
+      type: ParserEventType.SosPmApcDispatch,
+      kind,
+      data: Uint8Array.from(this.context.sosPmApcBuffer),
+    }
+    this.cancelSosPmApc()
     sink.onEvent(event)
   }
 

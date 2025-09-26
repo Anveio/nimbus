@@ -48,7 +48,7 @@ Next immediate goals: extend CSI handling to ignore/error states, add OSC/DCS st
 
 ### TODO – VT220 compliance roadmap
 
-- **Implement SOS/PM/APC strings**: mirror the OSC/DCS buffering for `ESC X`, `ESC ^`, `ESC _` (and their C1 single-byte forms). Emit a dedicated dispatch event and support CAN/SUB cancellation and BEL/ST termination.
+- ~~**Implement SOS/PM/APC strings**: mirror the OSC/DCS buffering for `ESC X`, `ESC ^`, `ESC _` (and their C1 single-byte forms). Emit a dedicated dispatch event and support CAN/SUB cancellation and BEL/ST termination.~~ ✅
 - **Complete C1 coverage**: map VT220-relevant C1 controls (NEL, IND, RI, SS2/SS3, HTS, etc.) to structured events in `spec` mode while keeping `escaped/execute/ignore` fallbacks.
 - **String length limits**: introduce configurable caps (default to VT220-safe values) for OSC/DCS/SOS payloads to avoid runaway buffers.
 - **Default parser options**: codify VT220 defaults (`c1Handling: 'spec'`, 7/8-bit acceptance, CSI default parameter behaviour) and document deviations.

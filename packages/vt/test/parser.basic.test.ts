@@ -65,6 +65,70 @@ describe('ParserImpl basic behaviour', () => {
     expect(sink.events).toHaveLength(0)
   })
 
+  it('parses SOS string via ESC', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write('\u001bXsystem message\u001b\\', sink)
+
+    expect(sink.events).toHaveLength(1)
+    const event = sink.events[0]
+    invariant(event && event.type === ParserEventType.SosPmApcDispatch, 'expected SOS dispatch')
+    expect(event.kind).toBe('SOS')
+    expect(new TextDecoder().decode(event.data)).toBe('system message')
+  })
+
+  it('parses PM string via ESC', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write('\u001b^private\u001b\\', sink)
+
+    expect(sink.events).toHaveLength(1)
+    const event = sink.events[0]
+    invariant(event && event.type === ParserEventType.SosPmApcDispatch, 'expected PM dispatch')
+    expect(event.kind).toBe('PM')
+    expect(new TextDecoder().decode(event.data)).toBe('private')
+  })
+
+  it('parses APC string via ESC', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write('\u001b_command\u001b\\', sink)
+
+    expect(sink.events).toHaveLength(1)
+    const event = sink.events[0]
+    invariant(event && event.type === ParserEventType.SosPmApcDispatch, 'expected APC dispatch')
+    expect(event.kind).toBe('APC')
+    expect(new TextDecoder().decode(event.data)).toBe('command')
+  })
+
+  it('supports C1 SOS introducer', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write(new Uint8Array([0x98, 0x41, 0x9c]), sink)
+
+    expect(sink.events).toHaveLength(1)
+    const event = sink.events[0]
+    invariant(event && event.type === ParserEventType.SosPmApcDispatch, 'expected SOS dispatch')
+    expect(event.kind).toBe('SOS')
+    expect(new TextDecoder().decode(event.data)).toBe('A')
+  })
+
+  it('cancels SOS string on CAN', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write('\u001bXcancel\u0018tail', sink)
+
+    expect(sink.events).toHaveLength(1)
+    const event = sink.events[0]
+    invariant(event && event.type === ParserEventType.Print, 'expected print after cancel')
+    expect(new TextDecoder().decode(event.data)).toBe('tail')
+  })
+
   it('emits print events for printable runs', () => {
     const parser = createParser()
     const sink = new TestSink()

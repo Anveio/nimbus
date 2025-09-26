@@ -49,6 +49,7 @@ export enum ParserEventType {
   DcsHook = 'dcs_hook',
   DcsPut = 'dcs_put',
   DcsUnhook = 'dcs_unhook',
+  SosPmApcDispatch = 'sos_pm_apc_dispatch',
   Ignore = 'ignore',
 }
 
@@ -82,6 +83,11 @@ export type ParserEvent =
     }
   | { readonly type: ParserEventType.DcsPut; readonly data: Uint8Array }
   | { readonly type: ParserEventType.DcsUnhook }
+  | {
+      readonly type: ParserEventType.SosPmApcDispatch
+      readonly kind: SosPmApcKind
+      readonly data: Uint8Array
+    }
   | { readonly type: ParserEventType.Ignore }
 
 /**
@@ -96,6 +102,8 @@ export type C1HandlingMode = 'spec' | 'escaped' | 'execute' | 'ignore'
 export interface ParserOptions {
   readonly c1Handling?: C1HandlingMode
 }
+
+export type SosPmApcKind = 'SOS' | 'PM' | 'APC'
 
 /**
  * Public interface for parser instances.
