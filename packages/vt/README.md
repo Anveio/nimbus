@@ -21,6 +21,31 @@ interpret to maintain terminal state.
   the classifier across the entire 8-bit space, keeping us honest as we
   extend the state machine.
 
+## Parser configuration
+
+`createParser` accepts a small set of knobs so embedders can tune the
+trade-offs between strict VT220 fidelity and more permissive behaviour:
+
+- `c1Handling` – choose how to treat C1 controls: the default `spec`
+  routes VT220-recognised controls (NEL, IND, HTS, etc.) to structured
+  events, while `escaped`, `execute`, and `ignore` mirror common xterm
+  compat modes.
+- `acceptEightBitControls` – defaults to `true` so both 7-bit (`ESC [`)
+  and 8-bit (`0x9B`) introductions are recognised. Disable it when
+  emulating very old 7-bit links.
+- `maxStringLength` – historical single-value cap for OSC/DCS payloads.
+  It still works, but consider the more granular `stringLimits`.
+- `stringLimits` – per-channel caps (default `osc: 4096`, `dcs: 4096`,
+  `sosPmApc: 4096`). OSC and SOS/PM/APC payloads are cancelled once the
+  limit is hit. DCS payloads stream `DcsPut` chunks up to the limit and
+  then drop into the `DcsIgnore` state so the terminator is swallowed
+  without emitting a `DcsUnhook`.
+
+Hitting any string limit leaves previously dispatched data untouched but
+guarantees the parser will not buffer unbounded payloads – a critical
+guard for browser environments where each terminal tab may host
+untrusted programs.
+
 ## Glossary
 
 | Term | Meaning |
