@@ -3,12 +3,14 @@ import type {
   ParserOptions,
   ParserSpec,
   TerminalEmulator,
+  TerminalFeatures,
 } from '../types'
 import { SPEC_FALLBACK } from './spec-defaults'
 
 interface EmulatorProfile {
   readonly baseSpec: ParserSpec
   readonly overrides: ParserOptionOverrides
+  readonly featureOverrides?: Partial<TerminalFeatures>
 }
 
 const EMULATOR_PROFILES: Record<TerminalEmulator, EmulatorProfile> = {
@@ -22,6 +24,11 @@ const EMULATOR_PROFILES: Record<TerminalEmulator, EmulatorProfile> = {
         dcs: 16384,
         sosPmApc: 8192,
       },
+    },
+    featureOverrides: {
+      supportsAnsiColors: true,
+      supportsDecPrivateModes: true,
+      supportsSosPmApc: true,
     },
   },
 }
@@ -38,6 +45,7 @@ export const getEmulatorProfile = (
 export interface ResolvedEmulator {
   readonly spec: ParserSpec
   readonly overrides: ParserOptionOverrides
+  readonly features: Partial<TerminalFeatures>
 }
 
 export const resolveEmulatorOverlay = (
@@ -48,6 +56,7 @@ export const resolveEmulatorOverlay = (
     return {
       spec: options.spec ?? SPEC_FALLBACK,
       overrides: {},
+      features: {},
     }
   }
 
@@ -56,5 +65,6 @@ export const resolveEmulatorOverlay = (
   return {
     spec,
     overrides: profile.overrides,
+    features: profile.featureOverrides ?? {},
   }
 }

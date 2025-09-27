@@ -17,6 +17,9 @@ interpret to maintain terminal state.
 - **Parser scaffold** – (Work in progress) a `createParser` factory that
   wires the state machine, manages mutable context (parameters,
   intermediates, private prefixes), and emits rich events to any sink.
+- **Terminal interpreter** – A layered behaviour engine (`createInterpreter`)
+  that consumes parser events, applies spec/emulator capabilities, and
+  maintains terminal state while emitting incremental deltas for renderers.
 - **Property-based tests** – Fast-check powered fuzz cases that validate
   the classifier across the entire 8-bit space, keeping us honest as we
   extend the state machine.
@@ -48,6 +51,17 @@ trade-offs between strict VT220 fidelity and more permissive behaviour:
   limit is hit. DCS payloads stream `DcsPut` chunks up to the limit and
   then drop into the `DcsIgnore` state so the terminator is swallowed
   without emitting a `DcsUnhook`.
+
+## Behaviour layer
+
+`createInterpreter` pairs naturally with the parser. Feed every
+`ParserEvent` into the interpreter to maintain an in-memory terminal
+model. The interpreter tracks cursor position, screen buffers, SGR
+attributes, and scrollback, emitting `TerminalUpdate`s (`cells`, `cursor`,
+`clear`, `scroll`, etc.) so renderers can update incrementally. By
+initialising both parser and interpreter with the same `spec`/`emulator`
+options, downstream consumers get a consistent capability bundle whether
+they target classic VT220 semantics or modern xterm behaviour.
 
 Hitting any string limit leaves previously dispatched data untouched but
 guarantees the parser will not buffer unbounded payloads – a critical

@@ -123,8 +123,25 @@ export interface ParserOptions {
 }
 
 export type ParserOptionOverrides = Partial<
-  Pick<ParserOptions, 'c1Handling' | 'acceptEightBitControls' | 'maxStringLength' | 'stringLimits'>
+  Pick<
+    ParserOptions,
+    'c1Handling' | 'acceptEightBitControls' | 'maxStringLength' | 'stringLimits'
+  >
 >
+
+export interface TerminalFeatures {
+  readonly initialRows: number
+  readonly initialColumns: number
+  readonly supportsAnsiColors: boolean
+  readonly supportsDecPrivateModes: boolean
+  readonly supportsSosPmApc: boolean
+}
+
+export interface TerminalCapabilities {
+  readonly spec: ParserSpec
+  readonly emulator?: TerminalEmulator
+  readonly features: TerminalFeatures
+}
 
 export type SosPmApcKind = 'SOS' | 'PM' | 'APC'
 

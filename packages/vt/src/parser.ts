@@ -1,6 +1,7 @@
 import { classifyByte } from './classifier'
 import { BYTE_TO_C1_ACTION } from './internal/c1-table'
 import { createInitialContext } from './internal/context'
+import { resolveParserOptions } from './internal/resolve-options'
 import {
   BYTE_LIMITS,
   BYTE_TABLE_SIZE,
@@ -22,15 +23,8 @@ import {
   type ParserStringLimits,
   type SosPmApcKind,
 } from './types'
-import { resolveParserOptions } from './internal/resolve-options'
 
-const CSI_8BIT = 0x9b
-const OSC_8BIT = 0x9d
 const ST_8BIT = 0x9c
-const DCS_8BIT = 0x90
-const SOS_8BIT = 0x98
-const PM_8BIT = 0x9e
-const APC_8BIT = 0x9f
 const MAX_CSI_PARAMS = 16
 const MAX_CSI_INTERMEDIATES = 4
 const MAX_CSI_PARAM_VALUE = 65535
@@ -42,21 +36,10 @@ const DEFAULT_STRING_LIMITS = {
 } as const
 
 const DCS_CHUNK_SIZE = 1024
-const BACKSLASH = 0x5c
 
 const { ESC, CAN, SUB, BEL } = CONTROL_BYTES
-const {
-  INTERMEDIATE_START,
-  INTERMEDIATE_END,
-  PARAM_START,
-  PARAM_END,
-  DIGIT_START,
-  DIGIT_END,
-  FINAL_START,
-  FINAL_END,
-  COLON,
-  SEMICOLON,
-} = BYTE_LIMITS
+const { DIGIT_START, DIGIT_END, FINAL_START, FINAL_END, COLON, SEMICOLON } =
+  BYTE_LIMITS
 
 class ParserImpl implements Parser {
   private context = createInitialContext()
