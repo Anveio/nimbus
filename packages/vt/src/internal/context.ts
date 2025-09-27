@@ -15,6 +15,7 @@ export interface ParserContext {
   oscEscPending: boolean;
   dcsBuffer: number[];
   dcsEscPending: boolean;
+  dcsByteCount: number;
   sosPmApcBuffer: number[];
   sosPmApcEscPending: boolean;
   sosPmApcKind: 'SOS' | 'PM' | 'APC' | null;
@@ -31,6 +32,7 @@ export const createInitialContext = (): ParserContext => ({
   oscEscPending: false,
   dcsBuffer: [],
   dcsEscPending: false,
+  dcsByteCount: 0,
   sosPmApcBuffer: [],
   sosPmApcEscPending: false,
   sosPmApcKind: null,

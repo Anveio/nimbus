@@ -146,6 +146,67 @@ describe('ParserImpl basic behaviour', () => {
     })
   })
 
+  it('enforces OSC string limits', () => {
+    const parser = createParser({ stringLimits: { osc: 3 } })
+    const sink = new TestSink()
+
+    parser.write('\u001b]0;abcd\u0007', sink)
+
+    expect(parser.state).toBe(ParserState.Ground)
+    expect(sink.events.find((event) => event.type === ParserEventType.OscDispatch)).toBeUndefined()
+    const last = sink.events.at(-1)
+    invariant(last && last.type === ParserEventType.Execute, 'expected BEL execute')
+    expect(last.codePoint).toBe(0x07)
+  })
+
+  it('enforces SOS string limits', () => {
+    const parser = createParser({ stringLimits: { sosPmApc: 2 } })
+    const sink = new TestSink()
+
+    parser.write('\u001bXabc\u001b\\', sink)
+
+    expect(parser.state).toBe(ParserState.Ground)
+    expect(sink.events).toHaveLength(1)
+    const event = sink.events[0]
+    invariant(event && event.type === ParserEventType.EscDispatch, 'expected ST escape dispatch')
+    expect(event.finalByte).toBe('\\'.charCodeAt(0))
+  })
+
+  it('enforces DCS string limits', () => {
+    const parser = createParser({ stringLimits: { dcs: 1 } })
+    const sink = new TestSink()
+
+    parser.write('\u001bPqAB\u001b\\', sink)
+
+    expect(parser.state).toBe(ParserState.Ground)
+    expect(sink.events).toHaveLength(3)
+    const [hook, put, esc] = sink.events
+    invariant(hook && hook.type === ParserEventType.DcsHook, 'expected hook')
+    invariant(put && put.type === ParserEventType.DcsPut, 'expected chunk output')
+    expect(new TextDecoder().decode(put.data)).toBe('A')
+    invariant(esc && esc.type === ParserEventType.EscDispatch, 'expected terminator escape')
+  })
+
+  it('caps DCS payloads across flush boundaries', () => {
+    const limit = 2048
+    const parser = createParser({ stringLimits: { dcs: limit } })
+    const sink = new TestSink()
+
+    const payload = 'X'.repeat(limit + 50)
+    parser.write(`\u001bPq${payload}\u001b\\`, sink)
+
+    const puts = sink.events.filter(
+      (event): event is Extract<ParserEvent, { type: ParserEventType.DcsPut }> =>
+        event.type === ParserEventType.DcsPut,
+    )
+
+    const total = puts.reduce((sum, event) => sum + event.data.length, 0)
+
+    expect(total).toBe(limit)
+    expect(sink.events.some((event) => event.type === ParserEventType.DcsUnhook)).toBe(false)
+    expect(parser.state).toBe(ParserState.Ground)
+  })
+
   it('parses SOS string via ESC', () => {
     const parser = createParser()
     const sink = new TestSink()

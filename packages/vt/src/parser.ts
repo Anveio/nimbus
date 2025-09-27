@@ -1,23 +1,25 @@
 import { classifyByte } from './classifier'
 import { BYTE_TO_C1_ACTION } from './internal/c1-table'
+import { createInitialContext } from './internal/context'
 import {
   BYTE_LIMITS,
   BYTE_TABLE_SIZE,
+  type ByteHandler,
   CONTROL_BYTES,
   createStateRuleSpecs,
-  type ByteHandler,
   type StateRuleRuntime,
   type StateRuleSpec,
 } from './internal/state-rules'
-import { createInitialContext } from './internal/context'
 import {
   type C1HandlingMode,
+  type Mutable,
   type Parser,
   type ParserEvent,
   type ParserEventSink,
   ParserEventType,
   type ParserOptions,
   ParserState,
+  type ParserStringLimits,
   type SosPmApcKind,
 } from './types'
 
@@ -32,7 +34,11 @@ const MAX_CSI_PARAMS = 16
 const MAX_CSI_INTERMEDIATES = 4
 const MAX_CSI_PARAM_VALUE = 65535
 const DEFAULT_C1_MODE: C1HandlingMode = 'spec'
-const DEFAULT_MAX_STRING_LENGTH = 4096
+const DEFAULT_STRING_LIMITS = {
+  osc: 4096,
+  dcs: 4096,
+  sosPmApc: 4096,
+} as const
 const DCS_CHUNK_SIZE = 1024
 const BACKSLASH = 0x5c
 
@@ -55,7 +61,11 @@ class ParserImpl implements Parser {
   private readonly encoder = new TextEncoder()
   private printBuffer: number[] = []
   private readonly c1Mode: C1HandlingMode
-  private readonly maxStringLength: number
+  private readonly stringLimits: {
+    readonly osc: number
+    readonly dcs: number
+    readonly sosPmApc: number
+  }
   private readonly acceptEightBitControls: boolean
   private readonly dispatchTable: Record<
     ParserState,
@@ -65,12 +75,31 @@ class ParserImpl implements Parser {
 
   constructor(options: ParserOptions = {}) {
     this.c1Mode = options.c1Handling ?? DEFAULT_C1_MODE
-    this.maxStringLength =
-      options.maxStringLength && options.maxStringLength > 0
-        ? options.maxStringLength
-        : DEFAULT_MAX_STRING_LENGTH
     this.acceptEightBitControls = options.acceptEightBitControls ?? true
+    this.stringLimits = this.resolveStringLimits(options)
     this.dispatchTable = this.buildDispatchTable()
+  }
+
+  private resolveStringLimits(options: ParserOptions): ParserStringLimits {
+    const sanitized: Mutable<ParserStringLimits> = { ...DEFAULT_STRING_LIMITS }
+
+    const apply = (key: keyof ParserStringLimits, value?: number): void => {
+      if (value && value > 0) {
+        sanitized[key] = value
+      }
+    }
+
+    apply('osc', options.maxStringLength)
+    apply('dcs', options.maxStringLength)
+    apply('sosPmApc', options.maxStringLength)
+
+    if (options.stringLimits) {
+      apply('osc', options.stringLimits.osc)
+      apply('dcs', options.stringLimits.dcs)
+      apply('sosPmApc', options.stringLimits.sosPmApc)
+    }
+
+    return sanitized
   }
 
   get state(): ParserState {
@@ -186,7 +215,8 @@ class ParserImpl implements Parser {
       finalizeDcs: (byte, sink) => this.finalizeDcs(byte, sink),
       handleDcsParamDigit: (byte) => this.handleDcsParamDigit(byte),
       processDcsParamByte: (byte, sink) => this.processDcsParamByte(byte, sink),
-      handleDcsPassthrough: (byte, sink) => this.handleDcsPassthrough(byte, sink),
+      handleDcsPassthrough: (byte, sink) =>
+        this.handleDcsPassthrough(byte, sink),
       handleOscByte: (byte, sink) => this.handleOscString(byte, sink),
       handleSosPmApcByte: (byte, sink) => this.handleSosPmApcString(byte, sink),
     }
@@ -291,7 +321,7 @@ class ParserImpl implements Parser {
       return
     }
 
-    if (this.context.oscBuffer.length >= this.maxStringLength) {
+    if (this.context.oscBuffer.length >= this.stringLimits.osc) {
       this.cancelOsc()
       return
     }
@@ -326,7 +356,7 @@ class ParserImpl implements Parser {
       return
     }
 
-    if (this.context.sosPmApcBuffer.length >= this.maxStringLength) {
+    if (this.context.sosPmApcBuffer.length >= this.stringLimits.sosPmApc) {
       this.cancelSosPmApc()
       return
     }
@@ -340,6 +370,17 @@ class ParserImpl implements Parser {
     }
 
     this.resetParamContext()
+    this.context.state = ParserState.DcsIgnore
+  }
+
+  private enterDcsOverflow(sink: ParserEventSink): void {
+    if (this.context.state === ParserState.DcsIgnore) {
+      return
+    }
+
+    this.flushDcsBuffer(sink)
+    this.context.dcsBuffer = []
+    this.context.dcsEscPending = false
     this.context.state = ParserState.DcsIgnore
   }
 
@@ -359,6 +400,7 @@ class ParserImpl implements Parser {
     this.resetParamContext()
     this.context.dcsBuffer = []
     this.context.dcsEscPending = false
+    this.context.dcsByteCount = 0
     this.context.state = ParserState.Ground
   }
 
@@ -414,6 +456,7 @@ class ParserImpl implements Parser {
     this.resetParamContext()
     this.context.dcsBuffer = []
     this.context.dcsEscPending = false
+    this.context.dcsByteCount = 0
     this.context.state = ParserState.DcsPassthrough
     sink.onEvent(event)
   }
@@ -522,6 +565,7 @@ class ParserImpl implements Parser {
     this.resetParamContext()
     this.context.dcsBuffer = []
     this.context.dcsEscPending = false
+    this.context.dcsByteCount = 0
     this.context.state = ParserState.DcsEntry
   }
 
@@ -607,8 +651,8 @@ class ParserImpl implements Parser {
   }
 
   private appendDcsByte(byte: number, sink: ParserEventSink): void {
-    if (this.context.dcsBuffer.length >= this.maxStringLength) {
-      this.cancelDcs()
+    if (this.context.dcsByteCount >= this.stringLimits.dcs) {
+      this.enterDcsOverflow(sink)
       return
     }
 
@@ -617,6 +661,11 @@ class ParserImpl implements Parser {
     }
 
     this.context.dcsBuffer.push(byte)
+    this.context.dcsByteCount += 1
+
+    if (this.context.dcsByteCount >= this.stringLimits.dcs) {
+      this.enterDcsOverflow(sink)
+    }
   }
 
   private flushDcsBuffer(sink: ParserEventSink): void {

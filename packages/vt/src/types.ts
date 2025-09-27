@@ -1,5 +1,9 @@
 // Core types that describe parser state and events. No implementations yet.
 
+export type Mutable<T> = {
+  -readonly [P in keyof T]: T[P]
+}
+
 /**
  * Parser states as described by the VT500 state machine.
  */
@@ -103,9 +107,16 @@ export interface ParserOptions {
   readonly c1Handling?: C1HandlingMode
   readonly maxStringLength?: number
   readonly acceptEightBitControls?: boolean
+  readonly stringLimits?: Partial<ParserStringLimits>
 }
 
 export type SosPmApcKind = 'SOS' | 'PM' | 'APC'
+
+export interface ParserStringLimits {
+  readonly osc: number
+  readonly dcs: number
+  readonly sosPmApc: number
+}
 
 /**
  * Public interface for parser instances.
