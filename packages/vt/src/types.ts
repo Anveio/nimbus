@@ -135,6 +135,11 @@ export interface TerminalFeatures {
   readonly supportsAnsiColors: boolean
   readonly supportsDecPrivateModes: boolean
   readonly supportsSosPmApc: boolean
+  readonly supportsTabStops: boolean
+  readonly supportsScrollRegions: boolean
+  readonly supportsOriginMode: boolean
+  readonly supportsAutoWrap: boolean
+  readonly supportsCursorVisibility: boolean
 }
 
 export interface TerminalCapabilities {

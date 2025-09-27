@@ -19,3 +19,6 @@ export type TerminalUpdate =
   | { readonly type: 'scroll'; readonly amount: number }
   | { readonly type: 'bell' }
   | { readonly type: 'attributes'; readonly attributes: TerminalAttributes }
+  | { readonly type: 'scroll-region'; readonly top: number; readonly bottom: number }
+  | { readonly type: 'mode'; readonly mode: 'origin' | 'autowrap'; readonly value: boolean }
+  | { readonly type: 'cursor-visibility'; readonly value: boolean }

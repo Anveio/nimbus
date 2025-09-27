@@ -106,3 +106,10 @@ Using Ghostty as a guide, we can finish SOS/PM/APC support, flesh out C1 semanti
   - Define a compact diff format for screen updates (cell writes, scroll regions, mode toggles) so renderers can stay incremental.
   - Update the TUI package to wire bytes → parser → interpreter, listening for diffs to drive the UI, while exposing hooks for emulator-specific behaviours (clipboard, mouse, bracketed paste).
 - **Long-term payoff** – Once this structure is in place, adding new emulators or advanced features becomes data-driven. We can attach mouse protocols, hyperlink handling, or sixel decoding without touching the parser, and we can share the capability descriptors with any runtime (web, native, WASM) that embeds the VT stack.
+
+## 2024-10-19 – Behaviour layer scaffold
+
+- Added `TerminalInterpreter` consuming `ParserEvent`s with support for cursor motion, SGR, tab stops, scroll regions, reverse index, and DEC private modes (DECOM/DECAWM/DECTCEM).
+- Grounded terminal capabilities in shared spec/emulator descriptors so parser and interpreter stay in sync.
+- Introduced interpreter deltas (`cells`, `cursor`, `scroll`, `mode`, etc.) so renderers can react incrementally while remaining agnostic of interior state.
+- Laid the foundation for future DEC features (DECSC/DECRC already supported) and richer overlays by centralising tab stop management, margins, and autowrap handling in the interpreter.

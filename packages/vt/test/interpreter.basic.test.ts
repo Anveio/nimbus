@@ -93,4 +93,65 @@ describe('TerminalInterpreter basic behaviour', () => {
     expect(flattened.some((update) => update.type === 'cells')).toBe(true)
     expect(flattened.some((update) => update.type === 'cursor')).toBe(true)
   })
+
+  it('uses tab stops for horizontal tab, including HTS and TBC', () => {
+    const sequence = '\x1b[3g\x1b[1;1H\x1b[5G\x1bH\x1b[1G\tX'
+    const { interpreter } = run(sequence)
+    const state = interpreter.snapshot
+
+    expect(state.cursor.column).toBe(5)
+    expect(state.buffer[0][4].char).toBe('X')
+  })
+
+  it('scrolls within the defined scroll region on line feed', () => {
+    const { interpreter } = run('\x1b[2;4r\x1b[4;1Hline4\nnext')
+    const state = interpreter.snapshot
+
+    expect(state.buffer[3][0].char).toBe('n')
+    expect(state.buffer[2][0].char).toBe('l')
+  })
+
+  it('respects origin mode when positioning the cursor', () => {
+    const { interpreter } = run('\x1b[3;5r\x1b[?6h\x1b[H')
+    const state = interpreter.snapshot
+
+    expect(state.cursor.row).toBe(2)
+    expect(state.cursor.column).toBe(0)
+  })
+
+  it('toggles autowrap via DEC private mode', () => {
+    const sequence = '\x1b[?7l' + 'A'.repeat(82) + '\x1b[?7hBC'
+    const { interpreter } = run(sequence)
+    const state = interpreter.snapshot
+
+    expect(state.buffer[0][79].char).toBe('B')
+    expect(state.buffer[1][0].char).toBe('C')
+    expect(state.cursor.row).toBe(1)
+    expect(state.cursor.column).toBe(1)
+  })
+
+  it('honours cursor visibility toggles', () => {
+    const { interpreter } = run('\x1b[?25l\x1b[?25h')
+    const state = interpreter.snapshot
+
+    expect(state.cursorVisible).toBe(true)
+  })
+
+  it('supports save and restore cursor sequences', () => {
+    const { interpreter } = run('AB\x1b7\x1b[10;10HC\x1b8D')
+    const state = interpreter.snapshot
+
+    expect(state.cursor.row).toBe(0)
+    expect(state.cursor.column).toBe(3)
+    expect(state.buffer[0][2].char).toBe('D')
+  })
+
+  it('performs reverse index within the scroll region', () => {
+    const sequence = '\x1b[2;4r\x1b[2;1Htop\x1b[4;1Hbottom\x1b[2;1H\x1bM'
+    const { interpreter } = run(sequence)
+    const state = interpreter.snapshot
+
+    expect(state.buffer[1][0].char).toBe(' ')
+    expect(state.buffer[2][0].char).toBe('t')
+  })
 })

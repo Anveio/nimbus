@@ -29,6 +29,11 @@ const EMULATOR_PROFILES: Record<TerminalEmulator, EmulatorProfile> = {
       supportsAnsiColors: true,
       supportsDecPrivateModes: true,
       supportsSosPmApc: true,
+      supportsTabStops: true,
+      supportsScrollRegions: true,
+      supportsOriginMode: true,
+      supportsAutoWrap: true,
+      supportsCursorVisibility: true,
     },
   },
 }
