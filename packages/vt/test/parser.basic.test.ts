@@ -207,6 +207,97 @@ describe('ParserImpl basic behaviour', () => {
     expect(parser.state).toBe(ParserState.Ground)
   })
 
+  it('applies vt220 preset defaults and merges overrides', () => {
+    const parser = createParser({ preset: 'vt220', stringLimits: { osc: 2 } })
+    const sink = new TestSink()
+
+    parser.write('\u001b]0;abc\u0007', sink)
+    expect(
+      sink.events.find((event) => event.type === ParserEventType.OscDispatch),
+    ).toBeUndefined()
+
+    parser.write('\u001bPqAB\u001b\\', sink)
+
+    const hasUnhook = sink.events.some(
+      (event) => event.type === ParserEventType.DcsUnhook,
+    )
+    expect(hasUnhook).toBe(true)
+  })
+
+  it('dispatches DECSET with preserved prefix and params', () => {
+    const parser = createParser({ preset: 'vt220' })
+    const sink = new TestSink()
+
+    parser.write('\u001b[?25h', sink)
+
+    const event = sink.events.at(-1)
+    invariant(event && event.type === ParserEventType.CsiDispatch, 'expected CSI')
+    expect(event.finalByte).toBe('h'.charCodeAt(0))
+    expect(event.prefix).toBe('?'.charCodeAt(0))
+    expect(event.params).toEqual([25])
+  })
+
+  it('dispatches DECRST with preserved prefix and params', () => {
+    const parser = createParser({ preset: 'vt220' })
+    const sink = new TestSink()
+
+    parser.write('\u001b[?1l', sink)
+
+    const event = sink.events.at(-1)
+    invariant(event && event.type === ParserEventType.CsiDispatch, 'expected CSI')
+    expect(event.finalByte).toBe('l'.charCodeAt(0))
+    expect(event.prefix).toBe('?'.charCodeAt(0))
+    expect(event.params).toEqual([1])
+  })
+
+  it('dispatches DA sequences with defaulted params', () => {
+    const parser = createParser({ preset: 'vt220' })
+    const sink = new TestSink()
+
+    parser.write('\u001b[c', sink)
+
+    const primary = sink.events.at(-1)
+    invariant(primary && primary.type === ParserEventType.CsiDispatch, 'expected CSI')
+    expect(primary.finalByte).toBe('c'.charCodeAt(0))
+    expect(primary.prefix).toBeNull()
+    expect(primary.params).toEqual([0])
+
+    parser.write('\u001b[>0c', sink)
+
+    const secondary = sink.events.at(-1)
+    invariant(secondary && secondary.type === ParserEventType.CsiDispatch, 'expected CSI')
+    expect(secondary.prefix).toBe('>'.charCodeAt(0))
+    expect(secondary.params).toEqual([0])
+  })
+
+  it('dispatches DECSLRM margins with both parameters intact', () => {
+    const parser = createParser({ preset: 'vt220' })
+    const sink = new TestSink()
+
+    parser.write('\u001b[5;40s', sink)
+
+    const event = sink.events.at(-1)
+    invariant(event && event.type === ParserEventType.CsiDispatch, 'expected CSI')
+    expect(event.finalByte).toBe('s'.charCodeAt(0))
+    expect(event.params).toEqual([5, 40])
+  })
+
+  it('aborts DEC DCS payloads once the preset limit is exceeded', () => {
+    const parser = createParser({ preset: 'vt220', stringLimits: { dcs: 4 } })
+    const sink = new TestSink()
+
+    parser.write('\u001bPq12345\u001b\\', sink)
+
+    const putEvents = sink.events.filter(
+      (event): event is Extract<ParserEvent, { type: ParserEventType.DcsPut }> =>
+        event.type === ParserEventType.DcsPut,
+    )
+
+    const total = putEvents.reduce((sum, event) => sum + event.data.length, 0)
+    expect(total).toBe(4)
+    expect(sink.events.some((event) => event.type === ParserEventType.DcsUnhook)).toBe(false)
+  })
+
   it('parses SOS string via ESC', () => {
     const parser = createParser()
     const sink = new TestSink()

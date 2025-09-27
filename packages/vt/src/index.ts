@@ -9,6 +9,8 @@ export type {
   ParserEventSink,
   ParserEventType,
   ParserOptions,
+  ParserPresetName,
+  ParserStringLimits,
   ParserState,
   SosPmApcKind,
 } from './types'

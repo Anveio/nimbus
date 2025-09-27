@@ -103,7 +103,10 @@ export interface ParserEventSink {
 
 export type C1HandlingMode = 'spec' | 'escaped' | 'execute' | 'ignore'
 
+export type ParserPresetName = 'vt220'
+
 export interface ParserOptions {
+  readonly preset?: ParserPresetName
   readonly c1Handling?: C1HandlingMode
   readonly maxStringLength?: number
   readonly acceptEightBitControls?: boolean

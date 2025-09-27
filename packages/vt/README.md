@@ -26,6 +26,9 @@ interpret to maintain terminal state.
 `createParser` accepts a small set of knobs so embedders can tune the
 trade-offs between strict VT220 fidelity and more permissive behaviour:
 
+- `preset` – supply `'vt220'` for a ready-made bundle (`c1Handling: 'spec'`,
+  `acceptEightBitControls: true`, and conservative string limits). Override
+  any field to diverge from the preset while keeping the rest intact.
 - `c1Handling` – choose how to treat C1 controls: the default `spec`
   routes VT220-recognised controls (NEL, IND, HTS, etc.) to structured
   events, while `escaped`, `execute`, and `ignore` mirror common xterm
