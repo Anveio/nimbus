@@ -101,6 +101,8 @@ export type C1HandlingMode = 'spec' | 'escaped' | 'execute' | 'ignore'
 
 export interface ParserOptions {
   readonly c1Handling?: C1HandlingMode
+  readonly maxStringLength?: number
+  readonly acceptEightBitControls?: boolean
 }
 
 export type SosPmApcKind = 'SOS' | 'PM' | 'APC'
