@@ -12,5 +12,8 @@
   },
   "devDependencies": {
     "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@mana-ssh/vt": "workspace:*"
   }
 }

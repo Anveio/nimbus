@@ -1,10 +1,11 @@
+import { resolveTerminalCapabilities } from '../capabilities'
 import {
-  ParserEventType,
   type ParserEvent,
+  ParserEventType,
   type ParserOptions,
   type TerminalCapabilities,
 } from '../types'
-import { resolveTerminalCapabilities } from '../capabilities'
+import type { CellDelta, TerminalUpdate } from './delta'
 import {
   blankCell,
   clearAllTabStops,
@@ -13,7 +14,6 @@ import {
   createInitialState,
   defaultAttributes,
   ensureRowCapacity,
-  getCell,
   nextTabStop,
   resetRow,
   setCell,
@@ -21,7 +21,6 @@ import {
   type TerminalCell,
   type TerminalState,
 } from './state'
-import { type CellDelta, type TerminalUpdate } from './delta'
 
 const textDecoder = new TextDecoder()
 const QUESTION_MARK = '?'.charCodeAt(0)
@@ -157,7 +156,9 @@ export class TerminalInterpreter {
     }
   }
 
-  private handleEsc(event: ParserEvent & { type: ParserEventType.EscDispatch }): TerminalUpdate[] {
+  private handleEsc(
+    event: ParserEvent & { type: ParserEventType.EscDispatch },
+  ): TerminalUpdate[] {
     const final = String.fromCharCode(event.finalByte)
     switch (final) {
       case 'D':
@@ -177,7 +178,9 @@ export class TerminalInterpreter {
     }
   }
 
-  private handleCsi(event: ParserEvent & { type: ParserEventType.CsiDispatch }): TerminalUpdate[] {
+  private handleCsi(
+    event: ParserEvent & { type: ParserEventType.CsiDispatch },
+  ): TerminalUpdate[] {
     if (event.prefix === QUESTION_MARK) {
       return this.handleDecPrivateMode(event)
     }
@@ -279,7 +282,11 @@ export class TerminalInterpreter {
       return []
     }
     let top = clamp((params[0] ?? 1) - 1, 0, this.state.rows - 1)
-    let bottom = clamp((params[1] ?? this.state.rows) - 1, 0, this.state.rows - 1)
+    let bottom = clamp(
+      (params[1] ?? this.state.rows) - 1,
+      0,
+      this.state.rows - 1,
+    )
 
     if (top >= bottom) {
       top = 0
@@ -326,7 +333,9 @@ export class TerminalInterpreter {
   private cursorPosition(params: ReadonlyArray<number>): TerminalUpdate[] {
     const baseRow = this.state.originMode ? this.state.scrollTop : 0
     const minRow = this.state.originMode ? this.state.scrollTop : 0
-    const maxRow = this.state.originMode ? this.state.scrollBottom : this.state.rows - 1
+    const maxRow = this.state.originMode
+      ? this.state.scrollBottom
+      : this.state.rows - 1
 
     const row = clamp(baseRow + (params[0] ?? 1) - 1, minRow, maxRow)
     const column = clamp((params[1] ?? 1) - 1, 0, this.state.columns - 1)
@@ -345,7 +354,9 @@ export class TerminalInterpreter {
 
   private cursorDown(count: number): TerminalUpdate[] {
     const minRow = this.state.originMode ? this.state.scrollTop : 0
-    const maxRow = this.state.originMode ? this.state.scrollBottom : this.state.rows - 1
+    const maxRow = this.state.originMode
+      ? this.state.scrollBottom
+      : this.state.rows - 1
     this.state.cursor.row = clamp(this.state.cursor.row + count, minRow, maxRow)
     return [this.cursorUpdate()]
   }
@@ -381,10 +392,7 @@ export class TerminalInterpreter {
           resetRow(this.state, row)
         }
         this.state.cursor = { row: 0, column: 0 }
-        return [
-          { type: 'clear', scope: 'display' },
-          this.cursorUpdate(),
-        ]
+        return [{ type: 'clear', scope: 'display' }, this.cursorUpdate()]
       case 0:
       default:
         return this.clearFromCursor()
@@ -407,7 +415,7 @@ export class TerminalInterpreter {
 
     for (let column = start; column <= end; column += 1) {
       const cell = blankCell(this.state.attributes)
-      this.state.buffer[row][column] = cell
+      setCell(this.state, row, column, cell)
       cells.push({ row, column, cell })
     }
 
@@ -423,7 +431,9 @@ export class TerminalInterpreter {
     ]
   }
 
-  private selectGraphicRendition(params: ReadonlyArray<number>): TerminalUpdate[] {
+  private selectGraphicRendition(
+    params: ReadonlyArray<number>,
+  ): TerminalUpdate[] {
     if (params.length === 0) {
       this.state.attributes = cloneAttributes(defaultAttributes)
       return [{ type: 'attributes', attributes: this.state.attributes }]
@@ -595,7 +605,10 @@ export class TerminalInterpreter {
     }
     this.state.cursor = { ...this.state.savedCursor }
     this.state.attributes = cloneAttributes(this.state.savedAttributes)
-    return [this.cursorUpdate(), { type: 'attributes', attributes: this.state.attributes }]
+    return [
+      this.cursorUpdate(),
+      { type: 'attributes', attributes: this.state.attributes },
+    ]
   }
 
   private withinScrollRegion(row: number): boolean {
@@ -604,7 +617,9 @@ export class TerminalInterpreter {
 
   private clampCursorRow(): void {
     const minRow = this.state.originMode ? this.state.scrollTop : 0
-    const maxRow = this.state.originMode ? this.state.scrollBottom : this.state.rows - 1
+    const maxRow = this.state.originMode
+      ? this.state.scrollBottom
+      : this.state.rows - 1
     this.state.cursor.row = clamp(this.state.cursor.row, minRow, maxRow)
   }
 

@@ -113,3 +113,8 @@ Using Ghostty as a guide, we can finish SOS/PM/APC support, flesh out C1 semanti
 - Grounded terminal capabilities in shared spec/emulator descriptors so parser and interpreter stay in sync.
 - Introduced interpreter deltas (`cells`, `cursor`, `scroll`, `mode`, etc.) so renderers can react incrementally while remaining agnostic of interior state.
 - Laid the foundation for future DEC features (DECSC/DECRC already supported) and richer overlays by centralising tab stop management, margins, and autowrap handling in the interpreter.
+- **Next steps**:
+  - Complete VT220/VT3xx semantics (insert/delete line & char, DECCOLM 80/132, DECTABSR, full DECSET/DECRST catalogue).
+  - Add scrollback and alternate screen buffers, plus saved state management.
+  - Expand emulator overlays (kitty, iTerm2, Ghostty) and wire optional features (OSC 52, mouse reporting, hyperlinks).
+  - Integrate interpreter into the TUI package so the terminal renders live updates, paving the way for product demos.
