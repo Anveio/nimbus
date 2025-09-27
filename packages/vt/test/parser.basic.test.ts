@@ -310,6 +310,15 @@ describe('ParserImpl basic behaviour', () => {
     expect(new TextDecoder().decode(printEvent.data)).toBe('A')
   })
 
+  it('xterm emulator accepts 8-bit CSI introducer', () => {
+    const parser = createParser({ emulator: 'xterm' })
+    const sink = new TestSink()
+
+    parser.write(new Uint8Array([0x9b, 0x41]), sink)
+
+    expect(sink.events.some((event) => event.type === ParserEventType.CsiDispatch)).toBe(true)
+  })
+
   it('vt320 spec expands DCS string limit to 8192 bytes', () => {
     const parser = createParser({ spec: 'vt320' })
     const sink = new TestSink()
@@ -327,8 +336,8 @@ describe('ParserImpl basic behaviour', () => {
     expect(sink.events.some((event) => event.type === ParserEventType.DcsUnhook)).toBe(false)
   })
 
-  it('xterm spec raises OSC payload limit to 16384 bytes', () => {
-    const parser = createParser({ spec: 'xterm' })
+  it('xterm emulator raises OSC payload limit to 16384 bytes', () => {
+    const parser = createParser({ emulator: 'xterm' })
     const sink = new TestSink()
 
     const payload = '0;'.concat('A'.repeat(17000))
@@ -340,6 +349,22 @@ describe('ParserImpl basic behaviour', () => {
     const execute = sink.events.at(-1)
     invariant(execute && execute.type === ParserEventType.Execute, 'expected BEL execute')
     expect(execute.codePoint).toBe(0x07)
+  })
+
+  it('xterm emulator preserves user-specified spec overrides', () => {
+    const parser = createParser({ spec: 'vt220', emulator: 'xterm' })
+    const sink = new TestSink()
+
+    const payload = '0;'.concat('A'.repeat(17000))
+    parser.write(`\u001b]${payload}\u0007`, sink)
+
+    expect(
+      sink.events.find((event) => event.type === ParserEventType.OscDispatch),
+    ).toBeUndefined()
+
+    parser.write(new Uint8Array([0x9b, 0x41]), sink)
+
+    expect(sink.events.some((event) => event.type === ParserEventType.CsiDispatch)).toBe(true)
   })
 
   it('parses SOS string via ESC', () => {

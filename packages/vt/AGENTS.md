@@ -63,6 +63,7 @@ Next immediate goals: extend CSI handling to ignore/error states, add OSC/DCS st
 - ~~**State-rule spec module**: Move the per-state byte-rule definitions into a standalone data module so the parser consumes a declarative spec instead of embedding rule construction logic.~~ ✅
 - ~~**ByteFlag-driven descriptors**: Express rule predicates in terms of `ByteFlag` groupings / VT500 diagram semantics so the state specs read directly off the chart.~~ ✅
 - **Behaviour layers**: Once the parser surface is declarative, layer VT220 semantics (DEC mode toggles, margins, etc.) as separate interpreters consuming the emitted events to keep responsibilities clean.
+- **Emulator overlays**: Define per-emulator capability bundles (xterm, kitty, etc.) that sit atop DEC specs so parser/event layers can share consistent capability metadata.
 
 ### Inspiration from Ghostty
 

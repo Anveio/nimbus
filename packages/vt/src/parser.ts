@@ -22,7 +22,7 @@ import {
   type ParserStringLimits,
   type SosPmApcKind,
 } from './types'
-import { resolveSpecOptions } from './internal/spec-defaults'
+import { resolveParserOptions } from './internal/resolve-options'
 
 const CSI_8BIT = 0x9b
 const OSC_8BIT = 0x9d
@@ -706,4 +706,4 @@ class ParserImpl implements Parser {
 }
 
 export const createParser = (options: ParserOptions = {}): Parser =>
-  new ParserImpl(resolveSpecOptions(options))
+  new ParserImpl(resolveParserOptions(options))

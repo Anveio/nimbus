@@ -27,9 +27,13 @@ interpret to maintain terminal state.
 trade-offs between strict VT220 fidelity and more permissive behaviour:
 
 - `spec` – choose a built-in DEC lineage (`'vt100'`, `'vt220'`, `'vt320'`,
-  `'vt420'`, `'vt520'`, `'vt525'`) or `'xterm'`. Each spec sets sensible
+  `'vt420'`, `'vt520'`, `'vt525'`). Each spec sets sensible
   defaults (C1 mode, 7/8-bit acceptance, string caps). Override any field to
   mix-and-match behaviours when necessary.
+- `emulator` – optionally layer modern emulator quirks (currently `'xterm'`)
+  on top of the chosen spec. The parser first loads the DEC defaults, then
+  applies emulator overrides (larger OSC limits, 8-bit C1 handling), and
+  finally respects any explicit overrides you pass in.
 - `c1Handling` – choose how to treat C1 controls: the default `spec`
   routes VT220-recognised controls (NEL, IND, HTS, etc.) to structured
   events, while `escaped`, `execute`, and `ignore` mirror common xterm

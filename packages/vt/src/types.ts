@@ -110,15 +110,21 @@ export type ParserSpec =
   | 'vt420'
   | 'vt520'
   | 'vt525'
-  | 'xterm'
+
+export type TerminalEmulator = 'xterm'
 
 export interface ParserOptions {
   readonly spec?: ParserSpec
+  readonly emulator?: TerminalEmulator
   readonly c1Handling?: C1HandlingMode
   readonly maxStringLength?: number
   readonly acceptEightBitControls?: boolean
   readonly stringLimits?: Partial<ParserStringLimits>
 }
+
+export type ParserOptionOverrides = Partial<
+  Pick<ParserOptions, 'c1Handling' | 'acceptEightBitControls' | 'maxStringLength' | 'stringLimits'>
+>
 
 export type SosPmApcKind = 'SOS' | 'PM' | 'APC'
 

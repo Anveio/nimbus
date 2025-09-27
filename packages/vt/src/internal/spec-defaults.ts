@@ -54,11 +54,6 @@ export const SPEC_DEFAULTS: Record<ParserSpec, SpecDefaults> = {
     acceptEightBitControls: true,
     stringLimits: baseLimits({ osc: 12288, dcs: 12288, sosPmApc: 4096 }),
   },
-  xterm: {
-    c1Handling: 'spec',
-    acceptEightBitControls: true,
-    stringLimits: baseLimits({ osc: 16384, dcs: 16384, sosPmApc: 8192 }),
-  },
 }
 
 export const resolveSpecOptions = (options: ParserOptions): ParserOptions => {
