@@ -93,6 +93,24 @@ export const matchFlag = (flag: ByteFlag): ByteRulePredicate =>
 export const matchAnyFlag = (mask: ByteFlag): ByteRulePredicate =>
   (_byte, flags) => (flags & mask) !== 0
 
+export const matchDigits: ByteRulePredicate = (byte) =>
+  byte >= BYTE_LIMITS.DIGIT_START && byte <= BYTE_LIMITS.DIGIT_END
+
+export const matchPrivatePrefixes: ByteRulePredicate = (byte) =>
+  byte >= 0x3c && byte <= 0x3f
+
+export const matchParamSeparators: ByteRulePredicate = matchBytes(
+  BYTE_LIMITS.COLON,
+  BYTE_LIMITS.SEMICOLON,
+)
+
+export const matchParamDigitsOrSeparators: ByteRulePredicate = (byte) =>
+  (byte >= BYTE_LIMITS.DIGIT_START && byte <= BYTE_LIMITS.SEMICOLON) &&
+  byte !== 0x3c &&
+  byte !== 0x3d &&
+  byte !== 0x3e &&
+  byte !== 0x3f
+
 export const createStateRuleSpecs = (
   runtime: StateRuleRuntime,
 ): StateRuleSpecMap => ({
@@ -266,9 +284,9 @@ const createCsiEntrySpec = (runtime: StateRuleRuntime): StateRuleSpec => {
   const rules: ByteRule[] = [
     { predicate: matchBytes(CAN, SUB), handler: cancel },
     { predicate: matchBytes(ESC), handler: setToEscape },
-    { predicate: matchRange(0x3c, 0x3f), handler: recordPrefix },
-    { predicate: matchRange(DIGIT_START, DIGIT_END), handler: enterParamWithDigit },
-    { predicate: matchBytes(COLON, SEMICOLON), handler: enterParamAndPush },
+    { predicate: matchPrivatePrefixes, handler: recordPrefix },
+    { predicate: matchDigits, handler: enterParamWithDigit },
+    { predicate: matchParamSeparators, handler: enterParamAndPush },
     { predicate: matchFlag(ByteFlag.Intermediate), handler: moveToIntermediate },
     { predicate: matchFlag(ByteFlag.Final), handler: dispatchFinal },
   ]
@@ -326,8 +344,8 @@ const createCsiParamSpec = (runtime: StateRuleRuntime): StateRuleSpec => {
   const rules: ByteRule[] = [
     { predicate: matchBytes(CAN, SUB), handler: cancel },
     { predicate: matchBytes(ESC), handler: setToEscape },
-    { predicate: matchRange(DIGIT_START, DIGIT_END), handler: digit },
-    { predicate: matchBytes(COLON, SEMICOLON), handler: separator },
+    { predicate: matchDigits, handler: digit },
+    { predicate: matchParamSeparators, handler: separator },
     { predicate: matchFlag(ByteFlag.Intermediate), handler: toIntermediate },
     { predicate: matchFlag(ByteFlag.Final), handler: dispatchFinal },
   ]
@@ -459,8 +477,8 @@ const createDcsEntrySpec = (runtime: StateRuleRuntime): StateRuleSpec => {
   const rules: ByteRule[] = [
     { predicate: matchBytes(CAN, SUB), handler: cancel },
     { predicate: matchBytes(ESC), handler: setToEscape },
-    { predicate: matchRange(0x3c, 0x3f), handler: recordPrefix },
-    { predicate: matchRange(PARAM_START, SEMICOLON), handler: enterParam },
+    { predicate: matchPrivatePrefixes, handler: recordPrefix },
+    { predicate: matchParamDigitsOrSeparators, handler: enterParam },
     { predicate: matchFlag(ByteFlag.Intermediate), handler: enterIntermediate },
     { predicate: matchFlag(ByteFlag.Final), handler: dispatch },
   ]
@@ -518,8 +536,8 @@ const createDcsParamSpec = (runtime: StateRuleRuntime): StateRuleSpec => {
   const rules: ByteRule[] = [
     { predicate: matchBytes(CAN, SUB), handler: cancel },
     { predicate: matchBytes(ESC), handler: setToEscape },
-    { predicate: matchRange(DIGIT_START, DIGIT_END), handler: digit },
-    { predicate: matchBytes(COLON, SEMICOLON), handler: separator },
+    { predicate: matchDigits, handler: digit },
+    { predicate: matchParamSeparators, handler: separator },
     { predicate: matchFlag(ByteFlag.Intermediate), handler: toIntermediate },
     { predicate: matchFlag(ByteFlag.Final), handler: dispatch },
   ]
