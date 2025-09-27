@@ -21,7 +21,8 @@
       "cache": false
     },
     "test": {
-      "cache": false
+      "cache": true,
+      "outputs": ["coverage/**"]
     },
     "typecheck": {
       "dependsOn": ["^topo"],

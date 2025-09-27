@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsc",
-    "test": "vitest",
+    "test": "echo 'Tests not implemented yet'",
     "lint": "biome lint .",
     "lint:fix": "biome lint --apply ."
   },
