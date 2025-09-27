@@ -54,6 +54,12 @@ Next immediate goals: extend CSI handling to ignore/error states, add OSC/DCS st
 - **Default parser options**: codify VT220 defaults (`c1Handling: 'spec'`, 7/8-bit acceptance, CSI default parameter behaviour) and document deviations.
 - **DEC control tests**: add fixtures for common VT220 sequences (DECRST/DECSET, DA/DA2, DECSLRM/DECSSTBM, Sixel DCS shell) to ensure the parser preserves parameters and intermediates.
 
+### Roadmap ideas – 2025-09-27
+
+- **State-rule spec module**: Move the per-state byte-rule definitions into a standalone data module so the parser consumes a declarative spec instead of embedding rule construction logic. (In progress.)
+- **Higher-level descriptors**: Explore generating rule predicates directly from `ByteFlag` groupings / VT500 tables to eliminate manual range wiring and clarify spec provenance.
+- **Behaviour layers**: Once the parser surface is declarative, layer VT220 semantics (DEC mode toggles, margins, etc.) as separate interpreters consuming the emitted events to keep responsibilities clean.
+
 ### Inspiration from Ghostty
 
 Ghostty Parser Architecture (Terminal/Parser.zig, parse_table.zig)
