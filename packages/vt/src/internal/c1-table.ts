@@ -1,9 +1,4 @@
-import {
-  ParserEventSink,
-  ParserEventType,
-  ParserState,
-  type SosPmApcKind,
-} from '../types'
+import type { SosPmApcKind } from '../types'
 
 export type C1Action =
   | { readonly type: 'enterCsi' }
@@ -14,7 +9,7 @@ export type C1Action =
   | { readonly type: 'execute' }
   | { readonly type: 'ignore' }
 
-const SPEC_MAP: ReadonlyMap<number, C1Action> = new Map([
+export const BYTE_TO_C1_ACTION: ReadonlyMap<number, C1Action> = new Map([
   [0x90, { type: 'enterDcs' }],
   [0x84, { type: 'dispatchEscape', final: 0x44 }], // IND => ESC D
   [0x85, { type: 'dispatchEscape', final: 0x45 }], // NEL => ESC E
@@ -29,6 +24,3 @@ const SPEC_MAP: ReadonlyMap<number, C1Action> = new Map([
   [0x9e, { type: 'enterSosPmApc', kind: 'PM' }],
   [0x9f, { type: 'enterSosPmApc', kind: 'APC' }],
 ])
-
-export const getSpecC1Action = (byte: number): C1Action | undefined =>
-  SPEC_MAP.get(byte)

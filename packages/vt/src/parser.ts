@@ -1,6 +1,8 @@
-import { getSpecC1Action } from './internal/c1-table'
+import { classifyByte } from './classifier'
+import { BYTE_TO_C1_ACTION } from './internal/c1-table'
 import { createInitialContext } from './internal/context'
 import {
+  ByteFlag,
   type C1HandlingMode,
   type Parser,
   type ParserEvent,
@@ -43,6 +45,27 @@ const BACKSLASH = 0x5c
 const DELETE = 0x7f
 
 type ByteHandler = (byte: number, sink: ParserEventSink) => void
+type ByteRulePredicate = (byte: number, flags: ByteFlag) => boolean
+
+interface ByteRule {
+  readonly predicate: ByteRulePredicate
+  readonly handler: ByteHandler
+}
+
+const matchBytes = (...codes: number[]): ByteRulePredicate => {
+  const set = new Set(codes)
+  return (byte) => set.has(byte)
+}
+
+const matchRange =
+  (start: number, end: number): ByteRulePredicate =>
+  (byte) =>
+    byte >= start && byte <= end
+
+const matchFlag =
+  (flag: ByteFlag): ByteRulePredicate =>
+  (_byte, flags) =>
+    (flags & flag) !== 0
 
 class ParserImpl implements Parser {
   private context = createInitialContext()
@@ -102,143 +125,157 @@ class ParserImpl implements Parser {
     handler(byte, sink)
   }
 
+  private buildRowFromRules(
+    rules: ReadonlyArray<ByteRule>,
+    fallback: ByteHandler = this.noopHandler,
+  ): ByteHandler[] {
+    const row = new Array<ByteHandler>(BYTE_TABLE_SIZE)
+    for (let code = 0; code < BYTE_TABLE_SIZE; code += 1) {
+      const flags = classifyByte(code)
+      let handler = fallback
+      for (const rule of rules) {
+        if (rule.predicate(code, flags)) {
+          handler = rule.handler
+          break
+        }
+      }
+      row[code] = handler
+    }
+    return row
+  }
+
   private buildDispatchTable(): Record<
     ParserState,
     ReadonlyArray<ByteHandler>
   > {
-    const createRow = (): ByteHandler[] =>
-      new Array<ByteHandler>(BYTE_TABLE_SIZE).fill(this.noopHandler)
-
-    const table: Record<ParserState, ByteHandler[]> = {
-      [ParserState.Ground]: createRow(),
-      [ParserState.Escape]: createRow(),
-      [ParserState.EscapeIntermediate]: createRow(),
-      [ParserState.CsiEntry]: createRow(),
-      [ParserState.CsiParam]: createRow(),
-      [ParserState.CsiIntermediate]: createRow(),
-      [ParserState.CsiIgnore]: createRow(),
-      [ParserState.OscString]: createRow(),
-      [ParserState.DcsEntry]: createRow(),
-      [ParserState.DcsParam]: createRow(),
-      [ParserState.DcsIntermediate]: createRow(),
-      [ParserState.DcsIgnore]: createRow(),
-      [ParserState.DcsPassthrough]: createRow(),
-      [ParserState.SosPmApcString]: createRow(),
+    return {
+      [ParserState.Ground]: this.createGroundRow(),
+      [ParserState.Escape]: this.createEscapeRow(),
+      [ParserState.EscapeIntermediate]: this.createEscapeIntermediateRow(),
+      [ParserState.CsiEntry]: this.createCsiEntryRow(),
+      [ParserState.CsiParam]: this.createCsiParamRow(),
+      [ParserState.CsiIntermediate]: this.createCsiIntermediateRow(),
+      [ParserState.CsiIgnore]: this.createCsiIgnoreRow(),
+      [ParserState.OscString]: this.createOscRow(),
+      [ParserState.DcsEntry]: this.createDcsEntryRow(),
+      [ParserState.DcsParam]: this.createDcsParamRow(),
+      [ParserState.DcsIntermediate]: this.createDcsIntermediateRow(),
+      [ParserState.DcsIgnore]: this.createDcsIgnoreRow(),
+      [ParserState.DcsPassthrough]: this.createDcsPassthroughRow(),
+      [ParserState.SosPmApcString]: this.createSosPmApcRow(),
     }
-
-    this.configureGroundRow(table[ParserState.Ground])
-    this.configureEscapeRow(table[ParserState.Escape])
-    this.configureEscapeIntermediateRow(table[ParserState.EscapeIntermediate])
-    this.configureCsiEntryRow(table[ParserState.CsiEntry])
-    this.configureCsiParamRow(table[ParserState.CsiParam])
-    this.configureCsiIntermediateRow(table[ParserState.CsiIntermediate])
-    this.configureCsiIgnoreRow(table[ParserState.CsiIgnore])
-    this.configureOscRow(table[ParserState.OscString])
-    this.configureDcsEntryRow(table[ParserState.DcsEntry])
-    this.configureDcsParamRow(table[ParserState.DcsParam])
-    this.configureDcsIntermediateRow(table[ParserState.DcsIntermediate])
-    this.configureDcsIgnoreRow(table[ParserState.DcsIgnore])
-    this.configureDcsPassthroughRow(table[ParserState.DcsPassthrough])
-    this.configureSosPmApcRow(table[ParserState.SosPmApcString])
-
-    return table
   }
 
-  private configureGroundRow(row: ByteHandler[]): void {
-    const printable: ByteHandler = (byte) => {
-      this.printBuffer.push(byte)
-    }
-    this.assignRange(row, INTERMEDIATE_START, FINAL_END, printable)
-
-    const executeControl: ByteHandler = (byte, sink) => {
-      this.flushPrint(sink)
-      this.emitExecute(byte, sink)
-    }
-    this.assignRange(row, 0x00, INTERMEDIATE_START - 1, executeControl)
-    row[DELETE] = executeControl
-
+  private createGroundRow(): ByteHandler[] {
     const enterEscape: ByteHandler = (_byte, sink) => {
       this.flushPrint(sink)
       this.context.state = ParserState.Escape
       this.resetIntermediates()
     }
-    row[ESC] = enterEscape
+
+    const executeControl: ByteHandler = (byte, sink) => {
+      this.flushPrint(sink)
+      this.emitExecute(byte, sink)
+    }
+
+    const printable: ByteHandler = (byte) => {
+      this.printBuffer.push(byte)
+    }
+
+    const rules: ByteRule[] = [
+      { predicate: matchBytes(ESC), handler: enterEscape },
+      {
+        predicate: (byte, flags) =>
+          byte !== ESC &&
+          ((flags & ByteFlag.C0Control) !== 0 ||
+            (flags & ByteFlag.Delete) !== 0),
+        handler: executeControl,
+      },
+      { predicate: matchFlag(ByteFlag.Printable), handler: printable },
+    ]
 
     if (this.acceptEightBitControls) {
       const c1Handler: ByteHandler = (byte, sink) => {
         this.handleC1(byte, sink)
       }
-      this.assignRange(row, 0x80, 0x9f, c1Handler)
+      rules.push({
+        predicate: matchFlag(ByteFlag.C1Control),
+        handler: c1Handler,
+      })
     }
+
+    return this.buildRowFromRules(rules)
   }
 
-  private configureEscapeRow(row: ByteHandler[]): void {
+  private createEscapeRow(): ByteHandler[] {
     const dropToGround: ByteHandler = () => {
       this.context.state = ParserState.Ground
     }
-    row.fill(dropToGround)
-
-    this.assignByte(row, 0x5b, () => this.enterCsiEntry())
-    this.assignByte(row, 0x5d, () => this.enterOscString())
-    this.assignByte(row, 0x50, () => this.enterDcsEntry())
-    this.assignByte(row, 0x58, () => this.enterSosPmApc('SOS'))
-    this.assignByte(row, 0x5e, () => this.enterSosPmApc('PM'))
-    this.assignByte(row, 0x5f, () => this.enterSosPmApc('APC'))
 
     const collectIntermediate: ByteHandler = (byte) => {
       this.context.intermediates.push(byte)
       this.context.state = ParserState.EscapeIntermediate
     }
-    this.assignRange(
-      row,
-      INTERMEDIATE_START,
-      INTERMEDIATE_END,
-      collectIntermediate,
-    )
 
     const dispatchEscape: ByteHandler = (byte, sink) => {
       this.emitEscDispatch(byte, sink)
       this.context.state = ParserState.Ground
     }
-    this.assignRangeIfMatch(
-      row,
-      PARAM_START,
-      FINAL_END,
-      dropToGround,
-      dispatchEscape,
-    )
+
+    const rules: ByteRule[] = [
+      { predicate: matchBytes(0x5b), handler: () => this.enterCsiEntry() },
+      { predicate: matchBytes(0x5d), handler: () => this.enterOscString() },
+      { predicate: matchBytes(0x50), handler: () => this.enterDcsEntry() },
+      { predicate: matchBytes(0x58), handler: () => this.enterSosPmApc('SOS') },
+      { predicate: matchBytes(0x5e), handler: () => this.enterSosPmApc('PM') },
+      { predicate: matchBytes(0x5f), handler: () => this.enterSosPmApc('APC') },
+      {
+        predicate: matchRange(INTERMEDIATE_START, INTERMEDIATE_END),
+        handler: collectIntermediate,
+      },
+      {
+        predicate: matchRange(PARAM_START, FINAL_END),
+        handler: dispatchEscape,
+      },
+    ]
+
+    return this.buildRowFromRules(rules, dropToGround)
   }
 
-  private configureEscapeIntermediateRow(row: ByteHandler[]): void {
+  private createEscapeIntermediateRow(): ByteHandler[] {
     const toGround: ByteHandler = () => {
       this.context.state = ParserState.Ground
     }
-    row.fill(toGround)
 
     const collect: ByteHandler = (byte) => {
       this.context.intermediates.push(byte)
     }
-    this.assignRange(row, INTERMEDIATE_START, INTERMEDIATE_END, collect)
 
     const dispatch: ByteHandler = (byte, sink) => {
       this.emitEscDispatch(byte, sink)
       this.context.state = ParserState.Ground
     }
-    this.assignRange(row, PARAM_START, FINAL_END, dispatch)
+
+    const rules: ByteRule[] = [
+      {
+        predicate: matchRange(INTERMEDIATE_START, INTERMEDIATE_END),
+        handler: collect,
+      },
+      { predicate: matchRange(PARAM_START, FINAL_END), handler: dispatch },
+    ]
+
+    return this.buildRowFromRules(rules, toGround)
   }
 
-  private configureCsiEntryRow(row: ByteHandler[]): void {
+  private createCsiEntryRow(): ByteHandler[] {
     const cancel: ByteHandler = () => {
       this.cancelCsi()
     }
-    row.fill(cancel)
-    this.assignBytes(row, [CAN, SUB], cancel)
 
     const setToEscape: ByteHandler = () => {
       this.resetCsiContext()
       this.context.state = ParserState.Escape
     }
-    row[ESC] = setToEscape
 
     const recordPrefix: ByteHandler = (byte) => {
       if (this.context.prefix === null) {
@@ -247,7 +284,6 @@ class ParserImpl implements Parser {
         this.enterCsiIgnore()
       }
     }
-    this.assignRange(row, 0x3c, 0x3f, recordPrefix)
 
     const recordDigit: ByteHandler = (byte) => {
       this.handleCsiParamDigit(byte)
@@ -256,13 +292,11 @@ class ParserImpl implements Parser {
       ParserState.CsiParam,
       recordDigit,
     )
-    this.assignRange(row, DIGIT_START, DIGIT_END, enterParamWithDigit)
 
     const pushParam: ByteHandler = () => {
       this.pushCurrentParam()
     }
     const enterParamAndPush = this.transitionTo(ParserState.CsiParam, pushParam)
-    this.assignBytes(row, [COLON, SEMICOLON], enterParamAndPush)
 
     const enterIntermediate: ByteHandler = (byte) => {
       if (this.context.intermediates.length >= MAX_CSI_INTERMEDIATES) {
@@ -275,31 +309,40 @@ class ParserImpl implements Parser {
       ParserState.CsiIntermediate,
       enterIntermediate,
     )
-    this.assignRange(
-      row,
-      INTERMEDIATE_START,
-      INTERMEDIATE_END,
-      moveToIntermediate,
-    )
 
     const dispatchFinal: ByteHandler = (byte, sink) => {
       this.finalizeCsi(byte, sink)
     }
-    this.assignRange(row, FINAL_START, FINAL_END, dispatchFinal)
+
+    const rules: ByteRule[] = [
+      { predicate: matchBytes(CAN, SUB), handler: cancel },
+      { predicate: matchBytes(ESC), handler: setToEscape },
+      { predicate: matchRange(0x3c, 0x3f), handler: recordPrefix },
+      {
+        predicate: matchRange(DIGIT_START, DIGIT_END),
+        handler: enterParamWithDigit,
+      },
+      { predicate: matchBytes(COLON, SEMICOLON), handler: enterParamAndPush },
+      {
+        predicate: matchRange(INTERMEDIATE_START, INTERMEDIATE_END),
+        handler: moveToIntermediate,
+      },
+      { predicate: matchRange(FINAL_START, FINAL_END), handler: dispatchFinal },
+    ]
+
+    return this.buildRowFromRules(rules, cancel)
   }
 
-  private configureCsiParamRow(row: ByteHandler[]): void {
+  private createCsiParamRow(): ByteHandler[] {
     const ignore: ByteHandler = () => {
       this.enterCsiIgnore()
     }
-    row.fill(ignore)
 
     const cancel: ByteHandler = () => {
       this.cancelCsi()
     }
-    this.assignBytes(row, [CAN, SUB], cancel)
 
-    row[ESC] = () => {
+    const setToEscape: ByteHandler = () => {
       this.resetCsiContext()
       this.context.state = ParserState.Escape
     }
@@ -307,12 +350,10 @@ class ParserImpl implements Parser {
     const digit: ByteHandler = (byte) => {
       this.handleCsiParamDigit(byte)
     }
-    this.assignRange(row, DIGIT_START, DIGIT_END, digit)
 
     const separator: ByteHandler = () => {
       this.pushCurrentParam()
     }
-    this.assignBytes(row, [COLON, SEMICOLON], separator)
 
     const toIntermediate = this.transitionTo(
       ParserState.CsiIntermediate,
@@ -324,26 +365,36 @@ class ParserImpl implements Parser {
         this.context.intermediates.push(byte)
       },
     )
-    this.assignRange(row, INTERMEDIATE_START, INTERMEDIATE_END, toIntermediate)
 
     const dispatchFinal: ByteHandler = (byte, sink) => {
       this.finalizeCsi(byte, sink)
     }
-    this.assignRange(row, FINAL_START, FINAL_END, dispatchFinal)
+
+    const rules: ByteRule[] = [
+      { predicate: matchBytes(CAN, SUB), handler: cancel },
+      { predicate: matchBytes(ESC), handler: setToEscape },
+      { predicate: matchRange(DIGIT_START, DIGIT_END), handler: digit },
+      { predicate: matchBytes(COLON, SEMICOLON), handler: separator },
+      {
+        predicate: matchRange(INTERMEDIATE_START, INTERMEDIATE_END),
+        handler: toIntermediate,
+      },
+      { predicate: matchRange(FINAL_START, FINAL_END), handler: dispatchFinal },
+    ]
+
+    return this.buildRowFromRules(rules, ignore)
   }
 
-  private configureCsiIntermediateRow(row: ByteHandler[]): void {
+  private createCsiIntermediateRow(): ByteHandler[] {
     const ignoreHandler: ByteHandler = () => {
       this.enterCsiIgnore()
     }
-    row.fill(ignoreHandler)
 
     const cancelHandler: ByteHandler = () => {
       this.cancelCsi()
     }
-    this.assignBytes(row, [CAN, SUB], cancelHandler)
 
-    row[ESC] = () => {
+    const setToEscape: ByteHandler = () => {
       this.resetCsiContext()
       this.context.state = ParserState.Escape
     }
@@ -355,52 +406,62 @@ class ParserImpl implements Parser {
       }
       this.context.intermediates.push(byte)
     }
-    this.assignRange(row, INTERMEDIATE_START, INTERMEDIATE_END, collectHandler)
 
     const finalHandler: ByteHandler = (byte, sink) => {
       this.finalizeCsi(byte, sink)
     }
-    this.assignRange(row, FINAL_START, FINAL_END, finalHandler)
+
+    const rules: ByteRule[] = [
+      { predicate: matchBytes(CAN, SUB), handler: cancelHandler },
+      { predicate: matchBytes(ESC), handler: setToEscape },
+      {
+        predicate: matchRange(INTERMEDIATE_START, INTERMEDIATE_END),
+        handler: collectHandler,
+      },
+      { predicate: matchRange(FINAL_START, FINAL_END), handler: finalHandler },
+    ]
+
+    return this.buildRowFromRules(rules, ignoreHandler)
   }
 
-  private configureCsiIgnoreRow(row: ByteHandler[]): void {
+  private createCsiIgnoreRow(): ByteHandler[] {
     const stayHandler: ByteHandler = () => {}
-    row.fill(stayHandler)
 
     const toGround: ByteHandler = () => {
       this.context.state = ParserState.Ground
     }
-    this.assignBytes(row, [CAN, SUB], toGround)
 
-    row[ESC] = () => {
-      this.context.state = ParserState.Escape
-    }
+    const rules: ByteRule[] = [
+      { predicate: matchBytes(CAN, SUB), handler: toGround },
+      {
+        predicate: matchBytes(ESC),
+        handler: (_byte) => {
+          this.context.state = ParserState.Escape
+        },
+      },
+      { predicate: matchRange(FINAL_START, FINAL_END), handler: toGround },
+    ]
 
-    const terminate: ByteHandler = () => {
-      this.context.state = ParserState.Ground
-    }
-    this.assignRange(row, FINAL_START, FINAL_END, terminate)
+    return this.buildRowFromRules(rules, stayHandler)
   }
 
-  private configureOscRow(row: ByteHandler[]): void {
+  private createOscRow(): ByteHandler[] {
     const handler: ByteHandler = (byte, sink) => {
       this.handleOscString(byte, sink)
     }
-    row.fill(handler)
+    return this.buildRowFromRules([], handler)
   }
 
-  private configureDcsEntryRow(row: ByteHandler[]): void {
+  private createDcsEntryRow(): ByteHandler[] {
     const toIgnore: ByteHandler = () => {
       this.enterDcsIgnore()
     }
-    row.fill(toIgnore)
 
     const cancel: ByteHandler = () => {
       this.cancelDcs()
     }
-    this.assignBytes(row, [CAN, SUB], cancel)
 
-    row[ESC] = () => {
+    const setToEscape: ByteHandler = () => {
       this.resetParamContext()
       this.context.state = ParserState.Escape
     }
@@ -412,12 +473,10 @@ class ParserImpl implements Parser {
         this.enterDcsIgnore()
       }
     }
-    this.assignRange(row, 0x3c, 0x3f, recordPrefix)
 
     const enterParam = this.transitionTo(ParserState.DcsParam, (byte, sink) => {
       this.processDcsParamByte(byte, sink)
     })
-    this.assignRange(row, PARAM_START, SEMICOLON, enterParam)
 
     const enterIntermediate = this.transitionTo(
       ParserState.DcsIntermediate,
@@ -429,31 +488,36 @@ class ParserImpl implements Parser {
         this.context.intermediates.push(byte)
       },
     )
-    this.assignRange(
-      row,
-      INTERMEDIATE_START,
-      INTERMEDIATE_END,
-      enterIntermediate,
-    )
 
     const dispatch: ByteHandler = (byte, sink) => {
       this.finalizeDcs(byte, sink)
     }
-    this.assignRange(row, FINAL_START, FINAL_END, dispatch)
+
+    const rules: ByteRule[] = [
+      { predicate: matchBytes(CAN, SUB), handler: cancel },
+      { predicate: matchBytes(ESC), handler: setToEscape },
+      { predicate: matchRange(0x3c, 0x3f), handler: recordPrefix },
+      { predicate: matchRange(PARAM_START, SEMICOLON), handler: enterParam },
+      {
+        predicate: matchRange(INTERMEDIATE_START, INTERMEDIATE_END),
+        handler: enterIntermediate,
+      },
+      { predicate: matchRange(FINAL_START, FINAL_END), handler: dispatch },
+    ]
+
+    return this.buildRowFromRules(rules, toIgnore)
   }
 
-  private configureDcsParamRow(row: ByteHandler[]): void {
+  private createDcsParamRow(): ByteHandler[] {
     const toIgnore: ByteHandler = () => {
       this.enterDcsIgnore()
     }
-    row.fill(toIgnore)
 
     const cancel: ByteHandler = () => {
       this.cancelDcs()
     }
-    this.assignBytes(row, [CAN, SUB], cancel)
 
-    row[ESC] = () => {
+    const setToEscape: ByteHandler = () => {
       this.resetParamContext()
       this.context.state = ParserState.Escape
     }
@@ -461,12 +525,10 @@ class ParserImpl implements Parser {
     const digit: ByteHandler = (byte) => {
       this.handleDcsParamDigit(byte)
     }
-    this.assignRange(row, DIGIT_START, DIGIT_END, digit)
 
     const separator: ByteHandler = () => {
       this.pushCurrentParam()
     }
-    this.assignBytes(row, [COLON, SEMICOLON], separator)
 
     const toIntermediate = this.transitionTo(
       ParserState.DcsIntermediate,
@@ -478,26 +540,36 @@ class ParserImpl implements Parser {
         this.context.intermediates.push(byte)
       },
     )
-    this.assignRange(row, INTERMEDIATE_START, INTERMEDIATE_END, toIntermediate)
 
     const dispatch: ByteHandler = (byte, sink) => {
       this.finalizeDcs(byte, sink)
     }
-    this.assignRange(row, FINAL_START, FINAL_END, dispatch)
+
+    const rules: ByteRule[] = [
+      { predicate: matchBytes(CAN, SUB), handler: cancel },
+      { predicate: matchBytes(ESC), handler: setToEscape },
+      { predicate: matchRange(DIGIT_START, DIGIT_END), handler: digit },
+      { predicate: matchBytes(COLON, SEMICOLON), handler: separator },
+      {
+        predicate: matchRange(INTERMEDIATE_START, INTERMEDIATE_END),
+        handler: toIntermediate,
+      },
+      { predicate: matchRange(FINAL_START, FINAL_END), handler: dispatch },
+    ]
+
+    return this.buildRowFromRules(rules, toIgnore)
   }
 
-  private configureDcsIntermediateRow(row: ByteHandler[]): void {
+  private createDcsIntermediateRow(): ByteHandler[] {
     const toIgnore: ByteHandler = () => {
       this.enterDcsIgnore()
     }
-    row.fill(toIgnore)
 
     const cancel: ByteHandler = () => {
       this.cancelDcs()
     }
-    this.assignBytes(row, [CAN, SUB], cancel)
 
-    row[ESC] = () => {
+    const setToEscape: ByteHandler = () => {
       this.resetParamContext()
       this.context.state = ParserState.Escape
     }
@@ -509,85 +581,57 @@ class ParserImpl implements Parser {
       }
       this.context.intermediates.push(byte)
     }
-    this.assignRange(row, INTERMEDIATE_START, INTERMEDIATE_END, collect)
 
     const dispatch: ByteHandler = (byte, sink) => {
       this.finalizeDcs(byte, sink)
     }
-    this.assignRange(row, FINAL_START, FINAL_END, dispatch)
+
+    const rules: ByteRule[] = [
+      { predicate: matchBytes(CAN, SUB), handler: cancel },
+      { predicate: matchBytes(ESC), handler: setToEscape },
+      {
+        predicate: matchRange(INTERMEDIATE_START, INTERMEDIATE_END),
+        handler: collect,
+      },
+      { predicate: matchRange(FINAL_START, FINAL_END), handler: dispatch },
+    ]
+
+    return this.buildRowFromRules(rules, toIgnore)
   }
 
-  private configureDcsIgnoreRow(row: ByteHandler[]): void {
+  private createDcsIgnoreRow(): ByteHandler[] {
     const stay: ByteHandler = () => {}
-    row.fill(stay)
 
     const toGround: ByteHandler = () => {
       this.context.state = ParserState.Ground
     }
-    this.assignBytes(row, [CAN, SUB], toGround)
 
-    row[ESC] = () => {
-      this.context.state = ParserState.Escape
-    }
+    const rules: ByteRule[] = [
+      { predicate: matchBytes(CAN, SUB), handler: toGround },
+      {
+        predicate: matchBytes(ESC),
+        handler: (_byte) => {
+          this.context.state = ParserState.Escape
+        },
+      },
+      { predicate: matchRange(FINAL_START, FINAL_END), handler: toGround },
+    ]
 
-    this.assignRange(row, FINAL_START, FINAL_END, toGround)
+    return this.buildRowFromRules(rules, stay)
   }
 
-  private configureDcsPassthroughRow(row: ByteHandler[]): void {
+  private createDcsPassthroughRow(): ByteHandler[] {
     const handler: ByteHandler = (byte, sink) => {
       this.handleDcsPassthrough(byte, sink)
     }
-    row.fill(handler)
+    return this.buildRowFromRules([], handler)
   }
 
-  private configureSosPmApcRow(row: ByteHandler[]): void {
+  private createSosPmApcRow(): ByteHandler[] {
     const handler: ByteHandler = (byte, sink) => {
       this.handleSosPmApcString(byte, sink)
     }
-    row.fill(handler)
-  }
-
-  private assignByte(
-    row: ByteHandler[],
-    code: number,
-    handler: ByteHandler,
-  ): void {
-    row[code] = handler
-  }
-
-  private assignBytes(
-    row: ByteHandler[],
-    codes: ReadonlyArray<number>,
-    handler: ByteHandler,
-  ): void {
-    for (const code of codes) {
-      row[code] = handler
-    }
-  }
-
-  private assignRange(
-    row: ByteHandler[],
-    start: number,
-    end: number,
-    handler: ByteHandler,
-  ): void {
-    for (let code = start; code <= end; code += 1) {
-      row[code] = handler
-    }
-  }
-
-  private assignRangeIfMatch(
-    row: ByteHandler[],
-    start: number,
-    end: number,
-    expected: ByteHandler,
-    handler: ByteHandler,
-  ): void {
-    for (let code = start; code <= end; code += 1) {
-      if (row[code] === expected) {
-        row[code] = handler
-      }
-    }
+    return this.buildRowFromRules([], handler)
   }
 
   private transitionTo(
@@ -619,7 +663,7 @@ class ParserImpl implements Parser {
   }
 
   private handleC1Spec(byte: number, sink: ParserEventSink): void {
-    const action = getSpecC1Action(byte)
+    const action = BYTE_TO_C1_ACTION.get(byte)
     if (!action) {
       this.flushPrint(sink)
       this.emitExecute(byte, sink)
