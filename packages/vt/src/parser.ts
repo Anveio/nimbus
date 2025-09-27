@@ -1,15 +1,15 @@
+import { getSpecC1Action } from './internal/c1-table'
 import { createInitialContext } from './internal/context'
 import {
+  type C1HandlingMode,
   type Parser,
   type ParserEvent,
   type ParserEventSink,
   ParserEventType,
-  ParserState,
   type ParserOptions,
-  type C1HandlingMode,
+  ParserState,
   type SosPmApcKind,
 } from './types'
-import { getSpecC1Action } from './internal/c1-table'
 
 const ESC = 0x1b
 const CSI_8BIT = 0x9b
@@ -23,7 +23,7 @@ const SOS_8BIT = 0x98
 const PM_8BIT = 0x9e
 const APC_8BIT = 0x9f
 const MAX_CSI_PARAMS = 16
-const MAX_CSI_INTERMEDIATES = 4 
+const MAX_CSI_INTERMEDIATES = 4
 const MAX_CSI_PARAM_VALUE = 65535
 const DEFAULT_C1_MODE: C1HandlingMode = 'spec'
 const DEFAULT_MAX_STRING_LENGTH = 4096
@@ -51,14 +51,18 @@ class ParserImpl implements Parser {
   private readonly c1Mode: C1HandlingMode
   private readonly maxStringLength: number
   private readonly acceptEightBitControls: boolean
-  private readonly dispatchTable: Record<ParserState, ReadonlyArray<ByteHandler>>
+  private readonly dispatchTable: Record<
+    ParserState,
+    ReadonlyArray<ByteHandler>
+  >
   private readonly noopHandler: ByteHandler = () => {}
 
   constructor(options: ParserOptions = {}) {
     this.c1Mode = options.c1Handling ?? DEFAULT_C1_MODE
-    this.maxStringLength = options.maxStringLength && options.maxStringLength > 0
-      ? options.maxStringLength
-      : DEFAULT_MAX_STRING_LENGTH
+    this.maxStringLength =
+      options.maxStringLength && options.maxStringLength > 0
+        ? options.maxStringLength
+        : DEFAULT_MAX_STRING_LENGTH
     this.acceptEightBitControls = options.acceptEightBitControls ?? true
     this.dispatchTable = this.buildDispatchTable()
   }
@@ -89,12 +93,19 @@ class ParserImpl implements Parser {
     handler(byte, sink)
   }
 
-  private dispatchStateByte(state: ParserState, byte: number, sink: ParserEventSink): void {
+  private dispatchStateByte(
+    state: ParserState,
+    byte: number,
+    sink: ParserEventSink,
+  ): void {
     const handler = this.dispatchTable[state]?.[byte] ?? this.noopHandler
     handler(byte, sink)
   }
 
-  private buildDispatchTable(): Record<ParserState, ReadonlyArray<ByteHandler>> {
+  private buildDispatchTable(): Record<
+    ParserState,
+    ReadonlyArray<ByteHandler>
+  > {
     const createRow = (): ByteHandler[] =>
       new Array<ByteHandler>(BYTE_TABLE_SIZE).fill(this.noopHandler)
 
@@ -178,13 +189,24 @@ class ParserImpl implements Parser {
       this.context.intermediates.push(byte)
       this.context.state = ParserState.EscapeIntermediate
     }
-    this.assignRange(row, INTERMEDIATE_START, INTERMEDIATE_END, collectIntermediate)
+    this.assignRange(
+      row,
+      INTERMEDIATE_START,
+      INTERMEDIATE_END,
+      collectIntermediate,
+    )
 
     const dispatchEscape: ByteHandler = (byte, sink) => {
       this.emitEscDispatch(byte, sink)
       this.context.state = ParserState.Ground
     }
-    this.assignRangeIfMatch(row, PARAM_START, FINAL_END, dropToGround, dispatchEscape)
+    this.assignRangeIfMatch(
+      row,
+      PARAM_START,
+      FINAL_END,
+      dropToGround,
+      dispatchEscape,
+    )
   }
 
   private configureEscapeIntermediateRow(row: ByteHandler[]): void {
@@ -212,11 +234,11 @@ class ParserImpl implements Parser {
     row.fill(cancel)
     this.assignBytes(row, [CAN, SUB], cancel)
 
-    const escape: ByteHandler = () => {
+    const setToEscape: ByteHandler = () => {
       this.resetCsiContext()
       this.context.state = ParserState.Escape
     }
-    row[ESC] = escape
+    row[ESC] = setToEscape
 
     const recordPrefix: ByteHandler = (byte) => {
       if (this.context.prefix === null) {
@@ -230,7 +252,10 @@ class ParserImpl implements Parser {
     const recordDigit: ByteHandler = (byte) => {
       this.handleCsiParamDigit(byte)
     }
-    const enterParamWithDigit = this.transitionTo(ParserState.CsiParam, recordDigit)
+    const enterParamWithDigit = this.transitionTo(
+      ParserState.CsiParam,
+      recordDigit,
+    )
     this.assignRange(row, DIGIT_START, DIGIT_END, enterParamWithDigit)
 
     const pushParam: ByteHandler = () => {
@@ -246,8 +271,16 @@ class ParserImpl implements Parser {
       }
       this.context.intermediates.push(byte)
     }
-    const moveToIntermediate = this.transitionTo(ParserState.CsiIntermediate, enterIntermediate)
-    this.assignRange(row, INTERMEDIATE_START, INTERMEDIATE_END, moveToIntermediate)
+    const moveToIntermediate = this.transitionTo(
+      ParserState.CsiIntermediate,
+      enterIntermediate,
+    )
+    this.assignRange(
+      row,
+      INTERMEDIATE_START,
+      INTERMEDIATE_END,
+      moveToIntermediate,
+    )
 
     const dispatchFinal: ByteHandler = (byte, sink) => {
       this.finalizeCsi(byte, sink)
@@ -281,13 +314,16 @@ class ParserImpl implements Parser {
     }
     this.assignBytes(row, [COLON, SEMICOLON], separator)
 
-    const toIntermediate = this.transitionTo(ParserState.CsiIntermediate, (byte) => {
-      if (this.context.intermediates.length >= MAX_CSI_INTERMEDIATES) {
-        this.enterCsiIgnore()
-        return
-      }
-      this.context.intermediates.push(byte)
-    })
+    const toIntermediate = this.transitionTo(
+      ParserState.CsiIntermediate,
+      (byte) => {
+        if (this.context.intermediates.length >= MAX_CSI_INTERMEDIATES) {
+          this.enterCsiIgnore()
+          return
+        }
+        this.context.intermediates.push(byte)
+      },
+    )
     this.assignRange(row, INTERMEDIATE_START, INTERMEDIATE_END, toIntermediate)
 
     const dispatchFinal: ByteHandler = (byte, sink) => {
@@ -354,31 +390,147 @@ class ParserImpl implements Parser {
   }
 
   private configureDcsEntryRow(row: ByteHandler[]): void {
-    const handler: ByteHandler = (byte, sink) => {
-      this.handleDcsEntry(byte, sink)
+    const toIgnore: ByteHandler = () => {
+      this.enterDcsIgnore()
     }
-    row.fill(handler)
+    row.fill(toIgnore)
+
+    const cancel: ByteHandler = () => {
+      this.cancelDcs()
+    }
+    this.assignBytes(row, [CAN, SUB], cancel)
+
+    row[ESC] = () => {
+      this.resetParamContext()
+      this.context.state = ParserState.Escape
+    }
+
+    const recordPrefix: ByteHandler = (byte) => {
+      if (this.context.prefix === null) {
+        this.context.prefix = byte
+      } else {
+        this.enterDcsIgnore()
+      }
+    }
+    this.assignRange(row, 0x3c, 0x3f, recordPrefix)
+
+    const enterParam = this.transitionTo(ParserState.DcsParam, (byte, sink) => {
+      this.processDcsParamByte(byte, sink)
+    })
+    this.assignRange(row, PARAM_START, SEMICOLON, enterParam)
+
+    const enterIntermediate = this.transitionTo(
+      ParserState.DcsIntermediate,
+      (byte) => {
+        if (this.context.intermediates.length >= MAX_CSI_INTERMEDIATES) {
+          this.enterDcsIgnore()
+          return
+        }
+        this.context.intermediates.push(byte)
+      },
+    )
+    this.assignRange(
+      row,
+      INTERMEDIATE_START,
+      INTERMEDIATE_END,
+      enterIntermediate,
+    )
+
+    const dispatch: ByteHandler = (byte, sink) => {
+      this.finalizeDcs(byte, sink)
+    }
+    this.assignRange(row, FINAL_START, FINAL_END, dispatch)
   }
 
   private configureDcsParamRow(row: ByteHandler[]): void {
-    const handler: ByteHandler = (byte, sink) => {
-      this.handleDcsParam(byte, sink)
+    const toIgnore: ByteHandler = () => {
+      this.enterDcsIgnore()
     }
-    row.fill(handler)
+    row.fill(toIgnore)
+
+    const cancel: ByteHandler = () => {
+      this.cancelDcs()
+    }
+    this.assignBytes(row, [CAN, SUB], cancel)
+
+    row[ESC] = () => {
+      this.resetParamContext()
+      this.context.state = ParserState.Escape
+    }
+
+    const digit: ByteHandler = (byte) => {
+      this.handleDcsParamDigit(byte)
+    }
+    this.assignRange(row, DIGIT_START, DIGIT_END, digit)
+
+    const separator: ByteHandler = () => {
+      this.pushCurrentParam()
+    }
+    this.assignBytes(row, [COLON, SEMICOLON], separator)
+
+    const toIntermediate = this.transitionTo(
+      ParserState.DcsIntermediate,
+      (byte) => {
+        if (this.context.intermediates.length >= MAX_CSI_INTERMEDIATES) {
+          this.enterDcsIgnore()
+          return
+        }
+        this.context.intermediates.push(byte)
+      },
+    )
+    this.assignRange(row, INTERMEDIATE_START, INTERMEDIATE_END, toIntermediate)
+
+    const dispatch: ByteHandler = (byte, sink) => {
+      this.finalizeDcs(byte, sink)
+    }
+    this.assignRange(row, FINAL_START, FINAL_END, dispatch)
   }
 
   private configureDcsIntermediateRow(row: ByteHandler[]): void {
-    const handler: ByteHandler = (byte, sink) => {
-      this.handleDcsIntermediate(byte, sink)
+    const toIgnore: ByteHandler = () => {
+      this.enterDcsIgnore()
     }
-    row.fill(handler)
+    row.fill(toIgnore)
+
+    const cancel: ByteHandler = () => {
+      this.cancelDcs()
+    }
+    this.assignBytes(row, [CAN, SUB], cancel)
+
+    row[ESC] = () => {
+      this.resetParamContext()
+      this.context.state = ParserState.Escape
+    }
+
+    const collect: ByteHandler = (byte) => {
+      if (this.context.intermediates.length >= MAX_CSI_INTERMEDIATES) {
+        this.enterDcsIgnore()
+        return
+      }
+      this.context.intermediates.push(byte)
+    }
+    this.assignRange(row, INTERMEDIATE_START, INTERMEDIATE_END, collect)
+
+    const dispatch: ByteHandler = (byte, sink) => {
+      this.finalizeDcs(byte, sink)
+    }
+    this.assignRange(row, FINAL_START, FINAL_END, dispatch)
   }
 
   private configureDcsIgnoreRow(row: ByteHandler[]): void {
-    const handler: ByteHandler = (byte) => {
-      this.handleDcsIgnore(byte)
+    const stay: ByteHandler = () => {}
+    row.fill(stay)
+
+    const toGround: ByteHandler = () => {
+      this.context.state = ParserState.Ground
     }
-    row.fill(handler)
+    this.assignBytes(row, [CAN, SUB], toGround)
+
+    row[ESC] = () => {
+      this.context.state = ParserState.Escape
+    }
+
+    this.assignRange(row, FINAL_START, FINAL_END, toGround)
   }
 
   private configureDcsPassthroughRow(row: ByteHandler[]): void {
@@ -395,7 +547,11 @@ class ParserImpl implements Parser {
     row.fill(handler)
   }
 
-  private assignByte(row: ByteHandler[], code: number, handler: ByteHandler): void {
+  private assignByte(
+    row: ByteHandler[],
+    code: number,
+    handler: ByteHandler,
+  ): void {
     row[code] = handler
   }
 
@@ -434,7 +590,10 @@ class ParserImpl implements Parser {
     }
   }
 
-  private transitionTo(state: ParserState, delegate?: ByteHandler): ByteHandler {
+  private transitionTo(
+    state: ParserState,
+    delegate?: ByteHandler,
+  ): ByteHandler {
     return (byte, sink) => {
       this.context.state = state
       delegate?.(byte, sink)
@@ -686,6 +845,37 @@ class ParserImpl implements Parser {
     }
   }
 
+  private handleDcsParamDigit(byte: number): void {
+    const digit = byte - DIGIT_START
+    this.context.currentParam = (this.context.currentParam ?? 0) * 10 + digit
+
+    if ((this.context.currentParam ?? 0) > MAX_CSI_PARAM_VALUE) {
+      this.enterDcsIgnore()
+    }
+  }
+
+  private processDcsParamByte(byte: number, sink?: ParserEventSink): void {
+    if (byte >= DIGIT_START && byte <= DIGIT_END) {
+      this.handleDcsParamDigit(byte)
+      return
+    }
+
+    if (byte === COLON || byte === SEMICOLON) {
+      this.pushCurrentParam()
+      return
+    }
+
+    if (byte >= FINAL_START && byte <= FINAL_END) {
+      if (!sink) {
+        return
+      }
+      this.finalizeDcs(byte, sink)
+      return
+    }
+
+    this.enterDcsIgnore()
+  }
+
   private enterParamIgnore(): void {
     if (
       this.context.state === ParserState.DcsParam ||
@@ -741,134 +931,6 @@ class ParserImpl implements Parser {
     this.context.dcsBuffer = []
     this.context.dcsEscPending = false
     this.context.state = ParserState.DcsEntry
-  }
-
-  private handleDcsEntry(byte: number, sink: ParserEventSink): void {
-    if (byte === CAN || byte === SUB) {
-      this.cancelDcs()
-      return
-    }
-
-    if (byte === ESC) {
-      this.resetParamContext()
-      this.context.state = ParserState.Escape
-      return
-    }
-
-    if (byte >= 0x3c && byte <= 0x3f) {
-      if (this.context.prefix === null) {
-        this.context.prefix = byte
-      } else {
-        this.enterDcsIgnore()
-      }
-      return
-    }
-
-    if (byte >= 0x30 && byte <= 0x3f) {
-      this.context.state = ParserState.DcsParam
-      this.handleDcsParam(byte, sink)
-      return
-    }
-
-    if (byte >= 0x20 && byte <= 0x2f) {
-      this.context.intermediates.push(byte)
-      this.context.state = ParserState.DcsIntermediate
-      return
-    }
-
-    if (byte >= 0x40 && byte <= 0x7e) {
-      this.finalizeDcs(byte, sink)
-      return
-    }
-
-    this.enterDcsIgnore()
-  }
-
-  private handleDcsParam(byte: number, sink: ParserEventSink): void {
-    if (byte === CAN || byte === SUB) {
-      this.cancelDcs()
-      return
-    }
-
-    if (byte === ESC) {
-      this.resetParamContext()
-      this.context.state = ParserState.Escape
-      return
-    }
-
-    if (byte >= 0x30 && byte <= 0x39) {
-      const digit = byte - 0x30
-      this.context.currentParam = (this.context.currentParam ?? 0) * 10 + digit
-
-      if ((this.context.currentParam ?? 0) > MAX_CSI_PARAM_VALUE) {
-        this.enterDcsIgnore()
-      }
-      return
-    }
-
-    if (byte === 0x3b || byte === 0x3a) {
-      this.pushCurrentParam()
-      return
-    }
-
-    if (byte >= 0x20 && byte <= 0x2f) {
-      this.context.intermediates.push(byte)
-      this.context.state = ParserState.DcsIntermediate
-      return
-    }
-
-    if (byte >= 0x40 && byte <= 0x7e) {
-      this.finalizeDcs(byte, sink)
-      return
-    }
-
-    this.enterDcsIgnore()
-  }
-
-  private handleDcsIntermediate(byte: number, sink: ParserEventSink): void {
-    if (byte === CAN || byte === SUB) {
-      this.cancelDcs()
-      return
-    }
-
-    if (byte === ESC) {
-      this.resetParamContext()
-      this.context.state = ParserState.Escape
-      return
-    }
-
-    if (byte >= 0x20 && byte <= 0x2f) {
-      if (this.context.intermediates.length >= MAX_CSI_INTERMEDIATES) {
-        this.enterDcsIgnore()
-        return
-      }
-
-      this.context.intermediates.push(byte)
-      return
-    }
-
-    if (byte >= 0x40 && byte <= 0x7e) {
-      this.finalizeDcs(byte, sink)
-      return
-    }
-
-    this.enterDcsIgnore()
-  }
-
-  private handleDcsIgnore(byte: number): void {
-    if (byte === CAN || byte === SUB) {
-      this.context.state = ParserState.Ground
-      return
-    }
-
-    if (byte === ESC) {
-      this.context.state = ParserState.Escape
-      return
-    }
-
-    if (byte >= 0x40 && byte <= 0x7e) {
-      this.context.state = ParserState.Ground
-    }
   }
 
   // ECMA-48 §8.3.115 (DCS): pass data until final ST.
