@@ -18,11 +18,11 @@ import {
   type ParserEventSink,
   ParserEventType,
   type ParserOptions,
-  type ParserPresetName,
   ParserState,
   type ParserStringLimits,
   type SosPmApcKind,
 } from './types'
+import { resolveSpecOptions } from './internal/spec-defaults'
 
 const CSI_8BIT = 0x9b
 const OSC_8BIT = 0x9d
@@ -40,20 +40,6 @@ const DEFAULT_STRING_LIMITS = {
   dcs: 4096,
   sosPmApc: 4096,
 } as const
-interface PresetOptions {
-  readonly c1Handling?: C1HandlingMode
-  readonly acceptEightBitControls?: boolean
-  readonly maxStringLength?: number
-  readonly stringLimits?: ParserStringLimits
-}
-
-const PRESET_BASES: Record<ParserPresetName, PresetOptions> = {
-  vt220: {
-    c1Handling: 'spec',
-    acceptEightBitControls: true,
-    stringLimits: { ...DEFAULT_STRING_LIMITS },
-  },
-}
 
 const DCS_CHUNK_SIZE = 1024
 const BACKSLASH = 0x5c
@@ -71,32 +57,6 @@ const {
   COLON,
   SEMICOLON,
 } = BYTE_LIMITS
-
-const applyPreset = (options: ParserOptions): ParserOptions => {
-  if (!options.preset) {
-    return options
-  }
-
-  const { preset, ...rest } = options
-  const base = PRESET_BASES[preset]
-
-  const merged = {
-    ...base,
-    ...rest,
-  }
-
-  const baseLimits = base.stringLimits
-  const overrideLimits = rest.stringLimits
-
-  if (baseLimits || overrideLimits) {
-    merged.stringLimits = {
-      ...(baseLimits ?? {}),
-      ...(overrideLimits ?? {}),
-    }
-  }
-
-  return merged
-}
 
 class ParserImpl implements Parser {
   private context = createInitialContext()
@@ -746,4 +706,4 @@ class ParserImpl implements Parser {
 }
 
 export const createParser = (options: ParserOptions = {}): Parser =>
-  new ParserImpl(applyPreset(options))
+  new ParserImpl(resolveSpecOptions(options))

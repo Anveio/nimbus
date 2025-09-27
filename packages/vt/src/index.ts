@@ -1,6 +1,7 @@
 /** biome-ignore-all lint/performance/noBarrelFile: Library */
 export { classifyByte } from './classifier'
 export { createParser } from './parser'
+export { SPEC_DEFAULTS, SPEC_FALLBACK } from './internal/spec-defaults'
 export type {
   ByteFlag,
   C1HandlingMode,
@@ -9,7 +10,7 @@ export type {
   ParserEventSink,
   ParserEventType,
   ParserOptions,
-  ParserPresetName,
+  ParserSpec,
   ParserStringLimits,
   ParserState,
   SosPmApcKind,

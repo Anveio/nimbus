@@ -103,10 +103,17 @@ export interface ParserEventSink {
 
 export type C1HandlingMode = 'spec' | 'escaped' | 'execute' | 'ignore'
 
-export type ParserPresetName = 'vt220'
+export type ParserSpec =
+  | 'vt100'
+  | 'vt220'
+  | 'vt320'
+  | 'vt420'
+  | 'vt520'
+  | 'vt525'
+  | 'xterm'
 
 export interface ParserOptions {
-  readonly preset?: ParserPresetName
+  readonly spec?: ParserSpec
   readonly c1Handling?: C1HandlingMode
   readonly maxStringLength?: number
   readonly acceptEightBitControls?: boolean
@@ -116,8 +123,25 @@ export interface ParserOptions {
 export type SosPmApcKind = 'SOS' | 'PM' | 'APC'
 
 export interface ParserStringLimits {
+  /**
+   * Maximum byte length for OSC payloads (e.g. `ESC ] 52 ;...` clipboard writes).
+   * If an application spams a 10 KB title string and `osc` is 4096, the parser
+   * cancels the sequence before dispatch. Raising it to, e.g. 16384 lets the full
+   * payload through for xterm-style features.
+   */
   readonly osc: number
+  /**
+   * Maximum bytes buffered between `DcsHook` and `DcsUnhook` (e.g. Sixel or
+   * DECSLRM packets). Leaving this at 4096 stops runaway graphics dumps; bumping
+   * it to 8192 accommodates larger Sixel images without truncation.
+   */
   readonly dcs: number
+  /**
+   * Cap for Start of String (SOS)/Privacy Message (PM)/Application Program Command
+   * (APC) strings (status messages and application commands). Shell integrations
+   * that emit long hyperlinks may exceed 2048 bytes—raising `sosPmApc` keeps those
+   * intact, while lowering it guards against rogue status spam.
+   */
   readonly sosPmApc: number
 }
 

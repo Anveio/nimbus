@@ -207,8 +207,8 @@ describe('ParserImpl basic behaviour', () => {
     expect(parser.state).toBe(ParserState.Ground)
   })
 
-  it('applies vt220 preset defaults and merges overrides', () => {
-    const parser = createParser({ preset: 'vt220', stringLimits: { osc: 2 } })
+  it('applies vt220 spec defaults and merges overrides', () => {
+    const parser = createParser({ spec: 'vt220', stringLimits: { osc: 2 } })
     const sink = new TestSink()
 
     parser.write('\u001b]0;abc\u0007', sink)
@@ -225,7 +225,7 @@ describe('ParserImpl basic behaviour', () => {
   })
 
   it('dispatches DECSET with preserved prefix and params', () => {
-    const parser = createParser({ preset: 'vt220' })
+    const parser = createParser({ spec: 'vt220' })
     const sink = new TestSink()
 
     parser.write('\u001b[?25h', sink)
@@ -238,7 +238,7 @@ describe('ParserImpl basic behaviour', () => {
   })
 
   it('dispatches DECRST with preserved prefix and params', () => {
-    const parser = createParser({ preset: 'vt220' })
+    const parser = createParser({ spec: 'vt220' })
     const sink = new TestSink()
 
     parser.write('\u001b[?1l', sink)
@@ -251,7 +251,7 @@ describe('ParserImpl basic behaviour', () => {
   })
 
   it('dispatches DA sequences with defaulted params', () => {
-    const parser = createParser({ preset: 'vt220' })
+    const parser = createParser({ spec: 'vt220' })
     const sink = new TestSink()
 
     parser.write('\u001b[c', sink)
@@ -271,7 +271,7 @@ describe('ParserImpl basic behaviour', () => {
   })
 
   it('dispatches DECSLRM margins with both parameters intact', () => {
-    const parser = createParser({ preset: 'vt220' })
+    const parser = createParser({ spec: 'vt220' })
     const sink = new TestSink()
 
     parser.write('\u001b[5;40s', sink)
@@ -283,7 +283,7 @@ describe('ParserImpl basic behaviour', () => {
   })
 
   it('aborts DEC DCS payloads once the preset limit is exceeded', () => {
-    const parser = createParser({ preset: 'vt220', stringLimits: { dcs: 4 } })
+    const parser = createParser({ spec: 'vt220', stringLimits: { dcs: 4 } })
     const sink = new TestSink()
 
     parser.write('\u001bPq12345\u001b\\', sink)
@@ -296,6 +296,50 @@ describe('ParserImpl basic behaviour', () => {
     const total = putEvents.reduce((sum, event) => sum + event.data.length, 0)
     expect(total).toBe(4)
     expect(sink.events.some((event) => event.type === ParserEventType.DcsUnhook)).toBe(false)
+  })
+
+  it('vt100 spec ignores 8-bit CSI introducer by default', () => {
+    const parser = createParser({ spec: 'vt100' })
+    const sink = new TestSink()
+
+    parser.write(new Uint8Array([0x9b, 0x41]), sink)
+
+    expect(sink.events.some((event) => event.type === ParserEventType.CsiDispatch)).toBe(false)
+    const printEvent = sink.events.find((event) => event.type === ParserEventType.Print)
+    invariant(printEvent && printEvent.type === ParserEventType.Print, 'expected print event')
+    expect(new TextDecoder().decode(printEvent.data)).toBe('A')
+  })
+
+  it('vt320 spec expands DCS string limit to 8192 bytes', () => {
+    const parser = createParser({ spec: 'vt320' })
+    const sink = new TestSink()
+
+    const payload = 'Z'.repeat(9000)
+    parser.write(`\u001bPq${payload}\u001b\\`, sink)
+
+    const puts = sink.events.filter(
+      (event): event is Extract<ParserEvent, { type: ParserEventType.DcsPut }> =>
+        event.type === ParserEventType.DcsPut,
+    )
+
+    const total = puts.reduce((sum, event) => sum + event.data.length, 0)
+    expect(total).toBe(8192)
+    expect(sink.events.some((event) => event.type === ParserEventType.DcsUnhook)).toBe(false)
+  })
+
+  it('xterm spec raises OSC payload limit to 16384 bytes', () => {
+    const parser = createParser({ spec: 'xterm' })
+    const sink = new TestSink()
+
+    const payload = '0;'.concat('A'.repeat(17000))
+    parser.write(`\u001b]${payload}\u0007`, sink)
+
+    expect(
+      sink.events.find((event) => event.type === ParserEventType.OscDispatch),
+    ).toBeUndefined()
+    const execute = sink.events.at(-1)
+    invariant(execute && execute.type === ParserEventType.Execute, 'expected BEL execute')
+    expect(execute.codePoint).toBe(0x07)
   })
 
   it('parses SOS string via ESC', () => {
