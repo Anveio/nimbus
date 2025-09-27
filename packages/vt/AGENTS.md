@@ -1,3 +1,7 @@
+## Mission
+
+Target full VT220 + ECMA-48 behaviour as the canonical baseline while keeping the parser architecture modular enough that VT500/xterm extensions can be layered in as additional rule modules when needed.
+
 Scaffolding Result
 
 Sketched the public surface for the VT core—parser states, byte-class bit flags, and event payload unions—so downstream modules know exactly what data flows through the machine (packages/vt/src/types.ts:6).

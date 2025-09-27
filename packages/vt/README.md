@@ -1,10 +1,11 @@
 # @packages/vt
 
-A zero-dependency toolkit for parsing VT-series terminal control streams
-in the browser. The package focuses on modeling the core state machine
-for DEC VT500-compatible sequences (ECMA-48), exposing strongly-typed
-parser events that higher-level renderers (such as the `tui` package) can
-consume to maintain screen state.
+Our mission is to deliver a zero-dependency VT parser that fully covers
+VT220 + ECMA-48 semantics while keeping the architecture modular enough
+that VT500 or xterm extensions can be layered in as additional rule
+modules when the product needs them. In practice that means a clean,
+data-driven core that emits rich events other packages (like `tui`) can
+interpret to maintain terminal state.
 
 ## What lives here?
 
