@@ -91,3 +91,18 @@ Emulate Ghostty’s string handling: buffer OSC/DCS/SOS payloads, terminate on B
 Mirror Ghostty’s separation of concerns: parser yields events, terminal (future tui package) interprets them, while specialised modules manage colors, modes, hyperlinks, etc.
 Maintain per-feature configuration knobs akin to Ghostty’s build options: e.g., c1Handling, maximum string length, 7/8-bit acceptance, etc., so consumers can choose strict VT220 vs liberal behaviour.
 Using Ghostty as a guide, we can finish SOS/PM/APC support, flesh out C1 semantics, and add configuration/testing infrastructure that aligns with real-world VT220 expectations while keeping the parser small, fast, and purely functional.
+
+## Technical approach – layered terminal stack
+
+- **Motivation** – Real terminals are more than parsers. Users expect VT220 semantics (margins, origin mode, tab stops) and emulator conveniences (OSC 52 clipboard, mouse tracking). Keeping those duties in the parser would produce an unmaintainable monolith. A layered design lets us evolve each concern independently and ship consistent behaviour across devices.
+- **Layering** –
+  1. **Parser**: consumes bytes and emits `ParserEvent`s according to the DEC state diagram; configuration is driven by `resolveParserOptions`.
+  2. **Behaviour/Interpreter**: ingests events, applies spec+emulator capabilities, and maintains terminal state (screen buffers, cursor, DEC modes, scrollback). It exposes read-only snapshots plus `TerminalStateDelta` diffs for consumers.
+  3. **Presentation / Emulator features**: renders diffs (canvas, DOM, WebGPU) and hooks optional integrations (clipboard, hyperlinks, mouse). Emulator overlays such as xterm sit here, enabling features without mutating lower layers.
+- **Configuration flow** – Spec defaults (vt100/vt220/…) merge with emulator overlays (xterm, kitty, …) before parser and interpreter initialisation. Both layers therefore share the same capability bundle—feature flags, default modes, string caps—which downstream components can query.
+- **Implementation roadmap** –
+  - Extend overlay metadata to publish capability descriptors (supported modes, OSC handlers, DCS expectations) instead of ad-hoc overrides.
+  - Introduce a `TerminalInterpreter` with methods like `handleEvent(event): Iterable<TerminalStateDelta>` and `reset()`. Build the initial command set around VT220 semantics (cursor moves, SGR, DECSET/DECRST, margins, tab stops).
+  - Define a compact diff format for screen updates (cell writes, scroll regions, mode toggles) so renderers can stay incremental.
+  - Update the TUI package to wire bytes → parser → interpreter, listening for diffs to drive the UI, while exposing hooks for emulator-specific behaviours (clipboard, mouse, bracketed paste).
+- **Long-term payoff** – Once this structure is in place, adding new emulators or advanced features becomes data-driven. We can attach mouse protocols, hyperlink handling, or sixel decoding without touching the parser, and we can share the capability descriptors with any runtime (web, native, WASM) that embeds the VT stack.
