@@ -116,6 +116,36 @@ describe('ParserImpl basic behaviour', () => {
     expect(second.finalByte).toBe('O'.charCodeAt(0))
   })
 
+  it('maps VT220 C1 controls to their ESC aliases in spec mode', () => {
+    const cases: Array<{ input: number; final: string }> = [
+      { input: 0x86, final: 'F' },
+      { input: 0x87, final: 'G' },
+      { input: 0x89, final: 'I' },
+      { input: 0x8a, final: 'J' },
+      { input: 0x8b, final: 'K' },
+      { input: 0x8c, final: 'L' },
+      { input: 0x91, final: 'Q' },
+      { input: 0x92, final: 'R' },
+      { input: 0x93, final: 'S' },
+      { input: 0x94, final: 'T' },
+      { input: 0x95, final: 'U' },
+      { input: 0x96, final: 'V' },
+      { input: 0x97, final: 'W' },
+    ]
+
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write(new Uint8Array(cases.map((c) => c.input)), sink)
+
+    expect(sink.events).toHaveLength(cases.length)
+    cases.forEach((testCase, index) => {
+      const event = sink.events[index]
+      invariant(event && event.type === ParserEventType.EscDispatch, 'expected ESC dispatch')
+      expect(event.finalByte).toBe(testCase.final.charCodeAt(0))
+    })
+  })
+
   it('parses SOS string via ESC', () => {
     const parser = createParser()
     const sink = new TestSink()
