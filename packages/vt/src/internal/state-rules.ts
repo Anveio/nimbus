@@ -90,6 +90,9 @@ export const matchRange = (start: number, end: number): ByteRulePredicate =>
 export const matchFlag = (flag: ByteFlag): ByteRulePredicate =>
   (_byte, flags) => (flags & flag) !== 0
 
+export const matchAnyFlag = (mask: ByteFlag): ByteRulePredicate =>
+  (_byte, flags) => (flags & mask) !== 0
+
 export const createStateRuleSpecs = (
   runtime: StateRuleRuntime,
 ): StateRuleSpecMap => ({
@@ -173,8 +176,8 @@ const createEscapeSpec = (runtime: StateRuleRuntime): StateRuleSpec => {
     { predicate: matchBytes(0x58), handler: () => runtime.enterSosPmApc('SOS') },
     { predicate: matchBytes(0x5e), handler: () => runtime.enterSosPmApc('PM') },
     { predicate: matchBytes(0x5f), handler: () => runtime.enterSosPmApc('APC') },
-    { predicate: matchRange(INTERMEDIATE_START, INTERMEDIATE_END), handler: collectIntermediate },
-    { predicate: matchRange(PARAM_START, FINAL_END), handler: dispatchEscape },
+    { predicate: matchFlag(ByteFlag.Intermediate), handler: collectIntermediate },
+    { predicate: matchAnyFlag(ByteFlag.Parameter | ByteFlag.Final), handler: dispatchEscape },
   ]
 
   return { fallback: dropToGround, rules }
@@ -200,8 +203,8 @@ const createEscapeIntermediateSpec = (
   }
 
   const rules: ByteRule[] = [
-    { predicate: matchRange(INTERMEDIATE_START, INTERMEDIATE_END), handler: collect },
-    { predicate: matchRange(PARAM_START, FINAL_END), handler: dispatch },
+    { predicate: matchFlag(ByteFlag.Intermediate), handler: collect },
+    { predicate: matchAnyFlag(ByteFlag.Parameter | ByteFlag.Final), handler: dispatch },
   ]
 
   return { fallback: toGround, rules }
@@ -266,8 +269,8 @@ const createCsiEntrySpec = (runtime: StateRuleRuntime): StateRuleSpec => {
     { predicate: matchRange(0x3c, 0x3f), handler: recordPrefix },
     { predicate: matchRange(DIGIT_START, DIGIT_END), handler: enterParamWithDigit },
     { predicate: matchBytes(COLON, SEMICOLON), handler: enterParamAndPush },
-    { predicate: matchRange(INTERMEDIATE_START, INTERMEDIATE_END), handler: moveToIntermediate },
-    { predicate: matchRange(FINAL_START, FINAL_END), handler: dispatchFinal },
+    { predicate: matchFlag(ByteFlag.Intermediate), handler: moveToIntermediate },
+    { predicate: matchFlag(ByteFlag.Final), handler: dispatchFinal },
   ]
 
   return { fallback: cancel, rules }
@@ -325,8 +328,8 @@ const createCsiParamSpec = (runtime: StateRuleRuntime): StateRuleSpec => {
     { predicate: matchBytes(ESC), handler: setToEscape },
     { predicate: matchRange(DIGIT_START, DIGIT_END), handler: digit },
     { predicate: matchBytes(COLON, SEMICOLON), handler: separator },
-    { predicate: matchRange(INTERMEDIATE_START, INTERMEDIATE_END), handler: toIntermediate },
-    { predicate: matchRange(FINAL_START, FINAL_END), handler: dispatchFinal },
+    { predicate: matchFlag(ByteFlag.Intermediate), handler: toIntermediate },
+    { predicate: matchFlag(ByteFlag.Final), handler: dispatchFinal },
   ]
 
   return { fallback: ignore, rules }
@@ -367,8 +370,8 @@ const createCsiIntermediateSpec = (
   const rules: ByteRule[] = [
     { predicate: matchBytes(CAN, SUB), handler: cancel },
     { predicate: matchBytes(ESC), handler: setToEscape },
-    { predicate: matchRange(INTERMEDIATE_START, INTERMEDIATE_END), handler: collect },
-    { predicate: matchRange(FINAL_START, FINAL_END), handler: dispatch },
+    { predicate: matchFlag(ByteFlag.Intermediate), handler: collect },
+    { predicate: matchFlag(ByteFlag.Final), handler: dispatch },
   ]
 
   return { fallback: ignoreHandler, rules }
@@ -392,7 +395,7 @@ const createCsiIgnoreSpec = (runtime: StateRuleRuntime): StateRuleSpec => {
         runtime.setState(ParserState.Escape)
       },
     },
-    { predicate: matchRange(FINAL_START, FINAL_END), handler: toGround },
+    { predicate: matchFlag(ByteFlag.Final), handler: toGround },
   ]
 
   return { fallback: stay, rules }
@@ -458,8 +461,8 @@ const createDcsEntrySpec = (runtime: StateRuleRuntime): StateRuleSpec => {
     { predicate: matchBytes(ESC), handler: setToEscape },
     { predicate: matchRange(0x3c, 0x3f), handler: recordPrefix },
     { predicate: matchRange(PARAM_START, SEMICOLON), handler: enterParam },
-    { predicate: matchRange(INTERMEDIATE_START, INTERMEDIATE_END), handler: enterIntermediate },
-    { predicate: matchRange(FINAL_START, FINAL_END), handler: dispatch },
+    { predicate: matchFlag(ByteFlag.Intermediate), handler: enterIntermediate },
+    { predicate: matchFlag(ByteFlag.Final), handler: dispatch },
   ]
 
   return { fallback: toIgnore, rules }
@@ -517,8 +520,8 @@ const createDcsParamSpec = (runtime: StateRuleRuntime): StateRuleSpec => {
     { predicate: matchBytes(ESC), handler: setToEscape },
     { predicate: matchRange(DIGIT_START, DIGIT_END), handler: digit },
     { predicate: matchBytes(COLON, SEMICOLON), handler: separator },
-    { predicate: matchRange(INTERMEDIATE_START, INTERMEDIATE_END), handler: toIntermediate },
-    { predicate: matchRange(FINAL_START, FINAL_END), handler: dispatch },
+    { predicate: matchFlag(ByteFlag.Intermediate), handler: toIntermediate },
+    { predicate: matchFlag(ByteFlag.Final), handler: dispatch },
   ]
 
   return { fallback: toIgnore, rules }
@@ -559,8 +562,8 @@ const createDcsIntermediateSpec = (
   const rules: ByteRule[] = [
     { predicate: matchBytes(CAN, SUB), handler: cancel },
     { predicate: matchBytes(ESC), handler: setToEscape },
-    { predicate: matchRange(INTERMEDIATE_START, INTERMEDIATE_END), handler: collect },
-    { predicate: matchRange(FINAL_START, FINAL_END), handler: dispatch },
+    { predicate: matchFlag(ByteFlag.Intermediate), handler: collect },
+    { predicate: matchFlag(ByteFlag.Final), handler: dispatch },
   ]
 
   return { fallback: toIgnore, rules }
@@ -584,7 +587,7 @@ const createDcsIgnoreSpec = (runtime: StateRuleRuntime): StateRuleSpec => {
         runtime.setState(ParserState.Escape)
       },
     },
-    { predicate: matchRange(FINAL_START, FINAL_END), handler: toGround },
+    { predicate: matchFlag(ByteFlag.Final), handler: toGround },
   ]
 
   return { fallback: stay, rules }
