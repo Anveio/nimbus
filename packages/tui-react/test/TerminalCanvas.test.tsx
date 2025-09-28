@@ -1,6 +1,3 @@
-import { render, act } from '@testing-library/react'
-import { createRef } from 'react'
-import { afterEach, describe, expect, test, vi } from 'vitest'
 import type {
   CanvasRenderer,
   CanvasRendererResizeOptions,
@@ -9,8 +6,36 @@ import type {
   RendererMetrics,
   RendererTheme,
 } from '@mana-ssh/tui-web-canvas-renderer'
-import type { TerminalState, TerminalUpdate } from '@mana-ssh/vt'
-import { TerminalCanvas, type TerminalCanvasHandle } from '../src/TerminalCanvas'
+import type {
+  TerminalAttributes,
+  TerminalState,
+  TerminalUpdate,
+} from '@mana-ssh/vt'
+import { act, render } from '@testing-library/react'
+import { createRef } from 'react'
+import { afterEach, describe, expect, test, vi } from 'vitest'
+import {
+  TerminalCanvas,
+  type TerminalCanvasHandle,
+} from '../src/TerminalCanvas'
+
+const defaultColor = { type: 'default' } as const
+
+const createAttributes = (
+  overrides: Partial<TerminalAttributes> = {},
+): TerminalAttributes => ({
+  bold: false,
+  faint: false,
+  italic: false,
+  underline: 'none',
+  blink: 'none',
+  inverse: false,
+  hidden: false,
+  strikethrough: false,
+  foreground: defaultColor,
+  background: defaultColor,
+  ...overrides,
+})
 
 const createSnapshot = (rows = 2, columns = 2): TerminalState => ({
   rows,
@@ -21,14 +46,17 @@ const createSnapshot = (rows = 2, columns = 2): TerminalState => ({
   buffer: Array.from({ length: rows }, () =>
     Array.from({ length: columns }, () => ({
       char: ' ',
-      attr: { bold: false, fg: null, bg: null },
+      attr: createAttributes(),
     })),
   ),
-  attributes: { bold: false, fg: null, bg: null },
+  attributes: createAttributes(),
   tabStops: new Set<number>(),
   autoWrap: true,
   originMode: false,
   cursorVisible: true,
+  title: '',
+  clipboard: null,
+  lastSosPmApc: null,
   savedCursor: null,
   savedAttributes: null,
 })
@@ -53,7 +81,11 @@ const createTheme = (): RendererTheme => ({
   foreground: '#f0f0f0',
   cursor: { color: '#ff00ff', opacity: 1, shape: 'block' },
   palette: {
-    ansi: Array.from({ length: 16 }, (_, index) => `#${index.toString(16).repeat(6)}`),
+    ansi: Array.from(
+      { length: 16 },
+      (_, index) => `#${index.toString(16).repeat(6)}`,
+    ),
+    extended: [],
   },
 })
 
@@ -70,7 +102,12 @@ describe('TerminalCanvas', () => {
     const theme = createTheme()
 
     const { unmount } = render(
-      <TerminalCanvas renderer={factory} metrics={metrics} theme={theme} snapshot={snapshot} />,
+      <TerminalCanvas
+        renderer={factory}
+        metrics={metrics}
+        theme={theme}
+        snapshot={snapshot}
+      />,
     )
 
     expect(factory).toHaveBeenCalledTimes(1)
@@ -96,7 +133,12 @@ describe('TerminalCanvas', () => {
     const theme = createTheme()
 
     const { rerender } = render(
-      <TerminalCanvas renderer={factory} metrics={metrics} theme={theme} snapshot={snapshot} />,
+      <TerminalCanvas
+        renderer={factory}
+        metrics={metrics}
+        theme={theme}
+        snapshot={snapshot}
+      />,
     )
 
     renderer.setTheme.mockClear()
@@ -105,7 +147,12 @@ describe('TerminalCanvas', () => {
 
     const nextTheme: RendererTheme = { ...theme, background: '#222244' }
     rerender(
-      <TerminalCanvas renderer={factory} metrics={metrics} theme={nextTheme} snapshot={snapshot} />,
+      <TerminalCanvas
+        renderer={factory}
+        metrics={metrics}
+        theme={nextTheme}
+        snapshot={snapshot}
+      />,
     )
     expect(renderer.setTheme).toHaveBeenCalledWith(nextTheme)
 
@@ -115,9 +162,17 @@ describe('TerminalCanvas', () => {
     }
     const nextSnapshot = createSnapshot(3, 4)
     rerender(
-      <TerminalCanvas renderer={factory} metrics={nextMetrics} theme={nextTheme} snapshot={nextSnapshot} />,
+      <TerminalCanvas
+        renderer={factory}
+        metrics={nextMetrics}
+        theme={nextTheme}
+        snapshot={nextSnapshot}
+      />,
     )
-    expect(renderer.resize).toHaveBeenCalledWith({ metrics: nextMetrics, snapshot: nextSnapshot })
+    expect(renderer.resize).toHaveBeenCalledWith({
+      metrics: nextMetrics,
+      snapshot: nextSnapshot,
+    })
     expect(renderer.sync).toHaveBeenCalledWith(nextSnapshot)
   })
 
@@ -203,15 +258,19 @@ type MockRenderer = CanvasRenderer & {
   dispose: ReturnType<typeof vi.fn>
 }
 
-const createRendererSpies = (): MockRenderer => ({
-  canvas: document.createElement('canvas') as HTMLCanvasElement,
-  applyUpdates: vi.fn<(options: CanvasRendererUpdateOptions) => void>(),
-  resize: vi.fn<(options: CanvasRendererResizeOptions) => void>(),
-  setTheme: vi.fn<(nextTheme: RendererTheme) => void>(),
-  sync: vi.fn<(nextSnapshot: TerminalState) => void>(),
-  dispose: vi.fn<() => void>(),
-  diagnostics: {
-    lastFrameDurationMs: 0,
-    lastDrawCallCount: 0,
-  },
-}) as MockRenderer
+const createRendererSpies = (): MockRenderer =>
+  ({
+    canvas: document.createElement('canvas') as HTMLCanvasElement,
+    applyUpdates: vi.fn<(options: CanvasRendererUpdateOptions) => void>(),
+    resize: vi.fn<(options: CanvasRendererResizeOptions) => void>(),
+    setTheme: vi.fn<(nextTheme: RendererTheme) => void>(),
+    sync: vi.fn<(nextSnapshot: TerminalState) => void>(),
+    dispose: vi.fn<() => void>(),
+    diagnostics: {
+      lastFrameDurationMs: 0,
+      lastDrawCallCount: 0,
+      lastOsc: null,
+      lastSosPmApc: null,
+      lastDcs: null,
+    },
+  }) as MockRenderer

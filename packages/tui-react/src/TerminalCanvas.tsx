@@ -1,11 +1,3 @@
-import {
-  forwardRef,
-  type CSSProperties,
-  type ForwardedRef,
-  type RefAttributes,
-  type HTMLAttributes,
-  useImperativeHandle,
-} from 'react'
 import type {
   CanvasRendererResizeOptions,
   CanvasRendererUpdateOptions,
@@ -14,7 +6,17 @@ import type {
   RendererTheme,
 } from '@mana-ssh/tui-web-canvas-renderer'
 import type { TerminalState } from '@mana-ssh/vt'
-import { useTerminalCanvasRenderer, type TerminalRendererHandle } from './renderer'
+import {
+  type CSSProperties,
+  type ForwardedRef,
+  forwardRef,
+  type HTMLAttributes,
+  useImperativeHandle,
+} from 'react'
+import {
+  type TerminalRendererHandle,
+  useTerminalCanvasRenderer,
+} from './renderer'
 
 export interface TerminalCanvasHandle {
   applyUpdates(options: CanvasRendererUpdateOptions): void
@@ -30,14 +32,25 @@ export interface TerminalCanvasProps
   readonly metrics: RendererMetrics
   readonly theme: RendererTheme
   readonly snapshot: TerminalState
-  readonly onDiagnostics?: (diagnostics: TerminalRendererHandle['diagnostics']) => void
+  readonly onDiagnostics?: (
+    diagnostics: TerminalRendererHandle['diagnostics'],
+  ) => void
 }
 
 const TerminalCanvasComponent = (
   props: TerminalCanvasProps,
   ref: ForwardedRef<TerminalCanvasHandle>,
 ) => {
-  const { renderer, metrics, theme, snapshot, onDiagnostics, style, className, ...rest } = props
+  const {
+    renderer,
+    metrics,
+    theme,
+    snapshot,
+    onDiagnostics,
+    style,
+    className,
+    ...rest
+  } = props
   const handle = useTerminalCanvasRenderer({
     renderer,
     metrics,
@@ -56,9 +69,17 @@ const TerminalCanvasComponent = (
 
   const canvasStyle: CSSProperties | undefined = style
 
-  return <canvas ref={handle.canvasRef} className={className} style={canvasStyle} {...rest} />
+  return (
+    <canvas
+      ref={handle.canvasRef}
+      className={className}
+      style={canvasStyle}
+      {...rest}
+    />
+  )
 }
 
-export const TerminalCanvas = forwardRef<TerminalCanvasHandle, TerminalCanvasProps>(
-  TerminalCanvasComponent,
-)
+export const TerminalCanvas = forwardRef<
+  TerminalCanvasHandle,
+  TerminalCanvasProps
+>(TerminalCanvasComponent)
