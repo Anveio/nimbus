@@ -36,12 +36,20 @@ function App(): JSX.Element {
         return
       }
 
+      const resolveHandle = () => {
+        const next = terminalRef.current
+        if (!next) {
+          throw new Error('Terminal handle is not available')
+        }
+        return next
+      }
+
       const testHandle = {
         write: (input: string) => {
-          handle.write(input)
+          resolveHandle().write(input)
         },
-        getSnapshot: () => handle.getSnapshot(),
-        getSelection: () => handle.getSelection(),
+        getSnapshot: () => resolveHandle().getSnapshot(),
+        getSelection: () => resolveHandle().getSelection(),
       }
 
       window.__manaTerminalTestHandle__ = testHandle

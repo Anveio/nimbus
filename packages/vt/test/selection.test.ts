@@ -52,7 +52,7 @@ describe('selection helpers', () => {
     const segment = getSelectionRowSegment(selection, 3, 80)
     expect(segment).not.toBeNull()
     expect(segment?.startColumn).toBe(5)
-    expect(segment?.endColumn).toBe(12)
+    expect(segment?.endColumn).toBe(11)
     expect(isSelectionCollapsed(selection)).toBe(false)
   })
 
@@ -63,7 +63,7 @@ describe('selection helpers', () => {
       { row: 2, startColumn: 10, endColumn: 79 },
       { row: 3, startColumn: 0, endColumn: 79 },
       { row: 4, startColumn: 0, endColumn: 79 },
-      { row: 5, startColumn: 0, endColumn: 7 },
+      { row: 5, startColumn: 0, endColumn: 6 },
     ])
   })
 
@@ -71,11 +71,17 @@ describe('selection helpers', () => {
     const selection = createSelection(1, 6, 4, 2, 'rectangular')
     const segments = getSelectionRowSegments(selection, 80)
     expect(segments).toEqual([
-      { row: 1, startColumn: 2, endColumn: 6 },
-      { row: 2, startColumn: 2, endColumn: 6 },
-      { row: 3, startColumn: 2, endColumn: 6 },
-      { row: 4, startColumn: 2, endColumn: 6 },
+      { row: 1, startColumn: 2, endColumn: 5 },
+      { row: 2, startColumn: 2, endColumn: 5 },
+      { row: 3, startColumn: 2, endColumn: 5 },
+      { row: 4, startColumn: 2, endColumn: 5 },
     ])
+  })
+
+  it('treats caret positions as end-exclusive for trailing selections', () => {
+    const selection = createSelection(0, 10, 0, 6)
+    const segment = getSelectionRowSegment(selection, 0, 12)
+    expect(segment).toEqual({ row: 0, startColumn: 6, endColumn: 9 })
   })
 
   it('clamps rectangular selections within viewport columns', () => {

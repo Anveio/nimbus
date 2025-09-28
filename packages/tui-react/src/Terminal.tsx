@@ -11,11 +11,12 @@ import type { TerminalInterpreter } from '@mana-ssh/vt'
 import {
   createInterpreter,
   createParser,
+  getSelectionBounds,
+  getSelectionRowSegments,
+  isSelectionCollapsed,
   type ParserEvent,
   type ParserEventSink,
   resolveTerminalCapabilities,
-  getSelectionRowSegments,
-  isSelectionCollapsed,
   type SelectionPoint,
   type TerminalSelection,
   type TerminalState,
@@ -117,7 +118,11 @@ const extractSelectionText = (
     }
 
     const rowCells = state.buffer[segment.row] ?? []
-    for (let column = segment.startColumn; column <= segment.endColumn; column += 1) {
+    for (
+      let column = segment.startColumn;
+      column <= segment.endColumn;
+      column += 1
+    ) {
       const cell = rowCells[column]
       currentLine += cell?.char ?? ' '
     }
@@ -281,7 +286,9 @@ export interface TerminalProps extends HTMLAttributes<HTMLDivElement> {
   readonly onDiagnostics?: (
     diagnostics: TerminalRendererHandle['diagnostics'],
   ) => void
-  readonly onCursorSelectionChange?: (selection: TerminalSelection | null) => void
+  readonly onCursorSelectionChange?: (
+    selection: TerminalSelection | null,
+  ) => void
   readonly localEcho?: boolean
   readonly autoFocus?: boolean
   readonly autoResize?: boolean
@@ -320,9 +327,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     )
 
     const containerRef = useRef<HTMLDivElement>(null)
-    const [containerSize, setContainerSize] = useState<
-      { width: number; height: number } | null
-    >(null)
+    const [containerSize, setContainerSize] = useState<{
+      width: number
+      height: number
+    } | null>(null)
 
     useEffect(() => {
       if (!autoResize) {
@@ -374,9 +382,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
 
     const interpreter = interpreterRef.current
 
-    const [currentSelection, setCurrentSelection] = useState<TerminalSelection | null>(
-      interpreter.snapshot.selection ?? null,
-    )
+    const [currentSelection, setCurrentSelection] =
+      useState<TerminalSelection | null>(interpreter.snapshot.selection ?? null)
 
     const [snapshotVersion, setSnapshotVersion] = useState(0)
     const snapshot = useMemo(
@@ -409,7 +416,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       lastSelection: TerminalSelection | null
     }>({ pointerId: null, anchor: null, lastSelection: null })
 
-    const autoScrollRef = useRef<{ timer: number | null; direction: -1 | 0 | 1 }>({
+    const autoScrollRef = useRef<{
+      timer: number | null
+      direction: -1 | 0 | 1
+    }>({
       timer: null,
       direction: 0,
     })
@@ -479,6 +489,80 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       keyboardSelectionAnchorRef.current = null
     }, [applyUpdates, interpreter])
 
+    const extendSelectionWithArrow = useCallback(
+      (direction: 'ArrowLeft' | 'ArrowRight' | 'ArrowUp' | 'ArrowDown') => {
+        const snapshot = interpreter.snapshot
+        const { rows: totalRows, columns: totalColumns } = snapshot
+        let existingSelection = snapshot.selection ?? null
+
+        if (existingSelection && isSelectionCollapsed(existingSelection)) {
+          clearSelection()
+          existingSelection = null
+        }
+
+        let anchor = keyboardSelectionAnchorRef.current
+        if (!anchor) {
+          if (existingSelection) {
+            anchor = existingSelection.anchor
+          } else {
+            const cursor = snapshot.cursor
+            anchor = {
+              row: cursor.row,
+              column: cursor.column,
+              timestamp: Date.now(),
+            }
+          }
+          keyboardSelectionAnchorRef.current = anchor
+        }
+
+        const focusSource = existingSelection?.focus ?? snapshot.cursor
+        let nextRow = focusSource.row
+        let nextColumn = focusSource.column
+
+        switch (direction) {
+          case 'ArrowLeft':
+            nextColumn = Math.max(0, focusSource.column - 1)
+            break
+          case 'ArrowRight':
+            nextColumn = Math.min(totalColumns, focusSource.column + 1)
+            break
+          case 'ArrowUp':
+            nextRow = Math.max(0, focusSource.row - 1)
+            break
+          case 'ArrowDown':
+            nextRow = Math.min(totalRows - 1, focusSource.row + 1)
+            break
+          default:
+            break
+        }
+
+        nextColumn = Math.max(0, Math.min(totalColumns, nextColumn))
+
+        if (nextRow === anchor.row && nextColumn === anchor.column) {
+          clearSelection()
+          return
+        }
+
+        const selection: TerminalSelection = {
+          anchor,
+          focus: {
+            row: nextRow,
+            column: nextColumn,
+            timestamp: Date.now(),
+          },
+          kind: existingSelection?.kind ?? 'normal',
+          status: 'idle',
+        }
+
+        const updates = interpreter.updateSelection(selection)
+        if (updates.length === 0) {
+          return
+        }
+        applyUpdates(updates)
+      },
+      [applyUpdates, clearSelection, interpreter],
+    )
+
     const handleEvent = useCallback(
       (event: ParserEvent) => {
         const updates = interpreter.handleEvent(event)
@@ -528,14 +612,18 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         const updates = interpreter.updateSelection(selection)
         applyUpdates(updates)
         keyboardSelectionAnchorRef.current = null
-        pointerSelectionRef.current.lastSelection = interpreter.snapshot.selection
+        pointerSelectionRef.current.lastSelection =
+          interpreter.snapshot.selection
       },
       [applyUpdates, interpreter],
     )
 
     const startAutoScroll = useCallback(
       (direction: -1 | 1) => {
-        if (autoScrollRef.current.direction === direction && autoScrollRef.current.timer !== null) {
+        if (
+          autoScrollRef.current.direction === direction &&
+          autoScrollRef.current.timer !== null
+        ) {
           return
         }
         stopAutoScroll()
@@ -617,12 +705,16 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     const handlePointerMove = useCallback(
       (event: React.PointerEvent<HTMLCanvasElement>) => {
         const pointerState = pointerSelectionRef.current
-        if (pointerState.pointerId !== event.pointerId || !pointerState.anchor) {
+        if (
+          pointerState.pointerId !== event.pointerId ||
+          !pointerState.anchor
+        ) {
           return
         }
         event.preventDefault()
         const { row, column, offsetY, rect } = getPointerMetrics(event)
-        const direction: -1 | 0 | 1 = offsetY < 0 ? -1 : offsetY > rect.height ? 1 : 0
+        const direction: -1 | 0 | 1 =
+          offsetY < 0 ? -1 : offsetY > rect.height ? 1 : 0
         if (direction === 0) {
           stopAutoScroll()
         } else {
@@ -637,7 +729,12 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         }
         updateSelectionFromPointer(selection)
       },
-      [getPointerMetrics, startAutoScroll, stopAutoScroll, updateSelectionFromPointer],
+      [
+        getPointerMetrics,
+        startAutoScroll,
+        stopAutoScroll,
+        updateSelectionFromPointer,
+      ],
     )
 
     const finalizeSelection = useCallback(
@@ -662,7 +759,11 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
           }
           updateSelectionFromPointer(finalized)
         }
-        endPointerSelection(interpreter.snapshot.selection, event.pointerId, event.currentTarget)
+        endPointerSelection(
+          interpreter.snapshot.selection,
+          event.pointerId,
+          event.currentTarget,
+        )
       },
       [endPointerSelection, interpreter, updateSelectionFromPointer],
     )
@@ -683,7 +784,11 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         if (pointerState.pointerId !== event.pointerId) {
           return
         }
-        endPointerSelection(pointerState.lastSelection, event.pointerId, event.currentTarget)
+        endPointerSelection(
+          pointerState.lastSelection,
+          event.pointerId,
+          event.currentTarget,
+        )
       },
       [endPointerSelection, stopAutoScroll],
     )
@@ -732,63 +837,83 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
           return
         }
 
+        const shouldExtendSelection = event.shiftKey && isArrowKey
+
+        if (shouldExtendSelection) {
+          event.preventDefault()
+          extendSelectionWithArrow(
+            key as 'ArrowLeft' | 'ArrowRight' | 'ArrowUp' | 'ArrowDown',
+          )
+          return
+        }
+
         const bytes = encodeKeyEvent(event)
         if (!bytes) {
           return
         }
 
-        const selectionExists = Boolean(interpreter.snapshot.selection)
-        if (selectionExists && !event.shiftKey) {
+        if (interpreter.snapshot.selection) {
           clearSelection()
         }
+
+        keyboardSelectionAnchorRef.current = null
 
         event.preventDefault()
-
-        const shouldExtendSelection = event.shiftKey && isArrowKey
-        const previousCursor = interpreter.snapshot.cursor
-        let anchorPoint = keyboardSelectionAnchorRef.current
-
-        if (shouldExtendSelection && !anchorPoint) {
-          anchorPoint = {
-            row: previousCursor.row,
-            column: previousCursor.column,
-            timestamp: Date.now(),
-          }
-          keyboardSelectionAnchorRef.current = anchorPoint
-        }
-
-        if (!event.shiftKey && isArrowKey && interpreter.snapshot.selection) {
-          clearSelection()
-        }
-
-        if (!event.shiftKey && !shouldExtendSelection) {
-          keyboardSelectionAnchorRef.current = null
-        }
-
         emitData(bytes)
-
-        if (shouldExtendSelection && anchorPoint) {
-          const currentCursor = interpreter.snapshot.cursor
-          const nextSelection: TerminalSelection = {
-            anchor: anchorPoint,
-            focus: {
-              row: currentCursor.row,
-              column: currentCursor.column,
-              timestamp: Date.now(),
-            },
-            kind: 'normal',
-            status: 'idle',
-          }
-
-          if (isSelectionCollapsed(nextSelection)) {
-            clearSelection()
-          } else {
-            const updates = interpreter.setSelection(nextSelection)
-            applyUpdates(updates)
-          }
-        }
       },
-      [applyUpdates, clearSelection, emitData, interpreter, onData, write],
+      [
+        clearSelection,
+        emitData,
+        extendSelectionWithArrow,
+        interpreter,
+        onData,
+        write,
+      ],
+    )
+
+    const replaceSelectionWithText = useCallback(
+      (selection: TerminalSelection, replacement: string) => {
+        const bounds = getSelectionBounds(selection)
+        const startRow = bounds.topLeft.row
+        const endRow = bounds.bottomRight.row
+
+        if (startRow !== endRow) {
+          clearSelection()
+          return false
+        }
+
+        const startColumn = bounds.topLeft.column
+        const endColumnExclusive = bounds.bottomRight.column
+        const rowCells = interpreter.snapshot.buffer[startRow] ?? []
+        const rowChars = rowCells.map((cell) => cell?.char ?? ' ')
+        let before = rowChars.slice(0, startColumn).join('')
+        const after = rowChars.slice(endColumnExclusive).join('')
+
+        if (before.endsWith(' ') && replacement.startsWith(' ')) {
+          before = before.slice(0, -1)
+        }
+
+        const currentRow = interpreter.snapshot.cursor.row
+        const rowDelta = currentRow - startRow
+        if (rowDelta > 0) {
+          write(`[${rowDelta}A`)
+        } else if (rowDelta < 0) {
+          write(`[${Math.abs(rowDelta)}B`)
+        }
+
+        write('\r')
+        write('[2K')
+        write(before + replacement + after)
+        write('\r')
+        const newCursorColumn = before.length + replacement.length
+        if (newCursorColumn > 0) {
+          write(`[${newCursorColumn}C`)
+        }
+
+        clearSelection()
+        return true
+      },
+      [clearSelection, interpreter, write],
     )
 
     const handlePaste = useCallback(
@@ -798,12 +923,19 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
           return
         }
         event.preventDefault()
-        if (interpreter.snapshot.selection) {
-          clearSelection()
+        const selection = interpreter.snapshot.selection
+        const replacementApplied = selection
+          ? replaceSelectionWithText(selection, text)
+          : false
+
+        const payload = TEXT_ENCODER.encode(text)
+        if (replacementApplied) {
+          onData?.(payload)
+        } else {
+          emitData(payload)
         }
-        emitData(TEXT_ENCODER.encode(text))
       },
-      [clearSelection, emitData, interpreter],
+      [emitData, interpreter, onData, replaceSelectionWithText],
     )
 
     const handleCopy = useCallback(

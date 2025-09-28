@@ -6,6 +6,7 @@ import type { Mock } from 'vitest'
 import { Terminal, type TerminalHandle } from '../src/Terminal'
 import { createCanvasRenderer } from '@mana-ssh/tui-web-canvas-renderer'
 import type { TerminalSelection } from '@mana-ssh/vt'
+import { getSelectionRowSegments } from '@mana-ssh/vt'
 
 const encoder = new TextEncoder()
 
@@ -134,6 +135,45 @@ describe('Terminal', () => {
 
     expect(onData).toHaveBeenCalled()
     expect(renderer.applyUpdates.mock.calls.length).toBe(initialCalls)
+  })
+
+  test('extends selections with Shift + Arrow keys', async () => {
+    const ref = createRef<TerminalHandle>()
+    render(<Terminal ref={ref} rows={24} columns={80} />)
+
+    const region = screen.getByRole('textbox')
+    await userEvent.click(region)
+
+    await act(async () => {
+      ref.current!.write('ALPHA BETA')
+    })
+
+    for (let index = 0; index < 4; index += 1) {
+      fireEvent.keyDown(region, { key: 'ArrowLeft', shiftKey: true })
+    }
+
+    const selection = ref.current!.getSelection()
+    expect(selection).not.toBeNull()
+
+    const snapshot = ref.current!.getSnapshot()
+    const segments = getSelectionRowSegments(selection!, snapshot.columns)
+    const text = segments
+      .map((segment) => {
+        const rowCells = snapshot.buffer[segment.row] ?? []
+        let line = ''
+        for (
+          let column = segment.startColumn;
+          column <= segment.endColumn;
+          column += 1
+        ) {
+          line += rowCells[column]?.char ?? ' '
+        }
+        return line
+      })
+      .join('\n')
+      .trim()
+
+    expect(text).toBe('BETA')
   })
 
   test('falls back to local newline when no onData handler is provided', async () => {

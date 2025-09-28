@@ -1,6 +1,10 @@
-import { test, expect } from '@playwright/test'
 import type { TerminalHandle } from '@mana-ssh/tui-react'
-import { getSelectionRowSegments, type TerminalSelection, type TerminalState } from '@mana-ssh/vt'
+import {
+  getSelectionRowSegments,
+  type TerminalSelection,
+  type TerminalState,
+} from '@mana-ssh/vt'
+import { expect, test } from '@playwright/test'
 import { WELCOME_BANNER } from './fixtures/welcomeBanner'
 
 // Scenario structure follows the guidance in docs/e2e-test-harness.md (Global harness handle)
@@ -40,7 +44,11 @@ const deriveSelectedText = (
     }
 
     const rowCells = snapshot.buffer[segment.row] ?? []
-    for (let column = segment.startColumn; column <= segment.endColumn; column += 1) {
+    for (
+      let column = segment.startColumn;
+      column <= segment.endColumn;
+      column += 1
+    ) {
       currentLine += rowCells[column]?.char ?? ' '
     }
   }
@@ -50,12 +58,12 @@ const deriveSelectedText = (
 }
 
 test.describe('terminal e2e harness', () => {
-  test('renders the welcome banner via injected bytes', async ({ page }) => {
+  test('renders the welcome banner', async ({ page }) => {
     await page.goto('/')
 
     const terminal = page.getByRole('textbox', { name: 'Interactive terminal' })
     await expect(terminal).toBeVisible()
-    await terminal.click()
+    await terminal.focus()
 
     await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
     await page.evaluate((banner) => {
@@ -78,9 +86,13 @@ test.describe('terminal e2e harness', () => {
     expect(snapshot).toBeTruthy()
   })
 
-  test('supports keyboard selection and clipboard copy/paste', async ({ page }) => {
-    const copyShortcut = process.platform === 'darwin' ? 'Meta+C' : 'Control+Shift+C'
-    const pasteShortcut = process.platform === 'darwin' ? 'Meta+V' : 'Control+Shift+V'
+  test('supports keyboard selection and clipboard copy/paste', async ({
+    page,
+  }) => {
+    const copyShortcut =
+      process.platform === 'darwin' ? 'Meta+C' : 'Control+Shift+C'
+    const pasteShortcut =
+      process.platform === 'darwin' ? 'Meta+V' : 'Control+Shift+V'
 
     await page.goto('/')
 
@@ -102,7 +114,6 @@ test.describe('terminal e2e harness', () => {
     const selectionAfterKeys = await page.evaluate(() =>
       window.__manaTerminalTestHandle__?.getSelection(),
     )
-    console.log('selectionAfterKeys', selectionAfterKeys)
 
     await page.waitForFunction(() => {
       const handle = window.__manaTerminalTestHandle__
@@ -136,7 +147,9 @@ test.describe('terminal e2e harness', () => {
     })
     await page.keyboard.press(copyShortcut)
     await page.waitForTimeout(50)
-    const clipboardText = await page.evaluate(async () => navigator.clipboard.readText())
+    const clipboardText = await page.evaluate(async () =>
+      navigator.clipboard.readText(),
+    )
     expect(clipboardText).toBe('BETA')
 
     const pastePayload = ' keyboard paste'

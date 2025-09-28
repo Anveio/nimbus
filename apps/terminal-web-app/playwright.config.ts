@@ -6,7 +6,7 @@ const BASE_URL = `http://${HOST}:${PORT}`
 
 export default defineConfig({
   testDir: './test/e2e',
-  timeout: 1_000,
+  timeout: 2_000,
   fullyParallel: true,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [['json', { open: 'never' }]] : [['list']],

@@ -85,11 +85,11 @@ export const getSelectionBounds = (selection: TerminalSelection): SelectionBound
   }
 }
 
-const clampColumn = (value: number, columns: number): number => {
+const clampCaret = (value: number, columns: number): number => {
   if (columns <= 0) {
     return 0
   }
-  return clamp(value, 0, columns - 1)
+  return clamp(value, 0, columns)
 }
 
 export const getSelectionRowSegment = (
@@ -107,39 +107,40 @@ export const getSelectionRowSegment = (
   }
 
   if (selection.kind === 'rectangular') {
-    const startColumn = clampColumn(
+    const caretStart = clampCaret(
       Math.min(selection.anchor.column, selection.focus.column),
       columns,
     )
-    const endColumn = clampColumn(
+    const caretEnd = clampCaret(
       Math.max(selection.anchor.column, selection.focus.column),
       columns,
     )
-    if (startColumn > endColumn) {
+    if (caretStart >= caretEnd) {
       return null
     }
     return {
       row,
-      startColumn,
-      endColumn,
+      startColumn: caretStart,
+      endColumn: caretEnd - 1,
     }
   }
 
-  const startColumn = clampColumn(
+  const rowStartCaret = clampCaret(
     row === topLeft.row ? topLeft.column : 0,
     columns,
   )
-  const endColumn = clampColumn(
-    row === bottomRight.row ? bottomRight.column : columns - 1,
+  const rowEndCaret = clampCaret(
+    row === bottomRight.row ? bottomRight.column : columns,
     columns,
   )
-  if (startColumn > endColumn) {
+
+  if (rowStartCaret >= rowEndCaret) {
     return null
   }
   return {
     row,
-    startColumn,
-    endColumn,
+    startColumn: rowStartCaret,
+    endColumn: rowEndCaret - 1,
   }
 }
 
