@@ -18,6 +18,9 @@ Showcase the Mana SSH terminal stack inside a real browser application. The app 
 3. **Visual cues** – Surface diagnostics (FPS/draw calls) and connection state badges, so performance regressions are visible. Consider adding theme switcher presets.
 4. **Clipboard integrations** – Demonstrate OSC 52 copy support by exposing a button that triggers a copy request through the host callback once interpreter support lands.
 5. **Testing** – Expand Playwright coverage to ensure pasting, arrow keys, and resize flows behave correctly across browsers.
+6. **Documentation cadence** – Whenever altering E2E infrastructure or terminal behaviour, update `docs/` (e.g. `docs/e2e-test-harness.md`) alongside the code so future agents understand the rationale.
+7. **Inline guidance** – Only after all other work is complete when implementing features, bugfixes, or refactors, review the modified files and insert concise code comments referencing the relevant docs section when the intent isn’t obvious.
+8. **Harness handle** – The E2E harness now hinges on `window.__manaTerminalTestHandle__` (registered by `App.tsx` when `VITE_E2E=1`). When adding helpers, keep the surface minimal and document any new methods in `docs/e2e-test-harness.md`.
 
 ## Longer-term ideas
 

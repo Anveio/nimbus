@@ -9,7 +9,7 @@ export default defineConfig({
   timeout: 30_000,
   fullyParallel: true,
   retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? [['html', { open: 'never' }]] : [['list']],
+  reporter: process.env.CI ? [['json', { open: 'never' }]] : [['list']],
   use: {
     baseURL: BASE_URL,
     trace: process.env.CI ? 'on-first-retry' : 'retain-on-failure',
@@ -26,6 +26,7 @@ export default defineConfig({
     stdout: 'pipe',
     stderr: 'pipe',
     timeout: 60_000,
+    // Enables the window.__manaTerminalTestHandle__ hook described in docs/e2e-test-harness.md
     env: {
       VITE_E2E: '1',
     },
