@@ -32,8 +32,8 @@ describe('TerminalInterpreter basic behaviour', () => {
     const { interpreter } = run('hi')
     const state = interpreter.snapshot
 
-    expect(state.buffer[0][0].char).toBe('h')
-    expect(state.buffer[0][1].char).toBe('i')
+    expect(state.buffer[0]![0]!.char).toBe('h')
+    expect(state.buffer[0]![1]!.char).toBe('i')
     expect(state.cursor.row).toBe(0)
     expect(state.cursor.column).toBe(2)
   })
@@ -42,8 +42,8 @@ describe('TerminalInterpreter basic behaviour', () => {
     const { interpreter } = run('a'.repeat(81))
     const state = interpreter.snapshot
 
-    expect(state.buffer[0][79].char).toBe('a')
-    expect(state.buffer[1][0].char).toBe('a')
+    expect(state.buffer[0]![79]!.char).toBe('a')
+    expect(state.buffer[1]![0]!.char).toBe('a')
     expect(state.cursor.row).toBe(1)
     expect(state.cursor.column).toBe(1)
   })
@@ -52,10 +52,10 @@ describe('TerminalInterpreter basic behaviour', () => {
     const { interpreter } = run('hi\nthere\r!')
     const state = interpreter.snapshot
 
-    expect(state.buffer[0][0].char).toBe('h')
-    expect(state.buffer[1][0].char).toBe('!')
-    expect(state.buffer[1][1].char).toBe('h')
-    expect(state.buffer[1][4].char).toBe('e')
+    expect(state.buffer[0]![0]!.char).toBe('h')
+    expect(state.buffer[1]![0]!.char).toBe('!')
+    expect(state.buffer[1]![1]!.char).toBe('h')
+    expect(state.buffer[1]![4]!.char).toBe('e')
     expect(state.cursor.row).toBe(1)
     expect(state.cursor.column).toBe(1)
   })
@@ -64,9 +64,9 @@ describe('TerminalInterpreter basic behaviour', () => {
     const { interpreter } = run('seed\x1b[2J\x1b[10;10Hmark')
     const state = interpreter.snapshot
 
-    expect(state.buffer[0][0].char).toBe(' ')
-    expect(state.buffer[9][9].char).toBe('m')
-    expect(state.buffer[9][12].char).toBe('k')
+    expect(state.buffer[0]![0]!.char).toBe(' ')
+    expect(state.buffer[9]![9]!.char).toBe('m')
+    expect(state.buffer[9]![12]!.char).toBe('k')
     expect(state.cursor.row).toBe(9)
     expect(state.cursor.column).toBe(13)
   })
@@ -75,10 +75,10 @@ describe('TerminalInterpreter basic behaviour', () => {
     const { interpreter } = run('\x1b[31;1mR\x1b[0m')
     const state = interpreter.snapshot
 
-    const redCell = state.buffer[0][0]
-    expect(redCell.char).toBe('R')
-    expect(redCell.attr.bold).toBe(true)
-    expect(redCell.attr.fg).toBe(1)
+    const redCell = state.buffer[0]![0]!
+    expect(redCell!.char).toBe('R')
+    expect(redCell!.attr.bold).toBe(true)
+    expect(redCell!.attr.fg).toBe(1)
 
     const afterReset = state.attributes
     expect(afterReset.bold).toBe(false)
@@ -99,15 +99,15 @@ describe('TerminalInterpreter basic behaviour', () => {
     const state = interpreter.snapshot
 
     expect(state.cursor.column).toBe(5)
-    expect(state.buffer[0][4].char).toBe('X')
+    expect(state.buffer[0]![4]!.char).toBe('X')
   })
 
   it('scrolls within the defined scroll region on line feed', () => {
     const { interpreter } = run('\x1b[2;4r\x1b[4;1Hline4\nnext')
     const state = interpreter.snapshot
 
-    expect(state.buffer[3][0].char).toBe('n')
-    expect(state.buffer[2][0].char).toBe('l')
+    expect(state.buffer[3]![0]!.char).toBe('n')
+    expect(state.buffer[2]![0]!.char).toBe('l')
   })
 
   it('respects origin mode when positioning the cursor', () => {
@@ -123,8 +123,8 @@ describe('TerminalInterpreter basic behaviour', () => {
     const { interpreter } = run(sequence)
     const state = interpreter.snapshot
 
-    expect(state.buffer[0][79].char).toBe('B')
-    expect(state.buffer[1][0].char).toBe('C')
+    expect(state.buffer[0]![79]!.char).toBe('B')
+    expect(state.buffer[1]![0]!.char).toBe('C')
     expect(state.cursor.row).toBe(1)
     expect(state.cursor.column).toBe(1)
   })
@@ -142,7 +142,7 @@ describe('TerminalInterpreter basic behaviour', () => {
 
     expect(state.cursor.row).toBe(0)
     expect(state.cursor.column).toBe(3)
-    expect(state.buffer[0][2].char).toBe('D')
+    expect(state.buffer[0]![2]!.char).toBe('D')
   })
 
   it('performs reverse index within the scroll region', () => {
@@ -150,7 +150,7 @@ describe('TerminalInterpreter basic behaviour', () => {
     const { interpreter } = run(sequence)
     const state = interpreter.snapshot
 
-    expect(state.buffer[1][0].char).toBe(' ')
-    expect(state.buffer[2][0].char).toBe('t')
+    expect(state.buffer[1]![0]!.char).toBe(' ')
+    expect(state.buffer[2]![0]!.char).toBe('t')
   })
 })
