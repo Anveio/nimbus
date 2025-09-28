@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "build": "turbo build --output-logs=errors-only --log-order=grouped --summarize",
-    "clean": "git clean -xdf node_modules",
+    "clean": "git clean -xfd .",
     "clean:workspaces": "turbo clean --output-logs=errors-only --log-order=grouped",
     "dev": "turbo dev --parallel",
     "lint": "turbo lint --output-logs=errors-only --log-order=grouped --summarize && manypkg check",

@@ -6,6 +6,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
+    "clean": "git clean -xfd .",
     "dev": "tsx src/index.ts",
     "build": "tsc",
     "test": "echo 'Tests not implemented yet'",

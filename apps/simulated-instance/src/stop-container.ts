@@ -1,4 +1,4 @@
-import { CONTAINER_NAME, IMAGE_NAME, createDockerInstance } from './utils'
+import { CONTAINER_NAME, createDockerInstance, IMAGE_NAME } from './utils'
 
 // Constants
 

@@ -10,6 +10,7 @@
     "workspace-nextjs-config.json"
   ],
   "scripts": {
+    "clean": "git clean -xfd .",
     "lint": "biome lint .",
     "lint:fix": "biome lint --apply ."
   }

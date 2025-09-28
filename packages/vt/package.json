@@ -15,7 +15,8 @@
     }
   },
   "scripts": {
-    "clean": "rm -rf dist",
+    "clean": "git clean -xfd .",
+    "clean:artifacts": "rm -rf dist",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage --reporter=dot --silent",
     "test:watch": "vitest --reporter=default --silent=false",

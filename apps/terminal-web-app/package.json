@@ -4,6 +4,7 @@
   "private": true,
   "description": "A web-based terminal application to demonstrate and test the ManaSSHWeb library.",
   "scripts": {
+    "clean": "git clean -xfd .",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",

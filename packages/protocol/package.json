@@ -6,6 +6,7 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
+    "clean": "git clean -xfd .",
     "test": "echo 'Test script not implemented yet'",
     "lint": "biome lint .",
     "lint:fix": "biome lint --apply ."

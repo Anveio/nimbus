@@ -6,9 +6,10 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
+    "clean": "git clean -xfd .",
     "dev": "bun src/start-container.ts",
     "build": "echo 'Build script not implemented yet'",
-    "clean": "bun src/stop-container",
+    "clean:container": "bun src/stop-container",
     "test": "echo 'Test script not implemented yet'",
     "typecheck": "tsc",
     "lint": "biome lint .",
