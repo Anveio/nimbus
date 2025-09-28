@@ -1,10 +1,5 @@
 {
-  "extends": "../tsconfig/workspace-react-library-config.json.json",
+  "extends": "../tsconfig/workspace-react-library-config.json",
   "include": ["src"],
-  "compilerOptions": {
-    "composite": true,
-    "incremental": true,
-    "noEmit": true
-  },
   "exclude": ["dist", "build", "node_modules"]
 }

@@ -1,0 +1,9 @@
+{
+  "extends": "../tsconfig/workspace-package-config.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src"],
+  "exclude": ["dist", "build", "node_modules"]
+}
