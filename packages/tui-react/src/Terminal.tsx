@@ -14,6 +14,9 @@ import {
   type ParserEvent,
   type ParserEventSink,
   resolveTerminalCapabilities,
+  getSelectionRowSegments,
+  isSelectionCollapsed,
+  type SelectionPoint,
   type TerminalSelection,
   type TerminalState,
   type TerminalUpdate,
@@ -87,6 +90,41 @@ const DEFAULT_METRICS: RendererMetrics = {
       : 1,
   font: DEFAULT_FONT,
   cell: DEFAULT_CELL,
+}
+
+const extractSelectionText = (
+  state: TerminalState,
+  selection: TerminalSelection,
+): string => {
+  const segments = getSelectionRowSegments(selection, state.columns)
+  if (segments.length === 0) {
+    return ''
+  }
+
+  const lines: string[] = []
+  let currentRow = segments[0]!.row
+  let currentLine = ''
+
+  const flushLine = () => {
+    lines.push(currentLine)
+    currentLine = ''
+  }
+
+  for (const segment of segments) {
+    if (segment.row !== currentRow) {
+      flushLine()
+      currentRow = segment.row
+    }
+
+    const rowCells = state.buffer[segment.row] ?? []
+    for (let column = segment.startColumn; column <= segment.endColumn; column += 1) {
+      const cell = rowCells[column]
+      currentLine += cell?.char ?? ' '
+    }
+  }
+
+  flushLine()
+  return lines.join('\n')
 }
 
 const mergeCursorTheme = (
@@ -355,7 +393,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       [onCursorSelectionChange],
     )
 
-  const rendererHandle = useTerminalCanvasRenderer({
+    const rendererHandle = useTerminalCanvasRenderer({
       renderer,
       metrics,
       theme,
@@ -364,6 +402,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       onSelectionChange: handleSelectionChange,
     })
 
+    const keyboardSelectionAnchorRef = useRef<SelectionPoint | null>(null)
     const pointerSelectionRef = useRef<{
       pointerId: number | null
       anchor: TerminalSelection['anchor'] | null
@@ -434,6 +473,12 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       [interpreter, rendererHandle],
     )
 
+    const clearSelection = useCallback(() => {
+      const updates = interpreter.clearSelection()
+      applyUpdates(updates)
+      keyboardSelectionAnchorRef.current = null
+    }, [applyUpdates, interpreter])
+
     const handleEvent = useCallback(
       (event: ParserEvent) => {
         const updates = interpreter.handleEvent(event)
@@ -465,6 +510,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         stopAutoScroll()
         const updates = interpreter.setSelection(selection)
         applyUpdates(updates)
+        keyboardSelectionAnchorRef.current = null
         pointerSelectionRef.current = {
           pointerId,
           anchor: selection.anchor,
@@ -481,6 +527,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       (selection: TerminalSelection) => {
         const updates = interpreter.updateSelection(selection)
         applyUpdates(updates)
+        keyboardSelectionAnchorRef.current = null
         pointerSelectionRef.current.lastSelection = interpreter.snapshot.selection
       },
       [applyUpdates, interpreter],
@@ -530,6 +577,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         target: HTMLCanvasElement,
       ) => {
         stopAutoScroll()
+        keyboardSelectionAnchorRef.current = null
         if (
           pointerId !== null &&
           typeof target.hasPointerCapture === 'function' &&
@@ -659,9 +707,28 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
 
     const handleKeyDown = useCallback(
       (event: ReactKeyboardEvent<HTMLDivElement>) => {
-        if (event.key === 'Enter' && !onData) {
+        const key = event.key
+        const lowerKey = key.length === 1 ? key.toLowerCase() : key
+        const isArrowKey =
+          key === 'ArrowUp' ||
+          key === 'ArrowDown' ||
+          key === 'ArrowLeft' ||
+          key === 'ArrowRight'
+        const isCopyCombo =
+          (event.metaKey && lowerKey === 'c') ||
+          (event.ctrlKey && event.shiftKey && lowerKey === 'c')
+        const isPasteCombo =
+          (event.metaKey && lowerKey === 'v') ||
+          (event.ctrlKey && event.shiftKey && lowerKey === 'v')
+
+        if (isCopyCombo || isPasteCombo) {
+          return
+        }
+
+        if (key === 'Enter' && !onData) {
           event.preventDefault()
           write('\r\n')
+          clearSelection()
           return
         }
 
@@ -669,10 +736,59 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         if (!bytes) {
           return
         }
+
+        const selectionExists = Boolean(interpreter.snapshot.selection)
+        if (selectionExists && !event.shiftKey) {
+          clearSelection()
+        }
+
         event.preventDefault()
+
+        const shouldExtendSelection = event.shiftKey && isArrowKey
+        const previousCursor = interpreter.snapshot.cursor
+        let anchorPoint = keyboardSelectionAnchorRef.current
+
+        if (shouldExtendSelection && !anchorPoint) {
+          anchorPoint = {
+            row: previousCursor.row,
+            column: previousCursor.column,
+            timestamp: Date.now(),
+          }
+          keyboardSelectionAnchorRef.current = anchorPoint
+        }
+
+        if (!event.shiftKey && isArrowKey && interpreter.snapshot.selection) {
+          clearSelection()
+        }
+
+        if (!event.shiftKey && !shouldExtendSelection) {
+          keyboardSelectionAnchorRef.current = null
+        }
+
         emitData(bytes)
+
+        if (shouldExtendSelection && anchorPoint) {
+          const currentCursor = interpreter.snapshot.cursor
+          const nextSelection: TerminalSelection = {
+            anchor: anchorPoint,
+            focus: {
+              row: currentCursor.row,
+              column: currentCursor.column,
+              timestamp: Date.now(),
+            },
+            kind: 'normal',
+            status: 'idle',
+          }
+
+          if (isSelectionCollapsed(nextSelection)) {
+            clearSelection()
+          } else {
+            const updates = interpreter.setSelection(nextSelection)
+            applyUpdates(updates)
+          }
+        }
       },
-      [emitData, onData, write],
+      [applyUpdates, clearSelection, emitData, interpreter, onData, write],
     )
 
     const handlePaste = useCallback(
@@ -682,9 +798,28 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
           return
         }
         event.preventDefault()
+        if (interpreter.snapshot.selection) {
+          clearSelection()
+        }
         emitData(TEXT_ENCODER.encode(text))
       },
-      [emitData],
+      [clearSelection, emitData, interpreter],
+    )
+
+    const handleCopy = useCallback(
+      (event: ReactClipboardEvent<HTMLDivElement>) => {
+        const selection = interpreter.snapshot.selection
+        if (!selection) {
+          return
+        }
+        const text = extractSelectionText(interpreter.snapshot, selection)
+        if (!text) {
+          return
+        }
+        event.preventDefault()
+        event.clipboardData?.setData('text/plain', text)
+      },
+      [interpreter],
     )
 
     useEffect(() => {
@@ -725,6 +860,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         onClick={focus}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
+        onCopy={handleCopy}
       >
         <canvas
           ref={rendererHandle.canvasRef as React.RefObject<HTMLCanvasElement>}

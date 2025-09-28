@@ -154,4 +154,8 @@ Replace the inside of the tags with your actual generated problem, solution and 
 
 -   Charted the Playwright visual-regression strategy for `apps/terminal-web-app`: expose a window-mounted test harness (`injectBytes`, `awaitIdle`, `resize`) when running in test mode, pipe the welcome banner bytes through that harness instead of `App.tsx`, and drive assertions via deterministic canvas screenshots plus interpreter snapshots. Snapshot assets will live alongside specs, and helper utilities will standardize viewport, fonts, and reduced-motion settings for future scenarios (keyboard navigation, selections, resize, complex glyph streams).
 
+### Sunday, October 5, 2025
+
+-   Began wiring keyboard-selection + clipboard copy/paste e2e coverage. Added a minimal global harness (`window.__manaTerminalTestHandle__`) with `write`, `getSnapshot`, and `getSelection`, plus clipboard permissions in Playwright. Early attempts revealed `getSelection()` stays `null` after Shift+Arrow because the renderer never propagates keyboard-driven selections yet—needs follow-up inside `packages/tui-react` before the new e2e passes.
+
 </memory-bank>

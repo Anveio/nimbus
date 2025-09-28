@@ -6,7 +6,7 @@ const BASE_URL = `http://${HOST}:${PORT}`
 
 export default defineConfig({
   testDir: './test/e2e',
-  timeout: 30_000,
+  timeout: 1_000,
   fullyParallel: true,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [['json', { open: 'never' }]] : [['list']],
@@ -18,6 +18,7 @@ export default defineConfig({
     viewport: { width: 1280, height: 720 },
     deviceScaleFactor: 1,
     colorScheme: 'dark',
+    permissions: ['clipboard-read', 'clipboard-write'],
   },
   webServer: {
     command: `bun run dev --host ${HOST} --port ${PORT}`,
@@ -25,7 +26,7 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     stdout: 'pipe',
     stderr: 'pipe',
-    timeout: 60_000,
+    timeout: 2_000,
     // Enables the window.__manaTerminalTestHandle__ hook described in docs/e2e-test-harness.md
     env: {
       VITE_E2E: '1',

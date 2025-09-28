@@ -9,6 +9,7 @@ declare global {
     __manaTerminalTestHandle__?: {
       write: (input: string) => void
       getSnapshot: () => ReturnType<TerminalHandle['getSnapshot']>
+      getSelection: () => ReturnType<TerminalHandle['getSelection']>
     }
   }
 }
@@ -40,6 +41,7 @@ function App(): JSX.Element {
           handle.write(input)
         },
         getSnapshot: () => handle.getSnapshot(),
+        getSelection: () => handle.getSelection(),
       }
 
       window.__manaTerminalTestHandle__ = testHandle
