@@ -29,6 +29,7 @@ Build a world-class, high-performance, and minimal-dependency TypeScript rendere
 -   Internally: instantiate `createParser` + `createInterpreter`, translate resulting `TerminalUpdate`s into `CanvasRenderer.applyUpdates`, and expose diagnostics. The canvas renderer remains swappable through a `renderer` prop.
 -   Update Vitest coverage to assert lifecycle (mount/unmount), keystroke propagation, ref methods (`write`, `reset`, `focus`), and diagnostics emission using jsdom + Testing Library.
 -   Revise documentation/examples to highlight the single-component API and advise advanced users how to plug into `onData`/`renderer` hooks for custom transports.
+-   Auto-resize the terminal by observing container dimensions, recomputing rows/columns from font metrics, and exposing `getSnapshot()` for tests/accessibility work.
 
 ## Longer-term roadmap
 

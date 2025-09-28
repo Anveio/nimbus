@@ -19,6 +19,7 @@ export interface ParserContext {
   sosPmApcBuffer: number[];
   sosPmApcEscPending: boolean;
   sosPmApcKind: 'SOS' | 'PM' | 'APC' | null;
+  utf8BytesRemaining: number;
 }
 
 export const createInitialContext = (): ParserContext => ({
@@ -36,4 +37,5 @@ export const createInitialContext = (): ParserContext => ({
   sosPmApcBuffer: [],
   sosPmApcEscPending: false,
   sosPmApcKind: null,
+  utf8BytesRemaining: 0,
 });

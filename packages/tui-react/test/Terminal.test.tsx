@@ -5,7 +5,6 @@ import { describe, expect, test, vi } from 'vitest'
 import type { Mock } from 'vitest'
 import { Terminal, type TerminalHandle } from '../src/Terminal'
 import { createCanvasRenderer } from '@mana-ssh/tui-web-canvas-renderer'
-import type { TerminalUpdate } from '@mana-ssh/vt'
 
 const encoder = new TextEncoder()
 
@@ -23,7 +22,7 @@ type CanvasRendererMock = ReturnType<typeof createCanvasRenderer> & {
 
 describe('Terminal', () => {
   test('renders focusable terminal container with canvas', async () => {
-    render(<Terminal ariaLabel="Demo terminal" />)
+    render(<Terminal ariaLabel="Demo terminal" rows={24} columns={80} />)
 
     const region = screen.getByRole('textbox', { name: 'Demo terminal' })
     expect(region).toHaveAttribute('tabindex', '0')
@@ -37,7 +36,7 @@ describe('Terminal', () => {
 
   test('forwards key input via onData and echoes locally by default', async () => {
     const onData = vi.fn()
-    render(<Terminal onData={onData} />)
+    render(<Terminal onData={onData} rows={24} columns={80} />)
 
     const region = screen.getByRole('textbox')
     await userEvent.click(region)
@@ -51,7 +50,7 @@ describe('Terminal', () => {
   test('supports imperative write and reset APIs', async () => {
     const ref = createRef<TerminalHandle>()
 
-    render(<Terminal ref={ref} />)
+    render(<Terminal ref={ref} rows={24} columns={80} />)
 
     expect(ref.current).not.toBeNull()
 
@@ -71,7 +70,7 @@ describe('Terminal', () => {
 
   test('disables local echo when requested', async () => {
     const onData = vi.fn()
-    render(<Terminal onData={onData} localEcho={false} />)
+    render(<Terminal onData={onData} localEcho={false} rows={24} columns={80} />)
     const region = screen.getByRole('textbox')
 
     const renderer = lastRenderer()
@@ -85,7 +84,8 @@ describe('Terminal', () => {
   })
 
   test('falls back to local newline when no onData handler is provided', async () => {
-    render(<Terminal />)
+    const ref = createRef<TerminalHandle>()
+    render(<Terminal ref={ref} rows={24} columns={80} />)
     const region = screen.getByRole('textbox')
     const renderer = lastRenderer()
 
@@ -97,20 +97,23 @@ describe('Terminal', () => {
     await userEvent.keyboard('{Enter}')
     await userEvent.keyboard('B')
 
-    const updates = renderer.applyUpdates.mock.calls.flatMap(
-      ([options]) => options.updates as ReadonlyArray<TerminalUpdate>,
-    )
+    const snapshot = ref.current!.getSnapshot()
+    const row1 = snapshot.buffer[1] ?? []
+    const char = row1[0]?.char ?? ' '
+    expect(char).toBe('B')
+  })
 
-    const cell = updates
-      .filter(
-        (update): update is Extract<TerminalUpdate, { type: 'cells' }> =>
-          update.type === 'cells',
-      )
-      .flatMap((update) => update.cells)
-      .find((entry) => entry.cell.char === 'B')
+  test('exposes snapshot via imperative handle', async () => {
+    const ref = createRef<TerminalHandle>()
+    render(<Terminal ref={ref} rows={24} columns={80} />)
 
-    expect(cell).toBeDefined()
-    expect(cell?.row).toBe(1)
-    expect(cell?.column).toBe(0)
+    await act(async () => {
+      ref.current!.write('hi')
+    })
+
+    const snapshot = ref.current!.getSnapshot()
+    const row = snapshot.buffer[0] ?? []
+    const text = row.slice(0, 2).map((cell) => cell.char).join('')
+    expect(text).toBe('hi')
   })
 })

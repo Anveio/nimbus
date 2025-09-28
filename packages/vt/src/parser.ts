@@ -108,6 +108,24 @@ class ParserImpl implements Parser {
   }
 
   private processByte(byte: number, sink: ParserEventSink): void {
+    if (this.context.utf8BytesRemaining > 0 && isUtf8ContinuationByte(byte)) {
+      this.printBuffer.push(byte)
+      this.context.utf8BytesRemaining -= 1
+      return
+    }
+
+    if (
+      this.context.state === ParserState.Ground &&
+      this.context.utf8BytesRemaining === 0
+    ) {
+      const remaining = getUtf8ContinuationCount(byte)
+      if (remaining > 0) {
+        this.printBuffer.push(byte)
+        this.context.utf8BytesRemaining = remaining
+        return
+      }
+    }
+
     const table = this.dispatchTable[this.context.state]
     const handler = table?.[byte] ?? this.noopHandler
     handler(byte, sink)
@@ -690,3 +708,18 @@ class ParserImpl implements Parser {
 
 export const createParser = (options: ParserOptions = {}): Parser =>
   new ParserImpl(resolveParserOptions(options))
+const getUtf8ContinuationCount = (byte: number): number => {
+  if (byte >= 0xf0 && byte <= 0xf4) {
+    return 3
+  }
+  if (byte >= 0xe0 && byte <= 0xef) {
+    return 2
+  }
+  if (byte >= 0xc2 && byte <= 0xdf) {
+    return 1
+  }
+  return 0
+}
+
+const isUtf8ContinuationByte = (byte: number): boolean =>
+  (byte & 0b11000000) === 0b10000000

@@ -188,7 +188,9 @@ describe('TerminalInterpreter basic behaviour', () => {
 
     expect(state.clipboard).toEqual({ selection: 'c', data: 'Zm9v' })
     const flattened = updates.flat()
-    const clipboardUpdate = flattened.find((update) => update.type === 'clipboard')
+    const clipboardUpdate = flattened.find(
+      (update) => update.type === 'clipboard',
+    )
     expect(clipboardUpdate).toBeDefined()
     if (clipboardUpdate && clipboardUpdate.type === 'clipboard') {
       expect(clipboardUpdate.clipboard.data).toBe('Zm9v')
@@ -201,7 +203,9 @@ describe('TerminalInterpreter basic behaviour', () => {
     const flattened = updates.flat()
 
     expect(flattened.some((update) => update.type === 'dcs-start')).toBe(true)
-    expect(flattened.filter((update) => update.type === 'dcs-data')).not.toHaveLength(0)
+    expect(
+      flattened.filter((update) => update.type === 'dcs-data'),
+    ).not.toHaveLength(0)
     const end = flattened.find((update) => update.type === 'dcs-end')
     expect(end).toBeDefined()
     if (end && end.type === 'dcs-end') {
@@ -216,5 +220,52 @@ describe('TerminalInterpreter basic behaviour', () => {
     expect(state.lastSosPmApc).toEqual({ kind: 'SOS', data: 'status' })
     const flattened = updates.flat()
     expect(flattened.some((update) => update.type === 'sos-pm-apc')).toBe(true)
+  })
+
+  it('renders individual box drawing characters correctly', () => {
+    const { interpreter } = run('┏┓\r\n┗┛')
+    const state = interpreter.snapshot
+    expect(state.buffer[0]![0]!.char.codePointAt(0)).toBe('┏'.codePointAt(0))
+    const top = state.buffer[0]!.map((cell) => cell.char)
+      .join('')
+      .trimEnd()
+    const bottom = state.buffer[1]!.map((cell) => cell.char)
+      .join('')
+      .trimEnd()
+    expect(top).toBe('┏┓')
+    expect(bottom).toBe('┗┛')
+  })
+
+  it('renders complex ANSI banner with truecolor and emojis', () => {
+    const sequence =
+      '\u001b[38;2;88;166;255m┏━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓\r\n' +
+      '\u001b[38;2;88;166;255m┃\u001b[0m  \u001b[1;38;2;35;134;54mMana SSH Web Terminal\u001b[0m  \u001b[38;2;88;166;255m┃\r\n' +
+      '\u001b[38;2;88;166;255m┣━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━┫\r\n' +
+      '\u001b[0m  🛰  \u001b[3mConnected to virtual constellation\u001b[0m\r\n' +
+      '  🧪  \u001b[38;2;255;215;0mExperimental session — type freely!\u001b[0m\r\n' +
+      '  🌈  \u001b[38;2;180;82;205mANSI colors,\u001b[38;2;97;218;251m truecolor,\u001b[38;2;130;170;255m emoji ✨\u001b[0m\r\n' +
+      '  🔁  \u001b[4mEcho is local until you wire a host\u001b[0m\r\n' +
+      '  ⌨️  Paste, arrow keys, and Ctrl shortcuts supported\r\n' +
+      '\u001b[38;2;88;166;255m┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\u001b[0m\r\n\r\n'
+
+    const { interpreter } = run(sequence)
+    const state = interpreter.snapshot
+    const readRow = (row: number): string =>
+      state.buffer[row]!.map((cell) => cell.char)
+        .join('')
+        .trimEnd()
+
+    expect(readRow(0)).toBe('┏━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓')
+    expect(readRow(1)).toBe('┃  Mana SSH Web Terminal  ┃')
+    expect(readRow(2)).toBe('┣━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━┫')
+    expect(readRow(3)).toBe('  🛰  Connected to virtual constellation')
+    expect(readRow(4)).toBe('  🧪  Experimental session — type freely!')
+    expect(readRow(5)).toBe('  🌈  ANSI colors, truecolor, emoji ✨')
+    expect(readRow(6)).toBe('  🔁  Echo is local until you wire a host')
+    expect(readRow(7)).toBe(
+      '  ⌨️  Paste, arrow keys, and Ctrl shortcuts supported',
+    )
+    expect(readRow(8)).toBe('┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛')
+    expect(readRow(9)).toBe('')
   })
 })

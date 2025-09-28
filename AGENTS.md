@@ -124,7 +124,7 @@ A description of our technical approach, what changed in each file, any caveats 
 A description of all testing done. If only refactoring was done, let's mention that no new tests were required.
 </testing>
 
-Replace the tags and the content of the tags with your actual generated problem, solution and testing details.
+Replace the tags and the content of the tags with your actual generated problem, solution and testing details. If there are changes to files not directly edited by you during your current task, assume those changes are made by another automated software engineer. If those changes interfere with your work, closely examine the changes and determine if they should be staged with your work. Ask for clarification if you are unsure.
 
 <memory-bank>
 ### Wednesday, August 13, 2025

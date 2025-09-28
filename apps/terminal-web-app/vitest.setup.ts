@@ -3,11 +3,19 @@ import { createElement, forwardRef, useImperativeHandle } from 'react'
 import { vi } from 'vitest'
 
 vi.mock('@mana-ssh/tui-react', () => {
+  const focus = vi.fn()
+  const write = vi.fn()
+  const reset = vi.fn()
+  const getSnapshot = vi.fn(() => ({ buffer: [] }))
+
+  ;(globalThis as any).__manaTerminalMock__ = { focus, write, reset, getSnapshot }
+
   const Terminal = forwardRef((_props: any, ref) => {
     useImperativeHandle(ref, () => ({
-      focus: vi.fn(),
-      write: vi.fn(),
-      reset: vi.fn(),
+      focus,
+      write,
+      reset,
+      getSnapshot,
     }))
 
     return createElement(

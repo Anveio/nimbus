@@ -24,7 +24,6 @@ import {
   type ClipboardEntry,
 } from './state'
 
-const textDecoder = new TextDecoder()
 const QUESTION_MARK = '?'.charCodeAt(0)
 
 const clamp = (value: number, min: number, max: number): number =>
@@ -48,6 +47,8 @@ export interface InterpreterOptions {
 export class TerminalInterpreter {
   readonly capabilities: TerminalCapabilities
   private state: TerminalState
+  private readonly textDecoder = new TextDecoder()
+  private readonly printDecoder = new TextDecoder('utf-8', { fatal: false })
   private activeDcs: ActiveDcs | null = null
 
   constructor(options: InterpreterOptions = {}) {
@@ -96,6 +97,7 @@ export class TerminalInterpreter {
   reset(): void {
     this.state = createInitialState(this.capabilities)
     this.activeDcs = null
+    this.printDecoder.decode()
   }
 
   private handlePrint(data: Uint8Array): TerminalUpdate[] {
@@ -103,7 +105,7 @@ export class TerminalInterpreter {
       return []
     }
 
-    const text = textDecoder.decode(data)
+    const text = this.printDecoder.decode(data, { stream: true })
     const cellUpdates: CellDelta[] = []
     const miscUpdates: TerminalUpdate[] = []
 
@@ -184,7 +186,7 @@ export class TerminalInterpreter {
     if (buffer.length === 0) {
       return ''
     }
-    return textDecoder.decode(buffer)
+    return this.textDecoder.decode(buffer)
   }
 
   private handleEsc(
@@ -280,14 +282,19 @@ export class TerminalInterpreter {
       if (components.length !== 3) {
         return null
       }
-      const [rHex, gHex, bHex] = components
+      const rHex = components[0] ?? ''
+      const gHex = components[1] ?? ''
+      const bHex = components[2] ?? ''
+      if (!rHex || !gHex || !bHex) {
+        return null
+      }
       const parseComponent = (value: string): number | null => {
         const normalized = value.length === 0 ? '0' : value
         const int = Number.parseInt(normalized, 16)
         if (Number.isNaN(int)) {
           return null
         }
-        const scale = Math.pow(16, normalized.length) - 1 || 1
+        const scale = 16 ** normalized.length - 1 || 1
         return clampColorComponent((int / scale) * 255)
       }
       const r = parseComponent(rHex)
@@ -591,7 +598,6 @@ export class TerminalInterpreter {
         }
         this.state.cursor = { row: 0, column: 0 }
         return [{ type: 'clear', scope: 'display' }, this.cursorUpdate()]
-      case 0:
       default:
         return this.clearFromCursor()
     }

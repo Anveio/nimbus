@@ -1,10 +1,29 @@
+import type {
+  CreateCanvasRenderer,
+  RendererCellMetrics,
+  RendererCursorTheme,
+  RendererFontMetrics,
+  RendererMetrics,
+  RendererPalette,
+  RendererTheme,
+} from '@mana-ssh/tui-web-canvas-renderer'
+import type { TerminalInterpreter } from '@mana-ssh/vt'
 import {
-  forwardRef,
-  type ClipboardEvent as ReactClipboardEvent,
-  type ForwardedRef,
-  type HTMLAttributes,
-  type KeyboardEvent as ReactKeyboardEvent,
+  createInterpreter,
+  createParser,
+  type ParserEvent,
+  type ParserEventSink,
+  resolveTerminalCapabilities,
+  type TerminalState,
+  type TerminalUpdate,
+} from '@mana-ssh/vt'
+import {
   type CSSProperties,
+  type ForwardedRef,
+  forwardRef,
+  type HTMLAttributes,
+  type ClipboardEvent as ReactClipboardEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -13,27 +32,8 @@ import {
   useState,
 } from 'react'
 import {
-  type RendererMetrics,
-  type RendererTheme,
-  type RendererFontMetrics,
-  type RendererCellMetrics,
-  type RendererPalette,
-  type RendererCursorTheme,
-  type CreateCanvasRenderer,
-} from '@mana-ssh/tui-web-canvas-renderer'
-import {
-  createInterpreter,
-  createParser,
-  resolveTerminalCapabilities,
-  type ParserEvent,
-  type ParserEventSink,
-  type TerminalState,
-  type TerminalUpdate,
-} from '@mana-ssh/vt'
-import type { TerminalInterpreter } from '@mana-ssh/vt'
-import {
-  useTerminalCanvasRenderer,
   type TerminalRendererHandle,
+  useTerminalCanvasRenderer,
 } from './renderer'
 
 const DEFAULT_ROWS = 24
@@ -135,12 +135,15 @@ const mergeMetrics = (override?: {
   readonly font?: Partial<RendererFontMetrics>
   readonly cell?: Partial<RendererCellMetrics>
 }): RendererMetrics => ({
-  devicePixelRatio: override?.devicePixelRatio ?? DEFAULT_METRICS.devicePixelRatio,
+  devicePixelRatio:
+    override?.devicePixelRatio ?? DEFAULT_METRICS.devicePixelRatio,
   font: mergeFont(override?.font),
   cell: mergeCell(override?.cell),
 })
 
-const encodeKeyEvent = (event: React.KeyboardEvent<HTMLDivElement>): Uint8Array | null => {
+const encodeKeyEvent = (
+  event: React.KeyboardEvent<HTMLDivElement>,
+): Uint8Array | null => {
   if (event.metaKey) {
     return null
   }
@@ -221,6 +224,7 @@ export interface TerminalHandle {
   focus(): void
   write(data: Uint8Array | string): void
   reset(): void
+  getSnapshot(): TerminalState
 }
 
 export interface TerminalProps extends HTMLAttributes<HTMLDivElement> {
@@ -234,7 +238,9 @@ export interface TerminalProps extends HTMLAttributes<HTMLDivElement> {
   }
   readonly renderer?: CreateCanvasRenderer
   readonly onData?: (data: Uint8Array) => void
-  readonly onDiagnostics?: (diagnostics: TerminalRendererHandle['diagnostics']) => void
+  readonly onDiagnostics?: (
+    diagnostics: TerminalRendererHandle['diagnostics'],
+  ) => void
   readonly localEcho?: boolean
   readonly autoFocus?: boolean
   readonly ariaLabel?: string
@@ -263,23 +269,58 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     },
     ref: ForwardedRef<TerminalHandle>,
   ) => {
-    const rows = clamp(rowsProp ?? DEFAULT_ROWS, 1, 500)
-    const columns = clamp(columnsProp ?? DEFAULT_COLUMNS, 1, 500)
-
     const theme = useMemo(() => mergeTheme(themeOverride), [themeOverride])
-    const metrics = useMemo(() => mergeMetrics(metricsOverride), [metricsOverride])
+    const metrics = useMemo(
+      () => mergeMetrics(metricsOverride),
+      [metricsOverride],
+    )
+
+    const containerRef = useRef<HTMLDivElement>(null)
+    const [containerSize, setContainerSize] = useState<
+      { width: number; height: number } | null
+    >(null)
+
+    useEffect(() => {
+      const node = containerRef.current
+      if (!node) {
+        return
+      }
+      const observer = new ResizeObserver((entries) => {
+        const entry = entries[0]
+        if (!entry) {
+          return
+        }
+        const { width, height } = entry.contentRect
+        if (!Number.isNaN(width) && !Number.isNaN(height)) {
+          setContainerSize({ width, height })
+        }
+      })
+      observer.observe(node)
+      return () => observer.disconnect()
+    }, [metrics.cell.width, metrics.cell.height])
+
+    const fallbackWidth = (columnsProp ?? DEFAULT_COLUMNS) * metrics.cell.width
+    const fallbackHeight = (rowsProp ?? DEFAULT_ROWS) * metrics.cell.height
+    const availableWidth = containerSize?.width ?? fallbackWidth
+    const availableHeight = containerSize?.height ?? fallbackHeight
+
+    const autoColumns = Math.max(
+      1,
+      Math.floor(availableWidth / Math.max(metrics.cell.width, 1)),
+    )
+    const autoRows = Math.max(
+      1,
+      Math.floor(availableHeight / Math.max(metrics.cell.height, 1)),
+    )
+
+    const rows = clamp(rowsProp ?? autoRows, 1, 500)
+    const columns = clamp(columnsProp ?? autoColumns, 1, 500)
 
     const interpreterRef = useRef<TerminalInterpreter | null>(null)
     const parserRef = useRef(createParser())
-    const dimensionsRef = useRef<{ rows: number; columns: number } | null>(null)
 
-    if (
-      !interpreterRef.current ||
-      dimensionsRef.current?.rows !== rows ||
-      dimensionsRef.current?.columns !== columns
-    ) {
+    if (!interpreterRef.current) {
       interpreterRef.current = createInterpreterInstance(rows, columns)
-      dimensionsRef.current = { rows, columns }
     }
 
     const interpreter = interpreterRef.current
@@ -299,7 +340,25 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       onDiagnostics,
     })
 
-    const containerRef = useRef<HTMLDivElement>(null)
+    useEffect(() => {
+      const current = interpreterRef.current
+      if (!current) {
+        interpreterRef.current = createInterpreterInstance(rows, columns)
+        rendererHandle.sync(interpreterRef.current.snapshot)
+        setSnapshotVersion((value) => value + 1)
+        return
+      }
+
+      const { rows: currentRows, columns: currentColumns } = current.snapshot
+      if (currentRows === rows && currentColumns === columns) {
+        return
+      }
+
+      interpreterRef.current = createInterpreterInstance(rows, columns)
+      parserRef.current = createParser()
+      rendererHandle.sync(interpreterRef.current.snapshot)
+      setSnapshotVersion((value) => value + 1)
+    }, [rows, columns, rendererHandle])
 
     const applyUpdates = useCallback(
       (updates: TerminalUpdate[]) => {
@@ -323,15 +382,12 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     const sinkRef = useRef<ParserEventSink>({ onEvent: handleEvent })
     sinkRef.current.onEvent = handleEvent
 
-    const write = useCallback(
-      (input: Uint8Array | string) => {
-        const buffer =
-          typeof input === 'string' ? TEXT_ENCODER.encode(input) : input
-        parserRef.current.write(buffer, sinkRef.current)
-        setSnapshotVersion((value) => value + 1)
-      },
-      [],
-    )
+    const write = useCallback((input: Uint8Array | string) => {
+      const buffer =
+        typeof input === 'string' ? TEXT_ENCODER.encode(input) : input
+      parserRef.current.write(buffer, sinkRef.current)
+      setSnapshotVersion((value) => value + 1)
+    }, [])
 
     const focus = useCallback(() => {
       containerRef.current?.focus()
@@ -397,6 +453,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         focus,
         write,
         reset,
+        getSnapshot: () => interpreterRef.current!.snapshot,
       }),
       [focus, reset, write],
     )
