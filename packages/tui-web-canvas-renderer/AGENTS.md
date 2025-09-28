@@ -41,6 +41,14 @@ Deliver a standalone, high-performance canvas renderer for the Mana SSH terminal
 - Vitest harness in place (node-canvas + pixelmatch + snapshots) with an initial rendering smoke test.
 - Package scripts wired for `vitest` execution; awaiting concrete drawing implementation.
 
+## 2025-09-27 – OSC/DCS wiring & palette overrides
+
+- Canvas renderer now understands the expanded `TerminalAttributes`/`TerminalColor` shapes from `@mana-ssh/vt`, including italic, underline (single/double), faint, inverse, and strikethrough rendering.
+- Palette updates (`TerminalUpdate.type === 'palette'`) are cached and applied during paint, allowing OSC 4/104 and SGR truecolour writes to update the framebuffer without theme churn.
+- Diagnostics track the latest OSC, DCS, and SOS/PM/APC payloads so host layers can react to window title, graphics, or status messages without re-parsing effects.
+- OSC/DCS/SOS-only updates no longer trigger full repaints; we repaint only when cells/colours change, preserving performance for metadata-heavy workloads.
+- Added Vitest coverage for palette overrides, diagnostics plumbing, and the enhanced styling pipeline (underline, faint, RGB foregrounds).
+
 ## Immediate next steps
 
 1. Implement the canvas renderer internals that honour the new interface and draw `@mana-ssh/vt` snapshots.

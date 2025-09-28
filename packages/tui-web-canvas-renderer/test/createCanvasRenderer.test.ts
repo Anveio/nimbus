@@ -1,4 +1,9 @@
-import type { TerminalCell, TerminalState, TerminalUpdate } from '@mana-ssh/vt'
+import type {
+  TerminalAttributes,
+  TerminalCell,
+  TerminalState,
+  TerminalUpdate,
+} from '@mana-ssh/vt'
 import { createCanvas, Image } from 'canvas'
 import type { Canvas } from 'canvas'
 import pixelmatch from 'pixelmatch'
@@ -171,9 +176,30 @@ const baseMetrics: RendererMetrics = {
   },
 }
 
+const baseAttributes = (): TerminalAttributes => ({
+  bold: false,
+  faint: false,
+  italic: false,
+  underline: 'none',
+  blink: 'none',
+  inverse: false,
+  hidden: false,
+  strikethrough: false,
+  foreground: { type: 'default' },
+  background: { type: 'default' },
+})
+
+const createAttributes = (
+  overrides: Partial<TerminalAttributes> = {},
+): TerminalAttributes =>
+  ({
+    ...baseAttributes(),
+    ...overrides,
+  } as TerminalAttributes)
+
 const createBlankCell = (): TerminalCell => ({
   char: ' ',
-  attr: { bold: false, fg: null, bg: null },
+  attr: createAttributes(),
 })
 
 const createSnapshot = (rows: number, columns: number): TerminalState => ({
@@ -185,11 +211,14 @@ const createSnapshot = (rows: number, columns: number): TerminalState => ({
   buffer: Array.from({ length: rows }, () =>
     Array.from({ length: columns }, () => createBlankCell()),
   ),
-  attributes: { bold: false, fg: null, bg: null },
+  attributes: createAttributes(),
   tabStops: new Set<number>(),
   autoWrap: true,
   originMode: false,
   cursorVisible: false,
+  title: '',
+  clipboard: null,
+  lastSosPmApc: null,
   savedCursor: null,
   savedAttributes: null,
 })
@@ -238,7 +267,9 @@ describe('createCanvasRenderer', () => {
 
     const updatedCell: TerminalCell = {
       char: ' ',
-      attr: { bold: false, fg: null, bg: 1 },
+      attr: createAttributes({
+        background: { type: 'ansi', index: 1 },
+      }),
     }
     snapshot.buffer[0]![0] = updatedCell
     const updates: TerminalUpdate[] = [
@@ -280,7 +311,9 @@ describe('createCanvasRenderer', () => {
     const snapshot = createSnapshot(1, 1)
     snapshot.buffer[0]![0] = {
       char: 'A',
-      attr: { bold: false, fg: 2, bg: null },
+      attr: createAttributes({
+        foreground: { type: 'ansi', index: 2 },
+      }),
     }
     const canvas = createTestCanvas(1, 1)
 
@@ -393,6 +426,106 @@ describe('createCanvasRenderer', () => {
     expect(pixel[0]).toBe(cursorColour[0])
     expect(pixel[1]).toBe(cursorColour[1])
     expect(pixel[2]).toBe(cursorColour[2])
+    renderer.dispose()
+  })
+
+  test('applies palette overrides from terminal updates', () => {
+    const theme = createTheme()
+    const snapshot = createSnapshot(1, 1)
+    snapshot.buffer[0]![0] = {
+      char: ' ',
+      attr: createAttributes({
+        background: { type: 'ansi', index: 1 },
+      }),
+    }
+    const canvas = createTestCanvas(1, 1)
+
+    const renderer = createCanvasRenderer({
+      canvas,
+      metrics: baseMetrics,
+      theme,
+      snapshot,
+    })
+
+    const updates: TerminalUpdate[] = [
+      {
+        type: 'palette',
+        index: 1,
+        color: { type: 'rgb', r: 0, g: 128, b: 255 },
+      },
+      {
+        type: 'cells',
+        cells: [
+          {
+            row: 0,
+            column: 0,
+            cell: snapshot.buffer[0]![0]!,
+          },
+        ],
+      },
+    ]
+
+    renderer.applyUpdates({ snapshot, updates })
+
+    const pixel = getPixel(renderer, 0, 0)
+    expect(pixel[0]).toBe(0)
+    expect(pixel[1]).toBe(128)
+    expect(pixel[2]).toBe(255)
+    renderer.dispose()
+  })
+
+  test('records OSC, DCS, and SOS diagnostics without forcing repaint', () => {
+    const theme = createTheme()
+    const snapshot = createSnapshot(1, 1)
+    const canvas = createTestCanvas(1, 1)
+
+    const renderer = createCanvasRenderer({
+      canvas,
+      metrics: baseMetrics,
+      theme,
+      snapshot,
+    })
+
+    const initialCalls = renderer.diagnostics.lastDrawCallCount
+    expect(initialCalls).not.toBeNull()
+
+    const updates: TerminalUpdate[] = [
+      { type: 'osc', identifier: '0', data: 'window title' },
+      { type: 'sos-pm-apc', kind: 'SOS', data: 'status' },
+      {
+        type: 'dcs-start',
+        finalByte: 'q'.charCodeAt(0),
+        params: [1],
+        intermediates: [],
+      },
+      { type: 'dcs-data', data: 'payload' },
+      {
+        type: 'dcs-end',
+        finalByte: 'q'.charCodeAt(0),
+        params: [1],
+        intermediates: [],
+        data: '',
+      },
+    ]
+
+    renderer.applyUpdates({ snapshot, updates })
+
+    expect(renderer.diagnostics.lastOsc).toEqual({
+      identifier: '0',
+      data: 'window title',
+    })
+    expect(renderer.diagnostics.lastSosPmApc).toEqual({
+      kind: 'SOS',
+      data: 'status',
+    })
+    expect(renderer.diagnostics.lastDcs).toEqual({
+      finalByte: 'q'.charCodeAt(0),
+      params: [1],
+      intermediates: [],
+      data: 'payload',
+    })
+    expect(renderer.diagnostics.lastDrawCallCount).toBe(initialCalls)
+
     renderer.dispose()
   })
 

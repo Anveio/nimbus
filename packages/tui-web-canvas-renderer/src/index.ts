@@ -1,16 +1,39 @@
 import type {
+  SosPmApcKind,
   TerminalAttributes,
   TerminalCell,
+  TerminalColor,
   TerminalState,
   TerminalUpdate,
 } from '@mana-ssh/vt'
 
+const createDefaultAttributes = (): TerminalAttributes => ({
+  bold: false,
+  faint: false,
+  italic: false,
+  underline: 'none',
+  blink: 'none',
+  inverse: false,
+  hidden: false,
+  strikethrough: false,
+  foreground: { type: 'default' },
+  background: { type: 'default' },
+})
+
 const DEFAULT_CELL: TerminalCell = {
   char: ' ',
-  attr: { bold: false, fg: null, bg: null },
+  attr: createDefaultAttributes(),
 }
 
 const DEFAULT_CURSOR_SHAPE: RendererCursorTheme['shape'] = 'block'
+const BRIGHT_OFFSET = 8
+
+type PaletteOverrides = Map<number, RendererColor>
+
+interface FrameStats {
+  readonly lastFrameDurationMs: number
+  readonly lastDrawCallCount: number
+}
 
 const now = (): number =>
   typeof performance !== 'undefined' ? performance.now() : Date.now()
@@ -52,13 +75,26 @@ const ensureDimensions = (
   return { logicalWidth, logicalHeight }
 }
 
-const resolvePaletteColor = (
+const clampByte = (value: number): number =>
+  Math.max(0, Math.min(255, Math.round(value)))
+
+const clampAlpha = (value: number): number => Math.max(0, Math.min(1, value))
+
+const rgba = (r: number, g: number, b: number, alpha = 1): RendererColor =>
+  `rgba(${clampByte(r)}, ${clampByte(g)}, ${clampByte(b)}, ${clampAlpha(alpha)})`
+
+const resolvePaletteEntry = (
   palette: RendererPalette,
+  overrides: PaletteOverrides,
   index: number,
   fallback: RendererColor,
 ): RendererColor => {
   if (Number.isNaN(index) || index < 0) {
     return fallback
+  }
+  const override = overrides.get(index)
+  if (override) {
+    return override
   }
   if (index < palette.ansi.length) {
     return palette.ansi[index] ?? fallback
@@ -70,30 +106,130 @@ const resolvePaletteColor = (
   return fallback
 }
 
-const resolveForeground = (
-  attributes: TerminalAttributes,
+const terminalColorToCss = (
+  color: TerminalColor,
   theme: RendererTheme,
-): RendererColor => {
-  if (attributes.fg == null) {
-    return theme.foreground
+  overrides: PaletteOverrides,
+  fallback: RendererColor,
+  treatDefaultAsNull: boolean,
+): RendererColor | null => {
+  switch (color.type) {
+    case 'default':
+      return treatDefaultAsNull ? null : fallback
+    case 'ansi':
+      return resolvePaletteEntry(
+        theme.palette,
+        overrides,
+        color.index,
+        fallback,
+      )
+    case 'ansi-bright':
+      return resolvePaletteEntry(
+        theme.palette,
+        overrides,
+        color.index + BRIGHT_OFFSET,
+        fallback,
+      )
+    case 'palette':
+      return resolvePaletteEntry(
+        theme.palette,
+        overrides,
+        color.index,
+        fallback,
+      )
+    case 'rgb':
+      return rgba(color.r, color.g, color.b)
+    default:
+      return fallback
   }
-  return resolvePaletteColor(theme.palette, attributes.fg, theme.foreground)
 }
 
-const resolveBackground = (
+const resolveCellColors = (
   attributes: TerminalAttributes,
   theme: RendererTheme,
-): RendererColor | null => {
-  if (attributes.bg == null) {
-    return null
+  overrides: PaletteOverrides,
+): {
+  foreground: RendererColor | null
+  background: RendererColor | null
+} => {
+  let foreground = terminalColorToCss(
+    attributes.foreground,
+    theme,
+    overrides,
+    theme.foreground,
+    false,
+  )
+
+  let background = terminalColorToCss(
+    attributes.background,
+    theme,
+    overrides,
+    theme.background,
+    true,
+  )
+
+  if (attributes.inverse) {
+    const resolvedForeground = foreground ?? theme.foreground
+    const resolvedBackground = background ?? theme.background
+    background = resolvedForeground
+    foreground = resolvedBackground
   }
-  return resolvePaletteColor(theme.palette, attributes.bg, theme.background)
+
+  if (attributes.hidden) {
+    foreground = null
+  }
+
+  return { foreground, background }
+}
+
+const resolvePaletteOverrideColor = (
+  color: TerminalColor,
+  theme: RendererTheme,
+  overrides: PaletteOverrides,
+  index: number,
+): RendererColor | null => {
+  switch (color.type) {
+    case 'default':
+      return null
+    case 'ansi':
+      return resolvePaletteEntry(
+        theme.palette,
+        overrides,
+        color.index,
+        theme.foreground,
+      )
+    case 'ansi-bright':
+      return resolvePaletteEntry(
+        theme.palette,
+        overrides,
+        color.index + BRIGHT_OFFSET,
+        theme.foreground,
+      )
+    case 'palette':
+      return resolvePaletteEntry(
+        theme.palette,
+        overrides,
+        color.index,
+        theme.foreground,
+      )
+    case 'rgb':
+      return rgba(color.r, color.g, color.b)
+    default:
+      return resolvePaletteEntry(
+        theme.palette,
+        overrides,
+        index,
+        theme.foreground,
+      )
+  }
 }
 
 const fontString = (
   font: RendererFontMetrics,
   bold: boolean,
-): string => `${bold ? 'bold ' : ''}${font.size}px ${font.family}`
+  italic: boolean,
+): string =>
+  `${italic ? 'italic ' : ''}${bold ? 'bold ' : ''}${font.size}px ${font.family}`
 
 const drawCursor = (
   ctx: CanvasRenderingContext2D,
@@ -140,17 +276,25 @@ const repaint = (
   snapshot: TerminalState,
   metrics: RendererMetrics,
   theme: RendererTheme,
+  paletteOverrides: PaletteOverrides,
   layout: { logicalWidth: number; logicalHeight: number },
-): CanvasRendererDiagnostics => {
+): FrameStats => {
   const start = now()
   let drawCalls = 0
 
   ctx.save()
-  ctx.setTransform(metrics.devicePixelRatio, 0, 0, metrics.devicePixelRatio, 0, 0)
+  ctx.setTransform(
+    metrics.devicePixelRatio,
+    0,
+    0,
+    metrics.devicePixelRatio,
+    0,
+    0,
+  )
   ctx.imageSmoothingEnabled = false
   ctx.textBaseline = 'alphabetic'
   ctx.textAlign = 'left'
-  ctx.font = fontString(metrics.font, false)
+  ctx.font = fontString(metrics.font, false, false)
 
   ctx.fillStyle = theme.background
   ctx.fillRect(0, 0, layout.logicalWidth, layout.logicalHeight)
@@ -167,23 +311,84 @@ const repaint = (
       const x = column * cellWidth
       const y = row * cellHeight
 
-      const bg = resolveBackground(cell.attr, theme)
-      if (bg) {
-        ctx.fillStyle = bg
+      const { foreground, background } = resolveCellColors(
+        cell.attr,
+        theme,
+        paletteOverrides,
+      )
+
+      if (background) {
+        ctx.fillStyle = background
         ctx.fillRect(x, y, cellWidth, cellHeight)
         drawCalls += 1
       }
 
       const char = cell.char
-      if (char && char !== ' ') {
-        const nextFont = fontString(metrics.font, cell.attr.bold)
+      const shouldDrawGlyph = Boolean(char && char !== ' ' && foreground)
+
+      if (shouldDrawGlyph) {
+        const nextFont = fontString(
+          metrics.font,
+          cell.attr.bold,
+          cell.attr.italic,
+        )
         if (nextFont !== currentFont) {
           ctx.font = nextFont
           currentFont = nextFont
         }
-        ctx.fillStyle = resolveForeground(cell.attr, theme)
-        ctx.fillText(char, x, y + metrics.cell.baseline)
+
+        const previousAlpha = ctx.globalAlpha
+        if (cell.attr.faint) {
+          ctx.globalAlpha = previousAlpha * 0.6
+        }
+
+        if (foreground) {
+          ctx.fillStyle = foreground
+        }
+        ctx.fillText(char!, x, y + metrics.cell.baseline)
         drawCalls += 1
+
+        if (cell.attr.faint) {
+          ctx.globalAlpha = previousAlpha
+        }
+      }
+
+      const shouldDrawDecoration =
+        Boolean(foreground) &&
+        (cell.attr.underline !== 'none' || cell.attr.strikethrough)
+
+      if (shouldDrawDecoration && foreground) {
+        const previousAlpha = ctx.globalAlpha
+        if (cell.attr.faint) {
+          ctx.globalAlpha = previousAlpha * 0.6
+        }
+
+        ctx.fillStyle = foreground
+
+        if (cell.attr.underline !== 'none') {
+          const thickness = Math.max(1, Math.round(cellHeight * 0.08))
+          const baseY = y + cellHeight - thickness
+          ctx.fillRect(x, baseY, cellWidth, thickness)
+          drawCalls += 1
+          if (cell.attr.underline === 'double') {
+            const gap = thickness + 2
+            const secondY = Math.max(y, baseY - gap)
+            ctx.fillRect(x, secondY, cellWidth, thickness)
+            drawCalls += 1
+          }
+        }
+
+        if (cell.attr.strikethrough) {
+          const thickness = Math.max(1, Math.round(cellHeight * 0.08))
+          const strikeY =
+            y + Math.round(cellHeight / 2) - Math.floor(thickness / 2)
+          ctx.fillRect(x, strikeY, cellWidth, thickness)
+          drawCalls += 1
+        }
+
+        if (cell.attr.faint) {
+          ctx.globalAlpha = previousAlpha
+        }
       }
     }
   }
@@ -208,9 +413,10 @@ const fullRepaint = (
   snapshot: TerminalState,
   metrics: RendererMetrics,
   theme: RendererTheme,
-): CanvasRendererDiagnostics => {
+  paletteOverrides: PaletteOverrides,
+): FrameStats => {
   const layout = ensureDimensions(canvas, snapshot, metrics)
-  return repaint(ctx, snapshot, metrics, theme, layout)
+  return repaint(ctx, snapshot, metrics, theme, paletteOverrides, layout)
 }
 
 const ensureNotDisposed = (disposed: boolean): void => {
@@ -219,9 +425,7 @@ const ensureNotDisposed = (disposed: boolean): void => {
   }
 }
 
-export const createCanvasRenderer: CreateCanvasRenderer = (
-  options,
-) => {
+export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
   const canvas = options.canvas
   const ctx = ensureContext(canvas)
 
@@ -229,35 +433,178 @@ export const createCanvasRenderer: CreateCanvasRenderer = (
   let theme = options.theme
   let metrics = options.metrics
   let currentSnapshot = options.snapshot
+  const paletteOverrides: PaletteOverrides = new Map()
+  let pendingDcs: {
+    readonly finalByte: number
+    readonly params: ReadonlyArray<number>
+    readonly intermediates: ReadonlyArray<number>
+    data: string
+  } | null = null
+
   let diagnostics: CanvasRendererDiagnostics = {
     lastFrameDurationMs: null,
     lastDrawCallCount: null,
+    lastOsc: null,
+    lastSosPmApc: null,
+    lastDcs: null,
   }
 
-  diagnostics = fullRepaint(ctx, canvas, currentSnapshot, metrics, theme)
+  const applyFrameStats = (frame: FrameStats): void => {
+    diagnostics = {
+      ...diagnostics,
+      lastFrameDurationMs: frame.lastFrameDurationMs,
+      lastDrawCallCount: frame.lastDrawCallCount,
+    }
+  }
+
+  applyFrameStats(
+    fullRepaint(ctx, canvas, currentSnapshot, metrics, theme, paletteOverrides),
+  )
 
   const renderer: CanvasRenderer = {
     canvas,
-    applyUpdates({ snapshot }) {
+    applyUpdates({ snapshot, updates }) {
       ensureNotDisposed(disposed)
       currentSnapshot = snapshot
-      diagnostics = fullRepaint(ctx, canvas, currentSnapshot, metrics, theme)
+
+      let requiresRepaint = false
+
+      for (const update of updates) {
+        switch (update.type) {
+          case 'cells':
+          case 'clear':
+          case 'cursor':
+          case 'scroll':
+          case 'attributes':
+          case 'scroll-region':
+          case 'mode':
+          case 'cursor-visibility':
+            requiresRepaint = true
+            break
+          case 'palette': {
+            const nextColor = resolvePaletteOverrideColor(
+              update.color,
+              theme,
+              paletteOverrides,
+              update.index,
+            )
+            if (nextColor === null) {
+              paletteOverrides.delete(update.index)
+            } else {
+              paletteOverrides.set(update.index, nextColor)
+            }
+            requiresRepaint = true
+            break
+          }
+          case 'osc':
+            diagnostics = {
+              ...diagnostics,
+              lastOsc: {
+                identifier: update.identifier,
+                data: update.data,
+              },
+            }
+            break
+          case 'sos-pm-apc':
+            diagnostics = {
+              ...diagnostics,
+              lastSosPmApc: {
+                kind: update.kind,
+                data: update.data,
+              },
+            }
+            break
+          case 'dcs-start':
+            pendingDcs = {
+              finalByte: update.finalByte,
+              params: [...update.params],
+              intermediates: [...update.intermediates],
+              data: '',
+            }
+            break
+          case 'dcs-data':
+            if (pendingDcs) {
+              pendingDcs = {
+                ...pendingDcs,
+                data: pendingDcs.data + update.data,
+              }
+            }
+            break
+          case 'dcs-end': {
+            const accumulated = pendingDcs?.data ?? ''
+            diagnostics = {
+              ...diagnostics,
+              lastDcs: {
+                finalByte: update.finalByte,
+                params: [...update.params],
+                intermediates: [...update.intermediates],
+                data: accumulated + update.data,
+              },
+            }
+            pendingDcs = null
+            break
+          }
+          default:
+            requiresRepaint = true
+            break
+        }
+      }
+
+      if (requiresRepaint) {
+        applyFrameStats(
+          fullRepaint(
+            ctx,
+            canvas,
+            currentSnapshot,
+            metrics,
+            theme,
+            paletteOverrides,
+          ),
+        )
+      }
     },
     resize({ snapshot, metrics: nextMetrics }) {
       ensureNotDisposed(disposed)
       metrics = nextMetrics
       currentSnapshot = snapshot
-      diagnostics = fullRepaint(ctx, canvas, currentSnapshot, metrics, theme)
+      applyFrameStats(
+        fullRepaint(
+          ctx,
+          canvas,
+          currentSnapshot,
+          metrics,
+          theme,
+          paletteOverrides,
+        ),
+      )
     },
     setTheme(nextTheme) {
       ensureNotDisposed(disposed)
       theme = nextTheme
-      diagnostics = fullRepaint(ctx, canvas, currentSnapshot, metrics, theme)
+      applyFrameStats(
+        fullRepaint(
+          ctx,
+          canvas,
+          currentSnapshot,
+          metrics,
+          theme,
+          paletteOverrides,
+        ),
+      )
     },
     sync(snapshot) {
       ensureNotDisposed(disposed)
       currentSnapshot = snapshot
-      diagnostics = fullRepaint(ctx, canvas, currentSnapshot, metrics, theme)
+      applyFrameStats(
+        fullRepaint(
+          ctx,
+          canvas,
+          currentSnapshot,
+          metrics,
+          theme,
+          paletteOverrides,
+        ),
+      )
     },
     dispose() {
       disposed = true
@@ -366,6 +713,23 @@ export interface CanvasRendererDiagnostics {
   readonly lastFrameDurationMs: number | null
   /** Total number of draw calls in the most recent frame. */
   readonly lastDrawCallCount: number | null
+  /** Most recent OSC payload observed, if any. */
+  readonly lastOsc: {
+    readonly identifier: string
+    readonly data: string
+  } | null
+  /** Most recent SOS/PM/APC payload observed, if any. */
+  readonly lastSosPmApc: {
+    readonly kind: SosPmApcKind
+    readonly data: string
+  } | null
+  /** Most recent DCS payload observed, if any. */
+  readonly lastDcs: {
+    readonly finalByte: number
+    readonly params: ReadonlyArray<number>
+    readonly intermediates: ReadonlyArray<number>
+    readonly data: string
+  } | null
 }
 
 export interface CanvasRenderer {

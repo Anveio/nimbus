@@ -124,6 +124,8 @@ A description of our technical approach, what changed in each file, any caveats 
 A description of all testing done. If only refactoring was done, let's mention that no new tests were required.
 </testing>
 
+Replace the tags and the content of the tags with your actual generated problem, solution and testing details.
+
 <memory-bank>
 ### Wednesday, August 13, 2025
 
