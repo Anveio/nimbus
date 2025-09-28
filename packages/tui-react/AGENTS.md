@@ -22,10 +22,13 @@ Build a world-class, high-performance, and minimal-dependency TypeScript rendere
 
 ## Immediate next steps
 
-- Define the React renderer surface (`useTerminalCanvasRenderer` hook + `<TerminalCanvas />` component) that wraps `@mana-ssh/tui-web-canvas-renderer` with minimal overhead and exposes imperative operations via refs.
-- Provide renderer configurability by accepting a renderer factory while defaulting to the canvas implementation.
-- Set up Vitest + React Testing Library to validate mount/unmount lifecycle, prop updates (snapshot/theme/metrics), diagnostics forwarding, and ref exposure using jsdom.
-- Document the API expectations in the README/agent log so consumers understand the zero-cost abstraction approach and future plugin story.
+### 2025-09-27 – React terminal component rewrite
+
+-   Replace the host-first API with an opinionated `<Terminal />` component that owns parser, interpreter, and renderer plumbing. The goal: drop-in React usage with zero boilerplate.
+-   Default behaviour: uncontrolled, focusable `<canvas>` that listens for keyboard/paste events, converts them into byte streams, and feeds both local rendering and optional `onData` callbacks (for wiring to real hosts). Provide `localEcho` opt-out and imperative `write/reset/focus` methods via refs.
+-   Internally: instantiate `createParser` + `createInterpreter`, translate resulting `TerminalUpdate`s into `CanvasRenderer.applyUpdates`, and expose diagnostics. The canvas renderer remains swappable through a `renderer` prop.
+-   Update Vitest coverage to assert lifecycle (mount/unmount), keystroke propagation, ref methods (`write`, `reset`, `focus`), and diagnostics emission using jsdom + Testing Library.
+-   Revise documentation/examples to highlight the single-component API and advise advanced users how to plug into `onData`/`renderer` hooks for custom transports.
 
 ## Longer-term roadmap
 
