@@ -33,6 +33,7 @@ Deliver a standalone, high-performance canvas renderer for the Mana SSH terminal
 - **Snapshot refresh flow** – provide a script (`bun run test:update-snapshots`) that re-renders fixtures and overwrites the expected PNGs after manual review. Guard with git diffs to ensure updates are intentional.
 - **Parameterized coverage** – cover core glyph types (ASCII, CJK, emojis, combining marks), attribute permutations (bold+italic, foreground/background combos, SGR resets), cursor states, palette swapping, resizing, and selection overlays. Each scenario renders minimal yet representative buffers to keep PNGs small.
 - **Perf smoke tests** – include a stress case that renders a large dirty region and asserts draw call counts remain below a threshold; rely on diagnostics exposed by the renderer.
+- **Spec tracking** – `docs/renderer-test-spec.md` mirrors this checklist with ✅/🟡/⛔️ status so future additions can tie back to documented scenarios.
 
 ## Current status
 

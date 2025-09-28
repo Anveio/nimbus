@@ -224,7 +224,7 @@ describe('createCanvasRenderer', () => {
     renderer.dispose()
   })
 
-  test('applies cell updates and repaints with palette colours', () => {
+  test('applies cell updates and repaints with palette colours', async () => {
     const theme = createTheme()
     const snapshot = createSnapshot(2, 2)
     const canvas = createTestCanvas(1, 1)
@@ -256,9 +256,58 @@ describe('createCanvasRenderer', () => {
 
     renderer.applyUpdates({ snapshot, updates })
 
-    const pixel = getPixel(renderer, 2, 2)
-    expect(pixel).toEqual(hexToRgba(theme.palette.ansi[1]!))
+    const expectedCanvas = createCanvas(canvas.width, canvas.height)
+    const expectedContext = expectedCanvas.getContext('2d')
+    if (!expectedContext) {
+      throw new Error('Failed to create expected context')
+    }
+    expectedContext.fillStyle = theme.background
+    expectedContext.fillRect(0, 0, expectedCanvas.width, expectedCanvas.height)
+    expectedContext.fillStyle = theme.palette.ansi[1]!
+    expectedContext.fillRect(0, 0, baseMetrics.cell.width, baseMetrics.cell.height)
+
+    await assertCanvasEquals(
+      'update-cell-bg',
+      expectedCanvas.toBuffer('image/png'),
+      canvas,
+    )
+
     renderer.dispose()
+  })
+
+  test('renders foreground glyphs using palette colours', async () => {
+    const theme = createTheme()
+    const snapshot = createSnapshot(1, 1)
+    snapshot.buffer[0]![0] = {
+      char: 'A',
+      attr: { bold: false, fg: 2, bg: null },
+    }
+    const canvas = createTestCanvas(1, 1)
+
+    createCanvasRenderer({
+      canvas,
+      metrics: baseMetrics,
+      theme,
+      snapshot,
+    })
+
+    const expectedCanvas = createCanvas(canvas.width, canvas.height)
+    const expectedContext = expectedCanvas.getContext('2d')
+    if (!expectedContext) {
+      throw new Error('Failed to create expected context')
+    }
+    expectedContext.fillStyle = theme.background
+    expectedContext.fillRect(0, 0, expectedCanvas.width, expectedCanvas.height)
+    expectedContext.font = `${baseMetrics.font.size}px ${baseMetrics.font.family}`
+    expectedContext.textBaseline = 'alphabetic'
+    expectedContext.fillStyle = theme.palette.ansi[2]!
+    expectedContext.fillText('A', 0, baseMetrics.cell.baseline)
+
+    await assertCanvasEquals(
+      'foreground-palette',
+      expectedCanvas.toBuffer('image/png'),
+      canvas,
+    )
   })
 
   test('recalculates canvas size on resize', () => {
@@ -286,7 +335,7 @@ describe('createCanvasRenderer', () => {
     renderer.dispose()
   })
 
-  test('setTheme triggers repaint with new background colour', () => {
+  test('setTheme triggers repaint with new background colour', async () => {
     const theme = createTheme()
     const snapshot = createSnapshot(2, 2)
     const canvas = createTestCanvas(1, 1)
@@ -305,8 +354,20 @@ describe('createCanvasRenderer', () => {
 
     renderer.setTheme(nextTheme)
 
-    const pixel = getPixel(renderer, 1, 1)
-    expect(pixel).toEqual(hexToRgba(nextTheme.background))
+    const expectedCanvas = createCanvas(canvas.width, canvas.height)
+    const expectedContext = expectedCanvas.getContext('2d')
+    if (!expectedContext) {
+      throw new Error('Failed to create expected context')
+    }
+    expectedContext.fillStyle = nextTheme.background
+    expectedContext.fillRect(0, 0, expectedCanvas.width, expectedCanvas.height)
+
+    await assertCanvasEquals(
+      'theme-background',
+      expectedCanvas.toBuffer('image/png'),
+      canvas,
+    )
+
     renderer.dispose()
   })
 
