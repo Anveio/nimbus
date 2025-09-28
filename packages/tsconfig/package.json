@@ -3,7 +3,11 @@
   "private": true,
   "version": "1.0.0",
   "files": [
-    "base.json"
+    "base.json",
+    "workspace-app-config.json",
+    "workspace-package-config.json",
+    "workspace-react-library-config.json",
+    "workspace-nextjs-config.json"
   ],
   "scripts": {
     "lint": "biome lint .",
