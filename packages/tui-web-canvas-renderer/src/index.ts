@@ -1,10 +1,277 @@
-import type { TerminalState, TerminalUpdate } from '@mana-ssh/vt'
+import type {
+  TerminalAttributes,
+  TerminalCell,
+  TerminalState,
+  TerminalUpdate,
+} from '@mana-ssh/vt'
 
-/**
- * Minimal surface that covers `HTMLCanvasElement`, `OffscreenCanvas`, and
- * node-canvas' `Canvas` implementation. Structural typing keeps the renderer
- * decoupled from any specific DOM lib while remaining easy to satisfy in tests.
- */
+const DEFAULT_CELL: TerminalCell = {
+  char: ' ',
+  attr: { bold: false, fg: null, bg: null },
+}
+
+const DEFAULT_CURSOR_SHAPE: RendererCursorTheme['shape'] = 'block'
+
+const now = (): number =>
+  typeof performance !== 'undefined' ? performance.now() : Date.now()
+
+const ensureContext = (canvas: CanvasLike): CanvasRenderingContext2D => {
+  const context = canvas.getContext('2d', {
+    alpha: false,
+    desynchronized: false,
+  })
+  if (!context) {
+    throw new Error('Canvas 2D context is not available')
+  }
+  return context
+}
+
+const ensureDimensions = (
+  canvas: CanvasLike,
+  snapshot: TerminalState,
+  metrics: RendererMetrics,
+): { logicalWidth: number; logicalHeight: number } => {
+  const logicalWidth = Math.max(1, snapshot.columns * metrics.cell.width)
+  const logicalHeight = Math.max(1, snapshot.rows * metrics.cell.height)
+  const scaledWidth = Math.max(
+    1,
+    Math.round(logicalWidth * metrics.devicePixelRatio),
+  )
+  const scaledHeight = Math.max(
+    1,
+    Math.round(logicalHeight * metrics.devicePixelRatio),
+  )
+
+  if (canvas.width !== scaledWidth) {
+    canvas.width = scaledWidth
+  }
+  if (canvas.height !== scaledHeight) {
+    canvas.height = scaledHeight
+  }
+
+  return { logicalWidth, logicalHeight }
+}
+
+const resolvePaletteColor = (
+  palette: RendererPalette,
+  index: number,
+  fallback: RendererColor,
+): RendererColor => {
+  if (Number.isNaN(index) || index < 0) {
+    return fallback
+  }
+  if (index < palette.ansi.length) {
+    return palette.ansi[index] ?? fallback
+  }
+  const extendedIndex = index - 16
+  if (extendedIndex >= 0 && palette.extended) {
+    return palette.extended[extendedIndex] ?? fallback
+  }
+  return fallback
+}
+
+const resolveForeground = (
+  attributes: TerminalAttributes,
+  theme: RendererTheme,
+): RendererColor => {
+  if (attributes.fg == null) {
+    return theme.foreground
+  }
+  return resolvePaletteColor(theme.palette, attributes.fg, theme.foreground)
+}
+
+const resolveBackground = (
+  attributes: TerminalAttributes,
+  theme: RendererTheme,
+): RendererColor | null => {
+  if (attributes.bg == null) {
+    return null
+  }
+  return resolvePaletteColor(theme.palette, attributes.bg, theme.background)
+}
+
+const fontString = (
+  font: RendererFontMetrics,
+  bold: boolean,
+): string => `${bold ? 'bold ' : ''}${font.size}px ${font.family}`
+
+const drawCursor = (
+  ctx: CanvasRenderingContext2D,
+  snapshot: TerminalState,
+  metrics: RendererMetrics,
+  theme: RendererTheme,
+): void => {
+  const { cursor } = snapshot
+  const x = cursor.column * metrics.cell.width
+  const y = cursor.row * metrics.cell.height
+  const width = metrics.cell.width
+  const height = metrics.cell.height
+  const cursorTheme = theme.cursor
+  const opacity = cursorTheme.opacity ?? 1
+  const shape = cursorTheme.shape ?? DEFAULT_CURSOR_SHAPE
+
+  ctx.save()
+  ctx.globalAlpha = opacity
+  ctx.fillStyle = cursorTheme.color
+
+  switch (shape) {
+    case 'underline': {
+      const underlineHeight = Math.max(1, height * 0.15)
+      ctx.fillRect(x, y + height - underlineHeight, width, underlineHeight)
+      break
+    }
+    case 'bar': {
+      const barWidth = Math.max(1, width * 0.2)
+      ctx.fillRect(x, y, barWidth, height)
+      break
+    }
+    case 'block':
+    default: {
+      ctx.fillRect(x, y, width, height)
+      break
+    }
+  }
+
+  ctx.restore()
+}
+
+const repaint = (
+  ctx: CanvasRenderingContext2D,
+  snapshot: TerminalState,
+  metrics: RendererMetrics,
+  theme: RendererTheme,
+  layout: { logicalWidth: number; logicalHeight: number },
+): CanvasRendererDiagnostics => {
+  const start = now()
+  let drawCalls = 0
+
+  ctx.save()
+  ctx.setTransform(metrics.devicePixelRatio, 0, 0, metrics.devicePixelRatio, 0, 0)
+  ctx.imageSmoothingEnabled = false
+  ctx.textBaseline = 'alphabetic'
+  ctx.textAlign = 'left'
+  ctx.font = fontString(metrics.font, false)
+
+  ctx.fillStyle = theme.background
+  ctx.fillRect(0, 0, layout.logicalWidth, layout.logicalHeight)
+  drawCalls += 1
+
+  const cellWidth = metrics.cell.width
+  const cellHeight = metrics.cell.height
+  let currentFont = ctx.font
+
+  for (let row = 0; row < snapshot.rows; row += 1) {
+    const bufferRow = snapshot.buffer[row]
+    for (let column = 0; column < snapshot.columns; column += 1) {
+      const cell = bufferRow?.[column] ?? DEFAULT_CELL
+      const x = column * cellWidth
+      const y = row * cellHeight
+
+      const bg = resolveBackground(cell.attr, theme)
+      if (bg) {
+        ctx.fillStyle = bg
+        ctx.fillRect(x, y, cellWidth, cellHeight)
+        drawCalls += 1
+      }
+
+      const char = cell.char
+      if (char && char !== ' ') {
+        const nextFont = fontString(metrics.font, cell.attr.bold)
+        if (nextFont !== currentFont) {
+          ctx.font = nextFont
+          currentFont = nextFont
+        }
+        ctx.fillStyle = resolveForeground(cell.attr, theme)
+        ctx.fillText(char, x, y + metrics.cell.baseline)
+        drawCalls += 1
+      }
+    }
+  }
+
+  if (snapshot.cursorVisible) {
+    drawCursor(ctx, snapshot, metrics, theme)
+    drawCalls += 1
+  }
+
+  ctx.restore()
+  const end = now()
+
+  return {
+    lastFrameDurationMs: end - start,
+    lastDrawCallCount: drawCalls,
+  }
+}
+
+const fullRepaint = (
+  ctx: CanvasRenderingContext2D,
+  canvas: CanvasLike,
+  snapshot: TerminalState,
+  metrics: RendererMetrics,
+  theme: RendererTheme,
+): CanvasRendererDiagnostics => {
+  const layout = ensureDimensions(canvas, snapshot, metrics)
+  return repaint(ctx, snapshot, metrics, theme, layout)
+}
+
+const ensureNotDisposed = (disposed: boolean): void => {
+  if (disposed) {
+    throw new Error('CanvasRenderer instance has been disposed')
+  }
+}
+
+export const createCanvasRenderer: CreateCanvasRenderer = (
+  options,
+) => {
+  const canvas = options.canvas
+  const ctx = ensureContext(canvas)
+
+  let disposed = false
+  let theme = options.theme
+  let metrics = options.metrics
+  let currentSnapshot = options.snapshot
+  let diagnostics: CanvasRendererDiagnostics = {
+    lastFrameDurationMs: null,
+    lastDrawCallCount: null,
+  }
+
+  diagnostics = fullRepaint(ctx, canvas, currentSnapshot, metrics, theme)
+
+  const renderer: CanvasRenderer = {
+    canvas,
+    applyUpdates({ snapshot }) {
+      ensureNotDisposed(disposed)
+      currentSnapshot = snapshot
+      diagnostics = fullRepaint(ctx, canvas, currentSnapshot, metrics, theme)
+    },
+    resize({ snapshot, metrics: nextMetrics }) {
+      ensureNotDisposed(disposed)
+      metrics = nextMetrics
+      currentSnapshot = snapshot
+      diagnostics = fullRepaint(ctx, canvas, currentSnapshot, metrics, theme)
+    },
+    setTheme(nextTheme) {
+      ensureNotDisposed(disposed)
+      theme = nextTheme
+      diagnostics = fullRepaint(ctx, canvas, currentSnapshot, metrics, theme)
+    },
+    sync(snapshot) {
+      ensureNotDisposed(disposed)
+      currentSnapshot = snapshot
+      diagnostics = fullRepaint(ctx, canvas, currentSnapshot, metrics, theme)
+    },
+    dispose() {
+      disposed = true
+    },
+    get diagnostics() {
+      return diagnostics
+    },
+  }
+
+  return renderer
+}
+
+export type RendererColor = string
+
 export interface CanvasLike {
   width: number
   height: number
@@ -13,12 +280,6 @@ export interface CanvasLike {
     options?: CanvasRenderingContext2DSettings,
   ): CanvasRenderingContext2D | null
 }
-
-/**
- * CSS-compatible colour representation. Implementations are expected to accept
- * anything that works with `CanvasRenderingContext2D#fillStyle`.
- */
-export type RendererColor = string
 
 export interface RendererPalette {
   /**

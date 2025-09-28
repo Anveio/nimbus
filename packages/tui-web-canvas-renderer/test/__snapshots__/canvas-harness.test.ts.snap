@@ -1,5 +1,0 @@
-// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
-
-exports[`canvas renderer harness > solid fill renders reproducibly and matches snapshot 1`] = `"iVBORw0KGgoAAAANSUhEUgAAAAgAAAAGCAYAAAD+Bd/7AAAABmJLR0QA/wD/AP+gvaeTAAAAFUlEQVQImWMUVDL+z4AHMOGTHCwKABStAXGVEPPMAAAAAElFTkSuQmCC"`;
-
-exports[`canvas renderer harness solid fill renders reproducibly and matches snapshot 1`] = `"iVBORw0KGgoAAAANSUhEUgAAAAgAAAAGCAYAAAD+Bd/7AAAABmJLR0QA/wD/AP+gvaeTAAAAFUlEQVQImWMUVDL+z4AHMOGTHCwKABStAXGVEPPMAAAAAElFTkSuQmCC"`;
