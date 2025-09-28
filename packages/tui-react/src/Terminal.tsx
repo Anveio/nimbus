@@ -243,6 +243,7 @@ export interface TerminalProps extends HTMLAttributes<HTMLDivElement> {
   ) => void
   readonly localEcho?: boolean
   readonly autoFocus?: boolean
+  readonly autoResize?: boolean
   readonly ariaLabel?: string
   readonly canvasClassName?: string
   readonly canvasStyle?: CSSProperties
@@ -260,6 +261,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       onDiagnostics,
       localEcho = true,
       autoFocus = true,
+      autoResize = true,
       ariaLabel = 'Terminal',
       className,
       canvasClassName,
@@ -281,6 +283,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     >(null)
 
     useEffect(() => {
+      if (!autoResize) {
+        setContainerSize(null)
+        return undefined
+      }
       const node = containerRef.current
       if (!node) {
         return
@@ -297,12 +303,13 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       })
       observer.observe(node)
       return () => observer.disconnect()
-    }, [metrics.cell.width, metrics.cell.height])
+    }, [autoResize, metrics.cell.width, metrics.cell.height])
 
     const fallbackWidth = (columnsProp ?? DEFAULT_COLUMNS) * metrics.cell.width
     const fallbackHeight = (rowsProp ?? DEFAULT_ROWS) * metrics.cell.height
-    const availableWidth = containerSize?.width ?? fallbackWidth
-    const availableHeight = containerSize?.height ?? fallbackHeight
+    const effectiveSize = autoResize ? containerSize : null
+    const availableWidth = effectiveSize?.width ?? fallbackWidth
+    const availableHeight = effectiveSize?.height ?? fallbackHeight
 
     const autoColumns = Math.max(
       1,

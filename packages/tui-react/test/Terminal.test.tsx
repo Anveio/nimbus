@@ -20,6 +20,56 @@ type CanvasRendererMock = ReturnType<typeof createCanvasRenderer> & {
   dispose: ReturnType<typeof vi.fn>
 }
 
+const installResizeObserverMock = () => {
+  const original = (window as any).ResizeObserver
+  let callback: ResizeObserverCallback | null = null
+  const observe = vi.fn<(target: Element) => void>()
+  const disconnect = vi.fn()
+  const instances: ResizeObserver[] = []
+
+  class MockResizeObserver {
+    constructor(cb: ResizeObserverCallback) {
+      callback = cb
+      instances.push(this as unknown as ResizeObserver)
+    }
+
+    observe(target: Element): void {
+      observe(target)
+    }
+
+    unobserve(): void {}
+
+    disconnect(): void {
+      disconnect()
+    }
+  }
+
+  ;(window as any).ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver
+
+  return {
+    observe,
+    disconnect,
+    trigger: (width: number, height: number) => {
+      if (!callback) {
+        throw new Error('ResizeObserver callback not registered')
+      }
+      const target = observe.mock.calls[0]?.[0] ?? document.createElement('div')
+      callback(
+        [
+          {
+            target,
+            contentRect: { width, height },
+          } as unknown as ResizeObserverEntry,
+        ],
+        instances[0]!,
+      )
+    },
+    restore: () => {
+      ;(window as any).ResizeObserver = original
+    },
+  }
+}
+
 describe('Terminal', () => {
   test('renders focusable terminal container with canvas', async () => {
     render(<Terminal ariaLabel="Demo terminal" rows={24} columns={80} />)
@@ -115,5 +165,48 @@ describe('Terminal', () => {
     const row = snapshot.buffer[0] ?? []
     const text = row.slice(0, 2).map((cell) => cell.char).join('')
     expect(text).toBe('hi')
+  })
+
+  test('autoResize adjusts rows and columns to fit the container', () => {
+    const ro = installResizeObserverMock()
+    const ref = createRef<TerminalHandle>()
+
+    try {
+      render(
+        <Terminal
+          ref={ref}
+          metrics={{ cell: { width: 5, height: 10 } }}
+        />,
+      )
+
+      expect(ro.observe).toHaveBeenCalledTimes(1)
+
+      act(() => {
+        ro.trigger(5 * 12, 10 * 6)
+      })
+
+      const snapshot = ref.current!.getSnapshot()
+      expect(snapshot.columns).toBe(12)
+      expect(snapshot.rows).toBe(6)
+    } finally {
+      ro.restore()
+    }
+  })
+
+  test('disabling autoResize prevents ResizeObserver usage and preserves dimensions', () => {
+    const ro = installResizeObserverMock()
+    const ref = createRef<TerminalHandle>()
+
+    try {
+      render(<Terminal ref={ref} rows={30} columns={100} autoResize={false} />)
+
+      expect(ro.observe).not.toHaveBeenCalled()
+
+      const snapshot = ref.current!.getSnapshot()
+      expect(snapshot.rows).toBe(30)
+      expect(snapshot.columns).toBe(100)
+    } finally {
+      ro.restore()
+    }
   })
 })
