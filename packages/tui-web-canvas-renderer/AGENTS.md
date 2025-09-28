@@ -76,3 +76,4 @@ Deliver a standalone, high-performance canvas renderer for the Mana SSH terminal
 
 - 2025-10-02: Selection pipeline agreed—VT gains `TerminalSelection`, React host owns pointer → update wiring, canvas renderer paints themed highlights with new pixel fixtures, and tests span VT units, React controller, pixel diffs, and Playwright copy flows.
 - 2025-10-02: Implemented `selection.ts` helpers + tests in `@mana-ssh/vt` (bounds, per-row segments, collapsed detection) and plumbed selection into `TerminalState`/`TerminalUpdate` for downstream renderers.
+- 2025-10-02: Canvas renderer now surfaces `currentSelection` plus `onSelectionChange`; React controller proxies callbacks/handle access so consumers observe selection changes regardless of input source.

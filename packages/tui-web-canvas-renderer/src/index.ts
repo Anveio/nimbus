@@ -4,6 +4,7 @@ import type {
   TerminalCell,
   TerminalColor,
   TerminalState,
+  TerminalSelection,
   TerminalUpdate,
 } from '@mana-ssh/vt'
 
@@ -449,6 +450,14 @@ export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
     lastDcs: null,
   }
 
+  let currentSelection: TerminalSelection | null =
+    currentSnapshot.selection ?? null
+  let selectionListener = options.onSelectionChange
+
+  const emitSelectionChange = (): void => {
+    selectionListener?.(currentSelection)
+  }
+
   const applyFrameStats = (frame: FrameStats): void => {
     diagnostics = {
       ...diagnostics,
@@ -460,6 +469,7 @@ export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
   applyFrameStats(
     fullRepaint(ctx, canvas, currentSnapshot, metrics, theme, paletteOverrides),
   )
+  emitSelectionChange()
 
   const renderer: CanvasRenderer = {
     canvas,
@@ -468,6 +478,7 @@ export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
       currentSnapshot = snapshot
 
       let requiresRepaint = false
+      let selectionChanged = false
 
       for (const update of updates) {
         switch (update.type) {
@@ -544,10 +555,29 @@ export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
             pendingDcs = null
             break
           }
+          case 'selection-set':
+          case 'selection-update':
+            currentSelection = update.selection
+            selectionChanged = true
+            requiresRepaint = true
+            break
+          case 'selection-clear':
+            if (currentSelection !== null) {
+              currentSelection = null
+              selectionChanged = true
+              requiresRepaint = true
+            }
+            break
           default:
             requiresRepaint = true
             break
         }
+      }
+
+      const snapshotSelection = snapshot.selection ?? null
+      if (!selectionChanged && snapshotSelection !== currentSelection) {
+        currentSelection = snapshotSelection
+        selectionChanged = true
       }
 
       if (requiresRepaint) {
@@ -562,11 +592,16 @@ export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
           ),
         )
       }
+
+      if (selectionChanged) {
+        emitSelectionChange()
+      }
     },
     resize({ snapshot, metrics: nextMetrics }) {
       ensureNotDisposed(disposed)
       metrics = nextMetrics
       currentSnapshot = snapshot
+      currentSelection = snapshot.selection ?? null
       applyFrameStats(
         fullRepaint(
           ctx,
@@ -577,6 +612,7 @@ export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
           paletteOverrides,
         ),
       )
+      emitSelectionChange()
     },
     setTheme(nextTheme) {
       ensureNotDisposed(disposed)
@@ -595,6 +631,7 @@ export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
     sync(snapshot) {
       ensureNotDisposed(disposed)
       currentSnapshot = snapshot
+      currentSelection = snapshot.selection ?? null
       applyFrameStats(
         fullRepaint(
           ctx,
@@ -605,12 +642,24 @@ export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
           paletteOverrides,
         ),
       )
+      emitSelectionChange()
     },
     dispose() {
       disposed = true
+      selectionListener = undefined
     },
     get diagnostics() {
       return diagnostics
+    },
+    get currentSelection() {
+      return currentSelection
+    },
+    set onSelectionChange(listener) {
+      selectionListener = listener
+      emitSelectionChange()
+    },
+    get onSelectionChange() {
+      return selectionListener
     },
   }
 
@@ -696,6 +745,7 @@ export interface CanvasRendererOptions {
    * Initial interpreter snapshot used to paint the full screen buffer.
    */
   readonly snapshot: TerminalState
+  readonly onSelectionChange?: (selection: TerminalSelection | null) => void
 }
 
 export interface CanvasRendererUpdateOptions {
@@ -741,6 +791,8 @@ export interface CanvasRenderer {
   sync(snapshot: TerminalState): void
   dispose(): void
   readonly diagnostics: CanvasRendererDiagnostics
+  readonly currentSelection: TerminalSelection | null
+  onSelectionChange?: (selection: TerminalSelection | null) => void
 }
 
 export type CreateCanvasRenderer = (

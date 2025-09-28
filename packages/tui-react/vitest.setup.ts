@@ -28,8 +28,8 @@ if (typeof window !== 'undefined' && !(window as any).ResizeObserver) {
 }
 
 vi.mock('@mana-ssh/tui-web-canvas-renderer', () => {
-  const createCanvasRenderer = vi.fn((options: { canvas: HTMLCanvasElement }) => {
-    const instance = {
+  const createCanvasRenderer = vi.fn((options: any) => {
+    const instance: any = {
       canvas: options.canvas,
       applyUpdates: vi.fn(),
       resize: vi.fn(),
@@ -43,7 +43,22 @@ vi.mock('@mana-ssh/tui-web-canvas-renderer', () => {
         lastSosPmApc: null,
         lastDcs: null,
       },
+      currentSelection: options.snapshot?.selection ?? null,
     }
+
+    let selectionListener = options.onSelectionChange
+    Object.defineProperty(instance, 'onSelectionChange', {
+      configurable: true,
+      enumerable: true,
+      get: () => selectionListener,
+      set: (listener) => {
+        selectionListener = listener
+        selectionListener?.(instance.currentSelection)
+      },
+    })
+
+    selectionListener?.(instance.currentSelection)
+
     return instance
   })
 

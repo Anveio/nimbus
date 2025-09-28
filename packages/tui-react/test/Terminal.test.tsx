@@ -5,6 +5,7 @@ import { describe, expect, test, vi } from 'vitest'
 import type { Mock } from 'vitest'
 import { Terminal, type TerminalHandle } from '../src/Terminal'
 import { createCanvasRenderer } from '@mana-ssh/tui-web-canvas-renderer'
+import type { TerminalSelection } from '@mana-ssh/vt'
 
 const encoder = new TextEncoder()
 
@@ -18,6 +19,8 @@ type CanvasRendererMock = ReturnType<typeof createCanvasRenderer> & {
   setTheme: ReturnType<typeof vi.fn>
   sync: ReturnType<typeof vi.fn>
   dispose: ReturnType<typeof vi.fn>
+  currentSelection: TerminalSelection | null
+  onSelectionChange?: (selection: TerminalSelection | null) => void
 }
 
 const installResizeObserverMock = () => {
@@ -208,5 +211,41 @@ describe('Terminal', () => {
     } finally {
       ro.restore()
     }
+  })
+
+  test('exposes cursor selection updates via callback and handle', async () => {
+    const onCursorSelectionChange = vi.fn()
+    const ref = createRef<TerminalHandle>()
+
+    render(
+      <Terminal
+        ref={ref}
+        rows={24}
+        columns={80}
+        onCursorSelectionChange={onCursorSelectionChange}
+      />,
+    )
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(onCursorSelectionChange).toHaveBeenCalledWith(null)
+
+    const renderer = lastRenderer()
+    const selection: TerminalSelection = {
+      anchor: { row: 0, column: 0, timestamp: 1 },
+      focus: { row: 0, column: 1, timestamp: 2 },
+      kind: 'normal',
+      status: 'idle',
+    }
+
+    await act(async () => {
+      renderer.currentSelection = selection
+      renderer.onSelectionChange?.(selection)
+    })
+
+    expect(onCursorSelectionChange).toHaveBeenLastCalledWith(selection)
+    expect(ref.current?.getSelection()).toEqual(selection)
   })
 })

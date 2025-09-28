@@ -9,7 +9,7 @@ import {
   type RendererMetrics,
   type RendererTheme,
 } from '@mana-ssh/tui-web-canvas-renderer'
-import type { TerminalState } from '@mana-ssh/vt'
+import type { TerminalSelection, TerminalState } from '@mana-ssh/vt'
 
 /**
  * Options accepted by {@link useTerminalCanvasRenderer}. Consumers provide the
@@ -22,6 +22,7 @@ export interface UseTerminalRendererOptions {
   readonly metrics: RendererMetrics
   readonly snapshot: TerminalState
   readonly onDiagnostics?: (diagnostics: CanvasRenderer['diagnostics']) => void
+  readonly onSelectionChange?: (selection: TerminalSelection | null) => void
 }
 
 /**
@@ -36,6 +37,7 @@ export interface TerminalRendererHandle {
   readonly sync: (snapshot: TerminalState) => void
   readonly dispose: () => void
   readonly diagnostics: CanvasRenderer['diagnostics'] | null
+  readonly getCurrentSelection: () => TerminalSelection | null
 }
 
 /**
@@ -46,12 +48,14 @@ export interface TerminalRendererHandle {
 export const useTerminalCanvasRenderer = (
   options: UseTerminalRendererOptions,
 ): TerminalRendererHandle => {
-  const { renderer, metrics, theme, snapshot, onDiagnostics } = options
+  const { renderer, metrics, theme, snapshot, onDiagnostics, onSelectionChange } = options
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rendererRef = useRef<CanvasRenderer | null>(null)
   const diagnosticsRef = useRef<CanvasRenderer['diagnostics'] | null>(null)
+  const selectionRef = useRef<TerminalSelection | null>(snapshot.selection ?? null)
   const rendererFactoryRef = useRef<CreateCanvasRenderer | undefined>(renderer)
   const latestOptionsRef = useRef({ metrics, theme, snapshot })
+  const selectionCallbackRef = useRef<typeof onSelectionChange>(onSelectionChange)
 
   useEffect(() => {
     rendererFactoryRef.current = renderer
@@ -65,6 +69,13 @@ export const useTerminalCanvasRenderer = (
   useEffect(() => {
     latestOptionsRef.current = { metrics, theme, snapshot }
   }, [metrics, theme, snapshot])
+
+  useEffect(() => {
+    selectionCallbackRef.current = onSelectionChange
+    if (onSelectionChange && rendererRef.current) {
+      onSelectionChange(rendererRef.current.currentSelection)
+    }
+  }, [onSelectionChange])
 
   const ensureRenderer = useCallback(() => {
     if (rendererRef.current) {
@@ -85,10 +96,16 @@ export const useTerminalCanvasRenderer = (
       metrics: currentMetrics,
       theme: currentTheme,
       snapshot: currentSnapshot,
+      onSelectionChange: (selection) => {
+        selectionRef.current = selection
+        selectionCallbackRef.current?.(selection)
+      },
     } satisfies CanvasRendererOptions)
 
     rendererRef.current = instance
     diagnosticsRef.current = instance.diagnostics
+    selectionRef.current = instance.currentSelection
+    selectionCallbackRef.current?.(instance.currentSelection)
     onDiagnostics?.(instance.diagnostics)
     return instance
   }, [onDiagnostics])
@@ -122,6 +139,7 @@ export const useTerminalCanvasRenderer = (
       const rendererInstance = ensureRenderer()
       rendererInstance.applyUpdates(updateOptions)
       diagnosticsRef.current = rendererInstance.diagnostics
+      selectionRef.current = rendererInstance.currentSelection
       onDiagnostics?.(rendererInstance.diagnostics)
     },
     [ensureRenderer, onDiagnostics],
@@ -132,6 +150,7 @@ export const useTerminalCanvasRenderer = (
       const rendererInstance = ensureRenderer()
       rendererInstance.resize(resizeOptions)
       diagnosticsRef.current = rendererInstance.diagnostics
+      selectionRef.current = rendererInstance.currentSelection
       onDiagnostics?.(rendererInstance.diagnostics)
     },
     [ensureRenderer, onDiagnostics],
@@ -142,6 +161,7 @@ export const useTerminalCanvasRenderer = (
       const rendererInstance = ensureRenderer()
       rendererInstance.setTheme(nextTheme)
       diagnosticsRef.current = rendererInstance.diagnostics
+      selectionRef.current = rendererInstance.currentSelection
       onDiagnostics?.(rendererInstance.diagnostics)
     },
     [ensureRenderer, onDiagnostics],
@@ -152,6 +172,7 @@ export const useTerminalCanvasRenderer = (
       const rendererInstance = ensureRenderer()
       rendererInstance.sync(nextSnapshot)
       diagnosticsRef.current = rendererInstance.diagnostics
+      selectionRef.current = rendererInstance.currentSelection
       onDiagnostics?.(rendererInstance.diagnostics)
     },
     [ensureRenderer, onDiagnostics],
@@ -161,6 +182,7 @@ export const useTerminalCanvasRenderer = (
     rendererRef.current?.dispose()
     rendererRef.current = null
     diagnosticsRef.current = null
+    selectionRef.current = null
   }, [])
 
   return useMemo(
@@ -172,6 +194,7 @@ export const useTerminalCanvasRenderer = (
       sync,
       dispose,
       diagnostics: diagnosticsRef.current,
+      getCurrentSelection: () => selectionRef.current,
     }),
     [applyUpdates, dispose, resize, setTheme, sync],
   )

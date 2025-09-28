@@ -19,6 +19,7 @@ Build a world-class, high-performance, and minimal-dependency TypeScript rendere
 - React integration is in progress (controller hook, `<TerminalCanvas />` wrapper, host abstraction).
 - Mock host + demo React app (apps/terminal-web-app) scaffolded.
 - Keyboard input → host write path partially implemented; advanced key handling TBD.
+- Canvas renderer selection state is proxied via `onCursorSelectionChange` and the imperative handle, keeping consumers agnostic of mouse vs keyboard selection sources.
 
 ## Immediate next steps
 

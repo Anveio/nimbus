@@ -14,6 +14,7 @@ import {
   type ParserEvent,
   type ParserEventSink,
   resolveTerminalCapabilities,
+  type TerminalSelection,
   type TerminalState,
   type TerminalUpdate,
 } from '@mana-ssh/vt'
@@ -225,6 +226,7 @@ export interface TerminalHandle {
   write(data: Uint8Array | string): void
   reset(): void
   getSnapshot(): TerminalState
+  getSelection(): TerminalSelection | null
 }
 
 export interface TerminalProps extends HTMLAttributes<HTMLDivElement> {
@@ -241,6 +243,7 @@ export interface TerminalProps extends HTMLAttributes<HTMLDivElement> {
   readonly onDiagnostics?: (
     diagnostics: TerminalRendererHandle['diagnostics'],
   ) => void
+  readonly onCursorSelectionChange?: (selection: TerminalSelection | null) => void
   readonly localEcho?: boolean
   readonly autoFocus?: boolean
   readonly autoResize?: boolean
@@ -259,6 +262,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       renderer,
       onData,
       onDiagnostics,
+      onCursorSelectionChange,
       localEcho = true,
       autoFocus = true,
       autoResize = true,
@@ -332,11 +336,23 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
 
     const interpreter = interpreterRef.current
 
+    const [currentSelection, setCurrentSelection] = useState<TerminalSelection | null>(
+      interpreter.snapshot.selection ?? null,
+    )
+
     const [snapshotVersion, setSnapshotVersion] = useState(0)
     const snapshot = useMemo(
       () => interpreter.snapshot,
       // eslint-disable-next-line react-hooks/exhaustive-deps
       [snapshotVersion],
+    )
+
+    const handleSelectionChange = useCallback(
+      (selection: TerminalSelection | null) => {
+        setCurrentSelection(selection)
+        onCursorSelectionChange?.(selection)
+      },
+      [onCursorSelectionChange],
     )
 
     const rendererHandle = useTerminalCanvasRenderer({
@@ -345,6 +361,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       theme,
       snapshot,
       onDiagnostics,
+      onSelectionChange: handleSelectionChange,
     })
 
     useEffect(() => {
@@ -461,8 +478,9 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         write,
         reset,
         getSnapshot: () => interpreterRef.current!.snapshot,
+        getSelection: () => currentSelection,
       }),
-      [focus, reset, write],
+      [currentSelection, focus, reset, write],
     )
 
     return (

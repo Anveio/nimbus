@@ -1,13 +1,14 @@
 import type {
   TerminalAttributes,
   TerminalCell,
+  TerminalSelection,
   TerminalState,
   TerminalUpdate,
 } from '@mana-ssh/vt'
 import { createCanvas, Image } from 'canvas'
 import type { Canvas } from 'canvas'
 import pixelmatch from 'pixelmatch'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import {
   type CanvasLike,
   type CanvasRenderer,
@@ -200,6 +201,18 @@ const createAttributes = (
 const createBlankCell = (): TerminalCell => ({
   char: ' ',
   attr: createAttributes(),
+})
+
+const createSelection = (
+  anchorRow: number,
+  anchorColumn: number,
+  focusRow = anchorRow,
+  focusColumn = anchorColumn,
+): TerminalSelection => ({
+  anchor: { row: anchorRow, column: anchorColumn, timestamp: 1 },
+  focus: { row: focusRow, column: focusColumn, timestamp: 2 },
+  kind: 'normal',
+  status: 'idle',
 })
 
 const createSnapshot = (rows: number, columns: number): TerminalState => ({
@@ -472,6 +485,58 @@ describe('createCanvasRenderer', () => {
     expect(pixel[0]).toBe(0)
     expect(pixel[1]).toBe(128)
     expect(pixel[2]).toBe(255)
+    renderer.dispose()
+  })
+
+  test('tracks selection changes and notifies listeners', () => {
+    const theme = createTheme()
+    const snapshot = createSnapshot(2, 2)
+    snapshot.selection = createSelection(0, 0, 0, 1)
+    const canvas = createTestCanvas(1, 1)
+
+    const events: Array<TerminalSelection | null> = []
+
+    const renderer = createCanvasRenderer({
+      canvas,
+      metrics: baseMetrics,
+      theme,
+      snapshot,
+      onSelectionChange: (selection) => {
+        events.push(selection)
+      },
+    })
+
+    expect(renderer.currentSelection).toEqual(snapshot.selection)
+    expect(events).toHaveLength(1)
+    expect(events[0]).toEqual(snapshot.selection)
+
+    const nextSelection = createSelection(1, 0, 1, 1)
+    snapshot.selection = nextSelection
+    renderer.applyUpdates({
+      snapshot,
+      updates: [
+        {
+          type: 'selection-update',
+          selection: nextSelection,
+        },
+      ],
+    })
+
+    expect(renderer.currentSelection).toEqual(nextSelection)
+    expect(events).toHaveLength(2)
+    expect(events[1]).toEqual(nextSelection)
+
+    snapshot.selection = null
+    renderer.applyUpdates({ snapshot, updates: [{ type: 'selection-clear' }] })
+
+    expect(renderer.currentSelection).toBeNull()
+    expect(events).toHaveLength(3)
+    expect(events[2]).toBeNull()
+
+    const listener = vi.fn()
+    renderer.onSelectionChange = listener
+    expect(listener).toHaveBeenCalledWith(null)
+
     renderer.dispose()
   })
 
