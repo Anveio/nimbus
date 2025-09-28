@@ -8,7 +8,9 @@ export { SPEC_DEFAULTS, SPEC_FALLBACK } from './internal/spec-defaults'
 export type { CellDelta, TerminalUpdate } from './interpreter/delta'
 export type {
   CursorPosition,
+  ClipboardEntry,
   TerminalAttributes,
+  TerminalColor,
   TerminalCell,
   TerminalState,
 } from './interpreter/state'

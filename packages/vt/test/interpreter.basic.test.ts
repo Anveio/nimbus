@@ -78,11 +78,13 @@ describe('TerminalInterpreter basic behaviour', () => {
     const redCell = state.buffer[0]![0]!
     expect(redCell!.char).toBe('R')
     expect(redCell!.attr.bold).toBe(true)
-    expect(redCell!.attr.fg).toBe(1)
+    expect(redCell!.attr.foreground).toEqual({ type: 'ansi', index: 1 })
+    expect(redCell!.attr.background).toEqual({ type: 'default' })
 
     const afterReset = state.attributes
     expect(afterReset.bold).toBe(false)
-    expect(afterReset.fg).toBeNull()
+    expect(afterReset.foreground).toEqual({ type: 'default' })
+    expect(afterReset.background).toEqual({ type: 'default' })
   })
 
   it('exposes emitted updates for downstream renderers', () => {
@@ -152,5 +154,67 @@ describe('TerminalInterpreter basic behaviour', () => {
 
     expect(state.buffer[1]![0]!.char).toBe(' ')
     expect(state.buffer[2]![0]!.char).toBe('t')
+  })
+
+  it('supports extended SGR attributes including underline and palette colours', () => {
+    const sequence = '\u001b[3;4;5;7;9;38;2;255;128;64;48;5;123mX'
+    const { interpreter } = run(sequence)
+    const state = interpreter.snapshot
+
+    const cell = state.buffer[0]![0]!
+    expect(cell.char).toBe('X')
+    expect(cell.attr.italic).toBe(true)
+    expect(cell.attr.underline).toBe('single')
+    expect(cell.attr.blink).toBe('slow')
+    expect(cell.attr.inverse).toBe(true)
+    expect(cell.attr.strikethrough).toBe(true)
+    expect(cell.attr.foreground).toEqual({ type: 'rgb', r: 255, g: 128, b: 64 })
+    expect(cell.attr.background).toEqual({ type: 'palette', index: 123 })
+  })
+
+  it('surfaces OSC title updates and stores state', () => {
+    const { interpreter, updates } = run('\u001b]0;mana terminal\u0007')
+    const flattened = updates.flat()
+
+    expect(interpreter.snapshot.title).toBe('mana terminal')
+    expect(flattened.some((update) => update.type === 'osc')).toBe(true)
+    expect(flattened.some((update) => update.type === 'title')).toBe(true)
+  })
+
+  it('captures OSC 52 clipboard payloads', () => {
+    const sequence = '\u001b]52;c;Zm9v\u0007'
+    const { interpreter, updates } = run(sequence)
+    const state = interpreter.snapshot
+
+    expect(state.clipboard).toEqual({ selection: 'c', data: 'Zm9v' })
+    const flattened = updates.flat()
+    const clipboardUpdate = flattened.find((update) => update.type === 'clipboard')
+    expect(clipboardUpdate).toBeDefined()
+    if (clipboardUpdate && clipboardUpdate.type === 'clipboard') {
+      expect(clipboardUpdate.clipboard.data).toBe('Zm9v')
+    }
+  })
+
+  it('streams DCS payloads through start/data/end updates', () => {
+    const payload = 'pixels'
+    const { updates } = run(`\u001bPq${payload}\u001b\\`)
+    const flattened = updates.flat()
+
+    expect(flattened.some((update) => update.type === 'dcs-start')).toBe(true)
+    expect(flattened.filter((update) => update.type === 'dcs-data')).not.toHaveLength(0)
+    const end = flattened.find((update) => update.type === 'dcs-end')
+    expect(end).toBeDefined()
+    if (end && end.type === 'dcs-end') {
+      expect(end.data.endsWith(payload)).toBe(true)
+    }
+  })
+
+  it('records SOS/PM/APC dispatch data', () => {
+    const { interpreter, updates } = run('\u001bXstatus\u001b\\')
+    const state = interpreter.snapshot
+
+    expect(state.lastSosPmApc).toEqual({ kind: 'SOS', data: 'status' })
+    const flattened = updates.flat()
+    expect(flattened.some((update) => update.type === 'sos-pm-apc')).toBe(true)
   })
 })

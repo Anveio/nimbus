@@ -97,6 +97,14 @@ This ensures that the dependency is added to the correct `package.json` and the 
 
 Your user is Shovon Hasan (alias @shovonh), an L5 engineer working at AWS on the EC2 Instance Connect product. My aim is to get promoted by finding ways to make EC2 Instance Connect the best SSH + terminal interface on earth and I aim to do this by upholding AWS' strict security standards while simultaneously finding ways to improve the UX through sub millisecond response times, and supporting the latest in SSH spec extensions.
 
+# Testing Your Work
+
+Tests are fundamental to this technology as we have an extremely wide matrix of configuration and behavior to support and we have to ensure, in an automated way, that we don't allow regressions.
+
+Run `bun run test` from the root of the workspace in order to run all tests across all packages and apps. To run tests for a specific package, `cd` into that package and run `bun run test`
+
+When writing tests, work backwards from a specification document. If no specification document exists, refer to the package's AGENTS.md file to get a sense of the purpose of the package, and then write the specification document. Only when the specification document is complete should you go and write tests. Whenever changing behavior, public API options, performance characteristics, underlying technology changes that affect behavior, update the specification and then consequently update tests as necessary.
+
 # Committing and Tracking work.
 
 When you've finished a discrete task. Stage the changed files, analyze the current git diff and commit the changes with a message in the following format:

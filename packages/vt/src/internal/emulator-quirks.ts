@@ -36,6 +36,28 @@ const EMULATOR_PROFILES: Record<TerminalEmulator, EmulatorProfile> = {
       supportsCursorVisibility: true,
     },
   },
+  kitty: {
+    baseSpec: 'vt220',
+    overrides: {
+      c1Handling: 'spec',
+      acceptEightBitControls: true,
+      stringLimits: {
+        osc: 32768,
+        dcs: 32768,
+        sosPmApc: 16384,
+      },
+    },
+    featureOverrides: {
+      supportsAnsiColors: true,
+      supportsDecPrivateModes: true,
+      supportsSosPmApc: true,
+      supportsTabStops: true,
+      supportsScrollRegions: true,
+      supportsOriginMode: true,
+      supportsAutoWrap: true,
+      supportsCursorVisibility: true,
+    },
+  },
 }
 
 export const getEmulatorProfile = (

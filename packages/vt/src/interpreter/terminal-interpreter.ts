@@ -19,7 +19,9 @@ import {
   setCell,
   setTabStop,
   type TerminalCell,
+  type TerminalColor,
   type TerminalState,
+  type ClipboardEntry,
 } from './state'
 
 const textDecoder = new TextDecoder()
@@ -27,6 +29,16 @@ const QUESTION_MARK = '?'.charCodeAt(0)
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value))
+
+const clampColorComponent = (value: number): number =>
+  clamp(Math.trunc(value), 0, 255)
+
+interface ActiveDcs {
+  readonly finalByte: number
+  readonly params: ReadonlyArray<number>
+  readonly intermediates: ReadonlyArray<number>
+  readonly chunks: string[]
+}
 
 export interface InterpreterOptions {
   readonly parser?: ParserOptions
@@ -36,6 +48,7 @@ export interface InterpreterOptions {
 export class TerminalInterpreter {
   readonly capabilities: TerminalCapabilities
   private state: TerminalState
+  private activeDcs: ActiveDcs | null = null
 
   constructor(options: InterpreterOptions = {}) {
     this.capabilities =
@@ -57,6 +70,16 @@ export class TerminalInterpreter {
         return this.handleCsi(event)
       case ParserEventType.EscDispatch:
         return this.handleEsc(event)
+      case ParserEventType.OscDispatch:
+        return this.handleOsc(event)
+      case ParserEventType.DcsHook:
+        return this.handleDcsHook(event)
+      case ParserEventType.DcsPut:
+        return this.handleDcsPut(event)
+      case ParserEventType.DcsUnhook:
+        return this.handleDcsUnhook()
+      case ParserEventType.SosPmApcDispatch:
+        return this.handleSosPmApc(event)
       default:
         return []
     }
@@ -72,6 +95,7 @@ export class TerminalInterpreter {
 
   reset(): void {
     this.state = createInitialState(this.capabilities)
+    this.activeDcs = null
   }
 
   private handlePrint(data: Uint8Array): TerminalUpdate[] {
@@ -156,6 +180,13 @@ export class TerminalInterpreter {
     }
   }
 
+  private decode(buffer: Uint8Array): string {
+    if (buffer.length === 0) {
+      return ''
+    }
+    return textDecoder.decode(buffer)
+  }
+
   private handleEsc(
     event: ParserEvent & { type: ParserEventType.EscDispatch },
   ): TerminalUpdate[] {
@@ -176,6 +207,173 @@ export class TerminalInterpreter {
       default:
         return []
     }
+  }
+
+  private handleOsc(
+    event: ParserEvent & { type: ParserEventType.OscDispatch },
+  ): TerminalUpdate[] {
+    const raw = this.decode(event.data)
+    const separator = raw.indexOf(';')
+    const identifier = separator === -1 ? raw : raw.slice(0, separator)
+    const payload = separator === -1 ? '' : raw.slice(separator + 1)
+    const oscId = identifier === '' ? '0' : identifier
+
+    const updates: TerminalUpdate[] = [{ type: 'osc', identifier: oscId, data: payload }]
+
+    switch (oscId) {
+      case '0':
+      case '2':
+        this.state.title = payload
+        updates.push({ type: 'title', title: payload })
+        break
+      case '4':
+        updates.push(...this.parsePaletteUpdates(payload))
+        break
+      case '52': {
+        const selectionSplit = payload.indexOf(';')
+        const selection = selectionSplit === -1 ? 'c' : payload.slice(0, selectionSplit) || 'c'
+        const data = selectionSplit === -1 ? '' : payload.slice(selectionSplit + 1)
+        const clipboard: ClipboardEntry = { selection, data }
+        this.state.clipboard = clipboard
+        updates.push({ type: 'clipboard', clipboard })
+        break
+      }
+      default:
+        break
+    }
+
+    return updates
+  }
+
+  private parsePaletteUpdates(data: string): TerminalUpdate[] {
+    if (data.trim() === '') {
+      return []
+    }
+
+    const parts = data.split(';')
+    const updates: TerminalUpdate[] = []
+
+    for (let index = 0; index < parts.length - 1; index += 2) {
+      const slot = Number.parseInt(parts[index] ?? '', 10)
+      const spec = parts[index + 1] ?? ''
+      if (Number.isNaN(slot)) {
+        continue
+      }
+      const color = this.parseColorSpec(spec)
+      if (!color) {
+        continue
+      }
+      updates.push({ type: 'palette', index: slot, color })
+    }
+
+    return updates
+  }
+
+  private parseColorSpec(spec: string): TerminalColor | null {
+    const trimmed = spec.trim()
+    if (trimmed.startsWith('rgb:')) {
+      const [, channels] = trimmed.split(':')
+      if (!channels) {
+        return null
+      }
+      const components = channels.split('/')
+      if (components.length !== 3) {
+        return null
+      }
+      const [rHex, gHex, bHex] = components
+      const parseComponent = (value: string): number | null => {
+        const normalized = value.length === 0 ? '0' : value
+        const int = Number.parseInt(normalized, 16)
+        if (Number.isNaN(int)) {
+          return null
+        }
+        const scale = Math.pow(16, normalized.length) - 1 || 1
+        return clampColorComponent((int / scale) * 255)
+      }
+      const r = parseComponent(rHex)
+      const g = parseComponent(gHex)
+      const b = parseComponent(bHex)
+      if (r === null || g === null || b === null) {
+        return null
+      }
+      return { type: 'rgb', r, g, b }
+    }
+
+    if (trimmed.startsWith('#')) {
+      const hex = trimmed.slice(1)
+      if (hex.length === 6) {
+        const r = Number.parseInt(hex.slice(0, 2), 16)
+        const g = Number.parseInt(hex.slice(2, 4), 16)
+        const b = Number.parseInt(hex.slice(4, 6), 16)
+        if ([r, g, b].some((value) => Number.isNaN(value))) {
+          return null
+        }
+        return {
+          type: 'rgb',
+          r: clampColorComponent(r),
+          g: clampColorComponent(g),
+          b: clampColorComponent(b),
+        }
+      }
+    }
+
+    return null
+  }
+
+  private handleDcsHook(
+    event: ParserEvent & { type: ParserEventType.DcsHook },
+  ): TerminalUpdate[] {
+    this.activeDcs = {
+      finalByte: event.finalByte,
+      params: [...event.params],
+      intermediates: [...event.intermediates],
+      chunks: [],
+    }
+    return [
+      {
+        type: 'dcs-start',
+        finalByte: event.finalByte,
+        params: [...event.params],
+        intermediates: [...event.intermediates],
+      },
+    ]
+  }
+
+  private handleDcsPut(
+    event: ParserEvent & { type: ParserEventType.DcsPut },
+  ): TerminalUpdate[] {
+    if (!this.activeDcs) {
+      return []
+    }
+    const chunk = this.decode(event.data)
+    this.activeDcs.chunks.push(chunk)
+    return [{ type: 'dcs-data', data: chunk }]
+  }
+
+  private handleDcsUnhook(): TerminalUpdate[] {
+    if (!this.activeDcs) {
+      return []
+    }
+    const { finalByte, params, intermediates, chunks } = this.activeDcs
+    const data = chunks.join('')
+    this.activeDcs = null
+    return [
+      {
+        type: 'dcs-end',
+        finalByte,
+        params,
+        intermediates,
+        data,
+      },
+    ]
+  }
+
+  private handleSosPmApc(
+    event: ParserEvent & { type: ParserEventType.SosPmApcDispatch },
+  ): TerminalUpdate[] {
+    const data = this.decode(event.data)
+    this.state.lastSosPmApc = { kind: event.kind, data }
+    return [{ type: 'sos-pm-apc', kind: event.kind, data }]
   }
 
   private handleCsi(
@@ -434,14 +632,20 @@ export class TerminalInterpreter {
   private selectGraphicRendition(
     params: ReadonlyArray<number>,
   ): TerminalUpdate[] {
-    if (params.length === 0) {
-      this.state.attributes = cloneAttributes(defaultAttributes)
-      return [{ type: 'attributes', attributes: this.state.attributes }]
+    let attributes = cloneAttributes(
+      params.length === 0 ? defaultAttributes : this.state.attributes,
+    )
+
+    const setForeground = (color: TerminalColor): void => {
+      attributes = { ...attributes, foreground: color }
     }
 
-    let attributes = cloneAttributes(this.state.attributes)
+    const setBackground = (color: TerminalColor): void => {
+      attributes = { ...attributes, background: color }
+    }
 
-    for (const param of params) {
+    for (let index = 0; index < params.length; index += 1) {
+      const param = params[index] ?? 0
       switch (param) {
         case 0:
           attributes = cloneAttributes(defaultAttributes)
@@ -449,16 +653,131 @@ export class TerminalInterpreter {
         case 1:
           attributes = { ...attributes, bold: true }
           break
-        default:
-          if (param >= 30 && param <= 37) {
-            attributes = { ...attributes, fg: param - 30 }
-          } else if (param === 39) {
-            attributes = { ...attributes, fg: null }
-          } else if (param >= 40 && param <= 47) {
-            attributes = { ...attributes, bg: param - 40 }
-          } else if (param === 49) {
-            attributes = { ...attributes, bg: null }
+        case 2:
+          attributes = { ...attributes, faint: true }
+          break
+        case 3:
+          attributes = { ...attributes, italic: true }
+          break
+        case 4:
+          attributes = { ...attributes, underline: 'single' }
+          break
+        case 5:
+          attributes = { ...attributes, blink: 'slow' }
+          break
+        case 6:
+          attributes = { ...attributes, blink: 'rapid' }
+          break
+        case 7:
+          attributes = { ...attributes, inverse: true }
+          break
+        case 8:
+          attributes = { ...attributes, hidden: true }
+          break
+        case 9:
+          attributes = { ...attributes, strikethrough: true }
+          break
+        case 21:
+          attributes = { ...attributes, underline: 'double' }
+          break
+        case 22:
+          attributes = { ...attributes, bold: false, faint: false }
+          break
+        case 23:
+          attributes = { ...attributes, italic: false }
+          break
+        case 24:
+          attributes = { ...attributes, underline: 'none' }
+          break
+        case 25:
+          attributes = { ...attributes, blink: 'none' }
+          break
+        case 27:
+          attributes = { ...attributes, inverse: false }
+          break
+        case 28:
+          attributes = { ...attributes, hidden: false }
+          break
+        case 29:
+          attributes = { ...attributes, strikethrough: false }
+          break
+        case 30:
+        case 31:
+        case 32:
+        case 33:
+        case 34:
+        case 35:
+        case 36:
+        case 37:
+          setForeground({ type: 'ansi', index: param - 30 })
+          break
+        case 38: {
+          const mode = params[index + 1]
+          if (mode === 5 && params.length > index + 2) {
+            const paletteIndex = clamp(params[index + 2] ?? 0, 0, 255)
+            setForeground({ type: 'palette', index: paletteIndex })
+            index += 2
+          } else if (mode === 2 && params.length > index + 4) {
+            const r = clampColorComponent(params[index + 2] ?? 0)
+            const g = clampColorComponent(params[index + 3] ?? 0)
+            const b = clampColorComponent(params[index + 4] ?? 0)
+            setForeground({ type: 'rgb', r, g, b })
+            index += 4
           }
+          break
+        }
+        case 39:
+          setForeground({ type: 'default' })
+          break
+        case 40:
+        case 41:
+        case 42:
+        case 43:
+        case 44:
+        case 45:
+        case 46:
+        case 47:
+          setBackground({ type: 'ansi', index: param - 40 })
+          break
+        case 48: {
+          const mode = params[index + 1]
+          if (mode === 5 && params.length > index + 2) {
+            const paletteIndex = clamp(params[index + 2] ?? 0, 0, 255)
+            setBackground({ type: 'palette', index: paletteIndex })
+            index += 2
+          } else if (mode === 2 && params.length > index + 4) {
+            const r = clampColorComponent(params[index + 2] ?? 0)
+            const g = clampColorComponent(params[index + 3] ?? 0)
+            const b = clampColorComponent(params[index + 4] ?? 0)
+            setBackground({ type: 'rgb', r, g, b })
+            index += 4
+          }
+          break
+        }
+        case 49:
+          setBackground({ type: 'default' })
+          break
+        case 90:
+        case 91:
+        case 92:
+        case 93:
+        case 94:
+        case 95:
+        case 96:
+        case 97:
+          setForeground({ type: 'ansi-bright', index: param - 90 })
+          break
+        case 100:
+        case 101:
+        case 102:
+        case 103:
+        case 104:
+        case 105:
+        case 106:
+        case 107:
+          setBackground({ type: 'ansi-bright', index: param - 100 })
+          break
+        default:
           break
       }
     }

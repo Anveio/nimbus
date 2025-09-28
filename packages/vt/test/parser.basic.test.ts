@@ -449,6 +449,29 @@ describe('ParserImpl basic behaviour', () => {
     ).toBe(true)
   })
 
+  it('kitty emulator extends OSC payload allowance to 32768 bytes', () => {
+    const parser = createParser({ emulator: 'kitty' })
+    const sink = new TestSink()
+
+    const acceptedPayload = '0;'.concat('K'.repeat(30000))
+    parser.write(`\u001b]${acceptedPayload}\u0007`, sink)
+
+    expect(
+      sink.events.some((event) => event.type === ParserEventType.OscDispatch),
+    ).toBe(true)
+
+    const overflowParser = createParser({ emulator: 'kitty' })
+    const overflowSink = new TestSink()
+    const overflowPayload = '0;'.concat('K'.repeat(40000))
+    overflowParser.write(`\u001b]${overflowPayload}\u0007`, overflowSink)
+
+    expect(
+      overflowSink.events.some(
+        (event) => event.type === ParserEventType.OscDispatch,
+      ),
+    ).toBe(false)
+  })
+
   it('parses SOS string via ESC', () => {
     const parser = createParser()
     const sink = new TestSink()

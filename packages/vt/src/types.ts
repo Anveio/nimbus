@@ -111,7 +111,7 @@ export type ParserSpec =
   | 'vt520'
   | 'vt525'
 
-export type TerminalEmulator = 'xterm'
+export type TerminalEmulator = 'xterm' | 'kitty'
 
 export interface ParserOptions {
   readonly spec?: ParserSpec

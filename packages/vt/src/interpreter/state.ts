@@ -1,9 +1,23 @@
-import type { TerminalCapabilities } from '../types'
+import type { SosPmApcKind, TerminalCapabilities } from '../types'
+
+export type TerminalColor =
+  | { readonly type: 'default' }
+  | { readonly type: 'ansi'; readonly index: number }
+  | { readonly type: 'ansi-bright'; readonly index: number }
+  | { readonly type: 'palette'; readonly index: number }
+  | { readonly type: 'rgb'; readonly r: number; readonly g: number; readonly b: number }
 
 export interface TerminalAttributes {
   readonly bold: boolean
-  readonly fg: number | null
-  readonly bg: number | null
+  readonly faint: boolean
+  readonly italic: boolean
+  readonly underline: 'none' | 'single' | 'double'
+  readonly blink: 'none' | 'slow' | 'rapid'
+  readonly inverse: boolean
+  readonly hidden: boolean
+  readonly strikethrough: boolean
+  readonly foreground: TerminalColor
+  readonly background: TerminalColor
 }
 
 export interface TerminalCell {
@@ -14,6 +28,11 @@ export interface TerminalCell {
 export interface CursorPosition {
   row: number
   column: number
+}
+
+export interface ClipboardEntry {
+  readonly selection: string
+  readonly data: string
 }
 
 export interface TerminalState {
@@ -28,22 +47,55 @@ export interface TerminalState {
   autoWrap: boolean
   originMode: boolean
   cursorVisible: boolean
+  title: string
+  clipboard: ClipboardEntry | null
+  lastSosPmApc: { readonly kind: SosPmApcKind; readonly data: string } | null
   savedCursor: CursorPosition | null
   savedAttributes: TerminalAttributes | null
+}
+
+const cloneColor = (color: TerminalColor): TerminalColor => {
+  switch (color.type) {
+    case 'ansi':
+    case 'ansi-bright':
+    case 'palette':
+      return { type: color.type, index: color.index }
+    case 'rgb':
+      return { type: 'rgb', r: color.r, g: color.g, b: color.b }
+    case 'default':
+    default:
+      return { type: 'default' }
+  }
 }
 
 export const cloneAttributes = (
   attributes: TerminalAttributes,
 ): TerminalAttributes => ({
   bold: attributes.bold,
-  fg: attributes.fg,
-  bg: attributes.bg,
+  faint: attributes.faint,
+  italic: attributes.italic,
+  underline: attributes.underline,
+  blink: attributes.blink,
+  inverse: attributes.inverse,
+  hidden: attributes.hidden,
+  strikethrough: attributes.strikethrough,
+  foreground: cloneColor(attributes.foreground),
+  background: cloneColor(attributes.background),
 })
+
+const DEFAULT_COLOR: TerminalColor = { type: 'default' }
 
 const DEFAULT_ATTRIBUTES: TerminalAttributes = {
   bold: false,
-  fg: null,
-  bg: null,
+  faint: false,
+  italic: false,
+  underline: 'none',
+  blink: 'none',
+  inverse: false,
+  hidden: false,
+  strikethrough: false,
+  foreground: DEFAULT_COLOR,
+  background: DEFAULT_COLOR,
 }
 
 const createBlankCell = (attributes: TerminalAttributes): TerminalCell => ({
@@ -70,7 +122,7 @@ export const createInitialState = (
 ): TerminalState => {
   const rows = capabilities.features.initialRows
   const columns = capabilities.features.initialColumns
-  const attributes = DEFAULT_ATTRIBUTES
+  const attributes = cloneAttributes(DEFAULT_ATTRIBUTES)
   const tabStops = capabilities.features.supportsTabStops
     ? createDefaultTabStops(columns)
     : new Set<number>()
@@ -87,6 +139,9 @@ export const createInitialState = (
     autoWrap: capabilities.features.supportsAutoWrap,
     originMode: false,
     cursorVisible: true,
+    title: '',
+    clipboard: null,
+    lastSosPmApc: null,
     savedCursor: null,
     savedAttributes: null,
   }

@@ -50,6 +50,28 @@ Next immediate goals: extend CSI handling to ignore/error states, add OSC/DCS st
 - Expanded Vitest coverage to include hook/cancel flows and 8-bit DCS sequences.
 - Backfilled tests that hit every CSI/DCS transition (overflow, ignore, cancellation, ESC re-entry) so parser coverage exceeds 85% lines/branches.
 
+## 2025-09-27 – Gap analysis and emulator roadmap
+
+- Behaviour layer currently ignores non-CSI events: OSC/PM/APC payloads, DCS streams, and SOS buffers never propagate beyond parser dispatch, so renderers cannot update titles, clipboard, hyperlinks, or graphics buffers (`packages/vt/src/interpreter/terminal-interpreter.ts:50`).
+- Terminal attributes only expose bold plus 16-colour slots; missing faint/italic/underline/inverse/strikethrough and 256/truecolour tracking prevents high-fidelity renderers from matching xterm/kitty output (`packages/vt/src/interpreter/state.ts:3`).
+- `TerminalUpdate` lacks hooks for palette changes, clipboard operations, cursor styling, mouse/reporting toggles, and diagnostics—downstream renderers see only print/cursor/scroll updates (`packages/vt/src/interpreter/delta.ts:15`).
+- Emulator overlay table defines xterm only; kitty/iTerm2/Ghostty string limits and feature flags are absent despite roadmap requirements (`packages/vt/src/internal/emulator-quirks.ts:16`).
+- Parser action descriptors stay unused scaffolding, making it harder to inject emulator-specific rules or diagnostics (`packages/vt/src/internal/actions.ts:6`).
+- Test coverage stops at DEC-era control flow; no fixtures assert OSC 52/133/134, kitty graphics negotiation, or Sixel overflow handling (`packages/vt/test/*`).
+
+Next steps
+
+- Extend interpreter state + updates so OSC/DCS/SOS, palette shifts, and richer SGR attributes surface to renderers while maintaining Effect-friendly immutability boundaries.
+- Introduce emulator overlays (xterm baseline retained, kitty added now) that coordinate parser string limits with interpreter feature flags and corresponding tests.
+- Kitty emulator profile currently only relaxes string limits; dedicated kitty graphics/keyboard protocols remain to be implemented in parser/interpreter layers.
+- Backfill Vitest coverage for the new behaviour to guard against regressions and document expected renderer-facing payloads.
+
+<memory-bank>
+### 2025-09-27
+- Log gap analysis outcomes and prioritise interpreter surface expansion plus kitty emulator overlay.
+- Planned work: surface OSC/DCS/SOS + extended SGR states, add kitty profile alongside xterm, and author targeted Vitest coverage.
+</memory-bank>
+
 ### TODO – VT220 compliance roadmap
 
 - ~~**Implement SOS/PM/APC strings**: mirror the OSC/DCS buffering for `ESC X`, `ESC ^`, `ESC _` (and their C1 single-byte forms). Emit a dedicated dispatch event and support CAN/SUB cancellation and BEL/ST termination.~~ ✅

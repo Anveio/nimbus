@@ -1,4 +1,11 @@
-import type { CursorPosition, TerminalAttributes, TerminalCell } from './state'
+import type { SosPmApcKind } from '../types'
+import type {
+  ClipboardEntry,
+  CursorPosition,
+  TerminalAttributes,
+  TerminalCell,
+  TerminalColor,
+} from './state'
 
 export interface CellDelta {
   readonly row: number
@@ -22,3 +29,30 @@ export type TerminalUpdate =
   | { readonly type: 'scroll-region'; readonly top: number; readonly bottom: number }
   | { readonly type: 'mode'; readonly mode: 'origin' | 'autowrap'; readonly value: boolean }
   | { readonly type: 'cursor-visibility'; readonly value: boolean }
+  | { readonly type: 'osc'; readonly identifier: string; readonly data: string }
+  | { readonly type: 'title'; readonly title: string }
+  | { readonly type: 'clipboard'; readonly clipboard: ClipboardEntry }
+  | {
+      readonly type: 'palette'
+      readonly index: number
+      readonly color: TerminalColor
+    }
+  | {
+      readonly type: 'dcs-start'
+      readonly finalByte: number
+      readonly params: ReadonlyArray<number>
+      readonly intermediates: ReadonlyArray<number>
+    }
+  | { readonly type: 'dcs-data'; readonly data: string }
+  | {
+      readonly type: 'dcs-end'
+      readonly finalByte: number
+      readonly params: ReadonlyArray<number>
+      readonly intermediates: ReadonlyArray<number>
+      readonly data: string
+    }
+  | {
+      readonly type: 'sos-pm-apc'
+      readonly kind: SosPmApcKind
+      readonly data: string
+    }
