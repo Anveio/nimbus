@@ -12,6 +12,28 @@ Deliver a standalone, high-performance canvas renderer for the Mana SSH terminal
 - **Robustness** – support dynamic resize, high-DPI displays, cursor inversion, theme changes, and fall back gracefully when palette entries are missing.
 - **Extensibility** – act as the reference implementation for future renderers (SVG, WebGL, React Native). Document the renderer contract so new backends can be dropped in.
 
+## Feature surface (target parity)
+
+- **Rendering fidelity** – Unicode aware glyph pipeline (wide cells, combining marks, emoji), ANSI 16/256/truecolor, SGR attributes (bold, faint, italic, underline styles, blink, inverse, hidden, strikethrough), cursor that supports block/bar/underline shapes with opacity/blink, and selection overlays.
+- **Fonts & layout** – configurable font stacks, size/line-height/letter-spacing, bold/italic fallbacks, high-DPI scaling, ligature toggle, optional font metrics caching, accurate reflow on resize, emoji/image fallbacks.
+- **Graphics/media** – Sixel and inline image protocols (kitty/iTerm) as stretch goals, support for pixel art (braille, box drawing), optional WebGL acceleration path.
+- **Color & theme** – dynamic palette swapping without flicker, cursor/selection theming, inverse rendering, theme transitions, background images or transparency for compositing.
+- **Performance** – dirty-region batching, devicePixelRatio aware rendering, offscreen canvas support, frame timing diagnostics (draw call count, last frame duration), backpressure handling when updates flood.
+- **Interaction** – text selection (block/column/word), clipboard hooks, mouse mode indicators, focus outlines, visual bell, hyperlink underline hover states.
+- **Resilience** – graceful context loss recovery, caps for payloads (e.g. Sixel), defensive fallbacks for missing glyphs, lifecycle hooks (`dispose`) that tear down timers.
+- **Accessibility & UX** – high-contrast mode, focus cues, screen-reader overlay compatibility, configurable cursor styling, ability to invert/tint for readability.
+- **Integration hooks** – screenshot/export API, instrumentation callbacks, external theme updates, ability to surface renderer diagnostics to host UI.
+
+## Testing + regression strategy
+
+- **Reference fixtures** – store canonical terminal snapshots (JSON describing `TerminalState`) plus expected PNGs rendered with our renderer. Tests hydrate the snapshot, render into a headless canvas, and compare against the PNG using `pixelmatch`.
+- **Pixel comparisons** – use `pixelmatch` with a low threshold (≈0.05) to allow minor anti-aliasing differences. On failure, write three artifacts per scenario under `test/__artifacts__/<case>/`: `expected.png`, `actual.png`, and `diff.png` (magenta highlights).
+- **Composite artifact** – build `side-by-side.png` by rendering the three images into a new canvas with a dark background, 16px gutters, and a heading row (monospace text) labelling each column “expected”, “actual”, and “diff”. Keep hierarchy clear: labels at 14–16px, subtle separators (e.g. thin vertical lines, drop shadow) to emphasize differences, and consistent padding before exporting via `toBuffer()`.
+- **Artifact plumbing** – Vitest’s `onTestFailed` hook (or per-test try/finally) dumps artifacts and logs their paths so CI can surface them. Locally, tests print `open test/__artifacts__/.../side-by-side.png` instructions; in CI we can attach them as build artifacts.
+- **Snapshot refresh flow** – provide a script (`bun run test:update-snapshots`) that re-renders fixtures and overwrites the expected PNGs after manual review. Guard with git diffs to ensure updates are intentional.
+- **Parameterized coverage** – cover core glyph types (ASCII, CJK, emojis, combining marks), attribute permutations (bold+italic, foreground/background combos, SGR resets), cursor states, palette swapping, resizing, and selection overlays. Each scenario renders minimal yet representative buffers to keep PNGs small.
+- **Perf smoke tests** – include a stress case that renders a large dirty region and asserts draw call counts remain below a threshold; rely on diagnostics exposed by the renderer.
+
 ## Current status
 
 - Public renderer contract exported from `src/index.ts`, including theme, metrics, and lifecycle types.
