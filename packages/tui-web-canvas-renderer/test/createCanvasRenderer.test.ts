@@ -139,6 +139,7 @@ const createTheme = (): RendererTheme => ({
   background: '#101010',
   foreground: '#f0f0f0',
   cursor: { color: '#ff00ff', opacity: 1, shape: 'block' },
+  selection: { background: '#123456', foreground: '#ffffff' },
   palette: {
     ansi: [
       '#000000',
@@ -510,6 +511,12 @@ describe('createCanvasRenderer', () => {
     expect(events).toHaveLength(1)
     expect(events[0]).toEqual(snapshot.selection)
 
+    const initialPixel = getPixel(renderer, 0, 0)
+    const selectionBg = hexToRgba(theme.selection!.background)
+    expect(initialPixel[0]).toBe(selectionBg[0])
+    expect(initialPixel[1]).toBe(selectionBg[1])
+    expect(initialPixel[2]).toBe(selectionBg[2])
+
     const nextSelection = createSelection(1, 0, 1, 1)
     snapshot.selection = nextSelection
     renderer.applyUpdates({
@@ -526,12 +533,27 @@ describe('createCanvasRenderer', () => {
     expect(events).toHaveLength(2)
     expect(events[1]).toEqual(nextSelection)
 
+    const secondRowPixel = getPixel(
+      renderer,
+      0,
+      baseMetrics.cell.height,
+    )
+    expect(secondRowPixel[0]).toBe(selectionBg[0])
+    expect(secondRowPixel[1]).toBe(selectionBg[1])
+    expect(secondRowPixel[2]).toBe(selectionBg[2])
+
     snapshot.selection = null
     renderer.applyUpdates({ snapshot, updates: [{ type: 'selection-clear' }] })
 
     expect(renderer.currentSelection).toBeNull()
     expect(events).toHaveLength(3)
     expect(events[2]).toBeNull()
+
+    const clearedPixel = getPixel(renderer, 0, 0)
+    const background = hexToRgba(theme.background)
+    expect(clearedPixel[0]).toBe(background[0])
+    expect(clearedPixel[1]).toBe(background[1])
+    expect(clearedPixel[2]).toBe(background[2])
 
     const listener = vi.fn()
     renderer.onSelectionChange = listener

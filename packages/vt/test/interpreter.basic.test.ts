@@ -4,6 +4,7 @@ import {
   createInterpreter,
   type TerminalInterpreter,
 } from '../src/interpreter/terminal-interpreter'
+import type { TerminalSelection } from '../src/selection'
 import { createParser } from '../src/parser'
 import type { ParserEvent, ParserEventSink, ParserOptions } from '../src/types'
 
@@ -220,6 +221,41 @@ describe('TerminalInterpreter basic behaviour', () => {
     expect(state.lastSosPmApc).toEqual({ kind: 'SOS', data: 'status' })
     const flattened = updates.flat()
     expect(flattened.some((update) => update.type === 'sos-pm-apc')).toBe(true)
+  })
+
+  it('manages selection lifecycle via explicit APIs', () => {
+    const interpreter = createInterpreter()
+    const initialSelection: TerminalSelection = {
+      anchor: { row: 0, column: 0, timestamp: 1 },
+      focus: { row: 0, column: 2, timestamp: 2 },
+      kind: 'normal',
+      status: 'dragging',
+    }
+
+    const setUpdates = interpreter.setSelection(initialSelection)
+    expect(setUpdates).toEqual([{ type: 'selection-set', selection: initialSelection }])
+    expect(interpreter.snapshot.selection).toEqual(initialSelection)
+
+    const nextSelection: TerminalSelection = {
+      anchor: initialSelection.anchor,
+      focus: { row: 1, column: 5, timestamp: 3 },
+      kind: 'normal',
+      status: 'idle',
+    }
+
+    const updateUpdates = interpreter.updateSelection(nextSelection)
+    expect(updateUpdates).toEqual([{ type: 'selection-update', selection: nextSelection }])
+    expect(interpreter.snapshot.selection).toEqual(nextSelection)
+
+    const redundantUpdates = interpreter.updateSelection(nextSelection)
+    expect(redundantUpdates).toEqual([])
+
+    const clear = interpreter.clearSelection()
+    expect(clear).toEqual([{ type: 'selection-clear' }])
+    expect(interpreter.snapshot.selection).toBeNull()
+
+    const noopClear = interpreter.clearSelection()
+    expect(noopClear).toEqual([])
   })
 
   it('renders individual box drawing characters correctly', () => {

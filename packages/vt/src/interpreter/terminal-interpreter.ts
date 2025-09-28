@@ -6,6 +6,8 @@ import {
   type TerminalCapabilities,
 } from '../types'
 import type { CellDelta, TerminalUpdate } from './delta'
+import type { TerminalSelection } from '../selection'
+import { areSelectionsEqual } from '../selection'
 import {
   blankCell,
   clearAllTabStops,
@@ -25,6 +27,21 @@ import {
 } from './state'
 
 const QUESTION_MARK = '?'.charCodeAt(0)
+
+const cloneSelection = (selection: TerminalSelection): TerminalSelection => ({
+  anchor: {
+    row: selection.anchor.row,
+    column: selection.anchor.column,
+    timestamp: selection.anchor.timestamp,
+  },
+  focus: {
+    row: selection.focus.row,
+    column: selection.focus.column,
+    timestamp: selection.focus.timestamp,
+  },
+  kind: selection.kind,
+  status: selection.status,
+})
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value))
@@ -98,6 +115,39 @@ export class TerminalInterpreter {
     this.state = createInitialState(this.capabilities)
     this.activeDcs = null
     this.printDecoder.decode()
+  }
+
+  setSelection(selection: TerminalSelection): TerminalUpdate[] {
+    return this.applySelection(selection, 'selection-set')
+  }
+
+  updateSelection(selection: TerminalSelection): TerminalUpdate[] {
+    const hasExistingSelection = this.state.selection !== null
+    return this.applySelection(
+      selection,
+      hasExistingSelection ? 'selection-update' : 'selection-set',
+    )
+  }
+
+  clearSelection(): TerminalUpdate[] {
+    if (this.state.selection === null) {
+      return []
+    }
+    this.state.selection = null
+    return [{ type: 'selection-clear' }]
+  }
+
+  private applySelection(
+    selection: TerminalSelection,
+    updateType: 'selection-set' | 'selection-update',
+  ): TerminalUpdate[] {
+    const next = cloneSelection(selection)
+    const previous = this.state.selection
+    this.state.selection = next
+    if (areSelectionsEqual(previous, next)) {
+      return []
+    }
+    return [{ type: updateType, selection: next }]
   }
 
   private handlePrint(data: Uint8Array): TerminalUpdate[] {

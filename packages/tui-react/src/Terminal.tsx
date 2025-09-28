@@ -355,7 +355,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       [onCursorSelectionChange],
     )
 
-    const rendererHandle = useTerminalCanvasRenderer({
+  const rendererHandle = useTerminalCanvasRenderer({
       renderer,
       metrics,
       theme,
@@ -363,6 +363,32 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       onDiagnostics,
       onSelectionChange: handleSelectionChange,
     })
+
+    const pointerSelectionRef = useRef<{
+      pointerId: number | null
+      anchor: TerminalSelection['anchor'] | null
+      lastSelection: TerminalSelection | null
+    }>({ pointerId: null, anchor: null, lastSelection: null })
+
+    const getCellFromPointer = useCallback(
+      (event: React.PointerEvent<HTMLCanvasElement>) => {
+        const rect = event.currentTarget.getBoundingClientRect()
+        const offsetX = event.clientX - rect.left
+        const offsetY = event.clientY - rect.top
+        const column = clamp(
+          Math.floor(offsetX / Math.max(metrics.cell.width, 1)),
+          0,
+          columns - 1,
+        )
+        const row = clamp(
+          Math.floor(offsetY / Math.max(metrics.cell.height, 1)),
+          0,
+          rows - 1,
+        )
+        return { row, column }
+      },
+      [columns, metrics.cell.height, metrics.cell.width, rows],
+    )
 
     useEffect(() => {
       const current = interpreterRef.current
@@ -416,6 +442,144 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     const focus = useCallback(() => {
       containerRef.current?.focus()
     }, [])
+
+    const beginSelection = useCallback(
+      (
+        selection: TerminalSelection,
+        pointerId: number,
+        target: HTMLCanvasElement,
+      ) => {
+        const updates = interpreter.setSelection(selection)
+        applyUpdates(updates)
+        pointerSelectionRef.current = {
+          pointerId,
+          anchor: selection.anchor,
+          lastSelection: interpreter.snapshot.selection,
+        }
+        if (typeof target.setPointerCapture === 'function') {
+          target.setPointerCapture(pointerId)
+        }
+      },
+      [applyUpdates, interpreter],
+    )
+
+    const updateSelectionFromPointer = useCallback(
+      (selection: TerminalSelection) => {
+        const updates = interpreter.updateSelection(selection)
+        applyUpdates(updates)
+        pointerSelectionRef.current.lastSelection = interpreter.snapshot.selection
+      },
+      [applyUpdates, interpreter],
+    )
+
+    const endPointerSelection = useCallback(
+      (
+        selection: TerminalSelection | null,
+        pointerId: number | null,
+        target: HTMLCanvasElement,
+      ) => {
+        if (
+          pointerId !== null &&
+          typeof target.hasPointerCapture === 'function' &&
+          target.hasPointerCapture(pointerId)
+        ) {
+          if (typeof target.releasePointerCapture === 'function') {
+            target.releasePointerCapture(pointerId)
+          }
+        }
+        pointerSelectionRef.current.pointerId = null
+        pointerSelectionRef.current.anchor = null
+        pointerSelectionRef.current.lastSelection = selection
+      },
+      [],
+    )
+
+    const handlePointerDown = useCallback(
+      (event: React.PointerEvent<HTMLCanvasElement>) => {
+        if (event.button !== 0) {
+          return
+        }
+        event.preventDefault()
+        focus()
+        const { row, column } = getCellFromPointer(event)
+        const timestamp = Date.now()
+        const selection: TerminalSelection = {
+          anchor: { row, column, timestamp },
+          focus: { row, column, timestamp },
+          kind: event.shiftKey ? 'rectangular' : 'normal',
+          status: 'dragging',
+        }
+        beginSelection(selection, event.pointerId, event.currentTarget)
+      },
+      [beginSelection, focus, getCellFromPointer],
+    )
+
+    const handlePointerMove = useCallback(
+      (event: React.PointerEvent<HTMLCanvasElement>) => {
+        const pointerState = pointerSelectionRef.current
+        if (pointerState.pointerId !== event.pointerId || !pointerState.anchor) {
+          return
+        }
+        event.preventDefault()
+        const { row, column } = getCellFromPointer(event)
+        const timestamp = Date.now()
+        const selection: TerminalSelection = {
+          anchor: pointerState.anchor,
+          focus: { row, column, timestamp },
+          kind: pointerState.lastSelection?.kind ?? 'normal',
+          status: 'dragging',
+        }
+        updateSelectionFromPointer(selection)
+      },
+      [getCellFromPointer, updateSelectionFromPointer],
+    )
+
+    const finalizeSelection = useCallback(
+      (
+        event: React.PointerEvent<HTMLCanvasElement>,
+        status: TerminalSelection['status'],
+      ) => {
+        const pointerState = pointerSelectionRef.current
+        if (pointerState.pointerId !== event.pointerId) {
+          return
+        }
+        const activeSelection =
+          interpreter.snapshot.selection ?? pointerState.lastSelection
+        if (activeSelection) {
+          const finalized: TerminalSelection = {
+            ...activeSelection,
+            status,
+            focus: {
+              ...activeSelection.focus,
+              timestamp: Date.now(),
+            },
+          }
+          updateSelectionFromPointer(finalized)
+        }
+        endPointerSelection(interpreter.snapshot.selection, event.pointerId, event.currentTarget)
+      },
+      [endPointerSelection, interpreter, updateSelectionFromPointer],
+    )
+
+    const handlePointerUp = useCallback(
+      (event: React.PointerEvent<HTMLCanvasElement>) => {
+        event.preventDefault()
+        finalizeSelection(event, 'idle')
+      },
+      [finalizeSelection],
+    )
+
+    const handlePointerCancel = useCallback(
+      (event: React.PointerEvent<HTMLCanvasElement>) => {
+        event.preventDefault()
+        const pointerState = pointerSelectionRef.current
+        if (pointerState.pointerId !== event.pointerId) {
+          return
+        }
+        endPointerSelection(pointerState.lastSelection, event.pointerId, event.currentTarget)
+      },
+      [endPointerSelection],
+    )
 
     const reset = useCallback(() => {
       parserRef.current.reset()
@@ -500,6 +664,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
           ref={rendererHandle.canvasRef as React.RefObject<HTMLCanvasElement>}
           className={canvasClassName}
           style={canvasStyle}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
         />
       </div>
     )

@@ -19,6 +19,7 @@ export {
   getSelectionRowSegment,
   getSelectionRowSegments,
   isSelectionCollapsed,
+  areSelectionsEqual,
 } from './selection'
 export type {
   SelectionBounds,

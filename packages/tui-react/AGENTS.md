@@ -20,6 +20,7 @@ Build a world-class, high-performance, and minimal-dependency TypeScript rendere
 - Mock host + demo React app (apps/terminal-web-app) scaffolded.
 - Keyboard input → host write path partially implemented; advanced key handling TBD.
 - Canvas renderer selection state is proxied via `onCursorSelectionChange` and the imperative handle, keeping consumers agnostic of mouse vs keyboard selection sources.
+- `<Terminal />` now wires pointer drag selection end-to-end (interpreter `set/update/clear`, renderer callbacks), providing `getSelection()` on the imperative handle for consumers.
 
 ## Immediate next steps
 

@@ -140,3 +140,9 @@ Using Ghostty as a guide, we can finish SOS/PM/APC support, flesh out C1 semanti
   - Add scrollback and alternate screen buffers, plus saved state management.
   - Expand emulator overlays (kitty, iTerm2, Ghostty) and wire optional features (OSC 52, mouse reporting, hyperlinks).
   - Provide renderer-specific wrappers rather than a single universal TUI. The VT core + interpreter live in `@mana-ssh/vt`; React DOM rendering ships as `@mana-ssh/tui-react`, React Native will land in `@mana-ssh/tui-react-native`, and future canvas/WASM/native renderers can reuse the same event/update pipeline.
+
+## 2025-10-02 – Selection APIs
+
+- Added immutable `TerminalSelection` helpers (`areSelectionsEqual`, row-segment computations) and wired them into the public barrel for consumers.
+- `TerminalInterpreter` now exposes `setSelection`, `updateSelection`, and `clearSelection`, emitting `selection:*` deltas while deduping redundant updates; snapshot state mirrors the latest selection.
+- Vitest coverage verifies the new API surface alongside existing interpreter tests, giving downstream renderers a consistent way to drive highlights.

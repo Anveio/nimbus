@@ -31,11 +31,6 @@ vi.mock('@mana-ssh/tui-web-canvas-renderer', () => {
   const createCanvasRenderer = vi.fn((options: any) => {
     const instance: any = {
       canvas: options.canvas,
-      applyUpdates: vi.fn(),
-      resize: vi.fn(),
-      setTheme: vi.fn(),
-      sync: vi.fn(),
-      dispose: vi.fn(),
       diagnostics: {
         lastFrameDurationMs: null,
         lastDrawCallCount: null,
@@ -47,17 +42,49 @@ vi.mock('@mana-ssh/tui-web-canvas-renderer', () => {
     }
 
     let selectionListener = options.onSelectionChange
+    const notifySelection = () => {
+      selectionListener?.(instance.currentSelection)
+    }
+
+    instance.applyUpdates = vi.fn(({ snapshot }: any) => {
+      const next = snapshot?.selection ?? null
+      if (JSON.stringify(next) !== JSON.stringify(instance.currentSelection)) {
+        instance.currentSelection = next
+        notifySelection()
+      }
+    })
+
+    instance.resize = vi.fn(({ snapshot }: any) => {
+      const next = snapshot?.selection ?? null
+      if (JSON.stringify(next) !== JSON.stringify(instance.currentSelection)) {
+        instance.currentSelection = next
+        notifySelection()
+      }
+    })
+
+    instance.setTheme = vi.fn()
+
+    instance.sync = vi.fn((snapshot: any) => {
+      const next = snapshot?.selection ?? null
+      if (JSON.stringify(next) !== JSON.stringify(instance.currentSelection)) {
+        instance.currentSelection = next
+        notifySelection()
+      }
+    })
+
+    instance.dispose = vi.fn()
+
     Object.defineProperty(instance, 'onSelectionChange', {
       configurable: true,
       enumerable: true,
       get: () => selectionListener,
       set: (listener) => {
         selectionListener = listener
-        selectionListener?.(instance.currentSelection)
+        notifySelection()
       },
     })
 
-    selectionListener?.(instance.currentSelection)
+    notifySelection()
 
     return instance
   })

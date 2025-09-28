@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { createRef } from 'react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
@@ -213,7 +213,7 @@ describe('Terminal', () => {
     }
   })
 
-  test('exposes cursor selection updates via callback and handle', async () => {
+  test('exposes cursor selection updates via pointer interaction and handle', async () => {
     const onCursorSelectionChange = vi.fn()
     const ref = createRef<TerminalHandle>()
 
@@ -226,26 +226,64 @@ describe('Terminal', () => {
       />,
     )
 
+    const region = screen.getByRole('textbox')
+    const canvas = region.querySelector('canvas') as HTMLCanvasElement
+    expect(canvas).not.toBeNull()
+
+    ;(canvas as any).setPointerCapture = vi.fn()
+    ;(canvas as any).releasePointerCapture = vi.fn()
+    const rectSpy = vi
+      .spyOn(canvas, 'getBoundingClientRect')
+      .mockReturnValue({
+        left: 0,
+        top: 0,
+        right: 90,
+        bottom: 180,
+        width: 90,
+        height: 180,
+        x: 0,
+        y: 0,
+        toJSON: () => {},
+      } as DOMRect)
+
     await act(async () => {
-      await Promise.resolve()
+      fireEvent.pointerDown(canvas, {
+        button: 0,
+        pointerId: 1,
+        clientX: 5,
+        clientY: 5,
+      })
     })
 
-    expect(onCursorSelectionChange).toHaveBeenCalledWith(null)
+    await act(async () => {
+      fireEvent.pointerMove(canvas, {
+        pointerId: 1,
+        clientX: 25,
+        clientY: 25,
+      })
+    })
 
-    const renderer = lastRenderer()
-    const selection: TerminalSelection = {
-      anchor: { row: 0, column: 0, timestamp: 1 },
-      focus: { row: 0, column: 1, timestamp: 2 },
-      kind: 'normal',
-      status: 'idle',
+    await act(async () => {
+      fireEvent.pointerUp(canvas, {
+        pointerId: 1,
+        clientX: 25,
+        clientY: 25,
+      })
+    })
+
+    rectSpy.mockRestore()
+
+    const selection = ref.current?.getSelection()
+    expect(selection).not.toBeNull()
+    if (selection) {
+      expect(selection.anchor.row).toBe(0)
+      expect(selection.anchor.column).toBe(0)
+      expect(selection.status).toBe('idle')
+      expect(selection.focus.row).toBeGreaterThanOrEqual(1)
+      expect(selection.focus.column).toBeGreaterThanOrEqual(0)
     }
 
-    await act(async () => {
-      renderer.currentSelection = selection
-      renderer.onSelectionChange?.(selection)
-    })
-
-    expect(onCursorSelectionChange).toHaveBeenLastCalledWith(selection)
-    expect(ref.current?.getSelection()).toEqual(selection)
+    const callbackSelection = onCursorSelectionChange.mock.lastCall?.[0] ?? null
+    expect(callbackSelection).toEqual(selection)
   })
 })

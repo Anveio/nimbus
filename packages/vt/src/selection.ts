@@ -168,3 +168,25 @@ export const isSelectionCollapsed = (
   const { topLeft, bottomRight } = getSelectionBounds(selection)
   return topLeft.row === bottomRight.row && topLeft.column === bottomRight.column
 }
+
+export const areSelectionsEqual = (
+  a: TerminalSelection | null,
+  b: TerminalSelection | null,
+): boolean => {
+  if (a === b) {
+    return true
+  }
+  if (!a || !b) {
+    return false
+  }
+  return (
+    a.kind === b.kind &&
+    a.status === b.status &&
+    a.anchor.row === b.anchor.row &&
+    a.anchor.column === b.anchor.column &&
+    a.anchor.timestamp === b.anchor.timestamp &&
+    a.focus.row === b.focus.row &&
+    a.focus.column === b.focus.column &&
+    a.focus.timestamp === b.focus.timestamp
+  )
+}

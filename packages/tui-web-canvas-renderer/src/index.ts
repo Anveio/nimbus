@@ -7,6 +7,8 @@ import type {
   TerminalSelection,
   TerminalUpdate,
 } from '@mana-ssh/vt'
+import { getSelectionRowSegments } from '@mana-ssh/vt'
+import type { SelectionRowSegment } from '@mana-ssh/vt'
 
 const createDefaultAttributes = (): TerminalAttributes => ({
   bold: false,
@@ -301,16 +303,41 @@ const repaint = (
   ctx.fillRect(0, 0, layout.logicalWidth, layout.logicalHeight)
   drawCalls += 1
 
+  const selectionTheme = theme.selection
+  const selectionSegments =
+    selectionTheme && snapshot.selection
+      ? getSelectionRowSegments(snapshot.selection, snapshot.columns)
+      : []
+  const selectionSegmentsByRow: Map<number, SelectionRowSegment> | null =
+    selectionSegments.length > 0
+      ? new Map(selectionSegments.map((segment) => [segment.row, segment]))
+      : null
+
   const cellWidth = metrics.cell.width
   const cellHeight = metrics.cell.height
   let currentFont = ctx.font
 
   for (let row = 0; row < snapshot.rows; row += 1) {
     const bufferRow = snapshot.buffer[row]
+    const selectionSegment = selectionSegmentsByRow?.get(row) ?? null
+    if (selectionSegment && selectionTheme?.background) {
+      const highlightX = selectionSegment.startColumn * cellWidth
+      const highlightWidth =
+        (selectionSegment.endColumn - selectionSegment.startColumn + 1) * cellWidth
+      ctx.fillStyle = selectionTheme.background
+      ctx.fillRect(highlightX, row * cellHeight, highlightWidth, cellHeight)
+      drawCalls += 1
+    }
+
     for (let column = 0; column < snapshot.columns; column += 1) {
       const cell = bufferRow?.[column] ?? DEFAULT_CELL
       const x = column * cellWidth
       const y = row * cellHeight
+
+      const isSelected =
+        selectionSegment !== null &&
+        column >= selectionSegment.startColumn &&
+        column <= selectionSegment.endColumn
 
       const { foreground, background } = resolveCellColors(
         cell.attr,
@@ -318,14 +345,24 @@ const repaint = (
         paletteOverrides,
       )
 
-      if (background) {
-        ctx.fillStyle = background
+      let effectiveForeground = foreground
+      let effectiveBackground = background
+
+      if (isSelected) {
+        if (selectionTheme?.foreground) {
+          effectiveForeground = selectionTheme.foreground
+        }
+        effectiveBackground = null
+      }
+
+      if (effectiveBackground) {
+        ctx.fillStyle = effectiveBackground
         ctx.fillRect(x, y, cellWidth, cellHeight)
         drawCalls += 1
       }
 
       const char = cell.char
-      const shouldDrawGlyph = Boolean(char && char !== ' ' && foreground)
+      const shouldDrawGlyph = Boolean(char && char !== ' ' && effectiveForeground)
 
       if (shouldDrawGlyph) {
         const nextFont = fontString(
@@ -343,8 +380,8 @@ const repaint = (
           ctx.globalAlpha = previousAlpha * 0.6
         }
 
-        if (foreground) {
-          ctx.fillStyle = foreground
+        if (effectiveForeground) {
+          ctx.fillStyle = effectiveForeground
         }
         ctx.fillText(char!, x, y + metrics.cell.baseline)
         drawCalls += 1
@@ -355,16 +392,16 @@ const repaint = (
       }
 
       const shouldDrawDecoration =
-        Boolean(foreground) &&
+        Boolean(effectiveForeground) &&
         (cell.attr.underline !== 'none' || cell.attr.strikethrough)
 
-      if (shouldDrawDecoration && foreground) {
+      if (shouldDrawDecoration && effectiveForeground) {
         const previousAlpha = ctx.globalAlpha
         if (cell.attr.faint) {
           ctx.globalAlpha = previousAlpha * 0.6
         }
 
-        ctx.fillStyle = foreground
+        ctx.fillStyle = effectiveForeground
 
         if (cell.attr.underline !== 'none') {
           const thickness = Math.max(1, Math.round(cellHeight * 0.08))
