@@ -221,6 +221,7 @@ const createSnapshot = (rows: number, columns: number): TerminalState => ({
   lastSosPmApc: null,
   savedCursor: null,
   savedAttributes: null,
+  selection: null,
 })
 
 describe('createCanvasRenderer', () => {

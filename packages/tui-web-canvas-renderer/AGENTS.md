@@ -49,11 +49,21 @@ Deliver a standalone, high-performance canvas renderer for the Mana SSH terminal
 - OSC/DCS/SOS-only updates no longer trigger full repaints; we repaint only when cells/colours change, preserving performance for metadata-heavy workloads.
 - Added Vitest coverage for palette overrides, diagnostics plumbing, and the enhanced styling pipeline (underline, faint, RGB foregrounds).
 
+## 2025-10-02 – Selection roadmap alignment
+
+- Mapped Ghostty's selection lifecycle (pin tracking, per-row slicing, auto-scroll) onto our TypeScript stack; canvas renderer will consume row-level selection segments derived from interpreter snapshots.
+- Planned `TerminalSelection` shape in `@mana-ssh/vt` holding anchor/focus points, selection kind (`normal | rectangular`), and status, emitted through new `selection:set|update|clear` deltas so renderers can stay incremental.
+- Defined host-layer responsibilities: `@mana-ssh/tui-react` will translate pointer events into selection updates, manage 60 % inclusion thresholds, and orchestrate auto-scroll timers via Effect.
+- Determined renderer work: draw themed selection rectangles before glyphs, respect optional foreground overrides, and add pixel regression fixtures for single-line, multi-line, and rectangular highlights.
+- Test matrix covers VT helpers (word/line computations, rectangular ranges), React controller event flows, renderer pixel diffs, and Playwright E2E copy-on-select behaviour.
+
 ## Immediate next steps
 
-1. Implement the canvas renderer internals that honour the new interface and draw `@mana-ssh/vt` snapshots.
-2. Expose utility helpers (measure cells, palette resolution, cursor drawing) with accompanying unit tests.
-3. Publish typed entry point so `@mana-ssh/tui-react` can import the renderer instead of inlining it.
+1. Emit `selection:*` deltas from `@mana-ssh/vt` (drag lifecycle, word/line helpers) and persist selection on the snapshot.
+2. Teach `@mana-ssh/tui-react` to emit selection updates (pointer handling, rectangle modifiers, auto-scroll Effect) and wire copy-on-select.
+3. Update the canvas renderer to consume selection segments and repaint overlays with new pixel regression cases.
+4. Expose utility helpers (measure cells, palette resolution, cursor drawing) with accompanying unit tests.
+5. Publish typed entry point so `@mana-ssh/tui-react` can import the renderer instead of inlining it.
 
 ## Longer-term roadmap
 
@@ -61,3 +71,8 @@ Deliver a standalone, high-performance canvas renderer for the Mana SSH terminal
 - Add optional offscreen canvas support for smoother animations.
 - Expose instrumentation hooks (FPS, draw timings) for performance dashboards.
 - Consider fallback HTML renderer for legacy browsers that lack canvas acceleration.
+
+## Memory Bank
+
+- 2025-10-02: Selection pipeline agreed—VT gains `TerminalSelection`, React host owns pointer → update wiring, canvas renderer paints themed highlights with new pixel fixtures, and tests span VT units, React controller, pixel diffs, and Playwright copy flows.
+- 2025-10-02: Implemented `selection.ts` helpers + tests in `@mana-ssh/vt` (bounds, per-row segments, collapsed detection) and plumbed selection into `TerminalState`/`TerminalUpdate` for downstream renderers.

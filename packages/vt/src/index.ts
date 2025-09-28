@@ -15,6 +15,20 @@ export type {
   TerminalState,
 } from './interpreter/state'
 export {
+  getSelectionBounds,
+  getSelectionRowSegment,
+  getSelectionRowSegments,
+  isSelectionCollapsed,
+} from './selection'
+export type {
+  SelectionBounds,
+  SelectionKind,
+  SelectionPoint,
+  SelectionRowSegment,
+  SelectionStatus,
+  TerminalSelection,
+} from './selection'
+export {
   createInterpreter,
   TerminalInterpreter,
 } from './interpreter/terminal-interpreter'

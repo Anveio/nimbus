@@ -6,6 +6,7 @@ import type {
   TerminalCell,
   TerminalColor,
 } from './state'
+import type { TerminalSelection } from '../selection'
 
 export interface CellDelta {
   readonly row: number
@@ -37,6 +38,15 @@ export type TerminalUpdate =
       readonly index: number
       readonly color: TerminalColor
     }
+  | {
+      readonly type: 'selection-set'
+      readonly selection: TerminalSelection
+    }
+  | {
+      readonly type: 'selection-update'
+      readonly selection: TerminalSelection
+    }
+  | { readonly type: 'selection-clear' }
   | {
       readonly type: 'dcs-start'
       readonly finalByte: number

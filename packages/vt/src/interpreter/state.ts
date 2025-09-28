@@ -1,4 +1,5 @@
 import type { SosPmApcKind, TerminalCapabilities } from '../types'
+import type { TerminalSelection } from '../selection'
 
 export type TerminalColor =
   | { readonly type: 'default' }
@@ -52,6 +53,7 @@ export interface TerminalState {
   lastSosPmApc: { readonly kind: SosPmApcKind; readonly data: string } | null
   savedCursor: CursorPosition | null
   savedAttributes: TerminalAttributes | null
+  selection: TerminalSelection | null
 }
 
 const cloneColor = (color: TerminalColor): TerminalColor => {
@@ -144,6 +146,7 @@ export const createInitialState = (
     lastSosPmApc: null,
     savedCursor: null,
     savedAttributes: null,
+    selection: null,
   }
 }
 
