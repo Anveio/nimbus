@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig/workspace-package-config.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "tsBuildInfoFile": "./tsconfig.tsbuildinfo"
+  },
+  "include": ["src"],
+  "exclude": ["dist", "build", "node_modules"]
+}

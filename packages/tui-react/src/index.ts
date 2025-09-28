@@ -1,1 +1,3 @@
-export { TerminalUI, type TerminalUIOptions, type TerminalTheme } from './TerminalUI'
+/** biome-ignore-all lint/performance/noReExportAll: Library */
+/** biome-ignore-all lint/performance/noBarrelFile: Library */
+export * from './host/TerminalHost'
