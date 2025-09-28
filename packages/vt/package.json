@@ -16,7 +16,7 @@
   },
   "scripts": {
     "clean": "rm -rf dist",
-    "test": "vitest run --reporter=dot --silent",
+    "test": "vitest run",
     "test:coverage": "vitest run --coverage --reporter=dot --silent",
     "test:watch": "vitest --reporter=default --silent=false",
     "lint": "biome lint .",
@@ -24,9 +24,10 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@vitest/coverage-istanbul": "^0.34.6",
+    "@vitest/coverage-istanbul": "^3.2.4",
+    "@vitest/coverage-v8": "^3.2.4",
     "fast-check": "^3.18.0",
     "typescript": "^5.0.4",
-    "vitest": "^0.34.6"
+    "vitest": "^3.2.4"
   }
 }
