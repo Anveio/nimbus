@@ -1,14 +1,22 @@
 /** biome-ignore-all lint/performance/noBarrelFile: Library */
-export { classifyByte } from './classifier'
-export { createParser } from './parser'
-export { SPEC_DEFAULTS, SPEC_FALLBACK } from './internal/spec-defaults'
-export { resolveParserOptions } from './internal/resolve-options'
-export { resolveEmulatorOverlay } from './internal/emulator-quirks'
+
 export { resolveTerminalCapabilities } from './capabilities'
+export { classifyByte } from './classifier'
+export { resolveEmulatorOverlay } from './internal/emulator-quirks'
+export { resolveParserOptions } from './internal/resolve-options'
+export { SPEC_DEFAULTS, SPEC_FALLBACK } from './internal/spec-defaults'
+export type { CellDelta, TerminalUpdate } from './interpreter/delta'
+export type {
+  CursorPosition,
+  TerminalAttributes,
+  TerminalCell,
+  TerminalState,
+} from './interpreter/state'
 export {
   createInterpreter,
   TerminalInterpreter,
 } from './interpreter/terminal-interpreter'
+export { createParser } from './parser'
 export type {
   ByteFlag,
   C1HandlingMode,
@@ -16,20 +24,13 @@ export type {
   ParserEvent,
   ParserEventSink,
   ParserEventType,
-  ParserOptions,
   ParserOptionOverrides,
+  ParserOptions,
   ParserSpec,
-  TerminalEmulator,
-  TerminalCapabilities,
-  TerminalFeatures,
-  ParserStringLimits,
   ParserState,
+  ParserStringLimits,
   SosPmApcKind,
+  TerminalCapabilities,
+  TerminalEmulator,
+  TerminalFeatures,
 } from './types'
-export type {
-  TerminalAttributes,
-  TerminalCell,
-  CursorPosition,
-  TerminalState,
-} from './interpreter/state'
-export type { CellDelta, TerminalUpdate } from './interpreter/delta'

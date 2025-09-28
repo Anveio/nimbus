@@ -1,13 +1,17 @@
 {
-  "name": "@packages/vt",
-  "version": "0.0.0",
+  "name": "@mana-ssh/vt",
+  "version": "0.0.1",
   "private": true,
-  "main": "./dist/index.js",
+  "sideEffects": false,
+  "main": "./src/index.ts",
   "source": "./src/index.ts",
-  "types": "./dist/index.d.ts",
+  "types": "./src/types.ts",
   "files": [
     "dist/**"
   ],
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
@@ -17,7 +21,6 @@
     "lint:fix": "biome lint --apply ."
   },
   "devDependencies": {
-    "@mana-ssh/tsconfig": "workspace:*",
     "@vitest/coverage-istanbul": "^0.34.6",
     "fast-check": "^3.18.0",
     "typescript": "^5.0.4",

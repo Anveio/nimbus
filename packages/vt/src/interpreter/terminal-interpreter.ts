@@ -519,7 +519,7 @@ export class TerminalInterpreter {
     const top = this.state.scrollTop
     const bottom = this.state.scrollBottom
     for (let row = top; row < bottom; row += 1) {
-      this.state.buffer[row] = this.state.buffer[row + 1]
+      this.state.buffer[row] = this.state.buffer[row + 1]!
     }
     this.state.buffer[bottom] = Array.from({ length: this.state.columns }, () =>
       blankCell(this.state.attributes),
@@ -530,7 +530,7 @@ export class TerminalInterpreter {
     const top = this.state.scrollTop
     const bottom = this.state.scrollBottom
     for (let row = bottom; row > top; row -= 1) {
-      this.state.buffer[row] = this.state.buffer[row - 1]
+      this.state.buffer[row] = this.state.buffer[row - 1]!
     }
     this.state.buffer[top] = Array.from({ length: this.state.columns }, () =>
       blankCell(this.state.attributes),

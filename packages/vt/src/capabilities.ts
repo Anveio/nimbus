@@ -1,11 +1,11 @@
-import {
-  type ParserOptions,
-  type ParserSpec,
-  type TerminalCapabilities,
-  type TerminalFeatures,
-} from './types'
 import { resolveEmulatorOverlay } from './internal/emulator-quirks'
 import { SPEC_FALLBACK } from './internal/spec-defaults'
+import type {
+  ParserOptions,
+  ParserSpec,
+  TerminalCapabilities,
+  TerminalFeatures,
+} from './types'
 
 const SPEC_FEATURES: Record<ParserSpec, TerminalFeatures> = {
   vt100: {

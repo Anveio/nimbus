@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { createParser } from '../src/parser'
-import {
-  type ParserEvent,
-  type ParserEventSink,
-  type ParserOptions,
-} from '../src/types'
-import { createInterpreter, TerminalInterpreter } from '../src/interpreter/terminal-interpreter'
 import type { TerminalUpdate } from '../src/interpreter/delta'
+import {
+  createInterpreter,
+  type TerminalInterpreter,
+} from '../src/interpreter/terminal-interpreter'
+import { createParser } from '../src/parser'
+import type { ParserEvent, ParserEventSink, ParserOptions } from '../src/types'
 
 class InterpreterSink implements ParserEventSink {
   constructor(

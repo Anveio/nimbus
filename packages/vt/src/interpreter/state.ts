@@ -32,7 +32,9 @@ export interface TerminalState {
   savedAttributes: TerminalAttributes | null
 }
 
-export const cloneAttributes = (attributes: TerminalAttributes): TerminalAttributes => ({
+export const cloneAttributes = (
+  attributes: TerminalAttributes,
+): TerminalAttributes => ({
   bold: attributes.bold,
   fg: attributes.fg,
   bg: attributes.bg,
@@ -49,7 +51,10 @@ const createBlankCell = (attributes: TerminalAttributes): TerminalCell => ({
   attr: cloneAttributes(attributes),
 })
 
-const createRow = (columns: number, attributes: TerminalAttributes): TerminalCell[] =>
+const createRow = (
+  columns: number,
+  attributes: TerminalAttributes,
+): TerminalCell[] =>
   Array.from({ length: columns }, () => createBlankCell(attributes))
 
 const createDefaultTabStops = (columns: number): Set<number> => {
@@ -108,7 +113,11 @@ export const getCell = (
   if (!rowBuffer) {
     throw new Error(`row out of bounds: ${row}`)
   }
-  return rowBuffer[column]
+  const cell = rowBuffer[column]
+  if (!cell) {
+    throw new Error(`cell out of bounds: ${row}, ${column}`)
+  }
+  return cell
 }
 
 export const setCell = (

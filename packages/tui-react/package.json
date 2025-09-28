@@ -1,8 +1,8 @@
 {
-  "name": "@mana-ssh/tui",
+  "name": "@mana-ssh/tui-react",
   "version": "0.0.1",
   "private": true,
-  "description": "A WebSocket transport layer for the ManaSSHWeb protocol.",
+  "description": "React renderer for the Mana SSH terminal stack.",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {

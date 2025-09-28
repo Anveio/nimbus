@@ -64,8 +64,8 @@
       "name": "@mana-ssh/tsconfig",
       "version": "1.0.0",
     },
-    "packages/tui": {
-      "name": "@mana-ssh/tui",
+    "packages/tui-react": {
+      "name": "@mana-ssh/tui-react",
       "version": "0.0.1",
       "devDependencies": {
         "typescript": "^5.9.2",
@@ -254,7 +254,7 @@
 
     "@mana-ssh/tsconfig": ["@mana-ssh/tsconfig@workspace:packages/tsconfig"],
 
-    "@mana-ssh/tui": ["@mana-ssh/tui@workspace:packages/tui"],
+    "@mana-ssh/tui-react": ["@mana-ssh/tui-react@workspace:packages/tui-react"],
 
     "@mana-ssh/web": ["@mana-ssh/web@workspace:packages/web"],
 
