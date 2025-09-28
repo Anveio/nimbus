@@ -21,6 +21,7 @@ Build a world-class, high-performance, and minimal-dependency TypeScript rendere
 - Keyboard input → host write path partially implemented; advanced key handling TBD.
 - Canvas renderer selection state is proxied via `onCursorSelectionChange` and the imperative handle, keeping consumers agnostic of mouse vs keyboard selection sources.
 - `<Terminal />` now wires pointer drag selection end-to-end (interpreter `set/update/clear`, renderer callbacks), providing `getSelection()` on the imperative handle for consumers.
+- Auto-scroll during drag extends selections beyond the viewport with a timer-driven service that reuses interpreter updates rather than DOM scrolling hacks.
 
 ## Immediate next steps
 

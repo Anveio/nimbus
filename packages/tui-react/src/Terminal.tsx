@@ -370,7 +370,20 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       lastSelection: TerminalSelection | null
     }>({ pointerId: null, anchor: null, lastSelection: null })
 
-    const getCellFromPointer = useCallback(
+    const autoScrollRef = useRef<{ timer: number | null; direction: -1 | 0 | 1 }>({
+      timer: null,
+      direction: 0,
+    })
+
+    const stopAutoScroll = useCallback(() => {
+      const current = autoScrollRef.current
+      if (current.timer !== null) {
+        window.clearInterval(current.timer)
+      }
+      autoScrollRef.current = { timer: null, direction: 0 }
+    }, [])
+
+    const getPointerMetrics = useCallback(
       (event: React.PointerEvent<HTMLCanvasElement>) => {
         const rect = event.currentTarget.getBoundingClientRect()
         const offsetX = event.clientX - rect.left
@@ -385,7 +398,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
           0,
           rows - 1,
         )
-        return { row, column }
+        return { row, column, offsetX, offsetY, rect }
       },
       [columns, metrics.cell.height, metrics.cell.width, rows],
     )
@@ -449,6 +462,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         pointerId: number,
         target: HTMLCanvasElement,
       ) => {
+        stopAutoScroll()
         const updates = interpreter.setSelection(selection)
         applyUpdates(updates)
         pointerSelectionRef.current = {
@@ -460,7 +474,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
           target.setPointerCapture(pointerId)
         }
       },
-      [applyUpdates, interpreter],
+      [applyUpdates, interpreter, stopAutoScroll],
     )
 
     const updateSelectionFromPointer = useCallback(
@@ -472,12 +486,50 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       [applyUpdates, interpreter],
     )
 
+    const startAutoScroll = useCallback(
+      (direction: -1 | 1) => {
+        if (autoScrollRef.current.direction === direction && autoScrollRef.current.timer !== null) {
+          return
+        }
+        stopAutoScroll()
+        const timer = window.setInterval(() => {
+          const pointerState = pointerSelectionRef.current
+          if (pointerState.pointerId === null || !pointerState.anchor) {
+            stopAutoScroll()
+            return
+          }
+          const active =
+            interpreter.snapshot.selection ?? pointerState.lastSelection
+          if (!active) {
+            return
+          }
+          const nextRow = clamp(active.focus.row + direction, 0, rows - 1)
+          if (nextRow === active.focus.row) {
+            return
+          }
+          const selection: TerminalSelection = {
+            ...active,
+            focus: {
+              ...active.focus,
+              row: nextRow,
+              timestamp: Date.now(),
+            },
+            status: 'dragging',
+          }
+          updateSelectionFromPointer(selection)
+        }, 50)
+        autoScrollRef.current = { timer, direction }
+      },
+      [interpreter, rows, stopAutoScroll, updateSelectionFromPointer],
+    )
+
     const endPointerSelection = useCallback(
       (
         selection: TerminalSelection | null,
         pointerId: number | null,
         target: HTMLCanvasElement,
       ) => {
+        stopAutoScroll()
         if (
           pointerId !== null &&
           typeof target.hasPointerCapture === 'function' &&
@@ -491,7 +543,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         pointerSelectionRef.current.anchor = null
         pointerSelectionRef.current.lastSelection = selection
       },
-      [],
+      [stopAutoScroll],
     )
 
     const handlePointerDown = useCallback(
@@ -501,7 +553,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         }
         event.preventDefault()
         focus()
-        const { row, column } = getCellFromPointer(event)
+        const { row, column } = getPointerMetrics(event)
         const timestamp = Date.now()
         const selection: TerminalSelection = {
           anchor: { row, column, timestamp },
@@ -511,7 +563,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         }
         beginSelection(selection, event.pointerId, event.currentTarget)
       },
-      [beginSelection, focus, getCellFromPointer],
+      [beginSelection, focus, getPointerMetrics],
     )
 
     const handlePointerMove = useCallback(
@@ -521,7 +573,13 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
           return
         }
         event.preventDefault()
-        const { row, column } = getCellFromPointer(event)
+        const { row, column, offsetY, rect } = getPointerMetrics(event)
+        const direction: -1 | 0 | 1 = offsetY < 0 ? -1 : offsetY > rect.height ? 1 : 0
+        if (direction === 0) {
+          stopAutoScroll()
+        } else {
+          startAutoScroll(direction)
+        }
         const timestamp = Date.now()
         const selection: TerminalSelection = {
           anchor: pointerState.anchor,
@@ -531,7 +589,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         }
         updateSelectionFromPointer(selection)
       },
-      [getCellFromPointer, updateSelectionFromPointer],
+      [getPointerMetrics, startAutoScroll, stopAutoScroll, updateSelectionFromPointer],
     )
 
     const finalizeSelection = useCallback(
@@ -572,13 +630,14 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     const handlePointerCancel = useCallback(
       (event: React.PointerEvent<HTMLCanvasElement>) => {
         event.preventDefault()
+        stopAutoScroll()
         const pointerState = pointerSelectionRef.current
         if (pointerState.pointerId !== event.pointerId) {
           return
         }
         endPointerSelection(pointerState.lastSelection, event.pointerId, event.currentTarget)
       },
-      [endPointerSelection],
+      [endPointerSelection, stopAutoScroll],
     )
 
     const reset = useCallback(() => {
@@ -634,6 +693,13 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         focus()
       }
     }, [autoFocus, focus, interpreter, rendererHandle])
+
+    useEffect(
+      () => () => {
+        stopAutoScroll()
+      },
+      [stopAutoScroll],
+    )
 
     useImperativeHandle(
       ref,

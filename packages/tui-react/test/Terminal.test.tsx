@@ -214,6 +214,7 @@ describe('Terminal', () => {
   })
 
   test('exposes cursor selection updates via pointer interaction and handle', async () => {
+    vi.useFakeTimers()
     const onCursorSelectionChange = vi.fn()
     const ref = createRef<TerminalHandle>()
 
@@ -232,6 +233,7 @@ describe('Terminal', () => {
 
     ;(canvas as any).setPointerCapture = vi.fn()
     ;(canvas as any).releasePointerCapture = vi.fn()
+    ;(canvas as any).hasPointerCapture = vi.fn(() => true)
     const rectSpy = vi
       .spyOn(canvas, 'getBoundingClientRect')
       .mockReturnValue({
@@ -246,44 +248,64 @@ describe('Terminal', () => {
         toJSON: () => {},
       } as DOMRect)
 
-    await act(async () => {
-      fireEvent.pointerDown(canvas, {
-        button: 0,
-        pointerId: 1,
-        clientX: 5,
-        clientY: 5,
+    try {
+      await act(async () => {
+        fireEvent.pointerDown(canvas, {
+          button: 0,
+          pointerId: 1,
+          clientX: 5,
+          clientY: 5,
+        })
       })
-    })
 
-    await act(async () => {
-      fireEvent.pointerMove(canvas, {
-        pointerId: 1,
-        clientX: 25,
-        clientY: 25,
+      await act(async () => {
+        fireEvent.pointerMove(canvas, {
+          pointerId: 1,
+          clientX: 25,
+          clientY: 25,
+        })
       })
-    })
 
-    await act(async () => {
-      fireEvent.pointerUp(canvas, {
-        pointerId: 1,
-        clientX: 25,
-        clientY: 25,
+      await act(async () => {
+        fireEvent.pointerMove(canvas, {
+          pointerId: 1,
+          clientX: 25,
+          clientY: 250,
+        })
       })
-    })
 
-    rectSpy.mockRestore()
+      act(() => {
+        vi.advanceTimersByTime(200)
+      })
 
-    const selection = ref.current?.getSelection()
-    expect(selection).not.toBeNull()
-    if (selection) {
-      expect(selection.anchor.row).toBe(0)
-      expect(selection.anchor.column).toBe(0)
-      expect(selection.status).toBe('idle')
-      expect(selection.focus.row).toBeGreaterThanOrEqual(1)
-      expect(selection.focus.column).toBeGreaterThanOrEqual(0)
+      const selection = ref.current?.getSelection()
+      expect(selection).not.toBeNull()
+      if (selection) {
+        expect(selection.anchor.row).toBe(0)
+        expect(selection.focus.row).toBeGreaterThan(selection.anchor.row)
+      }
+
+      await act(async () => {
+        fireEvent.pointerMove(canvas, {
+          pointerId: 1,
+          clientX: 25,
+          clientY: 25,
+        })
+      })
+
+      await act(async () => {
+        fireEvent.pointerUp(canvas, {
+          pointerId: 1,
+          clientX: 25,
+          clientY: 25,
+        })
+      })
+
+      const callbackSelection = onCursorSelectionChange.mock.lastCall?.[0] ?? null
+      expect(callbackSelection).toEqual(ref.current?.getSelection())
+    } finally {
+      rectSpy.mockRestore()
+      vi.useRealTimers()
     }
-
-    const callbackSelection = onCursorSelectionChange.mock.lastCall?.[0] ?? null
-    expect(callbackSelection).toEqual(selection)
   })
 })
