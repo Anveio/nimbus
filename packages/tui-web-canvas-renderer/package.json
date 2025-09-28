@@ -6,8 +6,8 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "vitest run --reporter=dot --silent",
+    "test:watch": "vitest --reporter=default --silent=false",
     "lint": "biome lint .",
     "lint:fix": "biome lint --apply .",
     "typecheck": "tsc --noEmit"

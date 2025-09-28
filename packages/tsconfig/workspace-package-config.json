@@ -2,11 +2,14 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "extends": "./base.json",
   "compilerOptions": {
-    "plugins": [{ "name": "next" }],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "declaration": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "composite": true,
+    "incremental": true,
+    "tsBuildInfoFile": "./tsconfig.tsbuildinfo",
+    "baseUrl": "."
   },
   "exclude": ["dist", "build", "node_modules"]
 }

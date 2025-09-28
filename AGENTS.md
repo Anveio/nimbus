@@ -97,6 +97,25 @@ This ensures that the dependency is added to the correct `package.json` and the 
 
 Your user is Shovon Hasan (alias @shovonh), an L5 engineer working at AWS on the EC2 Instance Connect product. My aim is to get promoted by finding ways to make EC2 Instance Connect the best SSH + terminal interface on earth and I aim to do this by upholding AWS' strict security standards while simultaneously finding ways to improve the UX through sub millisecond response times, and supporting the latest in SSH spec extensions.
 
+# Committing and Tracking work.
+
+When you've finished a discrete task. Stage the changed files, analyze the current git diff and commit the changes with a message in the following format:
+
+[Problem]
+<problem>
+A description of the problem we are trying to solve and why it's important and how it fits into our overall goals.
+</problem>
+
+[Solution]
+<solution>
+A description of our technical approach, what changed in each file, any caveats with our approach, any decisions we made architechturally, and if the problem was fully or partially solved, with elaboration where necessary, but keep it concise.
+</solution>
+
+[Testing]
+<testing>
+A description of all testing done. If only refactoring was done, let's mention that no new tests were required.
+</testing>
+
 <memory-bank>
 ### Wednesday, August 13, 2025
 
@@ -118,5 +137,6 @@ Your user is Shovon Hasan (alias @shovonh), an L5 engineer working at AWS on the
 -   Locked the bootstrap strategy for `@mana-ssh/tui-web-canvas-renderer`: finalize the renderer contract (`init`, `applyUpdates`, `resize`, `dispose`), keep internal helpers private, and scaffold type definitions for themes, metrics, and diff payloads.
 -   Establish the cross-environment test harness with Vitest, the `canvas` package for headless drawing, and `pixelmatch` for image assertions and snapshots.
 -   Plan the first rendering tests that feed a minimal interpreter snapshot, assert framebuffer accuracy, and document integration guidance for React consumers.
+-   Tuned developer ergonomics by defaulting Turbo runs to `--output-logs=errors-only`/grouped logs and configuring Vitest to use dot reporting + silent mode unless `VITEST_VERBOSE=true`.
 
 </memory-bank>

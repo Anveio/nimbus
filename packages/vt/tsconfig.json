@@ -1,4 +1,5 @@
 {
   "extends": "../tsconfig/workspace-package-config.json",
-  "include": ["src"]
+  "include": ["src", "test"],
+  "exclude": ["dist", "build", "node_modules"]
 }

@@ -29,7 +29,10 @@ describe('ParserImpl basic behaviour', () => {
 
     expect(sink.events).toHaveLength(1)
     const event = sink.events[0]
-    invariant(event && event.type === ParserEventType.OscDispatch, 'expected OSC dispatch')
+    invariant(
+      event && event.type === ParserEventType.OscDispatch,
+      'expected OSC dispatch',
+    )
   })
 
   it('allows escaped C1 handling', () => {
@@ -40,7 +43,10 @@ describe('ParserImpl basic behaviour', () => {
 
     expect(sink.events).toHaveLength(1)
     const event = sink.events[0]
-    invariant(event && event.type === ParserEventType.CsiDispatch, 'expected CSI dispatch')
+    invariant(
+      event && event.type === ParserEventType.CsiDispatch,
+      'expected CSI dispatch',
+    )
     expect(event.finalByte).toBe('A'.charCodeAt(0))
   })
 
@@ -52,7 +58,10 @@ describe('ParserImpl basic behaviour', () => {
 
     expect(sink.events).toHaveLength(1)
     const event = sink.events[0]
-    invariant(event && event.type === ParserEventType.Execute, 'expected execute event')
+    invariant(
+      event && event.type === ParserEventType.Execute,
+      'expected execute event',
+    )
     expect(event.codePoint).toBe(0x9d)
   })
 
@@ -73,7 +82,10 @@ describe('ParserImpl basic behaviour', () => {
 
     expect(sink.events).toHaveLength(1)
     const event = sink.events[0]
-    invariant(event && event.type === ParserEventType.EscDispatch, 'expected ESC dispatch')
+    invariant(
+      event && event.type === ParserEventType.EscDispatch,
+      'expected ESC dispatch',
+    )
     expect(event.finalByte).toBe('D'.charCodeAt(0))
   })
 
@@ -85,7 +97,10 @@ describe('ParserImpl basic behaviour', () => {
 
     expect(sink.events).toHaveLength(1)
     const event = sink.events[0]
-    invariant(event && event.type === ParserEventType.EscDispatch, 'expected ESC dispatch')
+    invariant(
+      event && event.type === ParserEventType.EscDispatch,
+      'expected ESC dispatch',
+    )
     expect(event.finalByte).toBe('H'.charCodeAt(0))
   })
 
@@ -97,7 +112,10 @@ describe('ParserImpl basic behaviour', () => {
 
     expect(sink.events).toHaveLength(1)
     const event = sink.events[0]
-    invariant(event && event.type === ParserEventType.EscDispatch, 'expected ESC dispatch')
+    invariant(
+      event && event.type === ParserEventType.EscDispatch,
+      'expected ESC dispatch',
+    )
     expect(event.finalByte).toBe('M'.charCodeAt(0))
   })
 
@@ -110,9 +128,15 @@ describe('ParserImpl basic behaviour', () => {
     expect(sink.events).toHaveLength(2)
     const first = sink.events[0]
     const second = sink.events[1]
-    invariant(first && first.type === ParserEventType.EscDispatch, 'expected first ESC dispatch')
+    invariant(
+      first && first.type === ParserEventType.EscDispatch,
+      'expected first ESC dispatch',
+    )
     expect(first.finalByte).toBe('N'.charCodeAt(0))
-    invariant(second && second.type === ParserEventType.EscDispatch, 'expected second ESC dispatch')
+    invariant(
+      second && second.type === ParserEventType.EscDispatch,
+      'expected second ESC dispatch',
+    )
     expect(second.finalByte).toBe('O'.charCodeAt(0))
   })
 
@@ -141,7 +165,10 @@ describe('ParserImpl basic behaviour', () => {
     expect(sink.events).toHaveLength(cases.length)
     cases.forEach((testCase, index) => {
       const event = sink.events[index]
-      invariant(event && event.type === ParserEventType.EscDispatch, 'expected ESC dispatch')
+      invariant(
+        event && event.type === ParserEventType.EscDispatch,
+        'expected ESC dispatch',
+      )
       expect(event.finalByte).toBe(testCase.final.charCodeAt(0))
     })
   })
@@ -153,9 +180,14 @@ describe('ParserImpl basic behaviour', () => {
     parser.write('\u001b]0;abcd\u0007', sink)
 
     expect(parser.state).toBe(ParserState.Ground)
-    expect(sink.events.find((event) => event.type === ParserEventType.OscDispatch)).toBeUndefined()
+    expect(
+      sink.events.find((event) => event.type === ParserEventType.OscDispatch),
+    ).toBeUndefined()
     const last = sink.events.at(-1)
-    invariant(last && last.type === ParserEventType.Execute, 'expected BEL execute')
+    invariant(
+      last && last.type === ParserEventType.Execute,
+      'expected BEL execute',
+    )
     expect(last.codePoint).toBe(0x07)
   })
 
@@ -168,7 +200,10 @@ describe('ParserImpl basic behaviour', () => {
     expect(parser.state).toBe(ParserState.Ground)
     expect(sink.events).toHaveLength(1)
     const event = sink.events[0]
-    invariant(event && event.type === ParserEventType.EscDispatch, 'expected ST escape dispatch')
+    invariant(
+      event && event.type === ParserEventType.EscDispatch,
+      'expected ST escape dispatch',
+    )
     expect(event.finalByte).toBe('\\'.charCodeAt(0))
   })
 
@@ -182,9 +217,15 @@ describe('ParserImpl basic behaviour', () => {
     expect(sink.events).toHaveLength(3)
     const [hook, put, esc] = sink.events
     invariant(hook && hook.type === ParserEventType.DcsHook, 'expected hook')
-    invariant(put && put.type === ParserEventType.DcsPut, 'expected chunk output')
+    invariant(
+      put && put.type === ParserEventType.DcsPut,
+      'expected chunk output',
+    )
     expect(new TextDecoder().decode(put.data)).toBe('A')
-    invariant(esc && esc.type === ParserEventType.EscDispatch, 'expected terminator escape')
+    invariant(
+      esc && esc.type === ParserEventType.EscDispatch,
+      'expected terminator escape',
+    )
   })
 
   it('caps DCS payloads across flush boundaries', () => {
@@ -196,14 +237,18 @@ describe('ParserImpl basic behaviour', () => {
     parser.write(`\u001bPq${payload}\u001b\\`, sink)
 
     const puts = sink.events.filter(
-      (event): event is Extract<ParserEvent, { type: ParserEventType.DcsPut }> =>
+      (
+        event,
+      ): event is Extract<ParserEvent, { type: ParserEventType.DcsPut }> =>
         event.type === ParserEventType.DcsPut,
     )
 
     const total = puts.reduce((sum, event) => sum + event.data.length, 0)
 
     expect(total).toBe(limit)
-    expect(sink.events.some((event) => event.type === ParserEventType.DcsUnhook)).toBe(false)
+    expect(
+      sink.events.some((event) => event.type === ParserEventType.DcsUnhook),
+    ).toBe(false)
     expect(parser.state).toBe(ParserState.Ground)
   })
 
@@ -231,7 +276,10 @@ describe('ParserImpl basic behaviour', () => {
     parser.write('\u001b[?25h', sink)
 
     const event = sink.events.at(-1)
-    invariant(event && event.type === ParserEventType.CsiDispatch, 'expected CSI')
+    invariant(
+      event && event.type === ParserEventType.CsiDispatch,
+      'expected CSI',
+    )
     expect(event.finalByte).toBe('h'.charCodeAt(0))
     expect(event.prefix).toBe('?'.charCodeAt(0))
     expect(event.params).toEqual([25])
@@ -244,7 +292,10 @@ describe('ParserImpl basic behaviour', () => {
     parser.write('\u001b[?1l', sink)
 
     const event = sink.events.at(-1)
-    invariant(event && event.type === ParserEventType.CsiDispatch, 'expected CSI')
+    invariant(
+      event && event.type === ParserEventType.CsiDispatch,
+      'expected CSI',
+    )
     expect(event.finalByte).toBe('l'.charCodeAt(0))
     expect(event.prefix).toBe('?'.charCodeAt(0))
     expect(event.params).toEqual([1])
@@ -257,7 +308,10 @@ describe('ParserImpl basic behaviour', () => {
     parser.write('\u001b[c', sink)
 
     const primary = sink.events.at(-1)
-    invariant(primary && primary.type === ParserEventType.CsiDispatch, 'expected CSI')
+    invariant(
+      primary && primary.type === ParserEventType.CsiDispatch,
+      'expected CSI',
+    )
     expect(primary.finalByte).toBe('c'.charCodeAt(0))
     expect(primary.prefix).toBeNull()
     expect(primary.params).toEqual([0])
@@ -265,7 +319,10 @@ describe('ParserImpl basic behaviour', () => {
     parser.write('\u001b[>0c', sink)
 
     const secondary = sink.events.at(-1)
-    invariant(secondary && secondary.type === ParserEventType.CsiDispatch, 'expected CSI')
+    invariant(
+      secondary && secondary.type === ParserEventType.CsiDispatch,
+      'expected CSI',
+    )
     expect(secondary.prefix).toBe('>'.charCodeAt(0))
     expect(secondary.params).toEqual([0])
   })
@@ -277,7 +334,10 @@ describe('ParserImpl basic behaviour', () => {
     parser.write('\u001b[5;40s', sink)
 
     const event = sink.events.at(-1)
-    invariant(event && event.type === ParserEventType.CsiDispatch, 'expected CSI')
+    invariant(
+      event && event.type === ParserEventType.CsiDispatch,
+      'expected CSI',
+    )
     expect(event.finalByte).toBe('s'.charCodeAt(0))
     expect(event.params).toEqual([5, 40])
   })
@@ -289,13 +349,17 @@ describe('ParserImpl basic behaviour', () => {
     parser.write('\u001bPq12345\u001b\\', sink)
 
     const putEvents = sink.events.filter(
-      (event): event is Extract<ParserEvent, { type: ParserEventType.DcsPut }> =>
+      (
+        event,
+      ): event is Extract<ParserEvent, { type: ParserEventType.DcsPut }> =>
         event.type === ParserEventType.DcsPut,
     )
 
     const total = putEvents.reduce((sum, event) => sum + event.data.length, 0)
     expect(total).toBe(4)
-    expect(sink.events.some((event) => event.type === ParserEventType.DcsUnhook)).toBe(false)
+    expect(
+      sink.events.some((event) => event.type === ParserEventType.DcsUnhook),
+    ).toBe(false)
   })
 
   it('vt100 spec ignores 8-bit CSI introducer by default', () => {
@@ -304,9 +368,16 @@ describe('ParserImpl basic behaviour', () => {
 
     parser.write(new Uint8Array([0x9b, 0x41]), sink)
 
-    expect(sink.events.some((event) => event.type === ParserEventType.CsiDispatch)).toBe(false)
-    const printEvent = sink.events.find((event) => event.type === ParserEventType.Print)
-    invariant(printEvent && printEvent.type === ParserEventType.Print, 'expected print event')
+    expect(
+      sink.events.some((event) => event.type === ParserEventType.CsiDispatch),
+    ).toBe(false)
+    const printEvent = sink.events.find(
+      (event) => event.type === ParserEventType.Print,
+    )
+    invariant(
+      printEvent && printEvent.type === ParserEventType.Print,
+      'expected print event',
+    )
     expect(new TextDecoder().decode(printEvent.data)).toBe('A')
   })
 
@@ -316,7 +387,9 @@ describe('ParserImpl basic behaviour', () => {
 
     parser.write(new Uint8Array([0x9b, 0x41]), sink)
 
-    expect(sink.events.some((event) => event.type === ParserEventType.CsiDispatch)).toBe(true)
+    expect(
+      sink.events.some((event) => event.type === ParserEventType.CsiDispatch),
+    ).toBe(true)
   })
 
   it('vt320 spec expands DCS string limit to 8192 bytes', () => {
@@ -327,13 +400,17 @@ describe('ParserImpl basic behaviour', () => {
     parser.write(`\u001bPq${payload}\u001b\\`, sink)
 
     const puts = sink.events.filter(
-      (event): event is Extract<ParserEvent, { type: ParserEventType.DcsPut }> =>
+      (
+        event,
+      ): event is Extract<ParserEvent, { type: ParserEventType.DcsPut }> =>
         event.type === ParserEventType.DcsPut,
     )
 
     const total = puts.reduce((sum, event) => sum + event.data.length, 0)
     expect(total).toBe(8192)
-    expect(sink.events.some((event) => event.type === ParserEventType.DcsUnhook)).toBe(false)
+    expect(
+      sink.events.some((event) => event.type === ParserEventType.DcsUnhook),
+    ).toBe(false)
   })
 
   it('xterm emulator raises OSC payload limit to 16384 bytes', () => {
@@ -347,7 +424,10 @@ describe('ParserImpl basic behaviour', () => {
       sink.events.find((event) => event.type === ParserEventType.OscDispatch),
     ).toBeUndefined()
     const execute = sink.events.at(-1)
-    invariant(execute && execute.type === ParserEventType.Execute, 'expected BEL execute')
+    invariant(
+      execute && execute.type === ParserEventType.Execute,
+      'expected BEL execute',
+    )
     expect(execute.codePoint).toBe(0x07)
   })
 
@@ -364,7 +444,9 @@ describe('ParserImpl basic behaviour', () => {
 
     parser.write(new Uint8Array([0x9b, 0x41]), sink)
 
-    expect(sink.events.some((event) => event.type === ParserEventType.CsiDispatch)).toBe(true)
+    expect(
+      sink.events.some((event) => event.type === ParserEventType.CsiDispatch),
+    ).toBe(true)
   })
 
   it('parses SOS string via ESC', () => {
@@ -375,7 +457,10 @@ describe('ParserImpl basic behaviour', () => {
 
     expect(sink.events).toHaveLength(1)
     const event = sink.events[0]
-    invariant(event && event.type === ParserEventType.SosPmApcDispatch, 'expected SOS dispatch')
+    invariant(
+      event && event.type === ParserEventType.SosPmApcDispatch,
+      'expected SOS dispatch',
+    )
     expect(event.kind).toBe('SOS')
     expect(new TextDecoder().decode(event.data)).toBe('system message')
   })
@@ -388,7 +473,10 @@ describe('ParserImpl basic behaviour', () => {
 
     expect(sink.events).toHaveLength(1)
     const event = sink.events[0]
-    invariant(event && event.type === ParserEventType.SosPmApcDispatch, 'expected PM dispatch')
+    invariant(
+      event && event.type === ParserEventType.SosPmApcDispatch,
+      'expected PM dispatch',
+    )
     expect(event.kind).toBe('PM')
     expect(new TextDecoder().decode(event.data)).toBe('private')
   })
@@ -401,7 +489,10 @@ describe('ParserImpl basic behaviour', () => {
 
     expect(sink.events).toHaveLength(1)
     const event = sink.events[0]
-    invariant(event && event.type === ParserEventType.SosPmApcDispatch, 'expected APC dispatch')
+    invariant(
+      event && event.type === ParserEventType.SosPmApcDispatch,
+      'expected APC dispatch',
+    )
     expect(event.kind).toBe('APC')
     expect(new TextDecoder().decode(event.data)).toBe('command')
   })
@@ -414,7 +505,10 @@ describe('ParserImpl basic behaviour', () => {
 
     expect(sink.events).toHaveLength(1)
     const event = sink.events[0]
-    invariant(event && event.type === ParserEventType.SosPmApcDispatch, 'expected SOS dispatch')
+    invariant(
+      event && event.type === ParserEventType.SosPmApcDispatch,
+      'expected SOS dispatch',
+    )
     expect(event.kind).toBe('SOS')
     expect(new TextDecoder().decode(event.data)).toBe('A')
   })
@@ -427,7 +521,10 @@ describe('ParserImpl basic behaviour', () => {
 
     expect(sink.events).toHaveLength(1)
     const event = sink.events[0]
-    invariant(event && event.type === ParserEventType.Print, 'expected print after cancel')
+    invariant(
+      event && event.type === ParserEventType.Print,
+      'expected print after cancel',
+    )
     expect(new TextDecoder().decode(event.data)).toBe('tail')
   })
 
@@ -851,7 +948,10 @@ describe('ParserImpl basic behaviour', () => {
 
     expect(sink.events).toHaveLength(1)
     const event = sink.events[0]
-    invariant(event && event.type === ParserEventType.CsiDispatch, 'expected CSI dispatch')
+    invariant(
+      event && event.type === ParserEventType.CsiDispatch,
+      'expected CSI dispatch',
+    )
     expect(event.finalByte).toBe('m'.charCodeAt(0))
   })
 
@@ -863,7 +963,10 @@ describe('ParserImpl basic behaviour', () => {
 
     expect(sink.events).toHaveLength(1)
     const event = sink.events[0]
-    invariant(event && event.type === ParserEventType.EscDispatch, 'terminator expected')
+    invariant(
+      event && event.type === ParserEventType.EscDispatch,
+      'terminator expected',
+    )
     expect(parser.state).toBe(ParserState.Ground)
   })
 
@@ -875,7 +978,10 @@ describe('ParserImpl basic behaviour', () => {
 
     expect(sink.events).toHaveLength(1)
     const event = sink.events[0]
-    invariant(event && event.type === ParserEventType.EscDispatch, 'only terminator should emit')
+    invariant(
+      event && event.type === ParserEventType.EscDispatch,
+      'only terminator should emit',
+    )
     expect(parser.state).toBe(ParserState.Ground)
   })
 
@@ -888,7 +994,10 @@ describe('ParserImpl basic behaviour', () => {
 
     expect(sink.events).toHaveLength(1)
     const event = sink.events[0]
-    invariant(event && event.type === ParserEventType.EscDispatch, 'terminator expected')
+    invariant(
+      event && event.type === ParserEventType.EscDispatch,
+      'terminator expected',
+    )
     expect(parser.state).toBe(ParserState.Ground)
   })
 
@@ -900,7 +1009,10 @@ describe('ParserImpl basic behaviour', () => {
 
     expect(sink.events).toHaveLength(1)
     const event = sink.events[0]
-    invariant(event && event.type === ParserEventType.CsiDispatch, 'expected CSI dispatch')
+    invariant(
+      event && event.type === ParserEventType.CsiDispatch,
+      'expected CSI dispatch',
+    )
     expect(event.finalByte).toBe('m'.charCodeAt(0))
   })
 
@@ -912,7 +1024,10 @@ describe('ParserImpl basic behaviour', () => {
 
     expect(sink.events).toHaveLength(1)
     const event = sink.events[0]
-    invariant(event && event.type === ParserEventType.EscDispatch, 'terminator expected')
+    invariant(
+      event && event.type === ParserEventType.EscDispatch,
+      'terminator expected',
+    )
     expect(parser.state).toBe(ParserState.Ground)
   })
 
@@ -924,7 +1039,10 @@ describe('ParserImpl basic behaviour', () => {
 
     expect(sink.events).toHaveLength(1)
     const event = sink.events[0]
-    invariant(event && event.type === ParserEventType.EscDispatch, 'terminator expected')
+    invariant(
+      event && event.type === ParserEventType.EscDispatch,
+      'terminator expected',
+    )
     expect(parser.state).toBe(ParserState.Ground)
   })
 })

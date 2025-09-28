@@ -6,14 +6,14 @@
     "apps/*"
   ],
   "scripts": {
-    "build": "turbo build",
+    "build": "turbo build --output-logs=errors-only --log-order=grouped --summarize",
     "clean": "git clean -xdf node_modules",
-    "clean:workspaces": "turbo clean",
+    "clean:workspaces": "turbo clean --output-logs=errors-only --log-order=grouped",
     "dev": "turbo dev --parallel",
-    "lint": "turbo lint && manypkg check",
-    "test": "turbo test --parallel",
+    "lint": "turbo lint --output-logs=errors-only --log-order=grouped --summarize && manypkg check",
+    "test": "turbo test --parallel --output-logs=errors-only --log-order=grouped --summarize",
     "format": "biome format --write .",
-    "typecheck": "turbo typecheck"
+    "typecheck": "turbo typecheck --output-logs=errors-only --log-order=grouped --summarize"
   },
   "packageManager": "bun@1.2.19",
   "dependencies": {

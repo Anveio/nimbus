@@ -16,8 +16,9 @@
   },
   "scripts": {
     "clean": "rm -rf dist",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
+    "test": "vitest run --reporter=dot --silent",
+    "test:coverage": "vitest run --coverage --reporter=dot --silent",
+    "test:watch": "vitest --reporter=default --silent=false",
     "lint": "biome lint .",
     "lint:fix": "biome lint --apply .",
     "typecheck": "tsc --noEmit"

@@ -1,16 +1,18 @@
+import type { TerminalCell, TerminalState, TerminalUpdate } from '@mana-ssh/vt'
 import { createCanvas } from 'canvas'
 import { describe, expect, test } from 'vitest'
-
 import {
-  createCanvasRenderer,
   type CanvasRenderer,
+  createCanvasRenderer,
   type RendererMetrics,
   type RendererTheme,
 } from '../src/index'
-import type { TerminalCell, TerminalState, TerminalUpdate } from '@mana-ssh/vt'
+
+const HEX_REGEX = /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/
 
 const hexToRgba = (hex: string): [number, number, number, number] => {
-  const match = /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.exec(hex)
+  const match = HEX_REGEX.exec(hex)
+
   if (!match) {
     throw new Error(`Unsupported colour format: ${hex}`)
   }
@@ -219,7 +221,11 @@ describe('createCanvasRenderer', () => {
       snapshot,
     })
 
-    const pixel = getPixel(renderer, baseMetrics.cell.width - 1, baseMetrics.cell.height - 1)
+    const pixel = getPixel(
+      renderer,
+      baseMetrics.cell.width - 1,
+      baseMetrics.cell.height - 1,
+    )
     const cursorColour = hexToRgba(theme.cursor.color)
     expect(pixel[0]).toBe(cursorColour[0])
     expect(pixel[1]).toBe(cursorColour[1])
