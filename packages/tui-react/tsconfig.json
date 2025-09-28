@@ -1,5 +1,15 @@
 {
   "extends": "../tsconfig/workspace-react-library-config.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "tsBuildInfoFile": "./tsconfig.tsbuildinfo",
+    "baseUrl": ".",
+    "paths": {
+      "@mana-ssh/vt": ["../vt/src/index.ts"],
+      "@mana-ssh/vt/*": ["../vt/src/*"]
+    }
+  },
   "include": ["src"],
   "exclude": ["dist", "build", "node_modules"]
 }

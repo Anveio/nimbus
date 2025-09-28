@@ -8,10 +8,13 @@
   "scripts": {
     "test": "echo 'Test script not implemented yet'",
     "lint": "biome lint .",
-    "lint:fix": "biome lint --apply ."
+    "lint:fix": "biome lint --apply .",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "typescript": "^5.9.2"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@mana-ssh/vt": "workspace:*"
+  }
 }

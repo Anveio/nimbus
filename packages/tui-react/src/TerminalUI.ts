@@ -1,16 +1,18 @@
-import {
-  type CellDelta,
-  createInterpreter,
-  createParser,
-  type ParserEvent,
-  type ParserEventSink,
-  type ParserOptions,
-  type TerminalAttributes,
-  type TerminalCapabilities,
-  type TerminalCell,
-  type TerminalState,
-  type TerminalUpdate,
-} from '@mana-ssh/vt'
+import type { CellDelta, TerminalUpdate } from '../../vt/src/interpreter/delta'
+import type {
+  TerminalAttributes,
+  TerminalCell,
+  TerminalState,
+} from '../../vt/src/interpreter/state'
+import { blankCell } from '../../vt/src/interpreter/state'
+import { createInterpreter } from '../../vt/src/interpreter/terminal-interpreter'
+import { createParser } from '../../vt/src/parser'
+import type {
+  ParserEvent,
+  ParserEventSink,
+  ParserOptions,
+  TerminalCapabilities,
+} from '../../vt/src/types'
 
 const STYLE_ID = 'tui-terminal-style'
 
@@ -92,18 +94,14 @@ class EventBuffer implements ParserEventSink {
 }
 
 export class TerminalUI {
+  private readonly options: TerminalUIOptions
   private readonly root: HTMLElement
   private readonly renderer: Renderer
-  private readonly parser = createParser(this.options.parser ?? {})
-  private readonly interpreter = createInterpreter({
-    parser: this.options.parser,
-    capabilities: this.options.capabilities,
-  })
+  private readonly parser: ReturnType<typeof createParser>
+  private readonly interpreter: ReturnType<typeof createInterpreter>
 
-  constructor(
-    private readonly options: TerminalUIOptions,
-    mount: HTMLElement,
-  ) {
+  constructor(options: TerminalUIOptions | undefined, mount: HTMLElement) {
+    this.options = options ?? {}
     if (typeof document === 'undefined') {
       throw new Error('TerminalUI requires a DOM environment')
     }
@@ -127,6 +125,11 @@ export class TerminalUI {
     })
 
     this.root.appendChild(this.renderer.element)
+    this.parser = createParser(this.options.parser ?? {})
+    this.interpreter = createInterpreter({
+      parser: this.options.parser,
+      capabilities: this.options.capabilities,
+    })
     this.renderer.init(this.interpreter.snapshot)
   }
 
@@ -210,19 +213,22 @@ export class TerminalUI {
 
   private resolveTheme(): ResolvedTheme {
     const theme = this.options.theme ?? {}
-    const palette = (theme.palette ?? DEFAULT_THEME.palette).slice(0)
-    const paletteBright = (
-      theme.paletteBright ?? DEFAULT_THEME.paletteBright
-    ).slice(0)
+    const palette = [...(theme.palette ?? DEFAULT_THEME.palette)]
+    const paletteBright = [
+      ...(theme.paletteBright ?? DEFAULT_THEME.paletteBright),
+    ]
 
     // Ensure palettes have at least 8 entries
     const extendPalette = (target: string[], fallback: readonly string[]) => {
       for (let i = target.length; i < fallback.length; i += 1) {
-        target[i] = fallback[i]
+        target[i] =
+          fallback[i] ??
+          fallback[i % fallback.length] ??
+          DEFAULT_THEME.foreground
       }
       if (target.length < 8) {
         for (let i = target.length; i < 8; i += 1) {
-          target[i] = fallback[i % fallback.length]
+          target[i] = fallback[i % fallback.length] ?? DEFAULT_THEME.foreground
         }
       }
     }
@@ -246,26 +252,30 @@ export class TerminalUI {
     if (this.options.className) {
       this.root.classList.add(this.options.className)
     }
-    if (this.options.theme?.background) {
-      this.root.style.setProperty('--tui-bg', this.options.theme.background)
+    const theme = this.options.theme
+    const background = theme?.background
+    if (background !== undefined) {
+      this.root.style.setProperty('--tui-bg', background)
     }
-    if (this.options.theme?.foreground) {
-      this.root.style.setProperty('--tui-fg', this.options.theme.foreground)
+    const foreground = theme?.foreground
+    if (foreground !== undefined) {
+      this.root.style.setProperty('--tui-fg', foreground)
     }
-    if (this.options.theme?.cursor) {
-      this.root.style.setProperty('--tui-cursor', this.options.theme.cursor)
+    const cursor = theme?.cursor
+    if (cursor !== undefined) {
+      this.root.style.setProperty('--tui-cursor', cursor)
     }
-    if (this.options.fontFamily) {
-      this.root.style.setProperty('--tui-font-family', this.options.fontFamily)
+    const fontFamily = this.options.fontFamily
+    if (fontFamily !== undefined) {
+      this.root.style.setProperty('--tui-font-family', fontFamily)
     }
-    if (this.options.fontSize) {
-      this.root.style.setProperty('--tui-font-size', this.options.fontSize)
+    const fontSize = this.options.fontSize
+    if (fontSize !== undefined) {
+      this.root.style.setProperty('--tui-font-size', fontSize)
     }
-    if (this.options.lineHeight) {
-      this.root.style.setProperty(
-        '--tui-line-height',
-        String(this.options.lineHeight),
-      )
+    const lineHeight = this.options.lineHeight
+    if (lineHeight !== undefined) {
+      this.root.style.setProperty('--tui-line-height', String(lineHeight))
     }
   }
 }
@@ -440,8 +450,11 @@ class CanvasRenderer implements Renderer {
 
     for (let row = 0; row < state.rows; row += 1) {
       const rowBuffer = state.buffer[row]
+      if (!rowBuffer) {
+        continue
+      }
       for (let column = 0; column < state.columns; column += 1) {
-        const cell = rowBuffer[column]
+        const cell = rowBuffer[column] ?? blankCell(state.attributes)
         this.renderCell(row, column, cell, false)
       }
     }
@@ -464,7 +477,7 @@ class CanvasRenderer implements Renderer {
     this.ctx.fillStyle = bg
     this.ctx.fillRect(x, y, metrics.width, metrics.height)
 
-    const char = cell.char.length > 0 ? cell.char[0] : ' '
+    const char = cell.char.length > 0 ? cell.char.charAt(0) : ' '
     if (char !== ' ' || invert) {
       this.ctx.fillStyle = fg
       this.ctx.fillText(char, x, y)
@@ -475,8 +488,11 @@ class CanvasRenderer implements Renderer {
     if (this.lastCursor) {
       const prev = this.lastCursor
       if (prev.row < state.rows && prev.column < state.columns) {
-        const cell = state.buffer[prev.row][prev.column]
-        this.renderCell(prev.row, prev.column, cell, false)
+        const rowBuffer = state.buffer[prev.row]
+        if (rowBuffer) {
+          const cell = rowBuffer[prev.column] ?? blankCell(state.attributes)
+          this.renderCell(prev.row, prev.column, cell, false)
+        }
       }
       this.lastCursor = null
     }
@@ -489,7 +505,11 @@ class CanvasRenderer implements Renderer {
     if (row < 0 || column < 0 || row >= state.rows || column >= state.columns) {
       return
     }
-    const cell = state.buffer[row][column]
+    const rowBuffer = state.buffer[row]
+    if (!rowBuffer) {
+      return
+    }
+    const cell = rowBuffer[column] ?? blankCell(state.attributes)
     this.renderCell(row, column, cell, true)
     this.lastCursor = { row, column }
   }
@@ -500,9 +520,14 @@ class CanvasRenderer implements Renderer {
     }
     if (attr.fg !== null && attr.fg !== undefined) {
       const idx = clampIndex(attr.fg, this.theme.palette.length)
-      return attr.bold
-        ? (this.theme.paletteBright[idx] ?? this.theme.palette[idx])
-        : this.theme.palette[idx]
+      if (attr.bold) {
+        return paletteColor(
+          this.theme.paletteBright,
+          idx,
+          this.theme.foreground,
+        )
+      }
+      return paletteColor(this.theme.palette, idx, this.theme.foreground)
     }
     return this.theme.foreground
   }
@@ -513,7 +538,7 @@ class CanvasRenderer implements Renderer {
     }
     if (attr.bg !== null && attr.bg !== undefined) {
       const idx = clampIndex(attr.bg, this.theme.palette.length)
-      return this.theme.palette[idx]
+      return paletteColor(this.theme.palette, idx, this.theme.background)
     }
     return this.theme.background
   }
@@ -531,5 +556,11 @@ const clampIndex = (index: number, length: number): number => {
   }
   return index
 }
+
+const paletteColor = (
+  palette: string[],
+  index: number,
+  fallback: string,
+): string => palette[index] ?? fallback
 
 export default TerminalUI
