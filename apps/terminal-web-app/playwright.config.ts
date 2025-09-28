@@ -15,6 +15,9 @@ export default defineConfig({
     trace: process.env.CI ? 'on-first-retry' : 'retain-on-failure',
     video: 'retain-on-failure',
     ...devices['Desktop Chrome'],
+    viewport: { width: 1280, height: 720 },
+    deviceScaleFactor: 1,
+    colorScheme: 'dark',
   },
   webServer: {
     command: `bun run dev --host ${HOST} --port ${PORT}`,
@@ -23,5 +26,8 @@ export default defineConfig({
     stdout: 'pipe',
     stderr: 'pipe',
     timeout: 60_000,
+    env: {
+      VITE_E2E: '1',
+    },
   },
 })

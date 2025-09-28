@@ -105,26 +105,25 @@ Run `bun run test` from the root of the workspace in order to run all tests acro
 
 When writing tests, work backwards from a specification document. If no specification document exists, refer to the package's AGENTS.md file to get a sense of the purpose of the package, and then write the specification document. Only when the specification document is complete should you go and write tests. Whenever changing behavior, public API options, performance characteristics, underlying technology changes that affect behavior, update the specification and then consequently update tests as necessary.
 
+-   `apps/terminal-web-app`: every new feature should ship with a matching Playwright scenario (extend the e2e harness), and the full e2e suite must be run whenever refactoring or fixing bugs in this app. You MUST, as the last step of every task, verify your changes by running the e2e test suite.
+
 # Committing and Tracking work.
 
 When you've finished a discrete task. Stage the changed files, analyze the current git diff and commit the changes with a message in the following format:
 
-[Problem]
 <problem>
 A description of the problem we are trying to solve and why it's important and how it fits into our overall goals.
 </problem>
 
-[Solution]
 <solution>
 A description of our technical approach, what changed in each file, any caveats with our approach, any decisions we made architechturally, and if the problem was fully or partially solved, with elaboration where necessary, but keep it concise.
 </solution>
 
-[Testing]
 <testing>
 A description of all testing done. If only refactoring was done, let's mention that no new tests were required.
 </testing>
 
-Replace the tags and the content of the tags with your actual generated problem, solution and testing details. If there are changes to files not directly edited by you during your current task, assume those changes are made by another automated software engineer. If those changes interfere with your work, closely examine the changes and determine if they should be staged with your work. Ask for clarification if you are unsure.
+Replace the inside of the tags with your actual generated problem, solution and testing details. If there are changes to files not directly edited by you during your current task, assume those changes are made by another automated software engineer. If those changes interfere with your work, closely examine the changes and determine if they should be staged with your work. Ask for clarification if you are unsure.
 
 <memory-bank>
 ### Wednesday, August 13, 2025
@@ -148,5 +147,9 @@ Replace the tags and the content of the tags with your actual generated problem,
 -   Establish the cross-environment test harness with Vitest, the `canvas` package for headless drawing, and `pixelmatch` for image assertions and snapshots.
 -   Plan the first rendering tests that feed a minimal interpreter snapshot, assert framebuffer accuracy, and document integration guidance for React consumers.
 -   Tuned developer ergonomics by defaulting Turbo runs to `--output-logs=errors-only`/grouped logs and configuring Vitest to use dot reporting + silent mode unless `VITEST_VERBOSE=true`.
+
+### Saturday, October 4, 2025
+
+-   Charted the Playwright visual-regression strategy for `apps/terminal-web-app`: expose a window-mounted test harness (`injectBytes`, `awaitIdle`, `resize`) when running in test mode, pipe the welcome banner bytes through that harness instead of `App.tsx`, and drive assertions via deterministic canvas screenshots plus interpreter snapshots. Snapshot assets will live alongside specs, and helper utilities will standardize viewport, fonts, and reduced-motion settings for future scenarios (keyboard navigation, selections, resize, complex glyph streams).
 
 </memory-bank>
