@@ -329,4 +329,11 @@ Of course. Let's break down the implementation strategy for
    23 
    24 program.pipe(Effect.provide(MainLive), Effect.
       runPromise);
+
+### Friday, August 15, 2025
+
+-   Locked the bootstrap strategy for `@mana-ssh/tui-web-canvas-renderer`: finalize the renderer contract (`init`, `applyUpdates`, `resize`, `dispose`), keep internal helpers private, and scaffold type definitions for themes, metrics, and diff payloads.
+-   Establish the cross-environment test harness with Vitest, the `canvas` package for headless drawing, and `pixelmatch` for image assertions and snapshots.
+-   Plan the first rendering tests that feed a minimal interpreter snapshot, assert framebuffer accuracy, and document integration guidance for React consumers.
+
 </memory-bank>

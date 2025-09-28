@@ -14,16 +14,15 @@ Deliver a standalone, high-performance canvas renderer for the Mana SSH terminal
 
 ## Current status
 
-- Package scaffolded with `package.json` (no implementation yet).
-- Renderer contract defined conceptually; awaiting type definitions that mirror interpreter output.
-- No exports or build scripts in place.
+- Public renderer contract exported from `src/index.ts`, including theme, metrics, and lifecycle types.
+- Vitest harness in place (node-canvas + pixelmatch + snapshots) with an initial rendering smoke test.
+- Package scripts wired for `vitest` execution; awaiting concrete drawing implementation.
 
 ## Immediate next steps
 
-1. Define TypeScript interfaces for renderer options, theme, cell metrics, and update application (mirroring the `Renderer` interface currently embedded in `tui-react`).
-2. Port the existing canvas drawing logic from `tui-react` into this package, turning it into a reusable class/function.
-3. Expose utility helpers (measure cells, palette resolution, cursor drawing) with unit tests.
-4. Publish typed entry point so `@mana-ssh/tui-react` can import the renderer instead of inlining it.
+1. Implement the canvas renderer internals that honour the new interface and draw `@mana-ssh/vt` snapshots.
+2. Expose utility helpers (measure cells, palette resolution, cursor drawing) with accompanying unit tests.
+3. Publish typed entry point so `@mana-ssh/tui-react` can import the renderer instead of inlining it.
 
 ## Longer-term roadmap
 

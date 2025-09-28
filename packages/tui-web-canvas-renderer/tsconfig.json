@@ -5,6 +5,6 @@
     "declaration": false,
     "tsBuildInfoFile": "./tsconfig.tsbuildinfo"
   },
-  "include": ["src"],
+  "include": ["src", "test"],
   "exclude": ["dist", "build", "node_modules"]
 }
