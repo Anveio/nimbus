@@ -22,10 +22,10 @@ Build a world-class, high-performance, and minimal-dependency TypeScript rendere
 
 ## Immediate next steps
 
-- Finalise `useTerminalController` API (stabilise host lifecycle, expose resize, add optional onUpdate callbacks).
-- Harden `<TerminalCanvas />` (cursor blinking, resize handling, focus outlines, pointer events, clipboard hooks) and ensure renderer selection is configurable.
-- Replace mock host in demo with a WebSocket host targeting the proxy server to prove end-to-end bytes flow.
-- Add automated tests: DOM snapshot for renderer, hook unit tests with fake host, integration test via jsdom canvas.
+- Define the React renderer surface (`useTerminalCanvasRenderer` hook + `<TerminalCanvas />` component) that wraps `@mana-ssh/tui-web-canvas-renderer` with minimal overhead and exposes imperative operations via refs.
+- Provide renderer configurability by accepting a renderer factory while defaulting to the canvas implementation.
+- Set up Vitest + React Testing Library to validate mount/unmount lifecycle, prop updates (snapshot/theme/metrics), diagnostics forwarding, and ref exposure using jsdom.
+- Document the API expectations in the README/agent log so consumers understand the zero-cost abstraction approach and future plugin story.
 
 ## Longer-term roadmap
 
