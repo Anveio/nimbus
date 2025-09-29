@@ -24,6 +24,7 @@ export interface TerminalAttributes {
 export interface TerminalCell {
   char: string
   attr: TerminalAttributes
+  protected: boolean
 }
 
 export interface CursorPosition {
@@ -72,6 +73,8 @@ export interface TerminalState {
   smoothScroll: boolean
   reverseVideo: boolean
   autoRepeat: boolean
+  protectedMode: 'off' | 'dec'
+  lineAttributes: Array<'single' | 'double-top' | 'double-bottom'>
 }
 
 const cloneColor = (color: TerminalColor): TerminalColor => {
@@ -121,6 +124,7 @@ const DEFAULT_ATTRIBUTES: TerminalAttributes = {
 const createBlankCell = (attributes: TerminalAttributes): TerminalCell => ({
   char: ' ',
   attr: cloneAttributes(attributes),
+  protected: false,
 })
 
 const createRow = (
@@ -179,12 +183,15 @@ export const createInitialState = (
     smoothScroll: false,
     reverseVideo: false,
     autoRepeat: true,
+    protectedMode: 'off',
+    lineAttributes: Array.from({ length: rows }, () => 'single'),
   }
 }
 
 export const ensureRowCapacity = (state: TerminalState, row: number): void => {
   while (row >= state.rows) {
     state.buffer.push(createRow(state.columns, state.attributes))
+    state.lineAttributes.push('single')
     state.rows += 1
     state.scrollBottom = state.rows - 1
   }

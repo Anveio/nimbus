@@ -217,6 +217,20 @@ describe('ParserImpl basic behaviour', () => {
     ])
   })
 
+  it('parses DECSCA CSI " q', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write('\u001b[1"q', sink)
+
+    expect(sink.events).toHaveLength(1)
+    const event = sink.events[0]
+    invariant(event && event.type === ParserEventType.CsiDispatch, 'expected CSI dispatch')
+    expect(event.finalByte).toBe('q'.charCodeAt(0))
+    expect(event.intermediates).toEqual([0x22])
+    expect(Array.from(event.params)).toEqual([1])
+  })
+
   it('enforces OSC string limits', () => {
     const parser = createParser({ stringLimits: { osc: 3 } })
     const sink = new TestSink()

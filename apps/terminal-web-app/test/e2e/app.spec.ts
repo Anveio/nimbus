@@ -391,6 +391,38 @@ test.describe('terminal e2e harness', () => {
     expect(chars).toEqual(['─', '─'])
   })
 
+  test('responds to device attribute queries', async ({ page }) => {
+    await page.goto('/')
+
+    const terminal = page.getByRole('textbox', { name: 'Interactive terminal' })
+    await terminal.click()
+
+    await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001b[>0c')
+    })
+
+    await expect.poll(() =>
+      page.evaluate(() =>
+        window.__manaTerminalTestHandle__
+          ?.getResponses()
+          .find((entry) => entry.includes('[>')) ?? null,
+      ),
+    ).toContain('[>62;1;2c')
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001b[?6$p')
+    })
+
+    await expect.poll(() =>
+      page.evaluate(() =>
+        window.__manaTerminalTestHandle__
+          ?.getResponses()
+          .find((entry) => entry.includes('$y')) ?? null,
+      ),
+    ).toContain('[?6;')
+  })
+
   test('single click moves the cursor within line bounds', async ({ page }) => {
     await page.goto('/')
 

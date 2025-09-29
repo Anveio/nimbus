@@ -535,10 +535,24 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         if (updates.length === 0) {
           return
         }
-        rendererHandle.applyUpdates({ snapshot: interpreter.snapshot, updates })
+        const paintUpdates: TerminalUpdate[] = []
+        for (const update of updates) {
+          if (update.type === 'response') {
+            onData?.(update.data)
+            continue
+          }
+          paintUpdates.push(update)
+        }
+        if (paintUpdates.length === 0) {
+          return
+        }
+        rendererHandle.applyUpdates({
+          snapshot: interpreter.snapshot,
+          updates: paintUpdates,
+        })
         setSnapshotVersion((value) => value + 1)
       },
-      [interpreter, rendererHandle],
+      [interpreter, onData, rendererHandle],
     )
 
     const clearSelection = useCallback(() => {

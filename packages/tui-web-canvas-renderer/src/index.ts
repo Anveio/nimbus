@@ -26,6 +26,7 @@ const createDefaultAttributes = (): TerminalAttributes => ({
 const DEFAULT_CELL: TerminalCell = {
   char: ' ',
   attr: createDefaultAttributes(),
+  protected: false,
 }
 
 const DEFAULT_CURSOR_SHAPE: RendererCursorTheme['shape'] = 'block'
@@ -575,6 +576,8 @@ export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
           case 'mode':
           case 'cursor-visibility':
             requiresRepaint = true
+            break
+          case 'response':
             break
           case 'palette': {
             const nextColor = resolvePaletteOverrideColor(

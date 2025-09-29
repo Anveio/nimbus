@@ -76,3 +76,4 @@ export type TerminalUpdate =
       readonly kind: SosPmApcKind
       readonly data: string
     }
+  | { readonly type: 'response'; readonly data: Uint8Array }

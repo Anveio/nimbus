@@ -143,6 +143,40 @@ describe('TerminalInterpreter basic behaviour', () => {
     expect(row[2]!.char).toBe('X')
   })
 
+  it('sets double-height line attributes', () => {
+    const parser = createParser()
+    const interpreter = createInterpreter()
+    const sink = new InterpreterSink(interpreter, [])
+
+    parser.write('\u001b#3', sink)
+    expect(interpreter.snapshot.lineAttributes[0]).toBe('double-top')
+
+    parser.write('\r\n\u001b#4', sink)
+    expect(interpreter.snapshot.lineAttributes[1]).toBe('double-bottom')
+
+    parser.write('\u001b#5', sink)
+    expect(interpreter.snapshot.lineAttributes[1]).toBe('single')
+  })
+
+  it('performs selective erase respecting DECSCA', () => {
+    const { interpreter } = run(
+      '\u001b[1"qP\u001b[0"qQ\u001b[1;1H\u001b[?0J',
+    )
+    const row = interpreter.snapshot.buffer[0]!
+    expect(row[0]!.char).toBe('P')
+    expect(row[0]!.protected).toBe(true)
+    expect(row[1]!.char).toBe(' ')
+  })
+
+  it('emits DA response', () => {
+    const { updates } = run('\u001b[>0c')
+    const responses = updates
+      .flat()
+      .filter((update) => update.type === 'response')
+      .map((update) => new TextDecoder().decode(update.data))
+    expect(responses.some((entry) => entry.includes('[>'))).toBe(true)
+  })
+
   it('inserts and deletes lines within the scroll region', () => {
     const sequence = 'line1\r\nline2\r\nline3\u001b[2;1H\u001b[1L'
     const { interpreter } = run(sequence)
