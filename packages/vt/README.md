@@ -159,6 +159,20 @@ untrusted programs.
   and `RIS` (`ESC c`) returns the terminal to a clean slate without leaving
   dangling parser state.
 
+## VT320 roadmap
+
+- Primary and secondary device attribute reports (`DA`/`DA2`) for `spec: 'vt320'`
+  resolve to the DEC-documented signatures (`ESC[?62;1;2;6;7;8;9c` and
+  `ESC[>62;1;2c`).
+- Control function toggles `S7C1T`/`S8C1T` (`CSI ? 66 h/l`) switch the interpreter
+  between 7-bit and 8-bit C1 transmission so outgoing responses match the
+  negotiated mode.
+- National Replacement Character Sets (NRCS) designate through the existing
+  ISO-2022 machinery; glyph translation tables cover United Kingdom, German,
+  French, and other VT320 sets.
+- See `docs/vt320.md` for definitive test notes and spec references before
+  extending behaviour or adding new fixtures.
+
 ## Development workflow
 
 ```bash

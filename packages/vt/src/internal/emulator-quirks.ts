@@ -34,6 +34,9 @@ const EMULATOR_PROFILES: Record<TerminalEmulator, EmulatorProfile> = {
       supportsOriginMode: true,
       supportsAutoWrap: true,
       supportsCursorVisibility: true,
+      supportsC1TransmissionToggle: true,
+      defaultC1Transmission: '8-bit',
+      supportsNationalReplacementCharsets: true,
     },
   },
   kitty: {
@@ -56,6 +59,9 @@ const EMULATOR_PROFILES: Record<TerminalEmulator, EmulatorProfile> = {
       supportsOriginMode: true,
       supportsAutoWrap: true,
       supportsCursorVisibility: true,
+      supportsC1TransmissionToggle: true,
+      defaultC1Transmission: '8-bit',
+      supportsNationalReplacementCharsets: true,
     },
   },
 }

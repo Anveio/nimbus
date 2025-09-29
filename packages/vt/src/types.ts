@@ -141,6 +141,11 @@ export interface TerminalFeatures {
   readonly supportsOriginMode: boolean
   readonly supportsAutoWrap: boolean
   readonly supportsCursorVisibility: boolean
+  readonly supportsC1TransmissionToggle: boolean
+  readonly defaultC1Transmission: C1TransmissionMode
+  readonly primaryDeviceAttributes: string
+  readonly secondaryDeviceAttributes: string | null
+  readonly supportsNationalReplacementCharsets: boolean
 }
 
 export interface TerminalCapabilities {
@@ -182,3 +187,5 @@ export interface Parser {
   write(input: Uint8Array | string, sink: ParserEventSink): void
   reset(): void
 }
+
+export type C1TransmissionMode = '7-bit' | '8-bit'

@@ -19,6 +19,11 @@ const SPEC_FEATURES: Record<ParserSpec, TerminalFeatures> = {
     supportsOriginMode: true,
     supportsAutoWrap: true,
     supportsCursorVisibility: true,
+    supportsC1TransmissionToggle: false,
+    defaultC1Transmission: '7-bit',
+    primaryDeviceAttributes: '\u001B[?62;1;2;6;7;8;9c',
+    secondaryDeviceAttributes: '\u001B[>62;1;2c',
+    supportsNationalReplacementCharsets: false,
   },
   vt220: {
     initialRows: 24,
@@ -31,6 +36,11 @@ const SPEC_FEATURES: Record<ParserSpec, TerminalFeatures> = {
     supportsOriginMode: true,
     supportsAutoWrap: true,
     supportsCursorVisibility: true,
+    supportsC1TransmissionToggle: true,
+    defaultC1Transmission: '8-bit',
+    primaryDeviceAttributes: '\u001B[?62;1;2;6;7;8;9c',
+    secondaryDeviceAttributes: '\u001B[>62;1;2c',
+    supportsNationalReplacementCharsets: true,
   },
   vt320: {
     initialRows: 24,
@@ -43,6 +53,11 @@ const SPEC_FEATURES: Record<ParserSpec, TerminalFeatures> = {
     supportsOriginMode: true,
     supportsAutoWrap: true,
     supportsCursorVisibility: true,
+    supportsC1TransmissionToggle: true,
+    defaultC1Transmission: '8-bit',
+    primaryDeviceAttributes: '\u001B[?62;1;2;6;7;8;9c',
+    secondaryDeviceAttributes: '\u001B[>62;1;2c',
+    supportsNationalReplacementCharsets: true,
   },
   vt420: {
     initialRows: 24,
@@ -55,6 +70,11 @@ const SPEC_FEATURES: Record<ParserSpec, TerminalFeatures> = {
     supportsOriginMode: true,
     supportsAutoWrap: true,
     supportsCursorVisibility: true,
+    supportsC1TransmissionToggle: true,
+    defaultC1Transmission: '8-bit',
+    primaryDeviceAttributes: '\u001B[?62;1;2;6;7;8;9c',
+    secondaryDeviceAttributes: '\u001B[>62;1;2c',
+    supportsNationalReplacementCharsets: true,
   },
   vt520: {
     initialRows: 24,
@@ -67,6 +87,11 @@ const SPEC_FEATURES: Record<ParserSpec, TerminalFeatures> = {
     supportsOriginMode: true,
     supportsAutoWrap: true,
     supportsCursorVisibility: true,
+    supportsC1TransmissionToggle: true,
+    defaultC1Transmission: '8-bit',
+    primaryDeviceAttributes: '\u001B[?62;1;2;6;7;8;9c',
+    secondaryDeviceAttributes: '\u001B[>62;1;2c',
+    supportsNationalReplacementCharsets: true,
   },
   vt525: {
     initialRows: 24,
@@ -79,6 +104,11 @@ const SPEC_FEATURES: Record<ParserSpec, TerminalFeatures> = {
     supportsOriginMode: true,
     supportsAutoWrap: true,
     supportsCursorVisibility: true,
+    supportsC1TransmissionToggle: true,
+    defaultC1Transmission: '8-bit',
+    primaryDeviceAttributes: '\u001B[?62;1;2;6;7;8;9c',
+    secondaryDeviceAttributes: '\u001B[>62;1;2c',
+    supportsNationalReplacementCharsets: true,
   },
 }
 
@@ -99,6 +129,17 @@ const mergeFeatures = (
   supportsAutoWrap: overlay.supportsAutoWrap ?? base.supportsAutoWrap,
   supportsCursorVisibility:
     overlay.supportsCursorVisibility ?? base.supportsCursorVisibility,
+  supportsC1TransmissionToggle:
+    overlay.supportsC1TransmissionToggle ?? base.supportsC1TransmissionToggle,
+  defaultC1Transmission:
+    overlay.defaultC1Transmission ?? base.defaultC1Transmission,
+  primaryDeviceAttributes:
+    overlay.primaryDeviceAttributes ?? base.primaryDeviceAttributes,
+  secondaryDeviceAttributes:
+    overlay.secondaryDeviceAttributes ?? base.secondaryDeviceAttributes,
+  supportsNationalReplacementCharsets:
+    overlay.supportsNationalReplacementCharsets ??
+    base.supportsNationalReplacementCharsets,
 })
 
 export const resolveTerminalCapabilities = (

@@ -28,6 +28,20 @@ const run = (input: string, options: ParserOptions = {}) => {
   return { updates, interpreter }
 }
 
+const normaliseDeviceAttributes = (data: Uint8Array): string => {
+  const bytes = Array.from(data)
+  if (bytes.length === 0) {
+    return ''
+  }
+  if (bytes[0] === 0xc2 && bytes[1] === 0x9b) {
+    return String.fromCharCode(...bytes.slice(2))
+  }
+  if (bytes[0] === 0x1b && bytes[1] === 0x5b) {
+    return String.fromCharCode(...bytes.slice(2))
+  }
+  return String.fromCharCode(...bytes)
+}
+
 describe('TerminalInterpreter basic behaviour', () => {
   it('renders printable characters and advances the cursor', () => {
     const { interpreter } = run('hi')
@@ -172,9 +186,11 @@ describe('TerminalInterpreter basic behaviour', () => {
     const { updates } = run('\u001b[>0c')
     const responses = updates
       .flat()
-      .filter((update) => update.type === 'response')
-      .map((update) => new TextDecoder().decode(update.data))
-    expect(responses.some((entry) => entry.includes('[>'))).toBe(true)
+      .filter((update): update is Extract<TerminalUpdate, { type: 'response' }> =>
+        update.type === 'response',
+      )
+      .map((update) => normaliseDeviceAttributes(update.data))
+    expect(responses.some((entry) => entry.startsWith('>62;1;2c'))).toBe(true)
   })
 
   it('inserts and deletes lines within the scroll region', () => {

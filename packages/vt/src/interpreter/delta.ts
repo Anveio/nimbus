@@ -57,6 +57,7 @@ export type TerminalUpdate =
       readonly selection: TerminalSelection
     }
   | { readonly type: 'selection-clear' }
+  | { readonly type: 'c1-transmission'; readonly value: '7-bit' | '8-bit' }
   | {
       readonly type: 'dcs-start'
       readonly finalByte: number

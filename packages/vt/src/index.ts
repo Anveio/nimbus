@@ -53,4 +53,5 @@ export type {
   TerminalCapabilities,
   TerminalEmulator,
   TerminalFeatures,
+  C1TransmissionMode,
 } from './types'

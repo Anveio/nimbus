@@ -4,6 +4,7 @@ import {
   ParserEventType,
   type ParserOptions,
   type TerminalCapabilities,
+  type C1TransmissionMode,
 } from '../types'
 import type { CellDelta, TerminalUpdate } from './delta'
 import type { SelectionPoint, TerminalSelection } from './selection'
@@ -84,6 +85,7 @@ const cellsFromText = (
   Array.from(text).map((char) => ({
     char,
     attr: cloneAttributes(attributes),
+    protected: false,
   }))
 
 interface ActiveDcs {
@@ -747,7 +749,26 @@ export class TerminalInterpreter {
   }
 
   private emitResponse(payload: string): TerminalUpdate[] {
-    return [{ type: 'response', data: this.responseEncoder.encode(payload) }]
+    const normalised = this.applyC1Transmission(payload)
+    return [{ type: 'response', data: this.responseEncoder.encode(normalised) }]
+  }
+
+  private applyC1Transmission(sequence: string): string {
+    if (this.state.c1Transmission !== '8-bit') {
+      return sequence
+    }
+    return sequence.replaceAll('\u001B[', String.fromCharCode(0x9b))
+  }
+
+  private setC1Transmission(mode: C1TransmissionMode): TerminalUpdate[] {
+    if (!this.capabilities.features.supportsC1TransmissionToggle) {
+      return []
+    }
+    if (this.state.c1Transmission === mode) {
+      return []
+    }
+    this.state.c1Transmission = mode
+    return [{ type: 'c1-transmission', value: mode }]
   }
 
   private collectColonSubparameters(
@@ -819,6 +840,13 @@ export class TerminalInterpreter {
     designator: string,
   ): void {
     const charset = resolveCharset(designator)
+    if (
+      charset !== 'us_ascii' &&
+      charset !== 'dec_special' &&
+      !this.capabilities.features.supportsNationalReplacementCharsets
+    ) {
+      return
+    }
     this.state.charsets = {
       ...this.state.charsets,
       [register]: charset,
@@ -1188,10 +1216,13 @@ export class TerminalInterpreter {
         return this.clearTabStops(params[0] ?? 0)
       case 'c': {
         if (event.prefix === null) {
-          return this.emitResponse('\u001B[?62;1;2;6;7;8;9c')
+          const primary = this.capabilities.features.primaryDeviceAttributes
+          return primary ? this.emitResponse(primary) : []
         }
         if (String.fromCharCode(event.prefix) === '>') {
-          return this.emitResponse('\u001B[>62;1;2c')
+          const secondary =
+            this.capabilities.features.secondaryDeviceAttributes
+          return secondary ? this.emitResponse(secondary) : []
         }
         return []
       }
@@ -1267,6 +1298,11 @@ export class TerminalInterpreter {
         case 25: // DECTCEM
           updates.push(...this.setCursorVisibility(enable))
           break
+        case 66: {
+          const mode: C1TransmissionMode = enable ? '7-bit' : '8-bit'
+          updates.push(...this.setC1Transmission(mode))
+          break
+        }
         default:
           break
       }

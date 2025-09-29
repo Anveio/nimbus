@@ -161,3 +161,11 @@ Using Ghostty as a guide, we can finish SOS/PM/APC support, flesh out C1 semanti
 - Wired the canvas renderer to honour DECSCNM by swapping the global foreground/background palette so reverse video takes effect visually.
 - Wired ESC family diagnostics—`DECALN`, keypad application/normal (`ESC =`/`>`), and RIS—while documenting the coverage in README.md and expanding interpreter tests to cover the new behaviours.
 - Parser/interpreter now track G2/G3 designations, GL/GR locking shifts, and SS2/SS3 single shifts so VT320 ISO-2022 flows render with the correct glyphs; new unit and Playwright tests guard Kakoune-style sequences and DEC special graphics locked via `LS2`.
+
+## 2025-09-28 – VT320 capability notes
+
+- Authored `docs/vt320.md` capturing the DEC STD 070 signatures for DA/DA2, the
+  S7C1T/S8C1T mode toggles, and NRCS translation expectations so new features land
+  alongside spec references.
+- Updated the VT README roadmap to call out VT320 priorities, guiding future work
+  on device reports, control toggles, and NRCS coverage.

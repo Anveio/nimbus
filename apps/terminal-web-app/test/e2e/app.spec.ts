@@ -4,6 +4,7 @@ import {
   type TerminalSelection,
   type TerminalState,
 } from '@mana-ssh/vt'
+import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
 import { WELCOME_BANNER } from './fixtures/welcomeBanner'
 
@@ -55,6 +56,35 @@ const deriveSelectedText = (
 
   flush()
   return lines.join('\n')
+}
+
+const getResponseCodesFrom = async (
+  page: Page,
+  offset: number,
+): Promise<number[][]> => {
+  return page.evaluate((start) => {
+    const handle = window.__manaTerminalTestHandle__
+    if (!handle) {
+      return []
+    }
+    const responses = handle.getResponses()
+    return responses.slice(start).map((entry) =>
+      Array.from(entry).map((char) => char.codePointAt(0) ?? 0),
+    )
+  }, offset)
+}
+
+const normaliseDeviceAttributes = (codes: number[]): string => {
+  if (codes.length === 0) {
+    return ''
+  }
+  if (codes[0] === 0x9b) {
+    return String.fromCharCode(...codes.slice(1))
+  }
+  if (codes[0] === 0x1b && codes[1] === 0x5b) {
+    return String.fromCharCode(...codes.slice(2))
+  }
+  return String.fromCharCode(...codes)
 }
 
 test.describe('terminal e2e harness', () => {
@@ -398,29 +428,159 @@ test.describe('terminal e2e harness', () => {
     await terminal.click()
 
     await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
+    const initialCount = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
+    )
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001b[c')
+    })
+
+    const primaryResponses = await getResponseCodesFrom(page, initialCount)
+    const primaryDeviceAttributes = primaryResponses.pop() ?? []
+    expect(primaryDeviceAttributes[0] === 0x9b || primaryDeviceAttributes[0] === 0x1b).toBe(
+      true,
+    )
+    expect(normaliseDeviceAttributes(primaryDeviceAttributes)).toBe(
+      '?62;1;2;6;7;8;9c',
+    )
+
+    const afterPrimaryCount = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
+    )
+
     await page.evaluate(() => {
       window.__manaTerminalTestHandle__?.write('\u001b[>0c')
     })
 
-    await expect.poll(() =>
-      page.evaluate(() =>
-        window.__manaTerminalTestHandle__
-          ?.getResponses()
-          .find((entry) => entry.includes('[>')) ?? null,
-      ),
-    ).toContain('[>62;1;2c')
+    const secondaryResponses = await getResponseCodesFrom(page, afterPrimaryCount)
+    const secondaryDeviceAttributes = secondaryResponses.pop() ?? []
+    expect(secondaryDeviceAttributes[0] === 0x9b || secondaryDeviceAttributes[0] === 0x1b).toBe(
+      true,
+    )
+    expect(normaliseDeviceAttributes(secondaryDeviceAttributes)).toBe('>62;1;2c')
+
+    const afterSecondaryCount = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
+    )
 
     await page.evaluate(() => {
       window.__manaTerminalTestHandle__?.write('\u001b[?6$p')
     })
 
+    await expect.poll(async () => {
+      const codes = await getResponseCodesFrom(page, afterSecondaryCount)
+      const match = codes.find((entry) => normaliseDeviceAttributes(entry).includes('?6;'))
+      return match ? normaliseDeviceAttributes(match) : null
+    }).toContain('?6;')
+  })
+
+  test('switches C1 transmission using S7C1T', async ({ page }) => {
+    await page.goto('/')
+
+    const terminal = page.getByRole('textbox', { name: 'Interactive terminal' })
+    await terminal.click()
+
+    await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
+
+    const initialCount = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
+    )
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001b[c')
+    })
+
+    const initialResponses = await getResponseCodesFrom(page, initialCount)
+    const initialDeviceAttributes = initialResponses.pop() ?? []
+    expect(initialDeviceAttributes[0]).toBe(0x9b)
+
     await expect.poll(() =>
-      page.evaluate(() =>
-        window.__manaTerminalTestHandle__
-          ?.getResponses()
-          .find((entry) => entry.includes('$y')) ?? null,
+      page.evaluate(
+        () => window.__manaTerminalTestHandle__?.getSnapshot().c1Transmission,
       ),
-    ).toContain('[?6;')
+    ).toBe('8-bit')
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001b[?66h')
+    })
+
+    await expect.poll(() =>
+      page.evaluate(
+        () => window.__manaTerminalTestHandle__?.getSnapshot().c1Transmission,
+      ),
+    ).toBe('7-bit')
+
+    const afterToggleCount = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
+    )
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001b[c')
+    })
+
+    const responsesAfterToggle = await getResponseCodesFrom(page, afterToggleCount)
+    const sevenBitResponse = responsesAfterToggle.pop() ?? []
+    expect(sevenBitResponse.slice(0, 2)).toEqual([0x1b, 0x5b])
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001b[?66l')
+    })
+
+    await expect.poll(() =>
+      page.evaluate(
+        () => window.__manaTerminalTestHandle__?.getSnapshot().c1Transmission,
+      ),
+    ).toBe('8-bit')
+
+    const afterRestoreCount = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
+    )
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001b[c')
+    })
+
+    const responsesAfterRestore = await getResponseCodesFrom(page, afterRestoreCount)
+    const eightBitResponse = responsesAfterRestore.pop() ?? []
+    expect(eightBitResponse[0]).toBe(0x9b)
+  })
+
+  test('renders NRCS glyphs after designation', async ({ page }) => {
+    await page.goto('/')
+
+    const terminal = page.getByRole('textbox', { name: 'Interactive terminal' })
+    await terminal.click()
+
+    await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
+
+    const readFirstChar = async (): Promise<string> => {
+      return page.evaluate(() => {
+        const snapshot = window.__manaTerminalTestHandle__?.getSnapshot()
+        if (!snapshot) {
+          return ''
+        }
+        return snapshot.buffer[0]?.[0]?.char ?? ''
+      })
+    }
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001b(A#')
+    })
+
+    await expect.poll(readFirstChar).toBe('£')
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001bc')
+    })
+
+    await expect.poll(readFirstChar).toBe(' ')
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001b(K[')
+    })
+
+    await expect.poll(readFirstChar).toBe('Ä')
   })
 
   test('single click moves the cursor within line bounds', async ({ page }) => {

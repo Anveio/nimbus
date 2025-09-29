@@ -203,6 +203,7 @@ const createAttributes = (
 const createBlankCell = (): TerminalCell => ({
   char: ' ',
   attr: createAttributes(),
+  protected: false,
 })
 
 const createSelection = (
@@ -237,12 +238,23 @@ const createSnapshot = (rows: number, columns: number): TerminalState => ({
   savedCursor: null,
   savedAttributes: null,
   selection: null,
-  charsets: { g0: 'us_ascii', g1: 'us_ascii', gl: 'g0' },
+  charsets: {
+    g0: 'us_ascii',
+    g1: 'us_ascii',
+    g2: 'us_ascii',
+    g3: 'us_ascii',
+    gl: 'g0',
+    gr: 'g1',
+    singleShift: null,
+  },
   keypadApplicationMode: false,
   cursorKeysApplicationMode: false,
   smoothScroll: false,
   reverseVideo: false,
   autoRepeat: true,
+  protectedMode: 'off',
+  lineAttributes: Array.from({ length: rows }, () => 'single'),
+  c1Transmission: '8-bit',
 })
 
 describe('createCanvasRenderer', () => {
@@ -292,6 +304,7 @@ describe('createCanvasRenderer', () => {
       attr: createAttributes({
         background: { type: 'ansi', index: 1 },
       }),
+      protected: false,
     }
     snapshot.buffer[0]![0] = updatedCell
     const updates: TerminalUpdate[] = [
@@ -336,6 +349,7 @@ describe('createCanvasRenderer', () => {
       attr: createAttributes({
         foreground: { type: 'ansi', index: 2 },
       }),
+      protected: false,
     }
     const canvas = createTestCanvas(1, 1)
 
@@ -516,6 +530,7 @@ describe('createCanvasRenderer', () => {
       attr: createAttributes({
         background: { type: 'ansi', index: 1 },
       }),
+      protected: false,
     }
     const canvas = createTestCanvas(1, 1)
 

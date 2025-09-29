@@ -1,4 +1,8 @@
-import type { SosPmApcKind, TerminalCapabilities } from '../types'
+import type {
+  C1TransmissionMode,
+  SosPmApcKind,
+  TerminalCapabilities,
+} from '../types'
 import type { TerminalSelection } from './selection'
 
 export type TerminalColor =
@@ -37,7 +41,12 @@ export interface ClipboardEntry {
   readonly data: string
 }
 
-export type CharsetId = 'us_ascii' | 'dec_special'
+export type CharsetId =
+  | 'us_ascii'
+  | 'dec_special'
+  | 'dec_uk'
+  | 'dec_french'
+  | 'dec_german'
 
 export interface TerminalCharsets {
   g0: CharsetId
@@ -75,6 +84,7 @@ export interface TerminalState {
   autoRepeat: boolean
   protectedMode: 'off' | 'dec'
   lineAttributes: Array<'single' | 'double-top' | 'double-bottom'>
+  c1Transmission: C1TransmissionMode
 }
 
 const cloneColor = (color: TerminalColor): TerminalColor => {
@@ -185,6 +195,7 @@ export const createInitialState = (
     autoRepeat: true,
     protectedMode: 'off',
     lineAttributes: Array.from({ length: rows }, () => 'single'),
+    c1Transmission: capabilities.features.defaultC1Transmission,
   }
 }
 
