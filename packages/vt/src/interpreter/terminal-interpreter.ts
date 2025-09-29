@@ -65,6 +65,7 @@ interface CursorMoveOptions {
   readonly extendSelection?: boolean
   readonly selectionAnchor?: SelectionPoint | null
   readonly clampToLineEnd?: boolean
+  readonly clampToContentRow?: boolean
 }
 
 const cloneCell = (cell: TerminalCell): TerminalCell => ({
@@ -551,7 +552,9 @@ export class TerminalInterpreter {
     target: { row: number; column: number },
     options: CursorMoveOptions,
   ): TerminalUpdate[] {
-    const clampedRow = clamp(target.row, 0, Math.max(0, this.state.rows - 1))
+    const clampedRow = options.clampToContentRow
+      ? this.clampRowToContent(target.row)
+      : clamp(target.row, 0, Math.max(0, this.state.rows - 1))
     const clampedColumn = options.clampToLineEnd
       ? this.clampColumnForRow(clampedRow, target.column)
       : clamp(target.column, 0, Math.max(0, this.state.columns - 1))
@@ -604,6 +607,11 @@ export class TerminalInterpreter {
     return clamp(column, 0, maxColumn)
   }
 
+  private clampRowToContent(row: number): number {
+    const maxRow = this.findLastContentRow()
+    return clamp(row, 0, maxRow)
+  }
+
   private findLineEndColumn(row: number): number {
     if (this.state.columns === 0) {
       return 0
@@ -654,6 +662,22 @@ export class TerminalInterpreter {
 
   private isWhitespace(char: string): boolean {
     return char.trim().length === 0
+  }
+
+  private findLastContentRow(): number {
+    for (let row = this.state.rows - 1; row >= 0; row -= 1) {
+      const rowBuffer = this.state.buffer[row]
+      if (!rowBuffer) {
+        continue
+      }
+      for (let column = 0; column < this.state.columns; column += 1) {
+        const char = rowBuffer[column]?.char ?? ' '
+        if (char !== ' ') {
+          return Math.min(row, this.state.rows - 1)
+        }
+      }
+    }
+    return 0
   }
 
   private handleExecute(codePoint: number): TerminalUpdate[] {

@@ -726,9 +726,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         const timestamp = Date.now()
         const clampedColumn = interpreter.clampCursorColumn(row, column)
 
+        const clampedRow = interpreter.clampRowToContent(row)
         const selection: TerminalSelection = {
-          anchor: { row, column: clampedColumn, timestamp },
-          focus: { row, column: clampedColumn, timestamp },
+          anchor: { row: clampedRow, column: clampedColumn, timestamp },
+          focus: { row: clampedRow, column: clampedColumn, timestamp },
           kind: event.shiftKey ? 'rectangular' : 'normal',
           status: 'dragging',
         }
@@ -757,9 +758,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         }
         const timestamp = Date.now()
         const clampedColumn = interpreter.clampCursorColumn(row, column)
+        const clampedRow = interpreter.clampRowToContent(row)
         const selection: TerminalSelection = {
           anchor: pointerState.anchor,
-          focus: { row, column: clampedColumn, timestamp },
+          focus: { row: clampedRow, column: clampedColumn, timestamp },
           kind: pointerState.lastSelection?.kind ?? 'normal',
           status: 'dragging',
         }
@@ -812,10 +814,15 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         const selection = interpreter.snapshot.selection
         if (!selection || isSelectionCollapsed(selection)) {
           const { row, column } = getPointerMetrics(event)
-          const clampedColumn = interpreter.clampCursorColumn(row, column)
+          const clampedRow = interpreter.clampRowToContent(row)
+          const clampedColumn = interpreter.clampCursorColumn(clampedRow, column)
           const updates = interpreter.moveCursorTo(
-            { row, column: clampedColumn },
-            { extendSelection: false, clampToLineEnd: true },
+            { row: clampedRow, column: clampedColumn },
+            {
+              extendSelection: false,
+              clampToLineEnd: true,
+              clampToContentRow: true,
+            },
           )
           applyUpdates(updates)
         }

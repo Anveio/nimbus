@@ -111,9 +111,7 @@ test.describe('terminal e2e harness', () => {
     }
     await page.keyboard.up('Shift')
 
-    const selectionAfterKeys = await page.evaluate(() =>
-      window.__manaTerminalTestHandle__?.getSelection(),
-    )
+    await page.evaluate(() => window.__manaTerminalTestHandle__?.getSelection())
 
     await page.waitForFunction(() => {
       const handle = window.__manaTerminalTestHandle__
@@ -215,5 +213,89 @@ test.describe('terminal e2e harness', () => {
     expect(snapshotAfter.cursor.row).toBe(0)
     expect(snapshotAfter.cursor.column).toBe(5)
     expect(snapshotAfter.selection).toBeNull()
+  })
+
+  test('insert mode toggles via CSI 4 h / 4 l', async ({ page }) => {
+    await page.goto('/')
+
+    const terminal = page.getByRole('textbox', { name: 'Interactive terminal' })
+    await terminal.click()
+
+    await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('ABCD')
+    })
+
+    const getRowText = async (): Promise<string> => {
+      return page.evaluate(() => {
+        const snapshot = window.__manaTerminalTestHandle__?.getSnapshot()
+        if (!snapshot) {
+          return ''
+        }
+        return (snapshot.buffer[0] ?? [])
+          .map((cell) => cell?.char ?? ' ')
+          .join('')
+          .trimEnd()
+      })
+    }
+
+    await page.waitForFunction(() => {
+      const snapshot = window.__manaTerminalTestHandle__?.getSnapshot()
+      const row = snapshot?.buffer[0] ?? []
+      const text = row
+        .map((cell) => cell?.char ?? ' ')
+        .join('')
+        .trimEnd()
+      return text === 'ABCD'
+    })
+
+    // Move cursor two columns left (ESC [ 2 D)
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001b[2D')
+    })
+
+    // Type X in replace mode (default IRM off)
+    await page.keyboard.type('X')
+    await page.waitForFunction(() => {
+      const snapshot = window.__manaTerminalTestHandle__?.getSnapshot()
+      const row = snapshot?.buffer[0] ?? []
+      const text = row
+        .map((cell) => cell?.char ?? ' ')
+        .join('')
+        .trimEnd()
+      return text === 'ABXD'
+    })
+
+    // Enable insert mode and type Y
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001b[4h')
+    })
+    await page.keyboard.type('Y')
+    await page.waitForFunction(() => {
+      const snapshot = window.__manaTerminalTestHandle__?.getSnapshot()
+      const row = snapshot?.buffer[0] ?? []
+      const text = row
+        .map((cell) => cell?.char ?? ' ')
+        .join('')
+        .trimEnd()
+      return text === 'ABXYD'
+    })
+
+    // Disable insert mode and type Z (should overwrite)
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001b[4l')
+    })
+    await page.keyboard.type('Z')
+    await page.waitForFunction(() => {
+      const snapshot = window.__manaTerminalTestHandle__?.getSnapshot()
+      const row = snapshot?.buffer[0] ?? []
+      const text = row
+        .map((cell) => cell?.char ?? ' ')
+        .join('')
+        .trimEnd()
+      return text === 'ABXYZ'
+    })
+
+    expect(await getRowText()).toBe('ABXYZ')
   })
 })
