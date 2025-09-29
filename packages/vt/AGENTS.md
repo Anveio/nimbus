@@ -152,3 +152,10 @@ Using Ghostty as a guide, we can finish SOS/PM/APC support, flesh out C1 semanti
 - Documented the parser’s UTF-8 contract in the README: chunked sequences stay buffered across writes, control boundaries force incomplete runes to resolve, and malformed byte patterns fall back to `U+FFFD` rather than wedging the state machine.
 - Added Vitest scenarios for multi-byte prints, cross-write buffering, control-interrupted sequences, and malformed continuation bytes to lock in the desired behaviour.
 - Refactored the parser runtime so printable handling tracks pending UTF-8 bytes, emits replacements on errors, and resets the accumulator whenever control flows flush the print buffer.
+
+## 2025-10-07 – VT100 compliance sweep
+
+- Extended the interpreter to recognise the full VT100 editing surface: insert/delete character and line CSI sequences, erase-in-line variants, and cursor next/previous line helpers.
+- Implemented G0/G1 charset designation with DEC Special Graphics translation plus SO/SI invocation, enabling authentic box-drawing output for legacy hosts.
+- Added support for DEC Private Mode toggles (DECCOLM, DECAWM, DECOM, DECCKM, DECSCLM, DECSCNM, DECARM, DECTCEM), including 80/132 column rebuilds and keypad state tracking.
+- Wired ESC family diagnostics—`DECALN`, keypad application/normal (`ESC =`/`>`), and RIS—while documenting the coverage in README.md and expanding interpreter tests to cover the new behaviours.

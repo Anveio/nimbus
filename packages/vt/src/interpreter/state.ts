@@ -36,6 +36,14 @@ export interface ClipboardEntry {
   readonly data: string
 }
 
+export type CharsetId = 'us_ascii' | 'dec_special'
+
+export interface TerminalCharsets {
+  g0: CharsetId
+  g1: CharsetId
+  gl: 'g0' | 'g1'
+}
+
 export interface TerminalState {
   rows: number
   columns: number
@@ -54,6 +62,12 @@ export interface TerminalState {
   savedCursor: CursorPosition | null
   savedAttributes: TerminalAttributes | null
   selection: TerminalSelection | null
+  charsets: TerminalCharsets
+  keypadApplicationMode: boolean
+  cursorKeysApplicationMode: boolean
+  smoothScroll: boolean
+  reverseVideo: boolean
+  autoRepeat: boolean
 }
 
 const cloneColor = (color: TerminalColor): TerminalColor => {
@@ -147,6 +161,12 @@ export const createInitialState = (
     savedCursor: null,
     savedAttributes: null,
     selection: null,
+    charsets: { g0: 'us_ascii', g1: 'us_ascii', gl: 'g0' },
+    keypadApplicationMode: false,
+    cursorKeysApplicationMode: false,
+    smoothScroll: false,
+    reverseVideo: false,
+    autoRepeat: true,
   }
 }
 

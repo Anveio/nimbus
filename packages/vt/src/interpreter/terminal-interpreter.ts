@@ -15,6 +15,8 @@ import {
 } from './selection'
 import {
   blankCell,
+  type CharsetId,
+  type ClipboardEntry,
   clearAllTabStops,
   clearTabStop,
   cloneAttributes,
@@ -23,14 +25,15 @@ import {
   ensureRowCapacity,
   nextTabStop,
   resetRow,
+  resetTabStops,
   setCell,
   setTabStop,
   type TerminalAttributes,
   type TerminalCell,
   type TerminalColor,
   type TerminalState,
-  type ClipboardEntry,
 } from './state'
+import { resolveCharset, translateGlyph } from './charsets'
 
 const QUESTION_MARK = '?'.charCodeAt(0)
 
@@ -313,7 +316,11 @@ export class TerminalInterpreter {
     if (startRow < this.state.rows) {
       ensureRowCapacity(this.state, startRow)
       const row = this.state.buffer[startRow] ?? []
-      for (let column = 0; column < Math.min(startColumn, this.state.columns); column += 1) {
+      for (
+        let column = 0;
+        column < Math.min(startColumn, this.state.columns);
+        column += 1
+      ) {
         const cell = row[column]
         if (cell) {
           beforeCells.push(cloneCell(cell))
@@ -411,14 +418,19 @@ export class TerminalInterpreter {
         rowIndex <= endRow && rowIndex < this.state.rows;
         rowIndex += 1
       ) {
-        const blanks: TerminalCell[] = Array.from({ length: this.state.columns }, () =>
-          blankCell(this.state.attributes),
+        const blanks: TerminalCell[] = Array.from(
+          { length: this.state.columns },
+          () => blankCell(this.state.attributes),
         )
         writeRow(rowIndex, blanks)
       }
     }
 
-    if (cellUpdates.length === 0 && replacement.length === 0 && selectionIsCollapsed) {
+    if (
+      cellUpdates.length === 0 &&
+      replacement.length === 0 &&
+      selectionIsCollapsed
+    ) {
       return []
     }
 
@@ -494,8 +506,9 @@ export class TerminalInterpreter {
     const column = this.state.cursor.column
     ensureRowCapacity(this.state, row)
 
+    const renderedChar = this.renderChar(char)
     const cell: TerminalCell = {
-      char,
+      char: renderedChar,
       attr: cloneAttributes(this.state.attributes),
     }
     setCell(this.state, row, column, cell)
@@ -649,11 +662,17 @@ export class TerminalInterpreter {
     let index = column
     const maxColumn = this.findLineEndColumn(row)
 
-    while (index <= maxColumn && !this.isWhitespace(rowBuffer[index]?.char ?? ' ')) {
+    while (
+      index <= maxColumn &&
+      !this.isWhitespace(rowBuffer[index]?.char ?? ' ')
+    ) {
       index += 1
     }
 
-    while (index <= maxColumn && this.isWhitespace(rowBuffer[index]?.char ?? ' ')) {
+    while (
+      index <= maxColumn &&
+      this.isWhitespace(rowBuffer[index]?.char ?? ' ')
+    ) {
       index += 1
     }
 
@@ -662,6 +681,29 @@ export class TerminalInterpreter {
 
   private isWhitespace(char: string): boolean {
     return char.trim().length === 0
+  }
+
+  private getActiveCharset(): CharsetId {
+    return this.state.charsets[this.state.charsets.gl]
+  }
+
+  private renderChar(char: string): string {
+    if (char.length !== 1) {
+      return char
+    }
+    return translateGlyph(char, this.getActiveCharset())
+  }
+
+  private setGlSelector(selector: 'g0' | 'g1'): void {
+    this.state.charsets = { ...this.state.charsets, gl: selector }
+  }
+
+  private designateCharset(register: 'g0' | 'g1', designator: string): void {
+    const charset = resolveCharset(designator)
+    this.state.charsets = {
+      ...this.state.charsets,
+      [register]: charset,
+    }
   }
 
   private findLastContentRow(): number {
@@ -694,6 +736,12 @@ export class TerminalInterpreter {
         return this.lineFeed(true)
       case 0x0d:
         return this.carriageReturn()
+      case 0x0e: // SO -> invoke G1 into GL
+        this.setGlSelector('g1')
+        return []
+      case 0x0f: // SI -> invoke G0 into GL
+        this.setGlSelector('g0')
+        return []
       default:
         return []
     }
@@ -710,6 +758,28 @@ export class TerminalInterpreter {
     event: ParserEvent & { type: ParserEventType.EscDispatch },
   ): TerminalUpdate[] {
     const final = String.fromCharCode(event.finalByte)
+    if (event.intermediates.length > 0) {
+      const prefix = String.fromCharCode(event.intermediates[0]!)
+      switch (prefix) {
+        case '(': {
+          this.designateCharset('g0', final)
+          return []
+        }
+        case ')': {
+          this.designateCharset('g1', final)
+          return []
+        }
+        case '#': {
+          if (final === '8') {
+            return this.applyScreenAlignmentPattern()
+          }
+          break
+        }
+        default:
+          break
+      }
+    }
+
     switch (final) {
       case 'D':
         return this.index()
@@ -723,6 +793,14 @@ export class TerminalInterpreter {
         return this.saveCursor()
       case '8':
         return this.restoreCursor()
+      case '=':
+        this.setKeypadApplicationMode(true)
+        return []
+      case '>':
+        this.setKeypadApplicationMode(false)
+        return []
+      case 'c':
+        return this.resetToInitialState()
       default:
         return []
     }
@@ -737,7 +815,9 @@ export class TerminalInterpreter {
     const payload = separator === -1 ? '' : raw.slice(separator + 1)
     const oscId = identifier === '' ? '0' : identifier
 
-    const updates: TerminalUpdate[] = [{ type: 'osc', identifier: oscId, data: payload }]
+    const updates: TerminalUpdate[] = [
+      { type: 'osc', identifier: oscId, data: payload },
+    ]
 
     switch (oscId) {
       case '0':
@@ -750,8 +830,10 @@ export class TerminalInterpreter {
         break
       case '52': {
         const selectionSplit = payload.indexOf(';')
-        const selection = selectionSplit === -1 ? 'c' : payload.slice(0, selectionSplit) || 'c'
-        const data = selectionSplit === -1 ? '' : payload.slice(selectionSplit + 1)
+        const selection =
+          selectionSplit === -1 ? 'c' : payload.slice(0, selectionSplit) || 'c'
+        const data =
+          selectionSplit === -1 ? '' : payload.slice(selectionSplit + 1)
         const clipboard: ClipboardEntry = { selection, data }
         this.state.clipboard = clipboard
         updates.push({ type: 'clipboard', clipboard })
@@ -919,6 +1001,10 @@ export class TerminalInterpreter {
         return this.cursorForward(params[0] ?? 1)
       case 'D':
         return this.cursorBackward(params[0] ?? 1)
+      case 'E':
+        return this.cursorNextLine(params[0] ?? 1)
+      case 'F':
+        return this.cursorPreviousLine(params[0] ?? 1)
       case 'G':
         return this.cursorColumnAbsolute(params[0] ?? 1)
       case 'H':
@@ -928,6 +1014,16 @@ export class TerminalInterpreter {
         return this.eraseInDisplay(params[0] ?? 0)
       case 'K':
         return this.eraseInLine(params[0] ?? 0)
+      case '@':
+        return this.insertCharacters(params[0] ?? 1)
+      case 'P':
+        return this.deleteCharacters(params[0] ?? 1)
+      case 'L':
+        return this.insertLines(params[0] ?? 1)
+      case 'M':
+        return this.deleteLines(params[0] ?? 1)
+      case 'X':
+        return this.eraseCharacters(params[0] ?? 1)
       case 'm':
         return this.selectGraphicRendition(params)
       case 'r':
@@ -952,11 +1048,26 @@ export class TerminalInterpreter {
 
     for (const param of event.params) {
       switch (param) {
+        case 1: // DECCKM
+          this.state.cursorKeysApplicationMode = enable
+          break
+        case 3: // DECCOLM
+          updates.push(...this.setColumns(enable ? 132 : 80))
+          break
         case 6: // DECOM
           updates.push(...this.setOriginMode(enable))
           break
         case 7: // DECAWM
           updates.push(...this.setAutoWrap(enable))
+          break
+        case 8: // DECARM
+          this.state.autoRepeat = enable
+          break
+        case 4: // DECSCLM (smooth scroll)
+          this.state.smoothScroll = enable
+          break
+        case 5: // DECSCNM (reverse video)
+          this.state.reverseVideo = enable
           break
         case 25: // DECTCEM
           updates.push(...this.setCursorVisibility(enable))
@@ -1099,6 +1210,26 @@ export class TerminalInterpreter {
       this.state.columns - 1,
     )
     return [this.cursorUpdate()]
+  }
+
+  private cursorNextLine(count: number): TerminalUpdate[] {
+    const steps = Math.max(1, count)
+    const updates: TerminalUpdate[] = []
+    for (let index = 0; index < steps; index += 1) {
+      updates.push(...this.lineFeed(true))
+    }
+    return updates
+  }
+
+  private cursorPreviousLine(count: number): TerminalUpdate[] {
+    const steps = Math.max(1, count)
+    const updates: TerminalUpdate[] = []
+    for (let index = 0; index < steps; index += 1) {
+      updates.push(...this.reverseIndex())
+    }
+    this.state.cursor.column = 0
+    updates.push(this.cursorUpdate())
+    return updates
   }
 
   private cursorColumnAbsolute(value: number): TerminalUpdate[] {
@@ -1406,6 +1537,198 @@ export class TerminalInterpreter {
     return [this.cursorUpdate()]
   }
 
+  private insertCharacters(count: number): TerminalUpdate[] {
+    const amount = clamp(count, 1, this.state.columns)
+    const row = this.state.cursor.row
+    const startColumn = this.state.cursor.column
+    if (startColumn >= this.state.columns) {
+      return []
+    }
+
+    const effective = Math.min(amount, this.state.columns - startColumn)
+    const cells: CellDelta[] = []
+    const rowBuffer = this.state.buffer[row] ?? []
+
+    for (
+      let column = this.state.columns - 1;
+      column >= startColumn + effective;
+      column -= 1
+    ) {
+      const source = rowBuffer[column - effective]
+      const cell = source ? cloneCell(source) : blankCell(this.state.attributes)
+      setCell(this.state, row, column, cell)
+      cells.push({ row, column, cell })
+    }
+
+    for (
+      let column = startColumn;
+      column < startColumn + effective && column < this.state.columns;
+      column += 1
+    ) {
+      const cell = blankCell(this.state.attributes)
+      setCell(this.state, row, column, cell)
+      cells.push({ row, column, cell })
+    }
+
+    if (cells.length === 0) {
+      return []
+    }
+
+    return [{ type: 'cells', cells }]
+  }
+
+  private deleteCharacters(count: number): TerminalUpdate[] {
+    const amount = clamp(count, 1, this.state.columns)
+    const row = this.state.cursor.row
+    const startColumn = this.state.cursor.column
+    if (startColumn >= this.state.columns) {
+      return []
+    }
+
+    const effective = Math.min(amount, this.state.columns - startColumn)
+    const cells: CellDelta[] = []
+    const rowBuffer = this.state.buffer[row] ?? []
+
+    for (
+      let column = startColumn;
+      column < this.state.columns - effective;
+      column += 1
+    ) {
+      const source = rowBuffer[column + effective]
+      const cell = source ? cloneCell(source) : blankCell(this.state.attributes)
+      setCell(this.state, row, column, cell)
+      cells.push({ row, column, cell })
+    }
+
+    for (
+      let column = this.state.columns - effective;
+      column < this.state.columns;
+      column += 1
+    ) {
+      const cell = blankCell(this.state.attributes)
+      setCell(this.state, row, column, cell)
+      cells.push({ row, column, cell })
+    }
+
+    if (cells.length === 0) {
+      return []
+    }
+
+    return [{ type: 'cells', cells }]
+  }
+
+  private eraseCharacters(count: number): TerminalUpdate[] {
+    const amount = clamp(count, 1, this.state.columns)
+    const row = this.state.cursor.row
+    const startColumn = this.state.cursor.column
+    const cells: CellDelta[] = []
+
+    for (
+      let column = startColumn;
+      column < startColumn + amount && column < this.state.columns;
+      column += 1
+    ) {
+      const cell = blankCell(this.state.attributes)
+      setCell(this.state, row, column, cell)
+      cells.push({ row, column, cell })
+    }
+
+    if (cells.length === 0) {
+      return []
+    }
+    return [{ type: 'cells', cells }]
+  }
+
+  private insertLines(count: number): TerminalUpdate[] {
+    const row = this.state.cursor.row
+    if (!this.withinScrollRegion(row)) {
+      return []
+    }
+    const amount = clamp(
+      count,
+      1,
+      this.state.scrollBottom - row + 1,
+    )
+    const cells: CellDelta[] = []
+
+    for (
+      let targetRow = this.state.scrollBottom;
+      targetRow >= row + amount;
+      targetRow -= 1
+    ) {
+      const sourceRow = targetRow - amount
+      for (let column = 0; column < this.state.columns; column += 1) {
+        const source = this.state.buffer[sourceRow]?.[column]
+        const cell = source
+          ? cloneCell(source)
+          : blankCell(this.state.attributes)
+        setCell(this.state, targetRow, column, cell)
+        cells.push({ row: targetRow, column, cell })
+      }
+    }
+
+    for (let targetRow = row; targetRow < row + amount; targetRow += 1) {
+      for (let column = 0; column < this.state.columns; column += 1) {
+        const cell = blankCell(this.state.attributes)
+        setCell(this.state, targetRow, column, cell)
+        cells.push({ row: targetRow, column, cell })
+      }
+    }
+
+    if (cells.length === 0) {
+      return []
+    }
+
+    return [{ type: 'cells', cells }]
+  }
+
+  private deleteLines(count: number): TerminalUpdate[] {
+    const row = this.state.cursor.row
+    if (!this.withinScrollRegion(row)) {
+      return []
+    }
+    const amount = clamp(
+      count,
+      1,
+      this.state.scrollBottom - row + 1,
+    )
+    const cells: CellDelta[] = []
+
+    for (
+      let targetRow = row;
+      targetRow <= this.state.scrollBottom - amount;
+      targetRow += 1
+    ) {
+      const sourceRow = targetRow + amount
+      for (let column = 0; column < this.state.columns; column += 1) {
+        const source = this.state.buffer[sourceRow]?.[column]
+        const cell = source
+          ? cloneCell(source)
+          : blankCell(this.state.attributes)
+        setCell(this.state, targetRow, column, cell)
+        cells.push({ row: targetRow, column, cell })
+      }
+    }
+
+    for (
+      let targetRow = this.state.scrollBottom - amount + 1;
+      targetRow <= this.state.scrollBottom;
+      targetRow += 1
+    ) {
+      for (let column = 0; column < this.state.columns; column += 1) {
+        const cell = blankCell(this.state.attributes)
+        setCell(this.state, targetRow, column, cell)
+        cells.push({ row: targetRow, column, cell })
+      }
+    }
+
+    if (cells.length === 0) {
+      return []
+    }
+
+    return [{ type: 'cells', cells }]
+  }
+
   private clearFromCursor(): TerminalUpdate[] {
     const cells: CellDelta[] = []
     const startRow = this.state.cursor.row
@@ -1432,6 +1755,67 @@ export class TerminalInterpreter {
     return [
       { type: 'cells', cells },
       { type: 'clear', scope: 'display-after-cursor' },
+    ]
+  }
+
+  private applyScreenAlignmentPattern(): TerminalUpdate[] {
+    const cells: CellDelta[] = []
+    for (let row = 0; row < this.state.rows; row += 1) {
+      for (let column = 0; column < this.state.columns; column += 1) {
+        const cell: TerminalCell = {
+          char: 'E',
+          attr: cloneAttributes(this.state.attributes),
+        }
+        setCell(this.state, row, column, cell)
+        cells.push({ row, column, cell })
+      }
+    }
+    this.state.cursor = { row: 0, column: 0 }
+    const updates: TerminalUpdate[] = []
+    if (cells.length > 0) {
+      updates.push({ type: 'cells', cells })
+      updates.push({ type: 'clear', scope: 'display' })
+    }
+    updates.push(this.cursorUpdate())
+    return updates
+  }
+
+  private resetToInitialState(): TerminalUpdate[] {
+    this.reset()
+    return [
+      { type: 'clear', scope: 'display' },
+      { type: 'scroll-region', top: this.state.scrollTop, bottom: this.state.scrollBottom },
+      this.cursorUpdate(),
+      { type: 'attributes', attributes: this.state.attributes },
+    ]
+  }
+
+  private setKeypadApplicationMode(enabled: boolean): void {
+    this.state.keypadApplicationMode = enabled
+  }
+
+  private setColumns(columns: number): TerminalUpdate[] {
+    if (columns === this.state.columns) {
+      return []
+    }
+
+    this.state.columns = columns
+    for (let row = 0; row < this.state.rows; row += 1) {
+      this.state.buffer[row] = Array.from({ length: columns }, () =>
+        blankCell(this.state.attributes),
+      )
+    }
+    if (this.capabilities.features.supportsTabStops) {
+      resetTabStops(this.state)
+    }
+    this.state.scrollTop = 0
+    this.state.scrollBottom = this.state.rows - 1
+    this.state.cursor = { row: 0, column: 0 }
+
+    return [
+      { type: 'clear', scope: 'display' },
+      { type: 'scroll-region', top: this.state.scrollTop, bottom: this.state.scrollBottom },
+      this.cursorUpdate(),
     ]
   }
 

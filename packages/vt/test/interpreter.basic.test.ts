@@ -88,6 +88,55 @@ describe('TerminalInterpreter basic behaviour', () => {
     expect(afterReset.background).toEqual({ type: 'default' })
   })
 
+  it('renders DEC special graphics when designated on G0', () => {
+    const { interpreter } = run('\u001b(0qqqq\u001b(B')
+    const row = interpreter.snapshot.buffer[0]!
+    expect(row.slice(0, 4).map((cell) => cell.char).join('')).toBe('────')
+  })
+
+  it('inserts characters with CSI @', () => {
+    const { interpreter } = run('HELLO\u001b[3D\u001b[2@')
+    const row = interpreter.snapshot.buffer[0]!
+    expect(row.slice(0, 7).map((cell) => cell.char).join('')).toBe('HE  LLO')
+  })
+
+  it('deletes characters with CSI P', () => {
+    const { interpreter } = run('ABCDE\u001b[3D\u001b[2P')
+    const row = interpreter.snapshot.buffer[0]!
+    expect(row.map((cell) => cell.char).join('').trimEnd()).toBe('ABE')
+  })
+
+  it('erases characters with CSI X', () => {
+    const { interpreter } = run('TEXT\u001b[2D\u001b[2X')
+    const row = interpreter.snapshot.buffer[0]!
+    expect(row.map((cell) => cell.char).join('').slice(0, 4)).toBe('TE  ')
+  })
+
+  it('inserts and deletes lines within the scroll region', () => {
+    const sequence = 'line1\r\nline2\r\nline3\u001b[2;1H\u001b[1L'
+    const { interpreter } = run(sequence)
+    const snapshot = interpreter.snapshot
+    expect(snapshot.buffer[0]!.map((cell) => cell.char).join('').trimEnd()).toBe(
+      'line1',
+    )
+    expect(snapshot.buffer[1]!.map((cell) => cell.char).join('').trimEnd()).toBe('')
+    expect(snapshot.buffer[2]!.map((cell) => cell.char).join('').trimEnd()).toBe(
+      'line2',
+    )
+  })
+
+  it('deletes lines with CSI M', () => {
+    const sequence = 'line1\r\nline2\r\nline3\u001b[2;1H\u001b[1M'
+    const { interpreter } = run(sequence)
+    const snapshot = interpreter.snapshot
+    expect(snapshot.buffer[0]!.map((cell) => cell.char).join('').trimEnd()).toBe(
+      'line1',
+    )
+    expect(snapshot.buffer[1]!.map((cell) => cell.char).join('').trimEnd()).toBe(
+      'line3',
+    )
+  })
+
   it('exposes emitted updates for downstream renderers', () => {
     const { updates } = run('OK')
     const flattened = updates.flat()
@@ -413,5 +462,48 @@ describe('TerminalInterpreter basic behaviour', () => {
     )
     expect(readRow(8)).toBe('┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛')
     expect(readRow(9)).toBe('')
+  })
+
+  it('applies the DEC screen alignment pattern', () => {
+    const { interpreter } = run('\u001b#8')
+    const snapshot = interpreter.snapshot
+    expect(
+      snapshot.buffer[0]!.every((cell) => cell.char === 'E'),
+    ).toBe(true)
+    expect(snapshot.cursor).toEqual({ row: 0, column: 0 })
+  })
+
+  it('resets the terminal with RIS', () => {
+    const parser = createParser()
+    const interpreter = createInterpreter()
+    const updates: TerminalUpdate[][] = []
+    const sink = new InterpreterSink(interpreter, updates)
+
+    parser.write('\u001b[31;1mX', sink)
+    expect(interpreter.snapshot.attributes.foreground).toEqual({
+      type: 'ansi',
+      index: 1,
+    })
+
+    parser.write('\u001bc', sink)
+    const snapshot = interpreter.snapshot
+    expect(snapshot.cursor).toEqual({ row: 0, column: 0 })
+    expect(snapshot.attributes.foreground).toEqual({ type: 'default' })
+    expect(snapshot.buffer[0]![0]!.char).toBe(' ')
+  })
+
+  it('toggles 132-column mode with DECCOLM', () => {
+    const parser = createParser()
+    const interpreter = createInterpreter()
+    const updates: TerminalUpdate[][] = []
+    const sink = new InterpreterSink(interpreter, updates)
+
+    parser.write('\u001b[?3h', sink)
+    expect(interpreter.snapshot.columns).toBe(132)
+    expect(interpreter.snapshot.buffer[0]!.length).toBe(132)
+
+    parser.write('\u001b[?3l', sink)
+    expect(interpreter.snapshot.columns).toBe(80)
+    expect(interpreter.snapshot.buffer[0]!.length).toBe(80)
   })
 })

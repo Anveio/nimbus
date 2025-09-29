@@ -144,6 +144,21 @@ untrusted programs.
   README/AGENTS docs before adding tests; the Vitest suite now covers happy
   paths, chunked writes, and malformed inputs so regressions surface quickly.
 
+## VT100 coverage
+
+- **Charset designation** – `ESC ( B`, `ESC ( 0`, and matching SO/SI controls
+  toggle G0/G1 tables, with DEC Special Graphics translated to modern Unicode
+  line-drawing glyphs.
+- **Screen editing** – `ICH`, `DCH`, `IL`, `DL`, and `ECH` now mutate the
+  active buffer, respecting margins and scroll regions so VT100 editor flows
+  behave as expected.
+- **Mode toggles** – DEC private modes (`DECCOLM`, `DECAWM`, `DECOM`, `DECCKM`,
+  `DECSCLM`, `DECSCNM`, `DECARM`, `DECTCEM`) update interpreter state, including
+  80/132 column rebuilds with fresh tab stops.
+- **Diagnostics & reset** – `DECALN` (`ESC # 8`) paints the alignment pattern
+  and `RIS` (`ESC c`) returns the terminal to a clean slate without leaving
+  dangling parser state.
+
 ## Development workflow
 
 ```bash
