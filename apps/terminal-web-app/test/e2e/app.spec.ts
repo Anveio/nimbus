@@ -168,6 +168,99 @@ test.describe('terminal e2e harness', () => {
     expect(pastedRow).toContain(`ALPHA${pastePayload}`)
   })
 
+  test('handles streamed UTF-8 byte sequences', async ({ page }) => {
+    await page.goto('/')
+
+    const terminal = page.getByRole('textbox', { name: 'Interactive terminal' })
+    await expect(terminal).toBeVisible()
+    await terminal.click()
+
+    await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
+
+    const readRow = async (rowIndex: number): Promise<string> => {
+      const row = await page.evaluate((row) => {
+        const handle = window.__manaTerminalTestHandle__
+        if (!handle) {
+          return null
+        }
+        const snapshot = handle.getSnapshot()
+        const cells = snapshot.buffer[row] ?? []
+        return cells.map((cell) => cell?.char ?? ' ').join('')
+      }, rowIndex)
+
+      expect(row).not.toBeNull()
+      return row!.trimEnd()
+    }
+
+    // Reset the terminal state so assertions remain deterministic across browsers.
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001bc')
+    })
+
+    // 1. Single chunk emoji as raw bytes.
+    await page.evaluate((chunk) => {
+      const handle = window.__manaTerminalTestHandle__
+      if (!handle) {
+        throw new Error('Terminal handle unavailable')
+      }
+      handle.write(new Uint8Array(chunk))
+    }, [0xf0, 0x9f, 0x91, 0x8b])
+
+    await expect.poll(() => readRow(0)).toBe('👋')
+
+    // Move to next line for subsequent scenarios.
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\r\n')
+    })
+
+    // 2. Emoji split across two writes to verify buffering works across boundaries.
+    await page.evaluate((chunks) => {
+      const handle = window.__manaTerminalTestHandle__
+      if (!handle) {
+        throw new Error('Terminal handle unavailable')
+      }
+      for (const chunk of chunks) {
+        handle.write(new Uint8Array(chunk))
+      }
+    }, [
+      [0xf0, 0x9f],
+      [0x92, 0x96],
+    ])
+
+    await expect.poll(() => readRow(1)).toBe('💖')
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\r\n')
+    })
+
+    // 3. Unterminated multibyte sequence followed by ASCII should yield replacement + ASCII.
+    await page.evaluate((chunks) => {
+      const handle = window.__manaTerminalTestHandle__
+      if (!handle) {
+        throw new Error('Terminal handle unavailable')
+      }
+      for (const chunk of chunks) {
+        handle.write(new Uint8Array(chunk))
+      }
+    }, [
+      [0xf0],
+      [0x41],
+    ])
+
+    await expect.poll(() => readRow(2)).toBe('\ufffdA')
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\r\n')
+    })
+
+    // 4. Strings with multi-byte code points still flow correctly through the harness.
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('naïve café')
+    })
+
+    await expect.poll(() => readRow(3)).toBe('naïve café')
+  })
+
   test('single click moves the cursor within line bounds', async ({ page }) => {
     await page.goto('/')
 
@@ -226,28 +319,19 @@ test.describe('terminal e2e harness', () => {
       window.__manaTerminalTestHandle__?.write('ABCD')
     })
 
-    const getRowText = async (): Promise<string> => {
+    const getRowChars = async (): Promise<string[]> => {
       return page.evaluate(() => {
         const snapshot = window.__manaTerminalTestHandle__?.getSnapshot()
         if (!snapshot) {
-          return ''
+          return []
         }
-        return (snapshot.buffer[0] ?? [])
-          .map((cell) => cell?.char ?? ' ')
-          .join('')
-          .trimEnd()
+        return (snapshot.buffer[0] ?? []).map((cell) => cell?.char ?? ' ')
       })
     }
 
-    await page.waitForFunction(() => {
-      const snapshot = window.__manaTerminalTestHandle__?.getSnapshot()
-      const row = snapshot?.buffer[0] ?? []
-      const text = row
-        .map((cell) => cell?.char ?? ' ')
-        .join('')
-        .trimEnd()
-      return text === 'ABCD'
-    })
+    await expect.poll(async () => (await getRowChars()).join('').trimEnd()).toBe(
+      'ABCD',
+    )
 
     // Move cursor two columns left (ESC [ 2 D)
     await page.evaluate(() => {
@@ -256,46 +340,37 @@ test.describe('terminal e2e harness', () => {
 
     // Type X in replace mode (default IRM off)
     await page.keyboard.type('X')
-    await page.waitForFunction(() => {
-      const snapshot = window.__manaTerminalTestHandle__?.getSnapshot()
-      const row = snapshot?.buffer[0] ?? []
-      const text = row
-        .map((cell) => cell?.char ?? ' ')
-        .join('')
-        .trimEnd()
-      return text === 'ABXD'
-    })
+    await expect.poll(async () => (await getRowChars()).join('').trimEnd()).toBe(
+      'ABXD',
+    )
 
     // Enable insert mode and type Y
     await page.evaluate(() => {
       window.__manaTerminalTestHandle__?.write('\u001b[4h')
     })
     await page.keyboard.type('Y')
-    await page.waitForFunction(() => {
-      const snapshot = window.__manaTerminalTestHandle__?.getSnapshot()
-      const row = snapshot?.buffer[0] ?? []
-      const text = row
-        .map((cell) => cell?.char ?? ' ')
-        .join('')
-        .trimEnd()
-      return text === 'ABXYD'
-    })
+    await expect.poll(async () => (await getRowChars()).slice(0, 6)).toEqual([
+      'A',
+      'B',
+      'X',
+      'Y',
+      ' ',
+      ' ',
+    ])
 
     // Disable insert mode and type Z (should overwrite)
     await page.evaluate(() => {
       window.__manaTerminalTestHandle__?.write('\u001b[4l')
     })
     await page.keyboard.type('Z')
-    await page.waitForFunction(() => {
-      const snapshot = window.__manaTerminalTestHandle__?.getSnapshot()
-      const row = snapshot?.buffer[0] ?? []
-      const text = row
-        .map((cell) => cell?.char ?? ' ')
-        .join('')
-        .trimEnd()
-      return text === 'ABXYZ'
-    })
+    await expect.poll(async () => (await getRowChars()).slice(0, 5)).toEqual([
+      'A',
+      'B',
+      'X',
+      'Y',
+      'Z',
+    ])
 
-    expect(await getRowText()).toBe('ABXYZ')
+    expect((await getRowChars()).join('').trimEnd()).toBe('ABXYZ')
   })
 })

@@ -11,7 +11,7 @@ Our Playwright suite is the source of truth for verifying the rendered terminal 
 ### Global Harness Handle (`window.__manaTerminalTestHandle__`)
 - **What it does:** When `VITE_E2E=1` is present, `App.tsx` exposes the mounted terminal’s `write` and `getSnapshot` methods on `window.__manaTerminalTestHandle__`. This keeps the app’s public surface unchanged while giving tests a sanctioned way to drive bytes directly into the interpreter.
 - **Why we need it:** The demo still renders the same UI, but tests can skip brittle DOM typing loops whenever they need precise control over byte streams or want to inspect interpreter state.
-- **Important constraints:** The handle is registered after the `Terminal` ref resolves, so specs should wait for the handle to appear (e.g. `page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))`) before using it, and always send strings representing raw bytes.
+- **Important constraints:** The handle is registered after the `Terminal` ref resolves, so specs should wait for the handle to appear (e.g. `page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))`) before using it. Inputs may be strings or `Uint8Array` instances; when passing raw bytes from Playwright, convert number arrays to `new Uint8Array(...)` inside `page.evaluate` so they survive the structured clone.
 
 ### Playwright Interactions
 - **What we do now:** Specs focus the terminal like a user (`locator.click()`), then call `window.__manaTerminalTestHandle__?.write(...)` via `page.evaluate`. Snapshots are retrieved through the same handle and asserted in TypeScript.

@@ -146,3 +146,9 @@ Using Ghostty as a guide, we can finish SOS/PM/APC support, flesh out C1 semanti
 - Added immutable `TerminalSelection` helpers (`areSelectionsEqual`, row-segment computations) and wired them into the public barrel for consumers.
 - `TerminalInterpreter` now exposes `setSelection`, `updateSelection`, and `clearSelection`, emitting `selection:*` deltas while deduping redundant updates; snapshot state mirrors the latest selection.
 - Vitest coverage verifies the new API surface alongside existing interpreter tests, giving downstream renderers a consistent way to drive highlights.
+
+## 2025-10-06 – UTF-8 resilience
+
+- Documented the parser’s UTF-8 contract in the README: chunked sequences stay buffered across writes, control boundaries force incomplete runes to resolve, and malformed byte patterns fall back to `U+FFFD` rather than wedging the state machine.
+- Added Vitest scenarios for multi-byte prints, cross-write buffering, control-interrupted sequences, and malformed continuation bytes to lock in the desired behaviour.
+- Refactored the parser runtime so printable handling tracks pending UTF-8 bytes, emits replacements on errors, and resets the accumulator whenever control flows flush the print buffer.

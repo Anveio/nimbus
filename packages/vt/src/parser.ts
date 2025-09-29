@@ -36,6 +36,7 @@ const DEFAULT_STRING_LIMITS = {
 } as const
 
 const DCS_CHUNK_SIZE = 1024
+const UTF8_REPLACEMENT_BYTES = [0xef, 0xbf, 0xbd] as const
 
 const { ESC, CAN, SUB, BEL } = CONTROL_BYTES
 const { DIGIT_START, DIGIT_END, FINAL_START, FINAL_END, COLON, SEMICOLON } =
@@ -99,7 +100,7 @@ class ParserImpl implements Parser {
       this.processByte(byte, sink)
     }
 
-    this.flushPrint(sink)
+    this.flushPrint(sink, { finalizePending: false })
   }
 
   reset(): void {
@@ -108,22 +109,13 @@ class ParserImpl implements Parser {
   }
 
   private processByte(byte: number, sink: ParserEventSink): void {
-    if (this.context.utf8BytesRemaining > 0 && isUtf8ContinuationByte(byte)) {
-      this.printBuffer.push(byte)
-      this.context.utf8BytesRemaining -= 1
-      return
-    }
-
-    if (
-      this.context.state === ParserState.Ground &&
-      this.context.utf8BytesRemaining === 0
-    ) {
-      const remaining = getUtf8ContinuationCount(byte)
-      if (remaining > 0) {
-        this.printBuffer.push(byte)
-        this.context.utf8BytesRemaining = remaining
+    if (this.context.utf8ExpectedContinuation > 0) {
+      if (isUtf8ContinuationByte(byte)) {
+        this.enqueuePrintable(byte)
         return
       }
+
+      this.finalizePendingUtf8Sequence()
     }
 
     const table = this.dispatchTable[this.context.state]
@@ -176,7 +168,7 @@ class ParserImpl implements Parser {
       maxIntermediateCount: MAX_CSI_INTERMEDIATES,
       noop: this.noopHandler,
       pushPrint: (byte) => {
-        this.printBuffer.push(byte)
+        this.enqueuePrintable(byte)
       },
       flushPrint: (sink) => {
         this.flushPrint(sink)
@@ -692,7 +684,82 @@ class ParserImpl implements Parser {
     sink.onEvent(event)
   }
 
-  private flushPrint(sink: ParserEventSink): void {
+  private enqueuePrintable(byte: number): void {
+    let current = byte
+
+    // Loop so we can reprocess the same byte after repairing an incomplete
+    // sequence (e.g. when a continuation byte was missing).
+    // biome-ignore lint/suspicious/noConstantCondition:
+    while (true) {
+      if (this.context.utf8ExpectedContinuation > 0) {
+        if (isUtf8ContinuationByte(current)) {
+          this.context.utf8Pending.push(current)
+          this.context.utf8ExpectedContinuation -= 1
+          if (this.context.utf8ExpectedContinuation === 0) {
+            this.commitPendingUtf8()
+          }
+          return
+        }
+
+        this.appendReplacementCharacter()
+        this.resetUtf8Tracking()
+        continue
+      }
+
+      if (isUtf8ContinuationByte(current)) {
+        this.appendReplacementCharacter()
+        return
+      }
+
+      const required = getUtf8ContinuationCount(current)
+      if (required > 0) {
+        this.context.utf8Pending = [current]
+        this.context.utf8ExpectedContinuation = required
+        return
+      }
+
+      if (current >= 0x80) {
+        this.appendReplacementCharacter()
+        return
+      }
+
+      this.printBuffer.push(current)
+      return
+    }
+  }
+
+  private commitPendingUtf8(): void {
+    if (this.context.utf8Pending.length === 0) {
+      return
+    }
+    this.printBuffer.push(...this.context.utf8Pending)
+    this.resetUtf8Tracking()
+  }
+
+  private appendReplacementCharacter(): void {
+    this.printBuffer.push(...UTF8_REPLACEMENT_BYTES)
+  }
+
+  private finalizePendingUtf8Sequence(): void {
+    if (this.context.utf8ExpectedContinuation > 0) {
+      this.appendReplacementCharacter()
+    }
+    this.resetUtf8Tracking()
+  }
+
+  private resetUtf8Tracking(): void {
+    this.context.utf8ExpectedContinuation = 0
+    this.context.utf8Pending = []
+  }
+
+  private flushPrint(
+    sink: ParserEventSink,
+    options: { finalizePending?: boolean } = {},
+  ): void {
+    const { finalizePending = true } = options
+    if (finalizePending) {
+      this.finalizePendingUtf8Sequence()
+    }
     if (this.printBuffer.length === 0) {
       return
     }

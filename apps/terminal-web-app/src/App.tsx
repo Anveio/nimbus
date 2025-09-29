@@ -7,7 +7,7 @@ const isE2EMode = import.meta.env?.VITE_E2E === '1'
 declare global {
   interface Window {
     __manaTerminalTestHandle__?: {
-      write: (input: string) => void
+      write: (input: Uint8Array | string) => void
       getSnapshot: () => ReturnType<TerminalHandle['getSnapshot']>
       getSelection: () => ReturnType<TerminalHandle['getSelection']>
     }
@@ -45,7 +45,7 @@ function App(): JSX.Element {
       }
 
       const testHandle = {
-        write: (input: string) => {
+        write: (input: Uint8Array | string) => {
           resolveHandle().write(input)
         },
         getSnapshot: () => resolveHandle().getSnapshot(),

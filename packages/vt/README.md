@@ -127,6 +127,23 @@ untrusted programs.
    ignore states without crashing the parser. The transition table will
    include `Ignore` actions and bounded buffers to maintain robustness.
 
+## UTF-8 handling
+
+- **Streaming friendly** – The parser defers emitting `Print` events until a
+  multibyte sequence is complete, so a rune that is split across consecutive
+  `write` calls still arrives as a single payload downstream.
+- **Boundary aware** – Control characters (`ESC`, CAN/SUB, etc.) force any
+  pending UTF-8 lead bytes to resolve to `U+FFFD`, ensuring the interpreter’s
+  `TextDecoder` never remains stuck waiting for continuations after mode
+  switches or cancelled sequences.
+- **Error recovery** – Stray continuation bytes, invalid lead bytes, and
+  truncated sequences are normalised to `U+FFFD` while the parser keeps the
+  offending byte stream moving forward. No byte ever wedges the parser in an
+  inconsistent state.
+- **Spec updates first** – New UTF-8 behaviours must be reflected in the
+  README/AGENTS docs before adding tests; the Vitest suite now covers happy
+  paths, chunked writes, and malformed inputs so regressions surface quickly.
+
 ## Development workflow
 
 ```bash
