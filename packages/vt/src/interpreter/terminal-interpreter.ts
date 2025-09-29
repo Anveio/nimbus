@@ -64,6 +64,7 @@ interface EditSelectionOptions {
 interface CursorMoveOptions {
   readonly extendSelection?: boolean
   readonly selectionAnchor?: SelectionPoint | null
+  readonly clampToLineEnd?: boolean
 }
 
 const cloneCell = (cell: TerminalCell): TerminalCell => ({
@@ -195,10 +196,7 @@ export class TerminalInterpreter {
   }
 
   moveCursorLineEnd(options: CursorMoveOptions = {}): TerminalUpdate[] {
-    const targetColumn = this.findLineEndColumn(
-      this.state.cursor.row,
-      this.state.columns,
-    )
+    const targetColumn = this.findLineEndColumn(this.state.cursor.row)
     return this.moveCursorTo(
       {
         row: this.state.cursor.row,
@@ -554,7 +552,9 @@ export class TerminalInterpreter {
     options: CursorMoveOptions,
   ): TerminalUpdate[] {
     const clampedRow = clamp(target.row, 0, Math.max(0, this.state.rows - 1))
-    const clampedColumn = clamp(target.column, 0, Math.max(0, this.state.columns - 1))
+    const clampedColumn = options.clampToLineEnd
+      ? this.clampColumnForRow(clampedRow, target.column)
+      : clamp(target.column, 0, Math.max(0, this.state.columns - 1))
 
     const previousCursor = { ...this.state.cursor }
     const updates: TerminalUpdate[] = []
@@ -594,16 +594,28 @@ export class TerminalInterpreter {
     return updates
   }
 
-  private findLineEndColumn(row: number, maxColumns: number): number {
-    const columns = Math.max(0, maxColumns)
+  clampCursorColumn(row: number, column: number): number {
+    const clampedRow = clamp(row, 0, Math.max(0, this.state.rows - 1))
+    return this.clampColumnForRow(clampedRow, column)
+  }
+
+  private clampColumnForRow(row: number, column: number): number {
+    const maxColumn = this.findLineEndColumn(row)
+    return clamp(column, 0, maxColumn)
+  }
+
+  private findLineEndColumn(row: number): number {
+    if (this.state.columns === 0) {
+      return 0
+    }
     const rowBuffer = this.state.buffer[row] ?? []
-    for (let index = columns - 1; index >= 0; index -= 1) {
+    for (let index = this.state.columns - 1; index >= 0; index -= 1) {
       const char = rowBuffer[index]?.char ?? ' '
       if (char !== ' ') {
-        return Math.min(index + 1, columns - 1)
+        return Math.min(index + 1, this.state.columns - 1)
       }
     }
-    return Math.min(columns - 1, Math.max(0, rowBuffer.length - 1))
+    return 0
   }
 
   private findWordBoundaryLeft(row: number, column: number): number {
@@ -626,18 +638,18 @@ export class TerminalInterpreter {
 
   private findWordBoundaryRight(row: number, column: number): number {
     const rowBuffer = this.state.buffer[row] ?? []
-    const columns = this.state.columns
     let index = column
+    const maxColumn = this.findLineEndColumn(row)
 
-    while (index < columns && !this.isWhitespace(rowBuffer[index]?.char ?? ' ')) {
+    while (index <= maxColumn && !this.isWhitespace(rowBuffer[index]?.char ?? ' ')) {
       index += 1
     }
 
-    while (index < columns && this.isWhitespace(rowBuffer[index]?.char ?? ' ')) {
+    while (index <= maxColumn && this.isWhitespace(rowBuffer[index]?.char ?? ' ')) {
       index += 1
     }
 
-    return Math.min(index, columns - 1)
+    return Math.min(index, maxColumn)
   }
 
   private isWhitespace(char: string): boolean {

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createRef } from 'react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
@@ -401,7 +401,9 @@ describe('Terminal', () => {
     await userEvent.click(region)
     await userEvent.keyboard('{ArrowRight}')
 
-    expect(ref.current?.getSnapshot().cursor.column).toBe(1)
+    await waitFor(() => {
+      expect(ref.current?.getSnapshot().cursor.column).toBe(1)
+    })
   })
 
   test('extends selection with Shift + Arrow', async () => {
@@ -413,10 +415,12 @@ describe('Terminal', () => {
     await userEvent.keyboard('{ArrowRight}')
     await userEvent.keyboard('{Shift>}{ArrowRight}{/Shift}')
 
-    const selection = ref.current?.getSelection()
-    expect(selection).not.toBeNull()
-    expect(selection?.anchor.column).toBe(1)
-    expect(selection?.focus.column).toBe(2)
+    await waitFor(() => {
+      const selection = ref.current?.getSelection()
+      expect(selection).not.toBeNull()
+      expect(selection?.anchor.column).toBe(1)
+      expect(selection?.focus.column).toBe(2)
+    })
   })
 
   test('supports option/alt word jumps and meta line jumps', async () => {
@@ -441,7 +445,11 @@ describe('Terminal', () => {
 
   test('single click collapses selection and moves cursor', async () => {
     const ref = createRef<TerminalHandle>()
-    render(<Terminal ref={ref} rows={24} columns={80} />)
+    render(<Terminal ref={ref} rows={24} columns={80} localEcho={false} />)
+
+    await act(async () => {
+      ref.current?.write('hello')
+    })
 
     const region = screen.getByRole('textbox')
     const canvas = region.querySelector('canvas') as HTMLCanvasElement
@@ -469,20 +477,20 @@ describe('Terminal', () => {
       fireEvent.pointerDown(canvas, {
         button: 0,
         pointerId: 1,
-        clientX: 30,
+        clientX: 500,
         clientY: 10,
       })
 
       fireEvent.pointerUp(canvas, {
         button: 0,
         pointerId: 1,
-        clientX: 30,
+        clientX: 500,
         clientY: 10,
       })
 
       const snapshot = ref.current?.getSnapshot()
       expect(snapshot?.selection).toBeNull()
-      expect(snapshot?.cursor.column).toBeGreaterThan(0)
+      expect(snapshot?.cursor.column).toBe(5)
     } finally {
       rectSpy.mockRestore()
     }

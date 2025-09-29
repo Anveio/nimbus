@@ -724,16 +724,17 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         focus()
         const { row, column } = getPointerMetrics(event)
         const timestamp = Date.now()
+        const clampedColumn = interpreter.clampCursorColumn(row, column)
 
         const selection: TerminalSelection = {
-          anchor: { row, column, timestamp },
-          focus: { row, column, timestamp },
+          anchor: { row, column: clampedColumn, timestamp },
+          focus: { row, column: clampedColumn, timestamp },
           kind: event.shiftKey ? 'rectangular' : 'normal',
           status: 'dragging',
         }
         beginSelection(selection, event.pointerId, event.currentTarget)
       },
-      [beginSelection, focus, getPointerMetrics],
+      [beginSelection, focus, getPointerMetrics, interpreter],
     )
 
     const handlePointerMove = useCallback(
@@ -755,9 +756,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
           startAutoScroll(direction)
         }
         const timestamp = Date.now()
+        const clampedColumn = interpreter.clampCursorColumn(row, column)
         const selection: TerminalSelection = {
           anchor: pointerState.anchor,
-          focus: { row, column, timestamp },
+          focus: { row, column: clampedColumn, timestamp },
           kind: pointerState.lastSelection?.kind ?? 'normal',
           status: 'dragging',
         }
@@ -765,6 +767,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       },
       [
         getPointerMetrics,
+        interpreter,
         startAutoScroll,
         stopAutoScroll,
         updateSelectionFromPointer,
@@ -809,9 +812,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         const selection = interpreter.snapshot.selection
         if (!selection || isSelectionCollapsed(selection)) {
           const { row, column } = getPointerMetrics(event)
+          const clampedColumn = interpreter.clampCursorColumn(row, column)
           const updates = interpreter.moveCursorTo(
-            { row, column },
-            { extendSelection: false },
+            { row, column: clampedColumn },
+            { extendSelection: false, clampToLineEnd: true },
           )
           applyUpdates(updates)
         }
