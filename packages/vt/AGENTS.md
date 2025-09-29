@@ -160,3 +160,4 @@ Using Ghostty as a guide, we can finish SOS/PM/APC support, flesh out C1 semanti
 - Added support for DEC Private Mode toggles (DECCOLM, DECAWM, DECOM, DECCKM, DECSCLM, DECSCNM, DECARM, DECTCEM), including 80/132 column rebuilds and keypad state tracking.
 - Wired the canvas renderer to honour DECSCNM by swapping the global foreground/background palette so reverse video takes effect visually.
 - Wired ESC family diagnostics—`DECALN`, keypad application/normal (`ESC =`/`>`), and RIS—while documenting the coverage in README.md and expanding interpreter tests to cover the new behaviours.
+- Parser/interpreter now track G2/G3 designations, GL/GR locking shifts, and SS2/SS3 single shifts so VT320 ISO-2022 flows render with the correct glyphs; new unit and Playwright tests guard Kakoune-style sequences and DEC special graphics locked via `LS2`.

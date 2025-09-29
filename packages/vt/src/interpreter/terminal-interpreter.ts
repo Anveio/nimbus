@@ -683,15 +683,64 @@ export class TerminalInterpreter {
     return char.trim().length === 0
   }
 
-  private getActiveCharset(): CharsetId {
-    return this.state.charsets[this.state.charsets.gl]
+  private resolveCharsetForCode(codePoint: number): {
+    charset: CharsetId
+    baseChar: string
+  } {
+    const charsets = this.state.charsets
+
+    if (codePoint > 0xff) {
+      if (charsets.singleShift) {
+        this.state.charsets = { ...charsets, singleShift: null }
+      }
+      return {
+        charset: charsets[charsets.gl],
+        baseChar: String.fromCodePoint(codePoint),
+      }
+    }
+
+    if (codePoint >= 0x80) {
+      if (charsets.singleShift) {
+        this.state.charsets = { ...charsets, singleShift: null }
+      }
+      return {
+        charset: charsets[charsets.gl],
+        baseChar: String.fromCodePoint(codePoint),
+      }
+    }
+
+    let selector: 'g0' | 'g1' | 'g2' | 'g3' = charsets.gl
+    let baseCode = codePoint
+
+    if (charsets.singleShift) {
+      selector = charsets.singleShift
+      this.state.charsets = { ...charsets, singleShift: null }
+      baseCode = codePoint & 0x7f
+    } else if (codePoint >= 0x20 && codePoint <= 0x7f) {
+      selector = charsets.gl
+    } else if (codePoint >= 0xa0 && codePoint <= 0xff) {
+      selector = charsets.gr
+      baseCode = (codePoint & 0x7f) || 0x20
+    }
+
+    const charsetId = charsets[selector]
+    const baseChar = String.fromCharCode(baseCode)
+    return { charset: charsetId, baseChar }
   }
 
   private renderChar(char: string): string {
-    if (char.length !== 1) {
+    if (char.length === 0) {
       return char
     }
-    return translateGlyph(char, this.getActiveCharset())
+    const codePoint = char.codePointAt(0) ?? char.charCodeAt(0)
+    if (codePoint > 0xff || codePoint >= 0x80) {
+      if (this.state.charsets.singleShift) {
+        this.state.charsets = { ...this.state.charsets, singleShift: null }
+      }
+      return char
+    }
+    const { charset, baseChar } = this.resolveCharsetForCode(codePoint)
+    return translateGlyph(baseChar, charset)
   }
 
   private collectColonSubparameters(
@@ -717,11 +766,23 @@ export class TerminalInterpreter {
     return { values, lastIndex: currentIndex }
   }
 
-  private setGlSelector(selector: 'g0' | 'g1'): void {
+  private setGlSelector(selector: 'g0' | 'g1' | 'g2' | 'g3'): void {
     this.state.charsets = { ...this.state.charsets, gl: selector }
   }
 
-  private designateCharset(register: 'g0' | 'g1', designator: string): void {
+  private setGrSelector(selector: 'g0' | 'g1' | 'g2' | 'g3'): void {
+    this.state.charsets = { ...this.state.charsets, gr: selector }
+  }
+
+  private setSingleShift(selector: 'g2' | 'g3'): TerminalUpdate[] {
+    this.state.charsets = { ...this.state.charsets, singleShift: selector }
+    return []
+  }
+
+  private designateCharset(
+    register: 'g0' | 'g1' | 'g2' | 'g3',
+    designator: string,
+  ): void {
     const charset = resolveCharset(designator)
     this.state.charsets = {
       ...this.state.charsets,
@@ -784,14 +845,18 @@ export class TerminalInterpreter {
     if (event.intermediates.length > 0) {
       const prefix = String.fromCharCode(event.intermediates[0]!)
       switch (prefix) {
-        case '(': {
+        case '(':
           this.designateCharset('g0', final)
           return []
-        }
-        case ')': {
+        case ')':
           this.designateCharset('g1', final)
           return []
-        }
+        case '*':
+          this.designateCharset('g2', final)
+          return []
+        case '+':
+          this.designateCharset('g3', final)
+          return []
         case '#': {
           if (final === '8') {
             return this.applyScreenAlignmentPattern()
@@ -820,6 +885,25 @@ export class TerminalInterpreter {
         return this.setKeypadApplicationMode(true)
       case '>':
         return this.setKeypadApplicationMode(false)
+      case 'N':
+        return this.setSingleShift('g2')
+      case 'O':
+        return this.setSingleShift('g3')
+      case 'n':
+        this.setGlSelector('g2')
+        return []
+      case 'o':
+        this.setGlSelector('g3')
+        return []
+      case '~':
+        this.setGrSelector('g1')
+        return []
+      case '}':
+        this.setGrSelector('g2')
+        return []
+      case '|':
+        this.setGrSelector('g3')
+        return []
       case 'c':
         return this.resetToInitialState()
       default:

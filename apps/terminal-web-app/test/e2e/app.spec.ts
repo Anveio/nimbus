@@ -369,6 +369,28 @@ test.describe('terminal e2e harness', () => {
     expect(cell?.attr.italic).toBe(false)
   })
 
+  test('locks G2 into GL and renders DEC special glyphs', async ({ page }) => {
+    await page.goto('/')
+
+    const terminal = page.getByRole('textbox', { name: 'Interactive terminal' })
+    await terminal.click()
+
+    await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001b*0\u001bnqq')
+    })
+
+    const chars = await page.evaluate(() => {
+      const snapshot = window.__manaTerminalTestHandle__?.getSnapshot()
+      if (!snapshot) {
+        return null
+      }
+      return snapshot.buffer[0]?.slice(0, 2).map((cell) => cell?.char ?? '') ?? []
+    })
+
+    expect(chars).toEqual(['─', '─'])
+  })
+
   test('single click moves the cursor within line bounds', async ({ page }) => {
     await page.goto('/')
 

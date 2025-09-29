@@ -128,6 +128,21 @@ describe('TerminalInterpreter basic behaviour', () => {
     expect(cell.attr.italic).toBe(false)
   })
 
+  it('designates G2 and locks it into GL', () => {
+    const { interpreter } = run('\u001b*0\u001bnqq')
+    const row = interpreter.snapshot.buffer[0]!
+    expect(row[0]!.char).toBe('─')
+    expect(row[1]!.char).toBe('─')
+  })
+
+  it('handles single shift SS2 without altering GL', () => {
+    const { interpreter } = run('\u001b*0q\u001bNqX')
+    const row = interpreter.snapshot.buffer[0]!
+    expect(row[0]!.char).toBe('q')
+    expect(row[1]!.char).toBe('─')
+    expect(row[2]!.char).toBe('X')
+  })
+
   it('inserts and deletes lines within the scroll region', () => {
     const sequence = 'line1\r\nline2\r\nline3\u001b[2;1H\u001b[1L'
     const { interpreter } = run(sequence)

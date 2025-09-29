@@ -41,7 +41,11 @@ export type CharsetId = 'us_ascii' | 'dec_special'
 export interface TerminalCharsets {
   g0: CharsetId
   g1: CharsetId
-  gl: 'g0' | 'g1'
+  g2: CharsetId
+  g3: CharsetId
+  gl: 'g0' | 'g1' | 'g2' | 'g3'
+  gr: 'g0' | 'g1' | 'g2' | 'g3'
+  singleShift: 'g2' | 'g3' | null
 }
 
 export interface TerminalState {
@@ -161,7 +165,15 @@ export const createInitialState = (
     savedCursor: null,
     savedAttributes: null,
     selection: null,
-    charsets: { g0: 'us_ascii', g1: 'us_ascii', gl: 'g0' },
+    charsets: {
+      g0: 'us_ascii',
+      g1: 'us_ascii',
+      g2: 'us_ascii',
+      g3: 'us_ascii',
+      gl: 'g0',
+      gr: 'g1',
+      singleShift: null,
+    },
     keypadApplicationMode: false,
     cursorKeysApplicationMode: false,
     smoothScroll: false,
