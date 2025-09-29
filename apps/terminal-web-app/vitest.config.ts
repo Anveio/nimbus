@@ -11,5 +11,12 @@ export default defineConfig({
     silent: !verbose,
     setupFiles: ['./vitest.setup.ts'],
     include: ['test/**/*.test.{ts,tsx}'],
+    coverage: {
+      enabled: true,
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/**/*.d.ts'],
+    },
   },
 })

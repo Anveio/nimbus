@@ -168,15 +168,16 @@ const mergeSelectionTheme = (
     return undefined
   }
 
-  const theme: RendererSelectionTheme = {
+  if (resolvedForeground !== undefined) {
+    return {
+      background: resolvedBackground,
+      foreground: resolvedForeground,
+    }
+  }
+
+  return {
     background: resolvedBackground,
   }
-
-  if (resolvedForeground !== undefined) {
-    theme.foreground = resolvedForeground
-  }
-
-  return theme
 }
 
 const mergeTheme = (override?: Partial<RendererTheme>): RendererTheme => ({
@@ -214,6 +215,30 @@ const mergeMetrics = (override?: {
   font: mergeFont(override?.font),
   cell: mergeCell(override?.cell),
 })
+
+const findLastContentRow = (state: TerminalState): number => {
+  for (let row = state.rows - 1; row >= 0; row -= 1) {
+    const rowBuffer = state.buffer[row]
+    if (!rowBuffer) {
+      continue
+    }
+    for (let column = 0; column < state.columns; column += 1) {
+      const char = rowBuffer[column]?.char ?? ' '
+      if (char !== ' ') {
+        return Math.min(row, Math.max(0, state.rows - 1))
+      }
+    }
+  }
+  return 0
+}
+
+const clampRowToContent = (state: TerminalState, row: number): number => {
+  const maxRow = findLastContentRow(state)
+  if (maxRow <= 0) {
+    return 0
+  }
+  return Math.max(0, Math.min(row, maxRow))
+}
 
 const encodeKeyEvent = (
   event: React.KeyboardEvent<HTMLDivElement>,
@@ -724,9 +749,12 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         focus()
         const { row, column } = getPointerMetrics(event)
         const timestamp = Date.now()
-        const clampedColumn = interpreter.clampCursorColumn(row, column)
-
-        const clampedRow = interpreter.clampRowToContent(row)
+        const snapshot = interpreter.snapshot
+        const clampedRow = clampRowToContent(snapshot, row)
+        const clampedColumn = interpreter.clampCursorColumn(
+          clampedRow,
+          column,
+        )
         const selection: TerminalSelection = {
           anchor: { row: clampedRow, column: clampedColumn, timestamp },
           focus: { row: clampedRow, column: clampedColumn, timestamp },
@@ -757,8 +785,12 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
           startAutoScroll(direction)
         }
         const timestamp = Date.now()
-        const clampedColumn = interpreter.clampCursorColumn(row, column)
-        const clampedRow = interpreter.clampRowToContent(row)
+        const snapshot = interpreter.snapshot
+        const clampedRow = clampRowToContent(snapshot, row)
+        const clampedColumn = interpreter.clampCursorColumn(
+          clampedRow,
+          column,
+        )
         const selection: TerminalSelection = {
           anchor: pointerState.anchor,
           focus: { row: clampedRow, column: clampedColumn, timestamp },
@@ -814,8 +846,12 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         const selection = interpreter.snapshot.selection
         if (!selection || isSelectionCollapsed(selection)) {
           const { row, column } = getPointerMetrics(event)
-          const clampedRow = interpreter.clampRowToContent(row)
-          const clampedColumn = interpreter.clampCursorColumn(clampedRow, column)
+          const snapshot = interpreter.snapshot
+          const clampedRow = clampRowToContent(snapshot, row)
+          const clampedColumn = interpreter.clampCursorColumn(
+            clampedRow,
+            column,
+          )
           const updates = interpreter.moveCursorTo(
             { row: clampedRow, column: clampedColumn },
             {

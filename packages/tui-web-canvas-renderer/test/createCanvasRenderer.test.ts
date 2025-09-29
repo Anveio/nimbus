@@ -237,6 +237,12 @@ const createSnapshot = (rows: number, columns: number): TerminalState => ({
   savedCursor: null,
   savedAttributes: null,
   selection: null,
+  charsets: { g0: 'us_ascii', g1: 'us_ascii', gl: 'g0' },
+  keypadApplicationMode: false,
+  cursorKeysApplicationMode: false,
+  smoothScroll: false,
+  reverseVideo: false,
+  autoRepeat: true,
 })
 
 describe('createCanvasRenderer', () => {
