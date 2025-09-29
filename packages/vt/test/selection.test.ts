@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
+  clampSelectionRange,
   getSelectionBounds,
+  getSelectionRange,
   getSelectionRowSegment,
   getSelectionRowSegments,
   isSelectionCollapsed,
   type SelectionKind,
   type TerminalSelection,
-} from '../src/selection'
+} from '../src/interpreter/selection'
 
 const createSelection = (
   anchorRow: number,
@@ -95,5 +97,23 @@ describe('selection helpers', () => {
     expect(getSelectionRowSegment(selection, 0, 0)).toBeNull()
     expect(getSelectionRowSegments(selection, 0)).toEqual([])
     expect(isSelectionCollapsed(selection)).toBe(true)
+  })
+
+  it('derives selection range with start/end ordering', () => {
+    const selection = createSelection(4, 12, 2, 3)
+    const range = getSelectionRange(selection)
+    expect(range.start.row).toBe(2)
+    expect(range.start.column).toBe(3)
+    expect(range.end.row).toBe(4)
+    expect(range.end.column).toBe(12)
+  })
+
+  it('clamps selection ranges within screen bounds', () => {
+    const selection = createSelection(10, 200, -5, -10)
+    const range = clampSelectionRange(getSelectionRange(selection), 5, 20)
+    expect(range.start.row).toBe(0)
+    expect(range.start.column).toBe(0)
+    expect(range.end.row).toBe(4)
+    expect(range.end.column).toBe(20)
   })
 })

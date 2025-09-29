@@ -6,8 +6,13 @@ import {
   type TerminalCapabilities,
 } from '../types'
 import type { CellDelta, TerminalUpdate } from './delta'
-import type { TerminalSelection } from '../selection'
-import { areSelectionsEqual } from '../selection'
+import type { TerminalSelection } from './selection'
+import {
+  areSelectionsEqual,
+  clampSelectionRange,
+  getSelectionRange,
+  isSelectionCollapsed,
+} from './selection'
 import {
   blankCell,
   clearAllTabStops,
@@ -20,6 +25,7 @@ import {
   resetRow,
   setCell,
   setTabStop,
+  type TerminalAttributes,
   type TerminalCell,
   type TerminalColor,
   type TerminalState,
@@ -48,6 +54,26 @@ const clamp = (value: number, min: number, max: number): number =>
 
 const clampColorComponent = (value: number): number =>
   clamp(Math.trunc(value), 0, 255)
+
+interface EditSelectionOptions {
+  readonly replacement: string
+  readonly selection?: TerminalSelection | null
+  readonly attributesOverride?: TerminalAttributes
+}
+
+const cloneCell = (cell: TerminalCell): TerminalCell => ({
+  char: cell.char,
+  attr: cloneAttributes(cell.attr),
+})
+
+const cellsFromText = (
+  text: string,
+  attributes: TerminalAttributes,
+): TerminalCell[] =>
+  Array.from(text).map((char) => ({
+    char,
+    attr: cloneAttributes(attributes),
+  }))
 
 interface ActiveDcs {
   readonly finalByte: number
@@ -137,6 +163,183 @@ export class TerminalInterpreter {
     return [{ type: 'selection-clear' }]
   }
 
+  editSelection(options: EditSelectionOptions): TerminalUpdate[] {
+    const replacement = options.replacement
+    const activeSelection = options.selection ?? this.state.selection
+    const selectionIsCollapsed =
+      !activeSelection || isSelectionCollapsed(activeSelection)
+
+    const defaultSelection: TerminalSelection = selectionIsCollapsed
+      ? {
+          anchor: {
+            row: this.state.cursor.row,
+            column: this.state.cursor.column,
+            timestamp: Date.now(),
+          },
+          focus: {
+            row: this.state.cursor.row,
+            column: this.state.cursor.column,
+            timestamp: Date.now(),
+          },
+          kind: 'normal',
+          status: 'idle',
+        }
+      : activeSelection!
+
+    if (defaultSelection.kind === 'rectangular') {
+      return []
+    }
+
+    const range = clampSelectionRange(
+      getSelectionRange(defaultSelection),
+      this.state.rows,
+      this.state.columns,
+    )
+
+    const startRow = range.start.row
+    const startColumn = clamp(range.start.column, 0, this.state.columns)
+    const endRow = range.end.row
+    const endColumn = clamp(range.end.column, 0, this.state.columns)
+
+    const replacementAttributes =
+      options.attributesOverride ?? this.state.attributes
+
+    const beforeCells: TerminalCell[] = []
+    const afterCells: TerminalCell[] = []
+
+    if (startRow < this.state.rows) {
+      ensureRowCapacity(this.state, startRow)
+      const row = this.state.buffer[startRow] ?? []
+      for (let column = 0; column < Math.min(startColumn, this.state.columns); column += 1) {
+        const cell = row[column]
+        if (cell) {
+          beforeCells.push(cloneCell(cell))
+        }
+      }
+    }
+
+    if (endRow < this.state.rows) {
+      ensureRowCapacity(this.state, endRow)
+      const row = this.state.buffer[endRow] ?? []
+      for (let column = endColumn; column < this.state.columns; column += 1) {
+        const cell = row[column]
+        if (cell) {
+          afterCells.push(cloneCell(cell))
+        }
+      }
+    }
+
+    const replacementLines = replacement.split(/\r?\n/)
+
+    if (
+      replacement.startsWith(' ') &&
+      beforeCells.length > 0 &&
+      beforeCells[beforeCells.length - 1]!.char === ' '
+    ) {
+      beforeCells.pop()
+    }
+
+    const composedLines: TerminalCell[][] = []
+
+    if (replacementLines.length === 0) {
+      composedLines.push([...beforeCells, ...afterCells])
+    } else {
+      replacementLines.forEach((line, index) => {
+        const lineCells = cellsFromText(line, replacementAttributes)
+        if (index === 0) {
+          composedLines.push([...beforeCells, ...lineCells])
+        } else {
+          composedLines.push([...lineCells])
+        }
+      })
+      composedLines[composedLines.length - 1]?.push(...afterCells)
+    }
+
+    const cellUpdates: CellDelta[] = []
+
+    const writeRow = (rowIndex: number, cells: TerminalCell[]): void => {
+      if (rowIndex < 0 || rowIndex >= this.state.rows) {
+        return
+      }
+      ensureRowCapacity(this.state, rowIndex)
+      const limit = Math.min(cells.length, this.state.columns)
+      for (let column = 0; column < limit; column += 1) {
+        const cell = cloneCell(cells[column]!)
+        setCell(this.state, rowIndex, column, cell)
+        cellUpdates.push({ row: rowIndex, column, cell })
+      }
+      for (let column = limit; column < this.state.columns; column += 1) {
+        const cell = blankCell(this.state.attributes)
+        setCell(this.state, rowIndex, column, cell)
+        cellUpdates.push({ row: rowIndex, column, cell })
+      }
+    }
+
+    const chunks: TerminalCell[][] = []
+    composedLines.forEach((line) => {
+      if (line.length === 0) {
+        chunks.push([])
+        return
+      }
+      for (let index = 0; index < line.length; index += this.state.columns) {
+        chunks.push(line.slice(index, index + this.state.columns))
+      }
+    })
+
+    if (composedLines.length === 0) {
+      chunks.push(beforeCells.concat(afterCells))
+    }
+
+    let rowsWritten = 0
+    const maxRows = this.state.rows
+    for (const chunk of chunks) {
+      const rowIndex = startRow + rowsWritten
+      if (rowIndex >= maxRows) {
+        break
+      }
+      writeRow(rowIndex, chunk)
+      rowsWritten += 1
+    }
+
+    const originalSpan = endRow >= startRow ? endRow - startRow + 1 : 1
+    if (rowsWritten < originalSpan) {
+      for (
+        let rowIndex = startRow + rowsWritten;
+        rowIndex <= endRow && rowIndex < this.state.rows;
+        rowIndex += 1
+      ) {
+        const blanks: TerminalCell[] = Array.from({ length: this.state.columns }, () =>
+          blankCell(this.state.attributes),
+        )
+        writeRow(rowIndex, blanks)
+      }
+    }
+
+    if (cellUpdates.length === 0 && replacement.length === 0 && selectionIsCollapsed) {
+      return []
+    }
+
+    const updates: TerminalUpdate[] = []
+    if (cellUpdates.length > 0) {
+      updates.push({ type: 'cells', cells: cellUpdates })
+    }
+
+    const newCursor = this.resolveCursorAfterEdit({
+      startRow,
+      startColumn,
+      replacement,
+    })
+
+    this.state.cursor = newCursor
+    updates.push(this.cursorUpdate())
+
+    if (!selectionIsCollapsed) {
+      updates.push(...this.clearSelection())
+    }
+
+    return updates
+  }
+
   private applySelection(
     selection: TerminalSelection,
     updateType: 'selection-set' | 'selection-update',
@@ -211,6 +414,35 @@ export class TerminalInterpreter {
     }
 
     return { cells, updates }
+  }
+
+  private resolveCursorAfterEdit(params: {
+    startRow: number
+    startColumn: number
+    replacement: string
+  }): { row: number; column: number } {
+    let row = clamp(params.startRow, 0, this.state.rows - 1)
+    let column = clamp(params.startColumn, 0, this.state.columns - 1)
+
+    if (params.replacement.length === 0) {
+      return { row, column }
+    }
+
+    for (const char of params.replacement) {
+      if (char === '\n') {
+        row = clamp(row + 1, 0, this.state.rows - 1)
+        column = 0
+        continue
+      }
+
+      column += 1
+      if (column >= this.state.columns) {
+        column = 0
+        row = clamp(row + 1, 0, this.state.rows - 1)
+      }
+    }
+
+    return { row, column }
   }
 
   private handleExecute(codePoint: number): TerminalUpdate[] {

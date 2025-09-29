@@ -26,6 +26,21 @@ export interface SelectionRowSegment {
   readonly endColumn: number
 }
 
+export interface SelectionRange {
+  readonly start: SelectionPoint
+  readonly end: SelectionPoint
+}
+
+const clonePoint = (
+  point: SelectionPoint,
+  row: number,
+  column: number,
+): SelectionPoint => ({
+  row,
+  column,
+  timestamp: point.timestamp,
+})
+
 const comparePoints = (a: SelectionPoint, b: SelectionPoint): number => {
   if (a.row !== b.row) {
     return a.row - b.row
@@ -36,11 +51,18 @@ const comparePoints = (a: SelectionPoint, b: SelectionPoint): number => {
   return a.timestamp - b.timestamp
 }
 
-const clonePoint = (point: SelectionPoint, row: number, column: number): SelectionPoint => ({
-  row,
-  column,
-  timestamp: point.timestamp,
-})
+const clampCaret = (value: number, columns: number): number => {
+  if (columns <= 0) {
+    return 0
+  }
+  if (value < 0) {
+    return 0
+  }
+  if (value > columns) {
+    return columns
+  }
+  return value
+}
 
 const clamp = (value: number, min: number, max: number): number => {
   if (value < min) {
@@ -83,13 +105,6 @@ export const getSelectionBounds = (selection: TerminalSelection): SelectionBound
     topLeft: selection.focus,
     bottomRight: selection.anchor,
   }
-}
-
-const clampCaret = (value: number, columns: number): number => {
-  if (columns <= 0) {
-    return 0
-  }
-  return clamp(value, 0, columns)
 }
 
 export const getSelectionRowSegment = (
@@ -168,6 +183,45 @@ export const isSelectionCollapsed = (
 ): boolean => {
   const { topLeft, bottomRight } = getSelectionBounds(selection)
   return topLeft.row === bottomRight.row && topLeft.column === bottomRight.column
+}
+
+export const getSelectionRange = (
+  selection: TerminalSelection,
+): SelectionRange => {
+  const { topLeft, bottomRight } = getSelectionBounds(selection)
+  return {
+    start: {
+      row: topLeft.row,
+      column: topLeft.column,
+      timestamp: topLeft.timestamp,
+    },
+    end: {
+      row: bottomRight.row,
+      column: bottomRight.column,
+      timestamp: bottomRight.timestamp,
+    },
+  }
+}
+
+export const clampSelectionRange = (
+  range: SelectionRange,
+  rows: number,
+  columns: number,
+): SelectionRange => {
+  const maxRow = Math.max(0, rows - 1)
+  const clampRow = (row: number): number => clamp(row, 0, maxRow)
+  return {
+    start: {
+      row: clampRow(range.start.row),
+      column: clampCaret(range.start.column, columns),
+      timestamp: range.start.timestamp,
+    },
+    end: {
+      row: clampRow(range.end.row),
+      column: clampCaret(range.end.column, columns),
+      timestamp: range.end.timestamp,
+    },
+  }
 }
 
 export const areSelectionsEqual = (

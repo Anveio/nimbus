@@ -4,7 +4,7 @@ import {
   createInterpreter,
   type TerminalInterpreter,
 } from '../src/interpreter/terminal-interpreter'
-import type { TerminalSelection } from '../src/selection'
+import type { TerminalSelection } from '../src/interpreter/selection'
 import { createParser } from '../src/parser'
 import type { ParserEvent, ParserEventSink, ParserOptions } from '../src/types'
 
@@ -256,6 +256,70 @@ describe('TerminalInterpreter basic behaviour', () => {
 
     const noopClear = interpreter.clearSelection()
     expect(noopClear).toEqual([])
+  })
+
+  it('replaces selection within a single row via editSelection', () => {
+    const { interpreter } = run('ALPHA BETA')
+    const selection: TerminalSelection = {
+      anchor: { row: 0, column: 6, timestamp: 1 },
+      focus: { row: 0, column: 10, timestamp: 2 },
+      kind: 'normal',
+      status: 'idle',
+    }
+
+    interpreter.setSelection(selection)
+    const updates = interpreter.editSelection({
+      selection,
+      replacement: ' keyboard paste',
+    })
+
+    const row0 = interpreter.snapshot.buffer[0]!
+    const rendered = row0.map((cell) => cell.char).join('').trimEnd()
+    expect(rendered).toBe('ALPHA keyboard paste')
+    expect(interpreter.snapshot.cursor.row).toBe(0)
+    expect(interpreter.snapshot.cursor.column).toBe(
+      6 + ' keyboard paste'.length,
+    )
+    expect(interpreter.snapshot.selection).toBeNull()
+    expect(updates.some((update) => update.type === 'selection-clear')).toBe(true)
+    expect(updates.some((update) => update.type === 'cells')).toBe(true)
+    expect(updates.some((update) => update.type === 'cursor')).toBe(true)
+  })
+
+  it('supports multi-line replacement with newlines in editSelection', () => {
+    const { interpreter } = run('HELLO\nWORLD')
+    const selection: TerminalSelection = {
+      anchor: { row: 0, column: 0, timestamp: 1 },
+      focus: { row: 1, column: 0, timestamp: 2 },
+      kind: 'normal',
+      status: 'idle',
+    }
+
+    interpreter.setSelection(selection)
+    interpreter.editSelection({
+      selection,
+      replacement: 'FOO\nBAR',
+    })
+
+    const firstRow = interpreter.snapshot.buffer[0]!
+    const secondRow = interpreter.snapshot.buffer[1]!
+    expect(firstRow.slice(0, 3).map((cell) => cell.char).join('')).toBe('FOO')
+    expect(secondRow.slice(0, 8).map((cell) => cell.char).join('')).toBe(
+      'BARWORLD',
+    )
+    expect(interpreter.snapshot.cursor.row).toBe(1)
+    expect(interpreter.snapshot.cursor.column).toBe(3)
+  })
+
+  it('inserts text at the cursor when no selection is active', () => {
+    const { interpreter } = run('PROMPT ')
+    const updates = interpreter.editSelection({ replacement: 'λ> ' })
+
+    const row = interpreter.snapshot.buffer[0]!
+    expect(row.slice(0, 9).map((cell) => cell.char).join('')).toBe('PROMPT λ>')
+    expect(interpreter.snapshot.cursor.column).toBe(10)
+    expect(updates.some((update) => update.type === 'cells')).toBe(true)
+    expect(updates.some((update) => update.type === 'cursor')).toBe(true)
   })
 
   it('renders individual box drawing characters correctly', () => {

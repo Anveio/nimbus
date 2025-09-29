@@ -11,7 +11,6 @@ import type { TerminalInterpreter } from '@mana-ssh/vt'
 import {
   createInterpreter,
   createParser,
-  getSelectionBounds,
   getSelectionRowSegments,
   isSelectionCollapsed,
   type ParserEvent,
@@ -872,48 +871,18 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     )
 
     const replaceSelectionWithText = useCallback(
-      (selection: TerminalSelection, replacement: string) => {
-        const bounds = getSelectionBounds(selection)
-        const startRow = bounds.topLeft.row
-        const endRow = bounds.bottomRight.row
-
-        if (startRow !== endRow) {
-          clearSelection()
+      (selection: TerminalSelection | null, replacement: string) => {
+        const updates = interpreter.editSelection({
+          selection: selection ?? undefined,
+          replacement,
+        })
+        if (updates.length === 0) {
           return false
         }
-
-        const startColumn = bounds.topLeft.column
-        const endColumnExclusive = bounds.bottomRight.column
-        const rowCells = interpreter.snapshot.buffer[startRow] ?? []
-        const rowChars = rowCells.map((cell) => cell?.char ?? ' ')
-        let before = rowChars.slice(0, startColumn).join('')
-        const after = rowChars.slice(endColumnExclusive).join('')
-
-        if (before.endsWith(' ') && replacement.startsWith(' ')) {
-          before = before.slice(0, -1)
-        }
-
-        const currentRow = interpreter.snapshot.cursor.row
-        const rowDelta = currentRow - startRow
-        if (rowDelta > 0) {
-          write(`[${rowDelta}A`)
-        } else if (rowDelta < 0) {
-          write(`[${Math.abs(rowDelta)}B`)
-        }
-
-        write('\r')
-        write('[2K')
-        write(before + replacement + after)
-        write('\r')
-        const newCursorColumn = before.length + replacement.length
-        if (newCursorColumn > 0) {
-          write(`[${newCursorColumn}C`)
-        }
-
-        clearSelection()
+        applyUpdates(updates)
         return true
       },
-      [clearSelection, interpreter, write],
+      [applyUpdates, interpreter],
     )
 
     const handlePaste = useCallback(
@@ -923,10 +892,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
           return
         }
         event.preventDefault()
-        const selection = interpreter.snapshot.selection
-        const replacementApplied = selection
-          ? replaceSelectionWithText(selection, text)
-          : false
+        const selection = interpreter.snapshot.selection ?? null
+        const replacementApplied = replaceSelectionWithText(selection, text)
 
         const payload = TEXT_ENCODER.encode(text)
         if (replacementApplied) {

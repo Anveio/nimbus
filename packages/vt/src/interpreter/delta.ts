@@ -6,7 +6,7 @@ import type {
   TerminalCell,
   TerminalColor,
 } from './state'
-import type { TerminalSelection } from '../selection'
+import type { TerminalSelection } from './selection'
 
 export interface CellDelta {
   readonly row: number

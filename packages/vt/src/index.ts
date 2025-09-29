@@ -20,7 +20,9 @@ export {
   getSelectionRowSegments,
   isSelectionCollapsed,
   areSelectionsEqual,
-} from './selection'
+  getSelectionRange,
+  clampSelectionRange,
+} from './interpreter/selection'
 export type {
   SelectionBounds,
   SelectionKind,
@@ -28,7 +30,8 @@ export type {
   SelectionRowSegment,
   SelectionStatus,
   TerminalSelection,
-} from './selection'
+  SelectionRange,
+} from './interpreter/selection'
 export {
   createInterpreter,
   TerminalInterpreter,

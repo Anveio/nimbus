@@ -158,4 +158,12 @@ Replace the inside of the tags with your actual generated problem, solution and 
 
 -   Began wiring keyboard-selection + clipboard copy/paste e2e coverage. Added a minimal global harness (`window.__manaTerminalTestHandle__`) with `write`, `getSnapshot`, and `getSelection`, plus clipboard permissions in Playwright. Early attempts revealed `getSelection()` stays `null` after Shift+Arrow because the renderer never propagates keyboard-driven selections yet—needs follow-up inside `packages/tui-react` before the new e2e passes.
 
+### Sunday, October 5, 2025 (Evening)
+
+-   Locked in the layered selection/paste roadmap: `@mana-ssh/vt` will expose caret-aware range helpers and interpreter editing primitives, renderers stay passive highlighting engines, and `@mana-ssh/tui-react` orchestrates user input via the new APIs. Hosts remain responsible for clipboard integration and policy toggles.
+-   Next sprint tasks:
+    1.  Spec and implement an interpreter-level `editSelection`/`replaceRange` API with supporting pure helpers in `@mana-ssh/vt` (multi-line aware, returns granular `TerminalUpdate`s).
+    2.  Refactor `@mana-ssh/tui-react` to consume these primitives, eliminating ad-hoc CSI writes and consolidating keyboard/pointer selection lifecycles.
+    3.  Revisit renderer contracts so selection themes can encode status (idle/dragging) without owning state, and extend E2E/unit coverage around paste replacement.
+
 </memory-bank>

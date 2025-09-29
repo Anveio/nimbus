@@ -1,5 +1,5 @@
 import type { SosPmApcKind, TerminalCapabilities } from '../types'
-import type { TerminalSelection } from '../selection'
+import type { TerminalSelection } from './selection'
 
 export type TerminalColor =
   | { readonly type: 'default' }
