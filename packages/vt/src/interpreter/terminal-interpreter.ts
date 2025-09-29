@@ -549,7 +549,7 @@ export class TerminalInterpreter {
     return { row, column }
   }
 
-  private moveCursorTo(
+  moveCursorTo(
     target: { row: number; column: number },
     options: CursorMoveOptions,
   ): TerminalUpdate[] {

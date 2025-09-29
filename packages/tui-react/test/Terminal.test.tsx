@@ -438,4 +438,53 @@ describe('Terminal', () => {
     fireEvent.keyUp(region, { key: 'ArrowRight', altKey: true })
     expect(ref.current?.getSnapshot().cursor.column).toBeGreaterThan(0)
   })
+
+  test('single click collapses selection and moves cursor', async () => {
+    const ref = createRef<TerminalHandle>()
+    render(<Terminal ref={ref} rows={24} columns={80} />)
+
+    const region = screen.getByRole('textbox')
+    const canvas = region.querySelector('canvas') as HTMLCanvasElement
+    await userEvent.click(region)
+
+    const rectSpy = vi
+      .spyOn(canvas, 'getBoundingClientRect')
+      .mockReturnValue({
+        left: 0,
+        top: 0,
+        right: 90,
+        bottom: 180,
+        width: 90,
+        height: 180,
+        x: 0,
+        y: 0,
+        toJSON: () => {},
+      } as DOMRect)
+
+    try {
+      ;(canvas as any).setPointerCapture = vi.fn()
+      ;(canvas as any).releasePointerCapture = vi.fn()
+      ;(canvas as any).hasPointerCapture = vi.fn(() => true)
+
+      fireEvent.pointerDown(canvas, {
+        button: 0,
+        pointerId: 1,
+        clientX: 30,
+        clientY: 10,
+      })
+
+      fireEvent.pointerUp(canvas, {
+        button: 0,
+        pointerId: 1,
+        clientX: 30,
+        clientY: 10,
+      })
+
+      const snapshot = ref.current?.getSnapshot()
+      expect(snapshot?.selection).toBeNull()
+      expect(snapshot?.cursor.column).toBeGreaterThan(0)
+    } finally {
+      rectSpy.mockRestore()
+    }
+  })
 })

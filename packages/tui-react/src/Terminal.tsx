@@ -724,6 +724,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         focus()
         const { row, column } = getPointerMetrics(event)
         const timestamp = Date.now()
+
         const selection: TerminalSelection = {
           anchor: { row, column, timestamp },
           focus: { row, column, timestamp },
@@ -805,8 +806,17 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       (event: React.PointerEvent<HTMLCanvasElement>) => {
         event.preventDefault()
         finalizeSelection(event, 'idle')
+        const selection = interpreter.snapshot.selection
+        if (!selection || isSelectionCollapsed(selection)) {
+          const { row, column } = getPointerMetrics(event)
+          const updates = interpreter.moveCursorTo(
+            { row, column },
+            { extendSelection: false },
+          )
+          applyUpdates(updates)
+        }
       },
-      [finalizeSelection],
+      [applyUpdates, finalizeSelection, getPointerMetrics, interpreter],
     )
 
     const handlePointerCancel = useCallback(
