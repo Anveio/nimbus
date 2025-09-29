@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createParser } from '../src/parser'
 import {
+  type Parser,
   type ParserEvent,
   type ParserEventSink,
   type ParserOptions,
@@ -10,12 +11,19 @@ import { createInterpreter, type TerminalInterpreter } from '../src/interpreter/
 
 class RecordingSink implements ParserEventSink {
   constructor(
+    private readonly parser: Parser,
     private readonly interpreter: TerminalInterpreter,
     private readonly updates: TerminalUpdate[][],
   ) {}
 
   onEvent(event: ParserEvent): void {
-    this.updates.push(this.interpreter.handleEvent(event))
+    const updates = this.interpreter.handleEvent(event)
+    this.updates.push(updates)
+    for (const update of updates) {
+      if (update.type === 'c1-transmission') {
+        this.parser.setC1TransmissionMode(update.value)
+      }
+    }
   }
 }
 
@@ -23,7 +31,7 @@ const createHarness = (options: ParserOptions = { spec: 'vt320' }) => {
   const parser = createParser(options)
   const interpreter = createInterpreter({ parser: options })
   const updates: TerminalUpdate[][] = []
-  const sink = new RecordingSink(interpreter, updates)
+  const sink = new RecordingSink(parser, interpreter, updates)
   return { parser, interpreter, sink, updates }
 }
 
@@ -38,7 +46,6 @@ describe('VT320 capabilities', () => {
     expect(responses).toHaveLength(1)
     if (responses[0]?.type === 'response') {
       expect(Array.from(responses[0].data)).toEqual([
-        0xc2,
         0x9b,
         0x3f,
         0x36,
@@ -65,7 +72,6 @@ describe('VT320 capabilities', () => {
     expect(responses).toHaveLength(1)
     if (responses[0]?.type === 'response') {
       expect(Array.from(responses[0].data)).toEqual([
-        0xc2,
         0x9b,
         0x3e,
         0x36,
@@ -105,6 +111,13 @@ describe('VT320 capabilities', () => {
     }
 
     updates.length = 0
+    parser.write(new Uint8Array([0x9b]), sink)
+    const printedDuringSevenBit = updates
+      .flat()
+      .filter((update) => update.type === 'cells')
+    expect(printedDuringSevenBit).toHaveLength(0)
+
+    updates.length = 0
     parser.write('\u001B[?66l', sink)
     const secondPassUpdates = updates.flat()
     expect(
@@ -122,11 +135,33 @@ describe('VT320 capabilities', () => {
       .filter((update) => update.type === 'response')
     expect(finalResponses).toHaveLength(1)
     if (finalResponses[0]?.type === 'response') {
-      expect(Array.from(finalResponses[0].data.slice(0, 2))).toEqual([
-        0xc2,
+      expect(Array.from(finalResponses[0].data)).toEqual([
         0x9b,
+        0x3f,
+        0x36,
+        0x32,
+        0x3b,
+        0x31,
+        0x3b,
+        0x32,
+        0x3b,
+        0x36,
+        0x3b,
+        0x37,
+        0x3b,
+        0x38,
+        0x3b,
+        0x39,
+        0x63,
       ])
     }
+
+    updates.length = 0
+    parser.write(new Uint8Array([0x9b, 0x41]), sink)
+    const postRestoreCells = updates
+      .flat()
+      .filter((update) => update.type === 'cells')
+    expect(postRestoreCells).toHaveLength(0)
   })
 
   it('translates NRCS glyphs after designation', () => {

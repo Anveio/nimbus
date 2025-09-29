@@ -68,9 +68,7 @@ const getResponseCodesFrom = async (
       return []
     }
     const responses = handle.getResponses()
-    return responses.slice(start).map((entry) =>
-      Array.from(entry).map((char) => char.codePointAt(0) ?? 0),
-    )
+    return responses.slice(start).map((entry) => Array.from(entry))
   }, offset)
 }
 
@@ -438,9 +436,7 @@ test.describe('terminal e2e harness', () => {
 
     const primaryResponses = await getResponseCodesFrom(page, initialCount)
     const primaryDeviceAttributes = primaryResponses.pop() ?? []
-    expect(primaryDeviceAttributes[0] === 0x9b || primaryDeviceAttributes[0] === 0x1b).toBe(
-      true,
-    )
+    expect(primaryDeviceAttributes[0]).toBe(0x9b)
     expect(normaliseDeviceAttributes(primaryDeviceAttributes)).toBe(
       '?62;1;2;6;7;8;9c',
     )
@@ -455,9 +451,7 @@ test.describe('terminal e2e harness', () => {
 
     const secondaryResponses = await getResponseCodesFrom(page, afterPrimaryCount)
     const secondaryDeviceAttributes = secondaryResponses.pop() ?? []
-    expect(secondaryDeviceAttributes[0] === 0x9b || secondaryDeviceAttributes[0] === 0x1b).toBe(
-      true,
-    )
+    expect(secondaryDeviceAttributes[0]).toBe(0x9b)
     expect(normaliseDeviceAttributes(secondaryDeviceAttributes)).toBe('>62;1;2c')
 
     const afterSecondaryCount = await page.evaluate(() =>

@@ -186,6 +186,7 @@ export interface Parser {
   readonly state: ParserState
   write(input: Uint8Array | string, sink: ParserEventSink): void
   reset(): void
+  setC1TransmissionMode(mode: C1TransmissionMode): void
 }
 
 export type C1TransmissionMode = '7-bit' | '8-bit'

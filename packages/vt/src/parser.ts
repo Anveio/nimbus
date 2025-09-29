@@ -13,6 +13,7 @@ import {
 } from './internal/state-rules'
 import {
   type C1HandlingMode,
+  type C1TransmissionMode,
   type Mutable,
   type Parser,
   type ParserEvent,
@@ -52,7 +53,7 @@ class ParserImpl implements Parser {
     readonly dcs: number
     readonly sosPmApc: number
   }
-  private readonly acceptEightBitControls: boolean
+  private acceptEightBitControls: boolean
   private readonly dispatchTable: Record<
     ParserState,
     ReadonlyArray<ByteHandler>
@@ -106,6 +107,10 @@ class ParserImpl implements Parser {
   reset(): void {
     this.context = createInitialContext()
     this.printBuffer = []
+  }
+
+  setC1TransmissionMode(mode: C1TransmissionMode): void {
+    this.acceptEightBitControls = mode === '8-bit'
   }
 
   private processByte(byte: number, sink: ParserEventSink): void {
@@ -164,9 +169,9 @@ class ParserImpl implements Parser {
 
   private createStateRuntime(): StateRuleRuntime {
     return {
-      acceptEightBitControls: this.acceptEightBitControls,
       maxIntermediateCount: MAX_CSI_INTERMEDIATES,
       noop: this.noopHandler,
+      isEightBitControlsEnabled: () => this.acceptEightBitControls,
       pushPrint: (byte) => {
         this.enqueuePrintable(byte)
       },

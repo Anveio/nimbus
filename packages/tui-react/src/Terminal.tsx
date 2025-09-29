@@ -537,11 +537,17 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         }
         const paintUpdates: TerminalUpdate[] = []
         for (const update of updates) {
-          if (update.type === 'response') {
-            onData?.(update.data)
-            continue
+          switch (update.type) {
+            case 'response':
+              onData?.(update.data)
+              continue
+            case 'c1-transmission':
+              parserRef.current.setC1TransmissionMode(update.value)
+              continue
+            default:
+              paintUpdates.push(update)
+              break
           }
-          paintUpdates.push(update)
         }
         if (paintUpdates.length === 0) {
           return

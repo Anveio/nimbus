@@ -105,7 +105,6 @@ export class TerminalInterpreter {
   private state: TerminalState
   private readonly textDecoder = new TextDecoder()
   private readonly printDecoder = new TextDecoder('utf-8', { fatal: false })
-  private readonly responseEncoder = new TextEncoder()
   private activeDcs: ActiveDcs | null = null
 
   constructor(options: InterpreterOptions = {}) {
@@ -750,7 +749,7 @@ export class TerminalInterpreter {
 
   private emitResponse(payload: string): TerminalUpdate[] {
     const normalised = this.applyC1Transmission(payload)
-    return [{ type: 'response', data: this.responseEncoder.encode(normalised) }]
+    return [{ type: 'response', data: this.encodeResponse(normalised) }]
   }
 
   private applyC1Transmission(sequence: string): string {
@@ -769,6 +768,19 @@ export class TerminalInterpreter {
     }
     this.state.c1Transmission = mode
     return [{ type: 'c1-transmission', value: mode }]
+  }
+
+  private encodeResponse(sequence: string): Uint8Array {
+    const bytes: number[] = []
+    for (let index = 0; index < sequence.length; index += 1) {
+      const code = sequence.charCodeAt(index)
+      if (code <= 0xff) {
+        bytes.push(code)
+      } else {
+        bytes.push(QUESTION_MARK)
+      }
+    }
+    return Uint8Array.from(bytes)
   }
 
   private collectColonSubparameters(

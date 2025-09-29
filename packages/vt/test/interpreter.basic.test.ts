@@ -28,18 +28,18 @@ const run = (input: string, options: ParserOptions = {}) => {
   return { updates, interpreter }
 }
 
-const normaliseDeviceAttributes = (data: Uint8Array): string => {
+const normaliseDeviceAttributes = (data: Uint8Array): number[] => {
   const bytes = Array.from(data)
   if (bytes.length === 0) {
-    return ''
+    return []
   }
-  if (bytes[0] === 0xc2 && bytes[1] === 0x9b) {
-    return String.fromCharCode(...bytes.slice(2))
+  if (bytes[0] === 0x9b) {
+    return bytes.slice(1)
   }
   if (bytes[0] === 0x1b && bytes[1] === 0x5b) {
-    return String.fromCharCode(...bytes.slice(2))
+    return bytes.slice(2)
   }
-  return String.fromCharCode(...bytes)
+  return bytes
 }
 
 describe('TerminalInterpreter basic behaviour', () => {
@@ -190,7 +190,16 @@ describe('TerminalInterpreter basic behaviour', () => {
         update.type === 'response',
       )
       .map((update) => normaliseDeviceAttributes(update.data))
-    expect(responses.some((entry) => entry.startsWith('>62;1;2c'))).toBe(true)
+    expect(responses).toContainEqual([
+      0x3e,
+      0x36,
+      0x32,
+      0x3b,
+      0x31,
+      0x3b,
+      0x32,
+      0x63,
+    ])
   })
 
   it('inserts and deletes lines within the scroll region', () => {

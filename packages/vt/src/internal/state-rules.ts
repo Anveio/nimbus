@@ -44,9 +44,9 @@ export interface StateRuleSpec {
 export type StateRuleSpecMap = Record<ParserState, StateRuleSpec>
 
 export interface StateRuleRuntime {
-  readonly acceptEightBitControls: boolean
   readonly maxIntermediateCount: number
   readonly noop: ByteHandler
+  isEightBitControlsEnabled(): boolean
   pushPrint(byte: number): void
   flushPrint(sink: ParserEventSink): void
   emitExecute(byte: number, sink: ParserEventSink): void
@@ -148,6 +148,14 @@ const createGroundSpec = (runtime: StateRuleRuntime): StateRuleSpec => {
     runtime.pushPrint(byte)
   }
 
+  const handleC1: ByteHandler = (byte, sink) => {
+    if (runtime.isEightBitControlsEnabled()) {
+      runtime.handleC1(byte, sink)
+      return
+    }
+    runtime.noop(byte, sink)
+  }
+
   const rules: ByteRule[] = [
     { predicate: matchBytes(ESC), handler: enterEscape },
     {
@@ -157,11 +165,8 @@ const createGroundSpec = (runtime: StateRuleRuntime): StateRuleSpec => {
       handler: executeControl,
     },
     { predicate: matchFlag(ByteFlag.Printable), handler: printable },
+    { predicate: matchFlag(ByteFlag.C1Control), handler: handleC1 },
   ]
-
-  if (runtime.acceptEightBitControls) {
-    rules.push({ predicate: matchFlag(ByteFlag.C1Control), handler: runtime.handleC1 })
-  }
 
   return {
     fallback: runtime.noop,
