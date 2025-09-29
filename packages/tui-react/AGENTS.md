@@ -22,6 +22,7 @@ Build a world-class, high-performance, and minimal-dependency TypeScript rendere
 - Canvas renderer selection state is proxied via `onCursorSelectionChange` and the imperative handle, keeping consumers agnostic of mouse vs keyboard selection sources.
 - `<Terminal />` now wires pointer drag selection end-to-end (interpreter `set/update/clear`, renderer callbacks), providing `getSelection()` on the imperative handle for consumers.
 - Auto-scroll during drag extends selections beyond the viewport with a timer-driven service that reuses interpreter updates rather than DOM scrolling hacks.
+- Keyboard shortcuts follow Ghostty semantics: arrow keys update the cursor immediately, Shift+Arrow extends the active selection, Option/Alt (or Ctrl on Windows) jumps by word, and Meta/Command jumps to the start/end of the line—while still emitting the original escape sequences to the host.
 
 ## Immediate next steps
 

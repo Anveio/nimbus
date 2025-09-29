@@ -322,6 +322,52 @@ describe('TerminalInterpreter basic behaviour', () => {
     expect(updates.some((update) => update.type === 'cursor')).toBe(true)
   })
 
+  it('moves the cursor left and right while clearing selection', () => {
+    const { interpreter } = run('TEST')
+    interpreter.moveCursorLineStart()
+    interpreter.moveCursorRight()
+    interpreter.moveCursorRight()
+    const updates = interpreter.moveCursorLeft()
+    expect(interpreter.snapshot.cursor.column).toBe(1)
+    expect(updates.some((update) => update.type === 'cursor')).toBe(true)
+    expect(interpreter.snapshot.selection).toBeNull()
+  })
+
+  it('extends selection when moving cursor with Shift', () => {
+    const { interpreter } = run('SELECT')
+    const anchor = { row: 0, column: 0, timestamp: 1 }
+    interpreter.moveCursorLineStart()
+    interpreter.moveCursorRight()
+    interpreter.moveCursorRight()
+    const updates = interpreter.moveCursorRight({
+      extendSelection: true,
+      selectionAnchor: anchor,
+    })
+    const selection = interpreter.snapshot.selection
+    expect(selection).not.toBeNull()
+    expect(selection?.anchor).toEqual(anchor)
+    expect(selection?.focus.column).toBe(3)
+    expect(updates.some((update) => update.type === 'selection-set')).toBe(true)
+  })
+
+  it('moves by word boundaries using word motion helpers', () => {
+    const { interpreter } = run('one  two  three')
+    interpreter.moveCursorLineStart()
+    interpreter.moveCursorWordRight()
+    expect(interpreter.snapshot.cursor.column).toBeGreaterThan(3)
+    interpreter.moveCursorWordLeft()
+    expect(interpreter.snapshot.cursor.column).toBe(0)
+  })
+
+  it('moves to the start and end of the current line', () => {
+    const { interpreter } = run('line content')
+    interpreter.moveCursorLineEnd()
+    const endColumn = interpreter.snapshot.cursor.column
+    expect(endColumn).toBeGreaterThan(0)
+    interpreter.moveCursorLineStart()
+    expect(interpreter.snapshot.cursor.column).toBe(0)
+  })
+
   it('renders individual box drawing characters correctly', () => {
     const { interpreter } = run('┏┓\r\n┗┛')
     const state = interpreter.snapshot

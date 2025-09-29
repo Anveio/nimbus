@@ -6,7 +6,7 @@ import {
   type TerminalCapabilities,
 } from '../types'
 import type { CellDelta, TerminalUpdate } from './delta'
-import type { TerminalSelection } from './selection'
+import type { SelectionPoint, TerminalSelection } from './selection'
 import {
   areSelectionsEqual,
   clampSelectionRange,
@@ -61,6 +61,11 @@ interface EditSelectionOptions {
   readonly attributesOverride?: TerminalAttributes
 }
 
+interface CursorMoveOptions {
+  readonly extendSelection?: boolean
+  readonly selectionAnchor?: SelectionPoint | null
+}
+
 const cloneCell = (cell: TerminalCell): TerminalCell => ({
   char: cell.char,
   attr: cloneAttributes(cell.attr),
@@ -102,6 +107,105 @@ export class TerminalInterpreter {
 
   get snapshot(): TerminalState {
     return this.state
+  }
+
+  moveCursorLeft(options: CursorMoveOptions = {}): TerminalUpdate[] {
+    const targetColumn = Math.max(this.state.cursor.column - 1, 0)
+    return this.moveCursorTo(
+      {
+        row: this.state.cursor.row,
+        column: targetColumn,
+      },
+      options,
+    )
+  }
+
+  moveCursorRight(options: CursorMoveOptions = {}): TerminalUpdate[] {
+    const targetColumn = Math.min(
+      this.state.cursor.column + 1,
+      this.state.columns - 1,
+    )
+    return this.moveCursorTo(
+      {
+        row: this.state.cursor.row,
+        column: targetColumn,
+      },
+      options,
+    )
+  }
+
+  moveCursorUp(options: CursorMoveOptions = {}): TerminalUpdate[] {
+    const targetRow = Math.max(this.state.cursor.row - 1, 0)
+    return this.moveCursorTo(
+      {
+        row: targetRow,
+        column: this.state.cursor.column,
+      },
+      options,
+    )
+  }
+
+  moveCursorDown(options: CursorMoveOptions = {}): TerminalUpdate[] {
+    const targetRow = Math.min(this.state.cursor.row + 1, this.state.rows - 1)
+    return this.moveCursorTo(
+      {
+        row: targetRow,
+        column: this.state.cursor.column,
+      },
+      options,
+    )
+  }
+
+  moveCursorWordLeft(options: CursorMoveOptions = {}): TerminalUpdate[] {
+    const targetColumn = this.findWordBoundaryLeft(
+      this.state.cursor.row,
+      this.state.cursor.column,
+    )
+    return this.moveCursorTo(
+      {
+        row: this.state.cursor.row,
+        column: targetColumn,
+      },
+      options,
+    )
+  }
+
+  moveCursorWordRight(options: CursorMoveOptions = {}): TerminalUpdate[] {
+    const targetColumn = this.findWordBoundaryRight(
+      this.state.cursor.row,
+      this.state.cursor.column,
+    )
+    return this.moveCursorTo(
+      {
+        row: this.state.cursor.row,
+        column: targetColumn,
+      },
+      options,
+    )
+  }
+
+  moveCursorLineStart(options: CursorMoveOptions = {}): TerminalUpdate[] {
+    return this.moveCursorTo(
+      {
+        row: this.state.cursor.row,
+        column: 0,
+      },
+      options,
+    )
+  }
+
+  moveCursorLineEnd(options: CursorMoveOptions = {}): TerminalUpdate[] {
+    const targetColumn = this.findLineEndColumn(
+      this.state.cursor.row,
+      this.state.columns,
+    )
+    return this.moveCursorTo(
+      {
+        row: this.state.cursor.row,
+        column: targetColumn,
+      },
+      options,
+    )
   }
 
   handleEvent(event: ParserEvent): TerminalUpdate[] {
@@ -443,6 +547,101 @@ export class TerminalInterpreter {
     }
 
     return { row, column }
+  }
+
+  private moveCursorTo(
+    target: { row: number; column: number },
+    options: CursorMoveOptions,
+  ): TerminalUpdate[] {
+    const clampedRow = clamp(target.row, 0, Math.max(0, this.state.rows - 1))
+    const clampedColumn = clamp(target.column, 0, Math.max(0, this.state.columns - 1))
+
+    const previousCursor = { ...this.state.cursor }
+    const updates: TerminalUpdate[] = []
+
+    this.state.cursor = { row: clampedRow, column: clampedColumn }
+    updates.push(this.cursorUpdate())
+
+    if (options.extendSelection) {
+      const anchor =
+        options.selectionAnchor ??
+        this.state.selection?.anchor ??
+        ({
+          row: previousCursor.row,
+          column: previousCursor.column,
+          timestamp: Date.now(),
+        } satisfies SelectionPoint)
+
+      const selection: TerminalSelection = {
+        anchor,
+        focus: {
+          row: this.state.cursor.row,
+          column: this.state.cursor.column,
+          timestamp: Date.now(),
+        },
+        kind: 'normal',
+        status: 'idle',
+      }
+
+      const selectionUpdates = this.state.selection
+        ? this.updateSelection(selection)
+        : this.setSelection(selection)
+      updates.unshift(...selectionUpdates)
+    } else if (this.state.selection) {
+      updates.unshift(...this.clearSelection())
+    }
+
+    return updates
+  }
+
+  private findLineEndColumn(row: number, maxColumns: number): number {
+    const columns = Math.max(0, maxColumns)
+    const rowBuffer = this.state.buffer[row] ?? []
+    for (let index = columns - 1; index >= 0; index -= 1) {
+      const char = rowBuffer[index]?.char ?? ' '
+      if (char !== ' ') {
+        return Math.min(index + 1, columns - 1)
+      }
+    }
+    return Math.min(columns - 1, Math.max(0, rowBuffer.length - 1))
+  }
+
+  private findWordBoundaryLeft(row: number, column: number): number {
+    if (column <= 0) {
+      return 0
+    }
+    const rowBuffer = this.state.buffer[row] ?? []
+    let index = column
+
+    while (index > 0 && this.isWhitespace(rowBuffer[index - 1]?.char ?? ' ')) {
+      index -= 1
+    }
+
+    while (index > 0 && !this.isWhitespace(rowBuffer[index - 1]?.char ?? ' ')) {
+      index -= 1
+    }
+
+    return index
+  }
+
+  private findWordBoundaryRight(row: number, column: number): number {
+    const rowBuffer = this.state.buffer[row] ?? []
+    const columns = this.state.columns
+    let index = column
+
+    while (index < columns && !this.isWhitespace(rowBuffer[index]?.char ?? ' ')) {
+      index += 1
+    }
+
+    while (index < columns && this.isWhitespace(rowBuffer[index]?.char ?? ' ')) {
+      index += 1
+    }
+
+    return Math.min(index, columns - 1)
+  }
+
+  private isWhitespace(char: string): boolean {
+    return char.trim().length === 0
   }
 
   private handleExecute(codePoint: number): TerminalUpdate[] {

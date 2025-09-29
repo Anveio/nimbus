@@ -834,9 +834,9 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     }, [interpreter, rendererHandle])
 
     const emitData = useCallback(
-      (bytes: Uint8Array) => {
+      (bytes: Uint8Array, options?: { skipLocalEcho?: boolean }) => {
         onData?.(bytes)
-        if (!onData || localEcho) {
+        if (!options?.skipLocalEcho && (!onData || localEcho)) {
           write(bytes)
         }
       },
@@ -871,12 +871,93 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         }
 
         const shouldExtendSelection = event.shiftKey && isArrowKey
+        const previousCursor = interpreter.snapshot.cursor
+        let anchorPoint: SelectionPoint | null = null
 
         if (shouldExtendSelection) {
+          anchorPoint =
+            keyboardSelectionAnchorRef.current ?? {
+              row: previousCursor.row,
+              column: previousCursor.column,
+              timestamp: Date.now(),
+            }
+        }
+
+        let handledLocally = false
+        if (isArrowKey) {
+          const isLineMotion = event.metaKey
+          const isWordMotion =
+            !isLineMotion && (event.altKey || (event.ctrlKey && !event.metaKey))
+
+          let updates: TerminalUpdate[] = []
+          switch (key) {
+            case 'ArrowLeft':
+              if (isLineMotion) {
+                updates = interpreter.moveCursorLineStart({
+                  extendSelection: shouldExtendSelection,
+                  selectionAnchor: anchorPoint,
+                })
+              } else if (isWordMotion) {
+                updates = interpreter.moveCursorWordLeft({
+                  extendSelection: shouldExtendSelection,
+                  selectionAnchor: anchorPoint,
+                })
+              } else {
+                updates = interpreter.moveCursorLeft({
+                  extendSelection: shouldExtendSelection,
+                  selectionAnchor: anchorPoint,
+                })
+              }
+              break
+            case 'ArrowRight':
+              if (isLineMotion) {
+                updates = interpreter.moveCursorLineEnd({
+                  extendSelection: shouldExtendSelection,
+                  selectionAnchor: anchorPoint,
+                })
+              } else if (isWordMotion) {
+                updates = interpreter.moveCursorWordRight({
+                  extendSelection: shouldExtendSelection,
+                  selectionAnchor: anchorPoint,
+                })
+              } else {
+                updates = interpreter.moveCursorRight({
+                  extendSelection: shouldExtendSelection,
+                  selectionAnchor: anchorPoint,
+                })
+              }
+              break
+            case 'ArrowUp':
+              updates = interpreter.moveCursorUp({
+                extendSelection: shouldExtendSelection,
+                selectionAnchor: anchorPoint,
+              })
+              break
+            case 'ArrowDown':
+              updates = interpreter.moveCursorDown({
+                extendSelection: shouldExtendSelection,
+                selectionAnchor: anchorPoint,
+              })
+              break
+            default:
+              break
+          }
+
+          if (updates.length > 0) {
+            applyUpdates(updates)
+            handledLocally = true
+            keyboardSelectionAnchorRef.current = shouldExtendSelection
+              ? anchorPoint
+              : null
+          }
+        }
+
+        if (handledLocally) {
           event.preventDefault()
-          extendSelectionWithArrow(
-            key as 'ArrowLeft' | 'ArrowRight' | 'ArrowUp' | 'ArrowDown',
-          )
+          const bytes = encodeKeyEvent(event)
+          if (bytes) {
+            emitData(bytes, { skipLocalEcho: true })
+          }
           return
         }
 
@@ -885,23 +966,19 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
           return
         }
 
-        if (interpreter.snapshot.selection) {
+        const selectionExists = Boolean(interpreter.snapshot.selection)
+        if (selectionExists && !event.shiftKey) {
           clearSelection()
         }
 
-        keyboardSelectionAnchorRef.current = null
+        if (!event.shiftKey) {
+          keyboardSelectionAnchorRef.current = null
+        }
 
         event.preventDefault()
         emitData(bytes)
       },
-      [
-        clearSelection,
-        emitData,
-        extendSelectionWithArrow,
-        interpreter,
-        onData,
-        write,
-      ],
+      [applyUpdates, clearSelection, emitData, interpreter, onData, write],
     )
 
     const replaceSelectionWithText = useCallback(

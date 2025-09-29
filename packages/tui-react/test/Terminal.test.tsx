@@ -392,4 +392,50 @@ describe('Terminal', () => {
     const options = lastRendererOptions()
     expect(options.cursorOverlayStrategy).toBe(cursorOverlayStrategy)
   })
+
+  test('moves the cursor locally when pressing arrow keys', async () => {
+    const ref = createRef<TerminalHandle>()
+    render(<Terminal ref={ref} rows={24} columns={80} localEcho={false} />)
+
+    const region = screen.getByRole('textbox')
+    await userEvent.click(region)
+    await userEvent.keyboard('{ArrowRight}')
+
+    expect(ref.current?.getSnapshot().cursor.column).toBe(1)
+  })
+
+  test('extends selection with Shift + Arrow', async () => {
+    const ref = createRef<TerminalHandle>()
+    render(<Terminal ref={ref} rows={24} columns={80} localEcho={false} />)
+
+    const region = screen.getByRole('textbox')
+    await userEvent.click(region)
+    await userEvent.keyboard('{ArrowRight}')
+    await userEvent.keyboard('{Shift>}{ArrowRight}{/Shift}')
+
+    const selection = ref.current?.getSelection()
+    expect(selection).not.toBeNull()
+    expect(selection?.anchor.column).toBe(1)
+    expect(selection?.focus.column).toBe(2)
+  })
+
+  test('supports option/alt word jumps and meta line jumps', async () => {
+    const ref = createRef<TerminalHandle>()
+    render(<Terminal ref={ref} rows={24} columns={80} localEcho={false} />)
+
+    await act(async () => {
+      ref.current?.write('one  two  three')
+    })
+
+    const region = screen.getByRole('textbox')
+    await userEvent.click(region)
+
+    fireEvent.keyDown(region, { key: 'ArrowLeft', metaKey: true })
+    fireEvent.keyUp(region, { key: 'ArrowLeft', metaKey: true })
+    expect(ref.current?.getSnapshot().cursor.column).toBe(0)
+
+    fireEvent.keyDown(region, { key: 'ArrowRight', altKey: true })
+    fireEvent.keyUp(region, { key: 'ArrowRight', altKey: true })
+    expect(ref.current?.getSnapshot().cursor.column).toBeGreaterThan(0)
+  })
 })
