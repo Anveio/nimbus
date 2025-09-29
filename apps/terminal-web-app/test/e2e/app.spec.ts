@@ -169,4 +169,51 @@ test.describe('terminal e2e harness', () => {
       .trimEnd()
     expect(pastedRow).toContain(`ALPHA${pastePayload}`)
   })
+
+  test('single click moves the cursor within line bounds', async ({ page }) => {
+    await page.goto('/')
+
+    const terminal = page.getByRole('textbox', { name: 'Interactive terminal' })
+    await terminal.click()
+
+    await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('HELLO')
+    })
+
+    const canvas = page.locator('canvas').first()
+    const box = await canvas.boundingBox()
+    if (!box) {
+      throw new Error('Canvas bounding box unavailable')
+    }
+
+    const snapshotBefore = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getSnapshot(),
+    )
+    if (!snapshotBefore) {
+      throw new Error('Snapshot unavailable')
+    }
+
+    const cellWidth = box.width / snapshotBefore.columns
+    const cellHeight = box.height / snapshotBefore.rows
+
+    await canvas.click({
+      position: {
+        x: box.width - cellWidth / 4,
+        y: cellHeight / 2,
+      },
+    })
+
+    const snapshotAfter = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getSnapshot(),
+    )
+    expect(snapshotAfter).toBeTruthy()
+    if (!snapshotAfter) {
+      throw new Error('Snapshot unavailable after click')
+    }
+
+    expect(snapshotAfter.cursor.row).toBe(0)
+    expect(snapshotAfter.cursor.column).toBe(5)
+    expect(snapshotAfter.selection).toBeNull()
+  })
 })
