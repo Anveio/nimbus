@@ -9,6 +9,7 @@ export interface ParserContext {
   collectBuffer: number[];
   params: number[];
   currentParam: number | null;
+  paramSeparators: Array<'colon' | 'semicolon'>;
   prefix: number | null;
   intermediates: number[];
   oscBuffer: number[];
@@ -28,6 +29,7 @@ export const createInitialContext = (): ParserContext => ({
   collectBuffer: [],
   params: [],
   currentParam: null,
+  paramSeparators: [],
   prefix: null,
   intermediates: [],
   oscBuffer: [],

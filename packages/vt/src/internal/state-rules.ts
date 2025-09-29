@@ -67,7 +67,7 @@ export interface StateRuleRuntime {
   cancelCsi(): void
   resetCsiContext(): void
   handleCsiParamDigit(byte: number): void
-  pushCurrentParam(): void
+  pushCurrentParam(separator: 'colon' | 'semicolon'): void
   enterDcsIgnore(): void
   cancelDcs(): void
   resetParamContext(): void
@@ -263,9 +263,14 @@ const createCsiEntrySpec = (runtime: StateRuleRuntime): StateRuleSpec => {
     runtime.handleCsiParamDigit(byte)
   }
 
-  const enterParamAndPush: ByteHandler = () => {
+  const enterParamWithColon: ByteHandler = () => {
     runtime.setState(ParserState.CsiParam)
-    runtime.pushCurrentParam()
+    runtime.pushCurrentParam('colon')
+  }
+
+  const enterParamWithSemicolon: ByteHandler = () => {
+    runtime.setState(ParserState.CsiParam)
+    runtime.pushCurrentParam('semicolon')
   }
 
   const moveToIntermediate: ByteHandler = (byte) => {
@@ -286,7 +291,8 @@ const createCsiEntrySpec = (runtime: StateRuleRuntime): StateRuleSpec => {
     { predicate: matchBytes(ESC), handler: setToEscape },
     { predicate: matchPrivatePrefixes, handler: recordPrefix },
     { predicate: matchDigits, handler: enterParamWithDigit },
-    { predicate: matchParamSeparators, handler: enterParamAndPush },
+    { predicate: matchBytes(COLON), handler: enterParamWithColon },
+    { predicate: matchBytes(SEMICOLON), handler: enterParamWithSemicolon },
     { predicate: matchFlag(ByteFlag.Intermediate), handler: moveToIntermediate },
     { predicate: matchFlag(ByteFlag.Final), handler: dispatchFinal },
   ]
@@ -324,8 +330,12 @@ const createCsiParamSpec = (runtime: StateRuleRuntime): StateRuleSpec => {
     runtime.handleCsiParamDigit(byte)
   }
 
-  const separator: ByteHandler = () => {
-    runtime.pushCurrentParam()
+  const colonSeparator: ByteHandler = () => {
+    runtime.pushCurrentParam('colon')
+  }
+
+  const semicolonSeparator: ByteHandler = () => {
+    runtime.pushCurrentParam('semicolon')
   }
 
   const toIntermediate: ByteHandler = (byte) => {
@@ -345,7 +355,8 @@ const createCsiParamSpec = (runtime: StateRuleRuntime): StateRuleSpec => {
     { predicate: matchBytes(CAN, SUB), handler: cancel },
     { predicate: matchBytes(ESC), handler: setToEscape },
     { predicate: matchDigits, handler: digit },
-    { predicate: matchParamSeparators, handler: separator },
+    { predicate: matchBytes(COLON), handler: colonSeparator },
+    { predicate: matchBytes(SEMICOLON), handler: semicolonSeparator },
     { predicate: matchFlag(ByteFlag.Intermediate), handler: toIntermediate },
     { predicate: matchFlag(ByteFlag.Final), handler: dispatchFinal },
   ]
@@ -516,8 +527,8 @@ const createDcsParamSpec = (runtime: StateRuleRuntime): StateRuleSpec => {
     runtime.handleDcsParamDigit(byte)
   }
 
-  const separator: ByteHandler = () => {
-    runtime.pushCurrentParam()
+  const separator: ByteHandler = (byte) => {
+    runtime.pushCurrentParam(byte === COLON ? 'colon' : 'semicolon')
   }
 
   const toIntermediate: ByteHandler = (byte) => {

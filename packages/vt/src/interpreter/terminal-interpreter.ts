@@ -694,6 +694,29 @@ export class TerminalInterpreter {
     return translateGlyph(char, this.getActiveCharset())
   }
 
+  private collectColonSubparameters(
+    params: ReadonlyArray<number>,
+    separators: ReadonlyArray<'colon' | 'semicolon'>,
+    baseIndex: number,
+  ): { values: number[]; lastIndex: number } {
+    const values: number[] = []
+    let currentIndex = baseIndex
+
+    while (
+      currentIndex < params.length &&
+      separators[currentIndex] === 'colon'
+    ) {
+      const nextIndex = currentIndex + 1
+      if (nextIndex >= params.length) {
+        break
+      }
+      values.push(params[nextIndex] ?? 0)
+      currentIndex = nextIndex
+    }
+
+    return { values, lastIndex: currentIndex }
+  }
+
   private setGlSelector(selector: 'g0' | 'g1'): void {
     this.state.charsets = { ...this.state.charsets, gl: selector }
   }
@@ -989,6 +1012,7 @@ export class TerminalInterpreter {
 
     const final = String.fromCharCode(event.finalByte)
     const params = event.params
+    const separators = event.paramSeparators ?? []
 
     switch (final) {
       case 'A':
@@ -1023,7 +1047,7 @@ export class TerminalInterpreter {
       case 'X':
         return this.eraseCharacters(params[0] ?? 1)
       case 'm':
-        return this.selectGraphicRendition(params)
+        return this.selectGraphicRendition(params, separators)
       case 'r':
         return this.setScrollRegion(params)
       case 'g':
@@ -1298,6 +1322,7 @@ export class TerminalInterpreter {
 
   private selectGraphicRendition(
     params: ReadonlyArray<number>,
+    separators: ReadonlyArray<'colon' | 'semicolon'>,
   ): TerminalUpdate[] {
     let attributes = cloneAttributes(
       params.length === 0 ? defaultAttributes : this.state.attributes,
@@ -1313,6 +1338,7 @@ export class TerminalInterpreter {
 
     for (let index = 0; index < params.length; index += 1) {
       const param = params[index] ?? 0
+      const separator = separators[index] ?? 'semicolon'
       switch (param) {
         case 0:
           attributes = cloneAttributes(defaultAttributes)
@@ -1326,9 +1352,36 @@ export class TerminalInterpreter {
         case 3:
           attributes = { ...attributes, italic: true }
           break
-        case 4:
+        case 4: {
+          if (separator === 'colon') {
+            const { values, lastIndex } = this.collectColonSubparameters(
+              params,
+              separators,
+              index,
+            )
+            const style = values[0] ?? 0
+            switch (style) {
+              case 0:
+                attributes = { ...attributes, underline: 'none' }
+                break
+              case 1:
+                attributes = { ...attributes, underline: 'single' }
+                break
+              case 2:
+                attributes = { ...attributes, underline: 'double' }
+                break
+              case 3:
+                attributes = { ...attributes, underline: 'single' }
+                break
+              default:
+                break
+            }
+            index = lastIndex
+            continue
+          }
           attributes = { ...attributes, underline: 'single' }
           break
+        }
         case 5:
           attributes = { ...attributes, blink: 'slow' }
           break
@@ -1379,6 +1432,25 @@ export class TerminalInterpreter {
           setForeground({ type: 'ansi', index: param - 30 })
           break
         case 38: {
+          if (separator === 'colon') {
+            const { values, lastIndex } = this.collectColonSubparameters(
+              params,
+              separators,
+              index,
+            )
+            const mode = values[0] ?? 0
+            if (mode === 5 && values.length >= 2) {
+              const paletteIndex = clamp(values[1] ?? 0, 0, 255)
+              setForeground({ type: 'palette', index: paletteIndex })
+            } else if (mode === 2 && values.length >= 4) {
+              const r = clampColorComponent(values[values.length - 3] ?? 0)
+              const g = clampColorComponent(values[values.length - 2] ?? 0)
+              const b = clampColorComponent(values[values.length - 1] ?? 0)
+              setForeground({ type: 'rgb', r, g, b })
+            }
+            index = lastIndex
+            continue
+          }
           const mode = params[index + 1]
           if (mode === 5 && params.length > index + 2) {
             const paletteIndex = clamp(params[index + 2] ?? 0, 0, 255)
@@ -1407,6 +1479,25 @@ export class TerminalInterpreter {
           setBackground({ type: 'ansi', index: param - 40 })
           break
         case 48: {
+          if (separator === 'colon') {
+            const { values, lastIndex } = this.collectColonSubparameters(
+              params,
+              separators,
+              index,
+            )
+            const mode = values[0] ?? 0
+            if (mode === 5 && values.length >= 2) {
+              const paletteIndex = clamp(values[1] ?? 0, 0, 255)
+              setBackground({ type: 'palette', index: paletteIndex })
+            } else if (mode === 2 && values.length >= 4) {
+              const r = clampColorComponent(values[values.length - 3] ?? 0)
+              const g = clampColorComponent(values[values.length - 2] ?? 0)
+              const b = clampColorComponent(values[values.length - 1] ?? 0)
+              setBackground({ type: 'rgb', r, g, b })
+            }
+            index = lastIndex
+            continue
+          }
           const mode = params[index + 1]
           if (mode === 5 && params.length > index + 2) {
             const paletteIndex = clamp(params[index + 2] ?? 0, 0, 255)
@@ -1418,6 +1509,18 @@ export class TerminalInterpreter {
             const b = clampColorComponent(params[index + 4] ?? 0)
             setBackground({ type: 'rgb', r, g, b })
             index += 4
+          }
+          break
+        }
+        case 58: {
+          if (separator === 'colon') {
+            const { lastIndex } = this.collectColonSubparameters(
+              params,
+              separators,
+              index,
+            )
+            index = lastIndex
+            continue
           }
           break
         }

@@ -203,7 +203,7 @@ class ParserImpl implements Parser {
       cancelCsi: () => this.cancelCsi(),
       resetCsiContext: () => this.resetCsiContext(),
       handleCsiParamDigit: (byte) => this.handleCsiParamDigit(byte),
-      pushCurrentParam: () => this.pushCurrentParam(),
+      pushCurrentParam: (separator) => this.pushCurrentParam(separator),
       enterDcsIgnore: () => this.enterDcsIgnore(),
       cancelDcs: () => this.cancelDcs(),
       resetParamContext: () => this.resetParamContext(),
@@ -414,7 +414,7 @@ class ParserImpl implements Parser {
 
   // Annex B CSI dispatch: emit event unless validation failed.
   private finalizeCsi(finalByte: number, sink: ParserEventSink): void {
-    const params = this.resolveParams()
+    const { params, separators } = this.resolveParams()
 
     if (params.length > MAX_CSI_PARAMS) {
       this.cancelCsi()
@@ -427,6 +427,7 @@ class ParserImpl implements Parser {
       params,
       intermediates: [...this.context.intermediates],
       prefix: this.context.prefix,
+      paramSeparators: separators,
     }
 
     this.resetCsiContext()
@@ -435,7 +436,7 @@ class ParserImpl implements Parser {
   }
 
   private finalizeDcs(finalByte: number, sink: ParserEventSink): void {
-    const params = this.resolveParams()
+    const { params } = this.resolveParams()
     if (params.length > MAX_CSI_PARAMS) {
       this.cancelDcs()
       return
@@ -456,13 +457,14 @@ class ParserImpl implements Parser {
     sink.onEvent(event)
   }
 
-  private pushCurrentParam(): void {
+  private pushCurrentParam(separator: 'colon' | 'semicolon'): void {
     if (this.context.params.length >= MAX_CSI_PARAMS) {
       this.enterParamIgnore()
       return
     }
 
     this.context.params.push(this.context.currentParam ?? 0)
+    this.context.paramSeparators.push(separator)
     this.context.currentParam = null
   }
 
@@ -491,7 +493,7 @@ class ParserImpl implements Parser {
     }
 
     if (byte === COLON || byte === SEMICOLON) {
-      this.pushCurrentParam()
+      this.pushCurrentParam(byte === COLON ? 'colon' : 'semicolon')
       return
     }
 
@@ -517,14 +519,26 @@ class ParserImpl implements Parser {
     }
   }
 
-  private resolveParams(): number[] {
+  private resolveParams(): {
+    params: number[]
+    separators: ReadonlyArray<'colon' | 'semicolon'>
+  } {
     const params = [...this.context.params]
+    const separators = [...this.context.paramSeparators]
+
     if (this.context.currentParam !== null) {
       params.push(this.context.currentParam)
+      separators.push('semicolon')
     } else if (params.length === 0) {
       params.push(0)
+      separators.push('semicolon')
     }
-    return params
+
+    while (separators.length < params.length) {
+      separators.push('semicolon')
+    }
+
+    return { params, separators }
   }
 
   private resetCsiContext(): void {
@@ -534,6 +548,7 @@ class ParserImpl implements Parser {
   private resetParamContext(): void {
     this.context.params = []
     this.context.currentParam = null
+    this.context.paramSeparators = []
     this.context.prefix = null
     this.context.intermediates = []
   }

@@ -72,6 +72,7 @@ export type ParserEvent =
       readonly type: ParserEventType.CsiDispatch
       readonly finalByte: number
       readonly params: ReadonlyArray<number>
+      readonly paramSeparators: ReadonlyArray<'colon' | 'semicolon'>
       readonly intermediates: ReadonlyArray<number>
       readonly prefix: number | null
     }

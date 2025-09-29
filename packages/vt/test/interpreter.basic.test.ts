@@ -112,6 +112,22 @@ describe('TerminalInterpreter basic behaviour', () => {
     expect(row.map((cell) => cell.char).join('').slice(0, 4)).toBe('TE  ')
   })
 
+  it('applies SGR sequences with colon separators', () => {
+    const { interpreter } = run(
+      '\u001b[;4:3;38;2;175;175;215;58:2::190:80:70mX',
+    )
+    const cell = interpreter.snapshot.buffer[0]![0]!
+    expect(cell.char).toBe('X')
+    expect(cell.attr.foreground).toEqual({
+      type: 'rgb',
+      r: 175,
+      g: 175,
+      b: 215,
+    })
+    expect(cell.attr.underline).not.toBe('none')
+    expect(cell.attr.italic).toBe(false)
+  })
+
   it('inserts and deletes lines within the scroll region', () => {
     const sequence = 'line1\r\nline2\r\nline3\u001b[2;1H\u001b[1L'
     const { interpreter } = run(sequence)

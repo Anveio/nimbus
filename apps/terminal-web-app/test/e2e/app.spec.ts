@@ -329,6 +329,46 @@ test.describe('terminal e2e harness', () => {
     expect(Math.abs(brightnessReverted - brightnessBefore)).toBeLessThanOrEqual(60)
   })
 
+  test('renders SGR sequences with colon separators', async ({ page }) => {
+    await page.goto('/')
+
+    const terminal = page.getByRole('textbox', { name: 'Interactive terminal' })
+    await terminal.click()
+
+    await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write(
+        '\u001b[;4:3;38;2;175;175;215;58:2::190:80:70mX',
+      )
+    })
+
+    const cell = await page.evaluate(() => {
+      const snapshot = window.__manaTerminalTestHandle__?.getSnapshot()
+      if (!snapshot) {
+        return null
+      }
+      const first = snapshot.buffer[0]?.[0]
+      if (!first) {
+        return null
+      }
+      return {
+        char: first.char,
+        attr: first.attr,
+      }
+    })
+
+    expect(cell).not.toBeNull()
+    expect(cell?.char).toBe('X')
+    expect(cell?.attr.foreground).toEqual({
+      type: 'rgb',
+      r: 175,
+      g: 175,
+      b: 215,
+    })
+    expect(cell?.attr.underline).not.toBe('none')
+    expect(cell?.attr.italic).toBe(false)
+  })
+
   test('single click moves the cursor within line bounds', async ({ page }) => {
     await page.goto('/')
 

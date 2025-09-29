@@ -173,6 +173,50 @@ describe('ParserImpl basic behaviour', () => {
     })
   })
 
+  it('parses mixed separator SGR sequences', () => {
+    const parser = createParser()
+    const sink = new TestSink()
+
+    parser.write('\u001b[;4:3;38;2;175;175;215;58:2::190:80:70m', sink)
+
+    expect(sink.events).toHaveLength(1)
+    const event = sink.events[0]
+    invariant(event && event.type === ParserEventType.CsiDispatch, 'expected CSI dispatch')
+    expect(event.finalByte).toBe('m'.charCodeAt(0))
+    expect(Array.from(event.params)).toEqual([
+      0,
+      4,
+      3,
+      38,
+      2,
+      175,
+      175,
+      215,
+      58,
+      2,
+      0,
+      190,
+      80,
+      70,
+    ])
+    expect(Array.from(event.paramSeparators)).toEqual([
+      'semicolon',
+      'colon',
+      'semicolon',
+      'semicolon',
+      'semicolon',
+      'semicolon',
+      'semicolon',
+      'semicolon',
+      'colon',
+      'colon',
+      'colon',
+      'colon',
+      'colon',
+      'semicolon',
+    ])
+  })
+
   it('enforces OSC string limits', () => {
     const parser = createParser({ stringLimits: { osc: 3 } })
     const sink = new TestSink()
