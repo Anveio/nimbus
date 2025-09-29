@@ -202,6 +202,21 @@ describe('TerminalInterpreter basic behaviour', () => {
     ])
   })
 
+  it('responds to device status reports', () => {
+    const { updates } = run('\u001b[5n\u001b[6n')
+    const responseStrings = updates
+      .flat()
+      .filter((update): update is Extract<TerminalUpdate, { type: 'response' }> =>
+        update.type === 'response',
+      )
+      .map((update) =>
+        String.fromCharCode(...normaliseDeviceAttributes(update.data)),
+      )
+
+    expect(responseStrings).toContain('0n')
+    expect(responseStrings).toContain('1;1R')
+  })
+
   it('inserts and deletes lines within the scroll region', () => {
     const sequence = 'line1\r\nline2\r\nline3\u001b[2;1H\u001b[1L'
     const { interpreter } = run(sequence)

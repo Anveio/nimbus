@@ -162,6 +162,14 @@ Using Ghostty as a guide, we can finish SOS/PM/APC support, flesh out C1 semanti
 - Wired ESC family diagnostics—`DECALN`, keypad application/normal (`ESC =`/`>`), and RIS—while documenting the coverage in README.md and expanding interpreter tests to cover the new behaviours.
 - Parser/interpreter now track G2/G3 designations, GL/GR locking shifts, and SS2/SS3 single shifts so VT320 ISO-2022 flows render with the correct glyphs; new unit and Playwright tests guard Kakoune-style sequences and DEC special graphics locked via `LS2`.
 
+### VT100 gap follow-up (2025-10-07)
+
+- Device status reports (`CSI Ps n` for printer status, cursor position, etc.) still fall through the interpreter with no response generation (`packages/vt/src/interpreter/terminal-interpreter.ts:1188`). Need handlers plus unit/e2e coverage for `CSI 5 n`, `CSI 6 n`, and related reports.
+- DECID/answerback: `ESC Z` is not recognised in `handleEsc` (`…/terminal-interpreter.ts:940`), so the terminal never returns the VT100 ID string. Implement decode + response pipeline.
+- Printer/AUX control sequences (`CSI ? 4 h/l`, `ESC [ 4 i`, `ESC [ 5 i`, etc.) are unimplemented—no state updates or passthrough to a print channel. We should stub the printer controller and add tests ensuring these no-op safely until printer support lands.
+- Answerback programming via `DCS $ q` and `ENQ` is missing; parser routes the bytes but interpreter ignores the payload. Capture the programmable string and respond to `ENQ` to match DEC behaviour.
+- Parser ignores several VT100-specific fallbacks: sequences like `ESC 1/2` (graphics height), SS2/SS3 7-bit variants, and other legacy ESCapes should either transition to ignore states or emit structured events. Audit `state-rules.ts` to align with the VT100 diagram.
+
 ## 2025-09-28 – VT320 capability notes
 
 - Authored `docs/vt320.md` capturing the DEC STD 070 signatures for DA/DA2, the

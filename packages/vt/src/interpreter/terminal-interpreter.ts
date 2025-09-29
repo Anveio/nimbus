@@ -1238,6 +1238,21 @@ export class TerminalInterpreter {
         }
         return []
       }
+      case 'n': {
+        const request = params[0] ?? 0
+        switch (request) {
+          case 0:
+          case 5:
+            return this.emitResponse('\u001B[0n')
+          case 6: {
+            const row = this.state.cursor.row + 1
+            const column = this.state.cursor.column + 1
+            return this.emitResponse(`\u001B[${row};${column}R`)
+          }
+          default:
+            return []
+        }
+      }
       default:
         return []
     }

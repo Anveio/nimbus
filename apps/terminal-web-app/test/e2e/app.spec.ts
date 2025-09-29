@@ -467,6 +467,42 @@ test.describe('terminal e2e harness', () => {
       const match = codes.find((entry) => normaliseDeviceAttributes(entry).includes('?6;'))
       return match ? normaliseDeviceAttributes(match) : null
     }).toContain('?6;')
+
+    const afterStatusCount = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
+    )
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001b[5n')
+    })
+
+    await expect.poll(async () => {
+      const codes = await getResponseCodesFrom(page, afterStatusCount)
+      const match = codes.find(
+        (entry) => normaliseDeviceAttributes(entry) === '0n',
+      )
+      return match ? normaliseDeviceAttributes(match) : null
+    }).toBe('0n')
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001b[10;20H')
+    })
+
+    const afterCprCount = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
+    )
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001b[6n')
+    })
+
+    await expect.poll(async () => {
+      const codes = await getResponseCodesFrom(page, afterCprCount)
+      const match = codes.find(
+        (entry) => normaliseDeviceAttributes(entry) === '10;20R',
+      )
+      return match ? normaliseDeviceAttributes(match) : null
+    }).toBe('10;20R')
   })
 
   test('switches C1 transmission using S7C1T', async ({ page }) => {
