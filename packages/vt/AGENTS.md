@@ -158,4 +158,5 @@ Using Ghostty as a guide, we can finish SOS/PM/APC support, flesh out C1 semanti
 - Extended the interpreter to recognise the full VT100 editing surface: insert/delete character and line CSI sequences, erase-in-line variants, and cursor next/previous line helpers.
 - Implemented G0/G1 charset designation with DEC Special Graphics translation plus SO/SI invocation, enabling authentic box-drawing output for legacy hosts.
 - Added support for DEC Private Mode toggles (DECCOLM, DECAWM, DECOM, DECCKM, DECSCLM, DECSCNM, DECARM, DECTCEM), including 80/132 column rebuilds and keypad state tracking.
+- Wired the canvas renderer to honour DECSCNM by swapping the global foreground/background palette so reverse video takes effect visually.
 - Wired ESC family diagnostics—`DECALN`, keypad application/normal (`ESC =`/`>`), and RIS—while documenting the coverage in README.md and expanding interpreter tests to cover the new behaviours.

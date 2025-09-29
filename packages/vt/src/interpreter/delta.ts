@@ -28,7 +28,17 @@ export type TerminalUpdate =
   | { readonly type: 'bell' }
   | { readonly type: 'attributes'; readonly attributes: TerminalAttributes }
   | { readonly type: 'scroll-region'; readonly top: number; readonly bottom: number }
-  | { readonly type: 'mode'; readonly mode: 'origin' | 'autowrap'; readonly value: boolean }
+  | {
+      readonly type: 'mode'
+      readonly mode:
+        | 'origin'
+        | 'autowrap'
+        | 'reverse-video'
+        | 'smooth-scroll'
+        | 'keypad-application'
+        | 'cursor-keys-application'
+      readonly value: boolean
+    }
   | { readonly type: 'cursor-visibility'; readonly value: boolean }
   | { readonly type: 'osc'; readonly identifier: string; readonly data: string }
   | { readonly type: 'title'; readonly title: string }

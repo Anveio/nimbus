@@ -151,6 +151,9 @@ const resolveCellColors = (
   attributes: TerminalAttributes,
   theme: RendererTheme,
   overrides: PaletteOverrides,
+  fallbackForeground: RendererColor,
+  fallbackBackground: RendererColor,
+  reverseVideo: boolean,
 ): {
   foreground: RendererColor | null
   background: RendererColor | null
@@ -159,7 +162,7 @@ const resolveCellColors = (
     attributes.foreground,
     theme,
     overrides,
-    theme.foreground,
+    fallbackForeground,
     false,
   )
 
@@ -167,13 +170,14 @@ const resolveCellColors = (
     attributes.background,
     theme,
     overrides,
-    theme.background,
+    fallbackBackground,
     true,
   )
 
-  if (attributes.inverse) {
-    const resolvedForeground = foreground ?? theme.foreground
-    const resolvedBackground = background ?? theme.background
+  const invert = reverseVideo ? !attributes.inverse : attributes.inverse
+  if (invert) {
+    const resolvedForeground = foreground ?? fallbackForeground
+    const resolvedBackground = background ?? fallbackBackground
     background = resolvedForeground
     foreground = resolvedBackground
   }
@@ -310,7 +314,11 @@ const repaint = (
   ctx.textAlign = 'left'
   ctx.font = fontString(metrics.font, false, false)
 
-  ctx.fillStyle = theme.background
+  const reverseVideo = Boolean(snapshot.reverseVideo)
+  const fallbackForeground = reverseVideo ? theme.background : theme.foreground
+  const fallbackBackground = reverseVideo ? theme.foreground : theme.background
+
+  ctx.fillStyle = fallbackBackground
   ctx.fillRect(0, 0, layout.logicalWidth, layout.logicalHeight)
   drawCalls += 1
 
@@ -354,6 +362,9 @@ const repaint = (
         cell.attr,
         theme,
         paletteOverrides,
+        fallbackForeground,
+        fallbackBackground,
+        reverseVideo,
       )
 
       let effectiveForeground = foreground

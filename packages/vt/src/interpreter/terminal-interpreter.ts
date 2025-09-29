@@ -794,11 +794,9 @@ export class TerminalInterpreter {
       case '8':
         return this.restoreCursor()
       case '=':
-        this.setKeypadApplicationMode(true)
-        return []
+        return this.setKeypadApplicationMode(true)
       case '>':
-        this.setKeypadApplicationMode(false)
-        return []
+        return this.setKeypadApplicationMode(false)
       case 'c':
         return this.resetToInitialState()
       default:
@@ -1050,6 +1048,11 @@ export class TerminalInterpreter {
       switch (param) {
         case 1: // DECCKM
           this.state.cursorKeysApplicationMode = enable
+          updates.push({
+            type: 'mode',
+            mode: 'cursor-keys-application',
+            value: enable,
+          })
           break
         case 3: // DECCOLM
           updates.push(...this.setColumns(enable ? 132 : 80))
@@ -1065,9 +1068,19 @@ export class TerminalInterpreter {
           break
         case 4: // DECSCLM (smooth scroll)
           this.state.smoothScroll = enable
+          updates.push({
+            type: 'mode',
+            mode: 'smooth-scroll',
+            value: enable,
+          })
           break
         case 5: // DECSCNM (reverse video)
           this.state.reverseVideo = enable
+          updates.push({
+            type: 'mode',
+            mode: 'reverse-video',
+            value: enable,
+          })
           break
         case 25: // DECTCEM
           updates.push(...this.setCursorVisibility(enable))
@@ -1787,11 +1800,32 @@ export class TerminalInterpreter {
       { type: 'scroll-region', top: this.state.scrollTop, bottom: this.state.scrollBottom },
       this.cursorUpdate(),
       { type: 'attributes', attributes: this.state.attributes },
+      { type: 'mode', mode: 'origin', value: this.state.originMode },
+      { type: 'mode', mode: 'autowrap', value: this.state.autoWrap },
+      { type: 'mode', mode: 'reverse-video', value: this.state.reverseVideo },
+      { type: 'mode', mode: 'smooth-scroll', value: this.state.smoothScroll },
+      {
+        type: 'mode',
+        mode: 'keypad-application',
+        value: this.state.keypadApplicationMode,
+      },
+      {
+        type: 'mode',
+        mode: 'cursor-keys-application',
+        value: this.state.cursorKeysApplicationMode,
+      },
     ]
   }
 
-  private setKeypadApplicationMode(enabled: boolean): void {
+  private setKeypadApplicationMode(enabled: boolean): TerminalUpdate[] {
     this.state.keypadApplicationMode = enabled
+    return [
+      {
+        type: 'mode',
+        mode: 'keypad-application',
+        value: enabled,
+      },
+    ]
   }
 
   private setColumns(columns: number): TerminalUpdate[] {
