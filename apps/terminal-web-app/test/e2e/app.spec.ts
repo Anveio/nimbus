@@ -261,6 +261,74 @@ test.describe('terminal e2e harness', () => {
     await expect.poll(() => readRow(3)).toBe('naïve café')
   })
 
+  test('honours reverse video via DECSCNM', async ({ page }) => {
+    await page.goto('/')
+
+    const terminal = page.getByRole('textbox', { name: 'Interactive terminal' })
+    await terminal.click()
+
+    await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
+
+    const readPixel = async (
+      position: { x: number; y: number } = { x: 10, y: 10 },
+    ): Promise<[number, number, number]> => {
+      return page.evaluate(({ x, y }) => {
+        const canvas = document.querySelector('canvas') as HTMLCanvasElement | null
+        if (!canvas) {
+          throw new Error('Canvas element not found')
+        }
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          throw new Error('Canvas context not available')
+        }
+        const scale = window.devicePixelRatio || 1
+        const data = ctx.getImageData(
+          Math.floor(x * scale),
+          Math.floor(y * scale),
+          1,
+          1,
+        ).data
+        return [data[0]!, data[1]!, data[2]!]
+      }, position)
+    }
+
+    const before = await readPixel()
+    expect(before[0]).toBeGreaterThanOrEqual(0)
+    expect(before[1]).toBeGreaterThanOrEqual(0)
+    expect(before[2]).toBeGreaterThanOrEqual(0)
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001b[?5h')
+    })
+
+    await expect.poll(() =>
+      page.evaluate(() =>
+        window.__manaTerminalTestHandle__?.getSnapshot().reverseVideo ?? false,
+      ),
+    ).toBe(true)
+
+    await page.waitForTimeout(50)
+    const after = await readPixel()
+    const brightnessBefore = before[0] + before[1] + before[2]
+    const brightnessAfter = after[0] + after[1] + after[2]
+    expect(brightnessAfter).toBeGreaterThan(brightnessBefore + 120)
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001b[?5l')
+    })
+
+    await expect.poll(() =>
+      page.evaluate(() =>
+        window.__manaTerminalTestHandle__?.getSnapshot().reverseVideo ?? true,
+      ),
+    ).toBe(false)
+
+    await page.waitForTimeout(50)
+    const reverted = await readPixel()
+    const brightnessReverted = reverted[0] + reverted[1] + reverted[2]
+    expect(Math.abs(brightnessReverted - brightnessBefore)).toBeLessThanOrEqual(60)
+  })
+
   test('single click moves the cursor within line bounds', async ({ page }) => {
     await page.goto('/')
 

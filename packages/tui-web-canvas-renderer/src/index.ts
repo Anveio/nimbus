@@ -174,7 +174,7 @@ const resolveCellColors = (
     true,
   )
 
-  const invert = reverseVideo ? !attributes.inverse : attributes.inverse
+  const invert = attributes.inverse
   if (invert) {
     const resolvedForeground = foreground ?? fallbackForeground
     const resolvedBackground = background ?? fallbackBackground
