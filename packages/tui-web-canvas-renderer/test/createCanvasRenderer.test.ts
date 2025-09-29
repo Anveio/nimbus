@@ -12,6 +12,7 @@ import { describe, expect, test, vi } from 'vitest'
 import {
   type CanvasLike,
   type CanvasRenderer,
+  type CursorOverlayStrategy,
   createCanvasRenderer,
   type RendererMetrics,
   type RendererTheme,
@@ -441,6 +442,63 @@ describe('createCanvasRenderer', () => {
     expect(pixel[0]).toBe(cursorColour[0])
     expect(pixel[1]).toBe(cursorColour[1])
     expect(pixel[2]).toBe(cursorColour[2])
+    renderer.dispose()
+  })
+
+  test('cursor overlay draws above selection highlights', () => {
+    const theme = createTheme()
+    const snapshot = createSnapshot(2, 2)
+    snapshot.cursorVisible = true
+    snapshot.selection = createSelection(0, 0, 0, 0)
+    const canvas = createTestCanvas(1, 1)
+
+    const renderer = createCanvasRenderer({
+      canvas,
+      metrics: baseMetrics,
+      theme,
+      snapshot,
+    })
+
+    const pixel = getPixel(
+      renderer,
+      baseMetrics.cell.width - 1,
+      baseMetrics.cell.height - 1,
+    )
+    const cursorColour = hexToRgba(theme.cursor.color)
+    expect(pixel[0]).toBe(cursorColour[0])
+    expect(pixel[1]).toBe(cursorColour[1])
+    expect(pixel[2]).toBe(cursorColour[2])
+    renderer.dispose()
+  })
+
+  test('custom cursor overlay strategy receives selection context', () => {
+    const theme = createTheme()
+    const snapshot = createSnapshot(2, 2)
+    snapshot.cursorVisible = true
+    snapshot.selection = createSelection(0, 0, 0, 1)
+    const canvas = createTestCanvas(1, 1)
+
+    const overlaySpy = vi.fn<CursorOverlayStrategy>((ctx) => {
+      ctx.ctx.fillStyle = theme.cursor.color
+      ctx.ctx.fillRect(
+        ctx.snapshot.cursor.column * baseMetrics.cell.width,
+        ctx.snapshot.cursor.row * baseMetrics.cell.height,
+        baseMetrics.cell.width,
+        baseMetrics.cell.height,
+      )
+      expect(ctx.selection).toEqual(snapshot.selection)
+      expect(ctx.snapshot.cursor).toEqual(snapshot.cursor)
+    })
+
+    const renderer = createCanvasRenderer({
+      canvas,
+      metrics: baseMetrics,
+      theme,
+      snapshot,
+      cursorOverlayStrategy: overlaySpy,
+    })
+
+    expect(overlaySpy).toHaveBeenCalledTimes(1)
     renderer.dispose()
   })
 

@@ -234,12 +234,22 @@ const fontString = (
 ): string =>
   `${italic ? 'italic ' : ''}${bold ? 'bold ' : ''}${font.size}px ${font.family}`
 
-const drawCursor = (
-  ctx: CanvasRenderingContext2D,
-  snapshot: TerminalState,
-  metrics: RendererMetrics,
-  theme: RendererTheme,
-): void => {
+export interface CursorOverlayContext {
+  readonly ctx: CanvasRenderingContext2D
+  readonly snapshot: TerminalState
+  readonly metrics: RendererMetrics
+  readonly theme: RendererTheme
+  readonly selection: TerminalSelection | null
+}
+
+export type CursorOverlayStrategy = (context: CursorOverlayContext) => void
+
+const defaultCursorOverlay: CursorOverlayStrategy = ({
+  ctx,
+  snapshot,
+  metrics,
+  theme,
+}) => {
   const { cursor } = snapshot
   const x = cursor.column * metrics.cell.width
   const y = cursor.row * metrics.cell.height
@@ -281,6 +291,7 @@ const repaint = (
   theme: RendererTheme,
   paletteOverrides: PaletteOverrides,
   layout: { logicalWidth: number; logicalHeight: number },
+  cursorOverlayStrategy: CursorOverlayStrategy,
 ): FrameStats => {
   const start = now()
   let drawCalls = 0
@@ -432,7 +443,13 @@ const repaint = (
   }
 
   if (snapshot.cursorVisible) {
-    drawCursor(ctx, snapshot, metrics, theme)
+    cursorOverlayStrategy({
+      ctx,
+      snapshot,
+      metrics,
+      theme,
+      selection: snapshot.selection ?? null,
+    })
     drawCalls += 1
   }
 
@@ -452,9 +469,18 @@ const fullRepaint = (
   metrics: RendererMetrics,
   theme: RendererTheme,
   paletteOverrides: PaletteOverrides,
+  cursorOverlayStrategy: CursorOverlayStrategy,
 ): FrameStats => {
   const layout = ensureDimensions(canvas, snapshot, metrics)
-  return repaint(ctx, snapshot, metrics, theme, paletteOverrides, layout)
+  return repaint(
+    ctx,
+    snapshot,
+    metrics,
+    theme,
+    paletteOverrides,
+    layout,
+    cursorOverlayStrategy,
+  )
 }
 
 const ensureNotDisposed = (disposed: boolean): void => {
@@ -472,6 +498,8 @@ export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
   let metrics = options.metrics
   let currentSnapshot = options.snapshot
   const paletteOverrides: PaletteOverrides = new Map()
+  let cursorOverlayStrategy: CursorOverlayStrategy =
+    options.cursorOverlayStrategy ?? defaultCursorOverlay
   let pendingDcs: {
     readonly finalByte: number
     readonly params: ReadonlyArray<number>
@@ -504,7 +532,15 @@ export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
   }
 
   applyFrameStats(
-    fullRepaint(ctx, canvas, currentSnapshot, metrics, theme, paletteOverrides),
+    fullRepaint(
+      ctx,
+      canvas,
+      currentSnapshot,
+      metrics,
+      theme,
+      paletteOverrides,
+      cursorOverlayStrategy,
+    ),
   )
   emitSelectionChange()
 
@@ -626,6 +662,7 @@ export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
             metrics,
             theme,
             paletteOverrides,
+            cursorOverlayStrategy,
           ),
         )
       }
@@ -647,6 +684,7 @@ export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
           metrics,
           theme,
           paletteOverrides,
+          cursorOverlayStrategy,
         ),
       )
       emitSelectionChange()
@@ -662,6 +700,7 @@ export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
           metrics,
           theme,
           paletteOverrides,
+          cursorOverlayStrategy,
         ),
       )
     },
@@ -677,6 +716,7 @@ export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
           metrics,
           theme,
           paletteOverrides,
+          cursorOverlayStrategy,
         ),
       )
       emitSelectionChange()
@@ -783,6 +823,7 @@ export interface CanvasRendererOptions {
    */
   readonly snapshot: TerminalState
   readonly onSelectionChange?: (selection: TerminalSelection | null) => void
+  readonly cursorOverlayStrategy?: CursorOverlayStrategy
 }
 
 export interface CanvasRendererUpdateOptions {
