@@ -1,10 +1,12 @@
 import type {
   CreateCanvasRenderer,
+  CursorOverlayStrategy,
   RendererCellMetrics,
   RendererCursorTheme,
   RendererFontMetrics,
   RendererMetrics,
   RendererPalette,
+  RendererSelectionTheme,
   RendererTheme,
 } from '@mana-ssh/tui-web-canvas-renderer'
 import type { TerminalInterpreter } from '@mana-ssh/vt'
@@ -48,6 +50,7 @@ const DEFAULT_THEME: RendererTheme = {
   background: '#0d1117',
   foreground: '#c9d1d9',
   cursor: { color: '#58a6ff', opacity: 1, shape: 'block' },
+  selection: { background: '#264f78', foreground: '#ffffff' },
   palette: {
     ansi: [
       '#000000',
@@ -148,11 +151,39 @@ const mergePalette = (
   extended: override?.extended ?? base.extended,
 })
 
+const mergeSelectionTheme = (
+  base: RendererSelectionTheme | undefined,
+  override?: RendererSelectionTheme,
+): RendererSelectionTheme | undefined => {
+  if (!base && !override) {
+    return undefined
+  }
+  const resolvedBackground = override?.background ?? base?.background
+  const resolvedForeground =
+    override && Object.prototype.hasOwnProperty.call(override, 'foreground')
+      ? override.foreground
+      : base?.foreground
+
+  if (!resolvedBackground) {
+    return undefined
+  }
+
+  const theme: RendererSelectionTheme = {
+    background: resolvedBackground,
+  }
+
+  if (resolvedForeground !== undefined) {
+    theme.foreground = resolvedForeground
+  }
+
+  return theme
+}
+
 const mergeTheme = (override?: Partial<RendererTheme>): RendererTheme => ({
   background: override?.background ?? DEFAULT_THEME.background,
   foreground: override?.foreground ?? DEFAULT_THEME.foreground,
   cursor: mergeCursorTheme(DEFAULT_THEME.cursor, override?.cursor),
-  selection: override?.selection,
+  selection: mergeSelectionTheme(DEFAULT_THEME.selection, override?.selection),
   palette: mergePalette(DEFAULT_THEME.palette, override?.palette),
 })
 
@@ -281,6 +312,7 @@ export interface TerminalProps extends HTMLAttributes<HTMLDivElement> {
     readonly cell?: Partial<RendererCellMetrics>
   }
   readonly renderer?: CreateCanvasRenderer
+  readonly cursorOverlayStrategy?: CursorOverlayStrategy
   readonly onData?: (data: Uint8Array) => void
   readonly onDiagnostics?: (
     diagnostics: TerminalRendererHandle['diagnostics'],
@@ -304,6 +336,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       theme: themeOverride,
       metrics: metricsOverride,
       renderer,
+      cursorOverlayStrategy,
       onData,
       onDiagnostics,
       onCursorSelectionChange,
@@ -406,6 +439,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       snapshot,
       onDiagnostics,
       onSelectionChange: handleSelectionChange,
+      cursorOverlayStrategy,
     })
 
     const keyboardSelectionAnchorRef = useRef<SelectionPoint | null>(null)

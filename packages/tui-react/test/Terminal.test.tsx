@@ -4,7 +4,10 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
 import type { Mock } from 'vitest'
 import { Terminal, type TerminalHandle } from '../src/Terminal'
-import { createCanvasRenderer } from '@mana-ssh/tui-web-canvas-renderer'
+import {
+  createCanvasRenderer,
+  type CanvasRendererOptions,
+} from '@mana-ssh/tui-web-canvas-renderer'
 import type { TerminalSelection } from '@mana-ssh/vt'
 import { getSelectionRowSegments } from '@mana-ssh/vt'
 
@@ -13,6 +16,10 @@ const encoder = new TextEncoder()
 const lastRenderer = () =>
   (createCanvasRenderer as unknown as Mock).mock.results.at(-1)!
     .value as CanvasRendererMock
+
+const lastRendererOptions = (): CanvasRendererOptions =>
+  ((createCanvasRenderer as unknown as Mock).mock.calls.at(-1)?.[0] ??
+    {}) as CanvasRendererOptions
 
 type CanvasRendererMock = ReturnType<typeof createCanvasRenderer> & {
   applyUpdates: ReturnType<typeof vi.fn>
@@ -320,32 +327,69 @@ describe('Terminal', () => {
 
       const selection = ref.current?.getSelection()
       expect(selection).not.toBeNull()
-      if (selection) {
-        expect(selection.anchor.row).toBe(0)
-        expect(selection.focus.row).toBeGreaterThan(selection.anchor.row)
-      }
+  if (selection) {
+    expect(selection.anchor.row).toBe(0)
+    expect(selection.focus.row).toBeGreaterThan(selection.anchor.row)
+  }
 
-      await act(async () => {
-        fireEvent.pointerMove(canvas, {
-          pointerId: 1,
-          clientX: 25,
-          clientY: 25,
-        })
-      })
+  await act(async () => {
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      clientX: 25,
+      clientY: 25,
+    })
+  })
 
-      await act(async () => {
-        fireEvent.pointerUp(canvas, {
-          pointerId: 1,
-          clientX: 25,
-          clientY: 25,
-        })
-      })
+  await act(async () => {
+    fireEvent.pointerUp(canvas, {
+      pointerId: 1,
+      clientX: 25,
+      clientY: 25,
+    })
+  })
 
-      const callbackSelection = onCursorSelectionChange.mock.lastCall?.[0] ?? null
-      expect(callbackSelection).toEqual(ref.current?.getSelection())
-    } finally {
-      rectSpy.mockRestore()
-      vi.useRealTimers()
-    }
+  const callbackSelection = onCursorSelectionChange.mock.lastCall?.[0] ?? null
+  expect(callbackSelection).toEqual(ref.current?.getSelection())
+} finally {
+  rectSpy.mockRestore()
+  vi.useRealTimers()
+}
+})
+
+  test('provides a default selection theme to the renderer', () => {
+    render(<Terminal rows={24} columns={80} />)
+    const options = lastRendererOptions()
+    expect(options.theme.selection).toEqual({
+      background: '#264f78',
+      foreground: '#ffffff',
+    })
+  })
+
+  test('allows overriding the selection theme via props', () => {
+    render(
+      <Terminal
+        rows={24}
+        columns={80}
+        theme={{ selection: { background: '#123456', foreground: '#fedcba' } }}
+      />,
+    )
+    const options = lastRendererOptions()
+    expect(options.theme.selection).toEqual({
+      background: '#123456',
+      foreground: '#fedcba',
+    })
+  })
+
+  test('forwards cursor overlay strategy to the canvas renderer', () => {
+    const cursorOverlayStrategy = vi.fn()
+    render(
+      <Terminal
+        rows={24}
+        columns={80}
+        cursorOverlayStrategy={cursorOverlayStrategy}
+      />,
+    )
+    const options = lastRendererOptions()
+    expect(options.cursorOverlayStrategy).toBe(cursorOverlayStrategy)
   })
 })

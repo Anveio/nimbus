@@ -6,6 +6,7 @@ import {
   type CanvasRendererResizeOptions,
   type CanvasRendererUpdateOptions,
   type CreateCanvasRenderer,
+  type CursorOverlayStrategy,
   type RendererMetrics,
   type RendererTheme,
 } from '@mana-ssh/tui-web-canvas-renderer'
@@ -23,6 +24,7 @@ export interface UseTerminalRendererOptions {
   readonly snapshot: TerminalState
   readonly onDiagnostics?: (diagnostics: CanvasRenderer['diagnostics']) => void
   readonly onSelectionChange?: (selection: TerminalSelection | null) => void
+  readonly cursorOverlayStrategy?: CursorOverlayStrategy
 }
 
 /**
@@ -48,13 +50,26 @@ export interface TerminalRendererHandle {
 export const useTerminalCanvasRenderer = (
   options: UseTerminalRendererOptions,
 ): TerminalRendererHandle => {
-  const { renderer, metrics, theme, snapshot, onDiagnostics, onSelectionChange } = options
+  const {
+    renderer,
+    metrics,
+    theme,
+    snapshot,
+    onDiagnostics,
+    onSelectionChange,
+    cursorOverlayStrategy,
+  } = options
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rendererRef = useRef<CanvasRenderer | null>(null)
   const diagnosticsRef = useRef<CanvasRenderer['diagnostics'] | null>(null)
   const selectionRef = useRef<TerminalSelection | null>(snapshot.selection ?? null)
   const rendererFactoryRef = useRef<CreateCanvasRenderer | undefined>(renderer)
-  const latestOptionsRef = useRef({ metrics, theme, snapshot })
+  const latestOptionsRef = useRef({
+    metrics,
+    theme,
+    snapshot,
+    cursorOverlayStrategy,
+  })
   const selectionCallbackRef = useRef<typeof onSelectionChange>(onSelectionChange)
 
   useEffect(() => {
@@ -67,8 +82,13 @@ export const useTerminalCanvasRenderer = (
   }, [renderer])
 
   useEffect(() => {
-    latestOptionsRef.current = { metrics, theme, snapshot }
-  }, [metrics, theme, snapshot])
+    latestOptionsRef.current = {
+      metrics,
+      theme,
+      snapshot,
+      cursorOverlayStrategy,
+    }
+  }, [metrics, theme, snapshot, cursorOverlayStrategy])
 
   useEffect(() => {
     selectionCallbackRef.current = onSelectionChange
@@ -88,14 +108,19 @@ export const useTerminalCanvasRenderer = (
     }
 
     const factory = rendererFactoryRef.current ?? createDefaultCanvasRenderer
-    const { metrics: currentMetrics, theme: currentTheme, snapshot: currentSnapshot } =
-      latestOptionsRef.current
+    const {
+      metrics: currentMetrics,
+      theme: currentTheme,
+      snapshot: currentSnapshot,
+      cursorOverlayStrategy: currentCursorOverlayStrategy,
+    } = latestOptionsRef.current
 
     const instance = factory({
       canvas,
       metrics: currentMetrics,
       theme: currentTheme,
       snapshot: currentSnapshot,
+      cursorOverlayStrategy: currentCursorOverlayStrategy,
       onSelectionChange: (selection) => {
         selectionRef.current = selection
         selectionCallbackRef.current?.(selection)
@@ -144,6 +169,23 @@ export const useTerminalCanvasRenderer = (
     },
     [ensureRenderer, onDiagnostics],
   )
+
+  useEffect(() => {
+    if (!rendererRef.current) {
+      return
+    }
+    rendererRef.current.dispose()
+    rendererRef.current = null
+    diagnosticsRef.current = null
+    selectionRef.current = null
+
+    if (canvasRef.current) {
+      const rendererInstance = ensureRenderer()
+      diagnosticsRef.current = rendererInstance.diagnostics
+      selectionRef.current = rendererInstance.currentSelection
+      onDiagnostics?.(rendererInstance.diagnostics)
+    }
+  }, [cursorOverlayStrategy, ensureRenderer, onDiagnostics])
 
   const resize = useCallback(
     (resizeOptions: CanvasRendererResizeOptions) => {
