@@ -1,27 +1,27 @@
-import { ParserState } from "../types";
+import { ParserState } from '../types'
 
 /**
  * Low-level mutable parser state. Each field maps to a primitive described by
  * the VT500 state diagram.
  */
 export interface ParserContext {
-  state: ParserState;
-  collectBuffer: number[];
-  params: number[];
-  currentParam: number | null;
-  paramSeparators: Array<'colon' | 'semicolon'>;
-  prefix: number | null;
-  intermediates: number[];
-  oscBuffer: number[];
-  oscEscPending: boolean;
-  dcsBuffer: number[];
-  dcsEscPending: boolean;
-  dcsByteCount: number;
-  sosPmApcBuffer: number[];
-  sosPmApcEscPending: boolean;
-  sosPmApcKind: 'SOS' | 'PM' | 'APC' | null;
-  utf8ExpectedContinuation: number;
-  utf8Pending: number[];
+  state: ParserState
+  collectBuffer: number[]
+  params: number[]
+  currentParam: number | null
+  paramSeparators: Array<'colon' | 'semicolon'>
+  prefix: number | null
+  intermediates: number[]
+  oscBuffer: number[]
+  oscEscPending: boolean
+  dcsBuffer: number[]
+  dcsEscPending: boolean
+  dcsByteCount: number
+  sosPmApcBuffer: number[]
+  sosPmApcEscPending: boolean
+  sosPmApcKind: 'SOS' | 'PM' | 'APC' | null
+  utf8ExpectedContinuation: number
+  utf8Pending: number[]
 }
 
 export const createInitialContext = (): ParserContext => ({
@@ -42,4 +42,4 @@ export const createInitialContext = (): ParserContext => ({
   sosPmApcKind: null,
   utf8ExpectedContinuation: 0,
   utf8Pending: [],
-});
+})

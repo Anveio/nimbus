@@ -705,11 +705,10 @@ class ParserImpl implements Parser {
   }
 
   private enqueuePrintable(byte: number): void {
-    let current = byte
+    const current = byte
 
     // Loop so we can reprocess the same byte after repairing an incomplete
     // sequence (e.g. when a continuation byte was missing).
-    // biome-ignore lint/suspicious/noConstantCondition:
     while (true) {
       if (this.context.utf8ExpectedContinuation > 0) {
         if (isUtf8ContinuationByte(current)) {

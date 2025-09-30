@@ -1021,6 +1021,10 @@ export class TerminalInterpreter {
         return this.saveCursor()
       case '8':
         return this.restoreCursor()
+      case '1':
+        return this.setLineAttribute(this.state.cursor.row, 'double-top')
+      case '2':
+        return this.setLineAttribute(this.state.cursor.row, 'double-bottom')
       case '=':
         return this.setKeypadApplicationMode(true)
       case '>':

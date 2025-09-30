@@ -1,7 +1,7 @@
 import {
+  ByteFlag,
   type ParserEventSink,
   ParserState,
-  ByteFlag,
   type SosPmApcKind,
 } from '../types'
 
@@ -84,14 +84,20 @@ export const matchBytes = (...codes: number[]): ByteRulePredicate => {
   return (byte) => set.has(byte)
 }
 
-export const matchRange = (start: number, end: number): ByteRulePredicate =>
-  (byte) => byte >= start && byte <= end
+export const matchRange =
+  (start: number, end: number): ByteRulePredicate =>
+  (byte) =>
+    byte >= start && byte <= end
 
-export const matchFlag = (flag: ByteFlag): ByteRulePredicate =>
-  (_byte, flags) => (flags & flag) !== 0
+export const matchFlag =
+  (flag: ByteFlag): ByteRulePredicate =>
+  (_byte, flags) =>
+    (flags & flag) !== 0
 
-export const matchAnyFlag = (mask: ByteFlag): ByteRulePredicate =>
-  (_byte, flags) => (flags & mask) !== 0
+export const matchAnyFlag =
+  (mask: ByteFlag): ByteRulePredicate =>
+  (_byte, flags) =>
+    (flags & mask) !== 0
 
 export const matchDigits: ByteRulePredicate = (byte) =>
   byte >= BYTE_LIMITS.DIGIT_START && byte <= BYTE_LIMITS.DIGIT_END
@@ -105,7 +111,8 @@ export const matchParamSeparators: ByteRulePredicate = matchBytes(
 )
 
 export const matchParamDigitsOrSeparators: ByteRulePredicate = (byte) =>
-  (byte >= BYTE_LIMITS.DIGIT_START && byte <= BYTE_LIMITS.SEMICOLON) &&
+  byte >= BYTE_LIMITS.DIGIT_START &&
+  byte <= BYTE_LIMITS.SEMICOLON &&
   byte !== 0x3c &&
   byte !== 0x3d &&
   byte !== 0x3e &&
@@ -161,7 +168,7 @@ const createGroundSpec = (runtime: StateRuleRuntime): StateRuleSpec => {
     {
       predicate: (byte, flags) =>
         byte !== ESC &&
-        (((flags & ByteFlag.C0Control) !== 0) || (flags & ByteFlag.Delete) !== 0),
+        ((flags & ByteFlag.C0Control) !== 0 || (flags & ByteFlag.Delete) !== 0),
       handler: executeControl,
     },
     { predicate: matchFlag(ByteFlag.Printable), handler: printable },
@@ -196,11 +203,23 @@ const createEscapeSpec = (runtime: StateRuleRuntime): StateRuleSpec => {
     { predicate: matchBytes(0x5b), handler: runtime.enterCsiEntry },
     { predicate: matchBytes(0x5d), handler: runtime.enterOscString },
     { predicate: matchBytes(0x50), handler: runtime.enterDcsEntry },
-    { predicate: matchBytes(0x58), handler: () => runtime.enterSosPmApc('SOS') },
+    {
+      predicate: matchBytes(0x58),
+      handler: () => runtime.enterSosPmApc('SOS'),
+    },
     { predicate: matchBytes(0x5e), handler: () => runtime.enterSosPmApc('PM') },
-    { predicate: matchBytes(0x5f), handler: () => runtime.enterSosPmApc('APC') },
-    { predicate: matchFlag(ByteFlag.Intermediate), handler: collectIntermediate },
-    { predicate: matchAnyFlag(ByteFlag.Parameter | ByteFlag.Final), handler: dispatchEscape },
+    {
+      predicate: matchBytes(0x5f),
+      handler: () => runtime.enterSosPmApc('APC'),
+    },
+    {
+      predicate: matchFlag(ByteFlag.Intermediate),
+      handler: collectIntermediate,
+    },
+    {
+      predicate: matchAnyFlag(ByteFlag.Parameter | ByteFlag.Final),
+      handler: dispatchEscape,
+    },
   ]
 
   return { fallback: dropToGround, rules }
@@ -227,7 +246,10 @@ const createEscapeIntermediateSpec = (
 
   const rules: ByteRule[] = [
     { predicate: matchFlag(ByteFlag.Intermediate), handler: collect },
-    { predicate: matchAnyFlag(ByteFlag.Parameter | ByteFlag.Final), handler: dispatch },
+    {
+      predicate: matchAnyFlag(ByteFlag.Parameter | ByteFlag.Final),
+      handler: dispatch,
+    },
   ]
 
   return { fallback: toGround, rules }
@@ -298,7 +320,10 @@ const createCsiEntrySpec = (runtime: StateRuleRuntime): StateRuleSpec => {
     { predicate: matchDigits, handler: enterParamWithDigit },
     { predicate: matchBytes(COLON), handler: enterParamWithColon },
     { predicate: matchBytes(SEMICOLON), handler: enterParamWithSemicolon },
-    { predicate: matchFlag(ByteFlag.Intermediate), handler: moveToIntermediate },
+    {
+      predicate: matchFlag(ByteFlag.Intermediate),
+      handler: moveToIntermediate,
+    },
     { predicate: matchFlag(ByteFlag.Final), handler: dispatchFinal },
   ]
 

@@ -99,6 +99,43 @@ describe('TerminalInterpreter basic behaviour', () => {
     expect(state.cursor.column).toBe(1)
   })
 
+  it('relies on host-issued space overwrite around BS for destructive erase', () => {
+    const { interpreter } = run('foo\b \bx')
+    const row = interpreter.snapshot.buffer[0]!
+
+    expect(row.slice(0, 3).map((cell) => cell.char).join('')).toBe('fox')
+    expect(interpreter.snapshot.cursor.column).toBe(3)
+  })
+
+  it('treats DEL as a no-op in keeping with VT100/xterm semantics', () => {
+    const { interpreter } = run('foo\x7f')
+    const row = interpreter.snapshot.buffer[0]!
+
+    expect(row.slice(0, 3).map((cell) => cell.char).join('')).toBe('foo')
+    expect(interpreter.snapshot.cursor.column).toBe(3)
+  })
+
+  it('shifts characters left with CSI P delete character', () => {
+    const { interpreter } = run('abcd\x1b[H\x1b[P')
+    const row = interpreter.snapshot.buffer[0]!
+
+    expect(row.slice(0, 3).map((cell) => cell.char).join('')).toBe('bcd')
+    expect(row[3]!.char).toBe(' ')
+    expect(interpreter.snapshot.cursor.column).toBe(0)
+  })
+
+  it('aliases legacy ESC 1/2 double-height controls', () => {
+    const parser = createParser()
+    const interpreter = createInterpreter()
+    const sink = new InterpreterSink(interpreter, [])
+
+    parser.write('\u001b1', sink)
+    expect(interpreter.snapshot.lineAttributes[0]).toBe('double-top')
+
+    parser.write('\n\u001b2', sink)
+    expect(interpreter.snapshot.lineAttributes[1]).toBe('double-bottom')
+  })
+
   it('clears the screen with CSI 2J and positions cursor with CSI H', () => {
     const { interpreter } = run('seed\x1b[2J\x1b[10;10Hmark')
     const state = interpreter.snapshot

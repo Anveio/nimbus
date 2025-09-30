@@ -1,9 +1,9 @@
-import { ByteFlag } from "../types";
+import { ByteFlag } from '../types'
 
 export interface ByteRange {
-  readonly start: number;
-  readonly end: number;
-  readonly flag: ByteFlag;
+  readonly start: number
+  readonly end: number
+  readonly flag: ByteFlag
 }
 
 export const BYTE_RANGES: ReadonlyArray<ByteRange> = [
@@ -17,4 +17,4 @@ export const BYTE_RANGES: ReadonlyArray<ByteRange> = [
   { start: 0x20, end: 0x7e, flag: ByteFlag.Printable },
   { start: 0x9c, end: 0x9c, flag: ByteFlag.StringTerminator },
   { start: 0x07, end: 0x07, flag: ByteFlag.StringTerminator },
-];
+]

@@ -167,7 +167,7 @@ Using Ghostty as a guide, we can finish SOS/PM/APC support, flesh out C1 semanti
 - ~~Device status reports (`CSI Ps n` for printer status, cursor position, etc.) still fall through the interpreter with no response generation (`packages/vt/src/interpreter/terminal-interpreter.ts:1188`). Need handlers plus unit/e2e coverage for `CSI 5 n`, `CSI 6 n`, and related reports.~~ ✅
 - ~~DECID/answerback: `ESC Z` is not recognised in `handleEsc` (`…/terminal-interpreter.ts:940`), so the terminal never returns the VT100 ID string. Implement decode + response pipeline.~~ ✅
 - ~~Printer/AUX control sequences (`CSI ? 4 h/l`, `ESC [ 4 i`, `ESC [ 5 i`, etc.) are unimplemented—no state updates or passthrough to a print channel. We should stub the printer controller and add tests ensuring these no-op safely until printer support lands.~~ ✅
-- Answerback programming via `DCS $ q` and `ENQ` is missing; parser routes the bytes but interpreter ignores the payload. Capture the programmable string and respond to `ENQ` to match DEC behaviour.
+- ~~Answerback programming via `DCS $ q` and `ENQ` is missing; parser routes the bytes but interpreter ignores the payload. Capture the programmable string and respond to `ENQ` to match DEC behaviour.~~
 - Parser ignores several VT100-specific fallbacks: sequences like `ESC 1/2` (graphics height), SS2/SS3 7-bit variants, and other legacy ESCapes should either transition to ignore states or emit structured events. Audit `state-rules.ts` to align with the VT100 diagram.
 
 ## 2025-09-29 – Printer controller stub
@@ -176,6 +176,7 @@ Using Ghostty as a guide, we can finish SOS/PM/APC support, flesh out C1 semanti
 - `TerminalInterpreter` now tracks printer controller and auto-print flags, mirrors output when controller mode is enabled, and handles the DEC media-copy sequences (`CSI 0/4/5 i`, `CSI ? 4/5/6 i`) by calling the controller hooks (`packages/vt/src/interpreter/terminal-interpreter.ts`).
 - Terminal state snapshots expose printer flags and answerback text (`packages/vt/src/interpreter/state.ts`); the React terminal propagates printer events to tests via its handle (`packages/tui-react/src/Terminal.tsx`, `apps/terminal-web-app/src/App.tsx`).
 - Coverage: Vitest asserts controller toggles, print-screen invocation, and write mirroring (`packages/vt/test/interpreter.basic.test.ts`); Playwright verifies DECID/ENQ plus printer events captured in the browser harness (`apps/terminal-web-app/test/e2e/app.spec.ts`).
+- NOTE: controller remains a stub—future work should wire these hooks to real print sinks (download, backend, etc.) and implement DSR 3/7 responses when the AUX device is configurable.
 
 ## 2025-09-28 – VT320 capability notes
 

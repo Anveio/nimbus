@@ -196,6 +196,104 @@ test.describe('terminal e2e harness', () => {
     expect(pastedRow).toContain(`ALPHA${pastePayload}`)
   })
 
+  test('raw DEL remains inert while DOM backspace deletes locally', async ({
+    page,
+  }) => {
+    await page.goto('/')
+
+    const terminal = page.getByRole('textbox', { name: 'Interactive terminal' })
+    await expect(terminal).toBeVisible()
+    await terminal.click()
+
+    await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
+
+    await page.evaluate(() => {
+      const handle = window.__manaTerminalTestHandle__
+      if (!handle) {
+        return
+      }
+      handle.write('\u001b[2J\u001b[H')
+      handle.write('foo')
+      handle.write(new Uint8Array([0x7f]))
+    })
+
+    await page.waitForFunction(() => {
+      const handle = window.__manaTerminalTestHandle__
+      if (!handle) {
+        return false
+      }
+      const snapshot = handle.getSnapshot()
+      const row = snapshot.buffer[0]?.map((cell) => cell?.char ?? ' ').join('').trimEnd()
+      return row === 'foo'
+    })
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001b[2J\u001b[H')
+    })
+
+    await page.keyboard.type('TEST')
+    const responseOffset = await page.evaluate(
+      () => window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
+    )
+
+    await page.keyboard.press('Backspace')
+
+    await page.waitForFunction(() => {
+      const handle = window.__manaTerminalTestHandle__
+      if (!handle) {
+        return false
+      }
+      const snapshot = handle.getSnapshot()
+      const row = snapshot.buffer[0]?.map((cell) => cell?.char ?? ' ').join('').trimEnd()
+      return row === 'TES'
+    })
+
+    const responses = await getResponseCodesFrom(page, responseOffset)
+    expect(responses).toHaveLength(1)
+    expect(responses[0]).toEqual([0x7f])
+  })
+
+  test('honours legacy ESC 1/2 double-height aliases', async ({ page }) => {
+    await page.goto('/')
+
+    const terminal = page.getByRole('textbox', { name: 'Interactive terminal' })
+    await expect(terminal).toBeVisible()
+    await terminal.click()
+
+    await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
+    await page.evaluate(() => {
+      const handle = window.__manaTerminalTestHandle__
+      if (!handle) {
+        return
+      }
+      handle.write('\u001b1')
+    })
+
+    await page.waitForFunction(() => {
+      const handle = window.__manaTerminalTestHandle__
+      if (!handle) {
+        return false
+      }
+      return handle.getSnapshot().lineAttributes[0] === 'double-top'
+    })
+
+    await page.evaluate(() => {
+      const handle = window.__manaTerminalTestHandle__
+      if (!handle) {
+        return
+      }
+      handle.write('\n\u001b2')
+    })
+
+    await page.waitForFunction(() => {
+      const handle = window.__manaTerminalTestHandle__
+      if (!handle) {
+        return false
+      }
+      return handle.getSnapshot().lineAttributes[1] === 'double-bottom'
+    })
+  })
+
   test('handles streamed UTF-8 byte sequences', async ({ page }) => {
     await page.goto('/')
 

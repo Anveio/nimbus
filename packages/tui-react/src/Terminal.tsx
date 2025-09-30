@@ -9,7 +9,7 @@ import type {
   RendererSelectionTheme,
   RendererTheme,
 } from '@mana-ssh/tui-web-canvas-renderer'
-import type { TerminalInterpreter, PrinterController } from '@mana-ssh/vt'
+import type { PrinterController, TerminalInterpreter } from '@mana-ssh/vt'
 import {
   createInterpreter,
   createParser,
@@ -166,7 +166,7 @@ const mergeSelectionTheme = (
   }
   const resolvedBackground = override?.background ?? base?.background
   const resolvedForeground =
-    override && Object.prototype.hasOwnProperty.call(override, 'foreground')
+    override && Object.hasOwn(override, 'foreground')
       ? override.foreground
       : base?.foreground
 
@@ -246,6 +246,28 @@ const clampRowToContent = (state: TerminalState, row: number): number => {
   return Math.max(0, Math.min(row, maxRow))
 }
 
+const createLinearSelection = (
+  row: number,
+  startColumn: number,
+  endColumn: number,
+): TerminalSelection => {
+  const timestamp = Date.now()
+  return {
+    anchor: {
+      row,
+      column: startColumn,
+      timestamp,
+    },
+    focus: {
+      row,
+      column: endColumn,
+      timestamp: timestamp + 1,
+    },
+    kind: 'normal',
+    status: 'idle',
+  }
+}
+
 const encodeKeyEvent = (
   event: React.KeyboardEvent<HTMLDivElement>,
 ): Uint8Array | null => {
@@ -275,6 +297,8 @@ const encodeKeyEvent = (
       return TEXT_ENCODER.encode('\r')
     case 'Backspace':
       return new Uint8Array([0x7f])
+    case 'Delete':
+      return TEXT_ENCODER.encode('\u001b[3~')
     case 'Tab':
       return TEXT_ENCODER.encode('\t')
     case 'ArrowUp':
@@ -441,26 +465,29 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     const parserRef = useRef(createParser())
     const printerEventsRef = useRef<PrinterEvent[]>([])
 
-    const printerController = useMemo<PrinterController>(() => ({
-      setPrinterControllerMode: (enabled) => {
-        printerEventsRef.current.push({ type: 'controller-mode', enabled })
-      },
-      setAutoPrintMode: (enabled) => {
-        printerEventsRef.current.push({ type: 'auto-print-mode', enabled })
-      },
-      printScreen: (lines) => {
-        printerEventsRef.current.push({
-          type: 'print-screen',
-          lines: [...lines],
-        })
-      },
-      write: (data) => {
-        printerEventsRef.current.push({
-          type: 'write',
-          data: data.slice(),
-        })
-      },
-    }), [])
+    const printerController = useMemo<PrinterController>(
+      () => ({
+        setPrinterControllerMode: (enabled) => {
+          printerEventsRef.current.push({ type: 'controller-mode', enabled })
+        },
+        setAutoPrintMode: (enabled) => {
+          printerEventsRef.current.push({ type: 'auto-print-mode', enabled })
+        },
+        printScreen: (lines) => {
+          printerEventsRef.current.push({
+            type: 'print-screen',
+            lines: [...lines],
+          })
+        },
+        write: (data) => {
+          printerEventsRef.current.push({
+            type: 'write',
+            data: data.slice(),
+          })
+        },
+      }),
+      [],
+    )
 
     if (!interpreterRef.current) {
       interpreterRef.current = createInterpreterInstance(
@@ -814,10 +841,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         const timestamp = Date.now()
         const snapshot = interpreter.snapshot
         const clampedRow = clampRowToContent(snapshot, row)
-        const clampedColumn = interpreter.clampCursorColumn(
-          clampedRow,
-          column,
-        )
+        const clampedColumn = interpreter.clampCursorColumn(clampedRow, column)
         const selection: TerminalSelection = {
           anchor: { row: clampedRow, column: clampedColumn, timestamp },
           focus: { row: clampedRow, column: clampedColumn, timestamp },
@@ -850,10 +874,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         const timestamp = Date.now()
         const snapshot = interpreter.snapshot
         const clampedRow = clampRowToContent(snapshot, row)
-        const clampedColumn = interpreter.clampCursorColumn(
-          clampedRow,
-          column,
-        )
+        const clampedColumn = interpreter.clampCursorColumn(clampedRow, column)
         const selection: TerminalSelection = {
           anchor: pointerState.anchor,
           focus: { row: clampedRow, column: clampedColumn, timestamp },
@@ -964,6 +985,58 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       [localEcho, onData, write],
     )
 
+    const replaceSelectionWithText = useCallback(
+      (selection: TerminalSelection | null, replacement: string) => {
+        const updates = interpreter.editSelection({
+          selection: selection ?? undefined,
+          replacement,
+        })
+        if (updates.length === 0) {
+          return false
+        }
+        applyUpdates(updates)
+        return true
+      },
+      [applyUpdates, interpreter],
+    )
+
+    const performLocalErase = useCallback(
+      (direction: 'backspace' | 'delete'): boolean => {
+        if (!localEcho) {
+          return false
+        }
+
+        const snapshot = interpreter.snapshot
+        const activeSelection = snapshot.selection
+        if (activeSelection && !isSelectionCollapsed(activeSelection)) {
+          return replaceSelectionWithText(activeSelection, '')
+        }
+
+        const { row, column } = snapshot.cursor
+        if (direction === 'backspace') {
+          if (column <= 0) {
+            return false
+          }
+          const selection = createLinearSelection(row, column - 1, column)
+          return replaceSelectionWithText(selection, '')
+        }
+
+        if (column >= snapshot.columns) {
+          return false
+        }
+
+        const rowBuffer = snapshot.buffer[row] ?? []
+        const targetCell = rowBuffer[column]
+        if (!targetCell || targetCell.char === ' ') {
+          return false
+        }
+
+        const selection = createLinearSelection(row, column, column + 1)
+        return replaceSelectionWithText(selection, '')
+      },
+      [interpreter, localEcho, replaceSelectionWithText],
+    )
+
     const handleKeyDown = useCallback(
       (event: ReactKeyboardEvent<HTMLDivElement>) => {
         const key = event.key
@@ -996,15 +1069,24 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         let anchorPoint: SelectionPoint | null = null
 
         if (shouldExtendSelection) {
-          anchorPoint =
-            keyboardSelectionAnchorRef.current ?? {
-              row: previousCursor.row,
-              column: previousCursor.column,
-              timestamp: Date.now(),
-            }
+          anchorPoint = keyboardSelectionAnchorRef.current ?? {
+            row: previousCursor.row,
+            column: previousCursor.column,
+            timestamp: Date.now(),
+          }
         }
 
         let handledLocally = false
+        let handledViaLocalErase = false
+        if (!event.altKey && !event.ctrlKey && !event.metaKey) {
+          if (key === 'Backspace') {
+            handledLocally = performLocalErase('backspace')
+            handledViaLocalErase = handledLocally
+          } else if (key === 'Delete') {
+            handledLocally = performLocalErase('delete')
+            handledViaLocalErase = handledLocally
+          }
+        }
         if (isArrowKey) {
           const isLineMotion = event.metaKey
           const isWordMotion =
@@ -1075,6 +1157,9 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
 
         if (handledLocally) {
           event.preventDefault()
+          if (handledViaLocalErase) {
+            keyboardSelectionAnchorRef.current = null
+          }
           const bytes = encodeKeyEvent(event)
           if (bytes) {
             emitData(bytes, { skipLocalEcho: true })
@@ -1100,21 +1185,6 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         emitData(bytes)
       },
       [applyUpdates, clearSelection, emitData, interpreter, onData, write],
-    )
-
-    const replaceSelectionWithText = useCallback(
-      (selection: TerminalSelection | null, replacement: string) => {
-        const updates = interpreter.editSelection({
-          selection: selection ?? undefined,
-          replacement,
-        })
-        if (updates.length === 0) {
-          return false
-        }
-        applyUpdates(updates)
-        return true
-      },
-      [applyUpdates, interpreter],
     )
 
     const handlePaste = useCallback(

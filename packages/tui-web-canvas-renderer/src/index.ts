@@ -1,14 +1,14 @@
 import type {
+  SelectionRowSegment,
   SosPmApcKind,
   TerminalAttributes,
   TerminalCell,
   TerminalColor,
-  TerminalState,
   TerminalSelection,
+  TerminalState,
   TerminalUpdate,
 } from '@mana-ssh/vt'
 import { getSelectionRowSegments } from '@mana-ssh/vt'
-import type { SelectionRowSegment } from '@mana-ssh/vt'
 
 const createDefaultAttributes = (): TerminalAttributes => ({
   bold: false,
@@ -343,7 +343,8 @@ const repaint = (
     if (selectionSegment && selectionTheme?.background) {
       const highlightX = selectionSegment.startColumn * cellWidth
       const highlightWidth =
-        (selectionSegment.endColumn - selectionSegment.startColumn + 1) * cellWidth
+        (selectionSegment.endColumn - selectionSegment.startColumn + 1) *
+        cellWidth
       ctx.fillStyle = selectionTheme.background
       ctx.fillRect(highlightX, row * cellHeight, highlightWidth, cellHeight)
       drawCalls += 1
@@ -385,7 +386,9 @@ const repaint = (
       }
 
       const char = cell.char
-      const shouldDrawGlyph = Boolean(char && char !== ' ' && effectiveForeground)
+      const shouldDrawGlyph = Boolean(
+        char && char !== ' ' && effectiveForeground,
+      )
 
       if (shouldDrawGlyph) {
         const nextFont = fontString(
@@ -510,7 +513,7 @@ export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
   let metrics = options.metrics
   let currentSnapshot = options.snapshot
   const paletteOverrides: PaletteOverrides = new Map()
-  let cursorOverlayStrategy: CursorOverlayStrategy =
+  const cursorOverlayStrategy: CursorOverlayStrategy =
     options.cursorOverlayStrategy ?? defaultCursorOverlay
   let pendingDcs: {
     readonly finalByte: number

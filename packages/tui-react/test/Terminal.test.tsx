@@ -13,6 +13,17 @@ import { getSelectionRowSegments } from '@mana-ssh/vt'
 
 const encoder = new TextEncoder()
 
+const extractRowText = (
+  snapshot: ReturnType<TerminalHandle['getSnapshot']>,
+  row = 0,
+): string => {
+  const rowBuffer = snapshot.buffer[row]
+  if (!rowBuffer) {
+    return ''
+  }
+  return rowBuffer.map((cell) => cell.char).join('').trimEnd()
+}
+
 const lastRenderer = () =>
   (createCanvasRenderer as unknown as Mock).mock.results.at(-1)!
     .value as CanvasRendererMock
@@ -441,6 +452,67 @@ describe('Terminal', () => {
     fireEvent.keyDown(region, { key: 'ArrowRight', altKey: true })
     fireEvent.keyUp(region, { key: 'ArrowRight', altKey: true })
     expect(ref.current?.getSnapshot().cursor.column).toBeGreaterThan(0)
+  })
+
+  test('backspace edits locally while emitting DEL', async () => {
+    const onData = vi.fn()
+    const ref = createRef<TerminalHandle>()
+    render(
+      <Terminal ref={ref} onData={onData} rows={24} columns={80} localEcho />,
+    )
+
+    const region = screen.getByRole('textbox')
+    await userEvent.click(region)
+    await userEvent.keyboard('AB')
+
+    onData.mockClear()
+    await userEvent.keyboard('{Backspace}')
+
+    expect(onData).toHaveBeenCalledTimes(1)
+    expect(onData).toHaveBeenCalledWith(new Uint8Array([0x7f]))
+
+    const snapshot = ref.current!.getSnapshot()
+    expect(extractRowText(snapshot)).toBe('A')
+  })
+
+  test('raw DEL input leaves the buffer untouched', async () => {
+    const ref = createRef<TerminalHandle>()
+    render(<Terminal ref={ref} rows={24} columns={80} />)
+
+    expect(ref.current).not.toBeNull()
+
+    await act(async () => {
+      ref.current!.write('DELTEST')
+    })
+
+    await act(async () => {
+      ref.current!.write(new Uint8Array([0x7f]))
+    })
+
+    const snapshot = ref.current!.getSnapshot()
+    expect(extractRowText(snapshot)).toBe('DELTEST')
+  })
+
+  test('delete key removes the character ahead of the cursor locally', async () => {
+    const onData = vi.fn()
+    const ref = createRef<TerminalHandle>()
+    render(
+      <Terminal ref={ref} onData={onData} rows={24} columns={80} localEcho />,
+    )
+
+    const region = screen.getByRole('textbox')
+    await userEvent.click(region)
+    await userEvent.keyboard('ABCD')
+    await userEvent.keyboard('{ArrowLeft}{ArrowLeft}')
+
+    onData.mockClear()
+    await userEvent.keyboard('{Delete}')
+
+    expect(onData).toHaveBeenCalledTimes(1)
+    expect(onData).toHaveBeenCalledWith(encoder.encode('\u001b[3~'))
+
+    const snapshot = ref.current!.getSnapshot()
+    expect(extractRowText(snapshot)).toBe('ABD')
   })
 
   test('single click collapses selection and moves cursor', async () => {
