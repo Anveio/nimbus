@@ -6,6 +6,10 @@ import {
   type TerminalCapabilities,
   type C1TransmissionMode,
 } from '../types'
+import {
+  type PrinterController,
+  createNoopPrinterController,
+} from '../printer/controller'
 import type { CellDelta, TerminalUpdate } from './delta'
 import type { SelectionPoint, TerminalSelection } from './selection'
 import {
@@ -98,6 +102,7 @@ interface ActiveDcs {
 export interface InterpreterOptions {
   readonly parser?: ParserOptions
   readonly capabilities?: TerminalCapabilities
+  readonly printer?: PrinterController
 }
 
 export class TerminalInterpreter {
@@ -106,11 +111,13 @@ export class TerminalInterpreter {
   private readonly textDecoder = new TextDecoder()
   private readonly printDecoder = new TextDecoder('utf-8', { fatal: false })
   private activeDcs: ActiveDcs | null = null
+  private readonly printer: PrinterController
 
   constructor(options: InterpreterOptions = {}) {
     this.capabilities =
       options.capabilities ?? resolveTerminalCapabilities(options.parser ?? {})
     this.state = createInitialState(this.capabilities)
+    this.printer = options.printer ?? createNoopPrinterController()
   }
 
   get snapshot(): TerminalState {
@@ -474,6 +481,10 @@ export class TerminalInterpreter {
   private handlePrint(data: Uint8Array): TerminalUpdate[] {
     if (data.length === 0) {
       return []
+    }
+
+    if (this.state.printer.controller || this.state.printer.autoPrint) {
+      this.printer.write(data.slice())
     }
 
     const text = this.printDecoder.decode(data, { stream: true })
@@ -857,6 +868,40 @@ export class TerminalInterpreter {
     return []
   }
 
+  private setPrinterControllerMode(enabled: boolean): void {
+    if (this.state.printer.controller === enabled) {
+      return
+    }
+    this.state.printer.controller = enabled
+    this.printer.setPrinterControllerMode(enabled)
+  }
+
+  private setPrinterAutoPrintMode(enabled: boolean): void {
+    if (this.state.printer.autoPrint === enabled) {
+      return
+    }
+    this.state.printer.autoPrint = enabled
+    this.printer.setAutoPrintMode(enabled)
+  }
+
+  private printScreen(): void {
+    const lines = this.collectScreenLines()
+    this.printer.printScreen(lines)
+  }
+
+  private collectScreenLines(): string[] {
+    const lines: string[] = []
+    for (let row = 0; row < this.state.rows; row += 1) {
+      const bufferRow = this.state.buffer[row] ?? []
+      const line = bufferRow
+        .map((cell) => cell?.char ?? ' ')
+        .join('')
+        .replace(/\s+$/u, '')
+      lines.push(line)
+    }
+    return lines
+  }
+
   private designateCharset(
     register: 'g0' | 'g1' | 'g2' | 'g3',
     designator: string,
@@ -1200,13 +1245,16 @@ export class TerminalInterpreter {
       }
     }
 
-    if (event.prefix === QUESTION_MARK) {
-      return this.handleDecPrivateMode(event)
-    }
-
     const final = String.fromCharCode(event.finalByte)
     const params = event.params
     const separators = event.paramSeparators ?? []
+
+    if (
+      event.prefix === QUESTION_MARK &&
+      (final === 'h' || final === 'l' || final === 'J' || final === 'K' || final === 'p')
+    ) {
+      return this.handleDecPrivateMode(event)
+    }
 
     switch (final) {
       case 'A':
@@ -1273,6 +1321,8 @@ export class TerminalInterpreter {
             return []
         }
       }
+      case 'i':
+        return this.handleMediaCopy(event)
       default:
         return []
     }
@@ -1356,6 +1406,48 @@ export class TerminalInterpreter {
     }
 
     return updates
+  }
+
+  private handleMediaCopy(
+    event: ParserEvent & { type: ParserEventType.CsiDispatch },
+  ): TerminalUpdate[] {
+    const params = event.params.length === 0 ? [0] : event.params
+    if (event.prefix === QUESTION_MARK) {
+      for (const param of params) {
+        switch (param) {
+          case 4:
+            this.setPrinterAutoPrintMode(true)
+            break
+          case 5:
+            this.setPrinterControllerMode(true)
+            break
+          case 6:
+            this.printScreen()
+            break
+          default:
+            break
+        }
+      }
+      return []
+    }
+
+    for (const param of params) {
+      switch (param) {
+        case 0:
+          this.printScreen()
+          break
+        case 4:
+          this.setPrinterAutoPrintMode(false)
+          this.setPrinterControllerMode(false)
+          break
+        case 5:
+          this.setPrinterControllerMode(true)
+          break
+        default:
+          break
+      }
+    }
+    return []
   }
 
   private reportPrivateModes(params: ReadonlyArray<number>): TerminalUpdate[] {

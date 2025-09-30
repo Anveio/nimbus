@@ -14,6 +14,8 @@ export type {
   TerminalCell,
   TerminalState,
 } from './interpreter/state'
+export type { PrinterController } from './printer/controller'
+export { createNoopPrinterController } from './printer/controller'
 export {
   getSelectionBounds,
   getSelectionRowSegment,

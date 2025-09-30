@@ -9,7 +9,7 @@ import type {
   RendererSelectionTheme,
   RendererTheme,
 } from '@mana-ssh/tui-web-canvas-renderer'
-import type { TerminalInterpreter } from '@mana-ssh/vt'
+import type { TerminalInterpreter, PrinterController } from '@mana-ssh/vt'
 import {
   createInterpreter,
   createParser,
@@ -94,6 +94,12 @@ const DEFAULT_METRICS: RendererMetrics = {
   font: DEFAULT_FONT,
   cell: DEFAULT_CELL,
 }
+
+export type PrinterEvent =
+  | { type: 'controller-mode'; enabled: boolean }
+  | { type: 'auto-print-mode'; enabled: boolean }
+  | { type: 'print-screen'; lines: string[] }
+  | { type: 'write'; data: Uint8Array }
 
 const extractSelectionText = (
   state: TerminalState,
@@ -306,6 +312,7 @@ const clamp = (value: number, min: number, max: number): number =>
 const createInterpreterInstance = (
   rows: number,
   columns: number,
+  printer: PrinterController,
 ): TerminalInterpreter => {
   const baseCapabilities = resolveTerminalCapabilities({})
   const capabilities = {
@@ -316,7 +323,7 @@ const createInterpreterInstance = (
       initialColumns: columns,
     },
   }
-  return createInterpreter({ capabilities })
+  return createInterpreter({ capabilities, printer })
 }
 
 export interface TerminalHandle {
@@ -432,9 +439,35 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
 
     const interpreterRef = useRef<TerminalInterpreter | null>(null)
     const parserRef = useRef(createParser())
+    const printerEventsRef = useRef<PrinterEvent[]>([])
+
+    const printerController = useMemo<PrinterController>(() => ({
+      setPrinterControllerMode: (enabled) => {
+        printerEventsRef.current.push({ type: 'controller-mode', enabled })
+      },
+      setAutoPrintMode: (enabled) => {
+        printerEventsRef.current.push({ type: 'auto-print-mode', enabled })
+      },
+      printScreen: (lines) => {
+        printerEventsRef.current.push({
+          type: 'print-screen',
+          lines: [...lines],
+        })
+      },
+      write: (data) => {
+        printerEventsRef.current.push({
+          type: 'write',
+          data: data.slice(),
+        })
+      },
+    }), [])
 
     if (!interpreterRef.current) {
-      interpreterRef.current = createInterpreterInstance(rows, columns)
+      interpreterRef.current = createInterpreterInstance(
+        rows,
+        columns,
+        printerController,
+      )
     }
 
     const interpreter = interpreterRef.current
@@ -513,9 +546,14 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     useEffect(() => {
       const current = interpreterRef.current
       if (!current) {
-        interpreterRef.current = createInterpreterInstance(rows, columns)
+        interpreterRef.current = createInterpreterInstance(
+          rows,
+          columns,
+          printerController,
+        )
         rendererHandle.sync(interpreterRef.current.snapshot)
         setSnapshotVersion((value) => value + 1)
+        printerEventsRef.current = []
         return
       }
 
@@ -524,11 +562,16 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         return
       }
 
-      interpreterRef.current = createInterpreterInstance(rows, columns)
+      interpreterRef.current = createInterpreterInstance(
+        rows,
+        columns,
+        printerController,
+      )
       parserRef.current = createParser()
       rendererHandle.sync(interpreterRef.current.snapshot)
       setSnapshotVersion((value) => value + 1)
-    }, [rows, columns, rendererHandle])
+      printerEventsRef.current = []
+    }, [rows, columns, printerController, rendererHandle])
 
     const applyUpdates = useCallback(
       (updates: TerminalUpdate[]) => {
@@ -908,6 +951,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       interpreter.reset()
       rendererHandle.sync(interpreter.snapshot)
       setSnapshotVersion((value) => value + 1)
+      printerEventsRef.current = []
     }, [interpreter, rendererHandle])
 
     const emitData = useCallback(
@@ -1131,6 +1175,14 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         reset,
         getSnapshot: () => interpreterRef.current!.snapshot,
         getSelection: () => currentSelection,
+        getPrinterEvents: () =>
+          printerEventsRef.current.map((event) =>
+            event.type === 'print-screen'
+              ? { ...event, lines: [...event.lines] }
+              : event.type === 'write'
+                ? { ...event, data: Array.from(event.data) }
+                : { ...event },
+          ),
       }),
       [currentSelection, focus, reset, write],
     )

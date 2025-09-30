@@ -541,6 +541,42 @@ test.describe('terminal e2e harness', () => {
       )
       return match ? String.fromCharCode(...match) : null
     }).toBe('E2E-ANSWERBACK')
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001b[?4i')
+      window.__manaTerminalTestHandle__?.write('\u001b[?5i')
+      window.__manaTerminalTestHandle__?.write('PRINTER-DATA')
+      window.__manaTerminalTestHandle__?.write('\u001b[0i')
+      window.__manaTerminalTestHandle__?.write('\u001b[4i')
+    })
+
+    const printerEvents = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getPrinterEvents(),
+    )
+
+    expect(printerEvents).toBeTruthy()
+    expect(
+      printerEvents?.some(
+        (event) => event.type === 'controller-mode' && event.enabled === true,
+      ),
+    ).toBe(true)
+    expect(
+      printerEvents?.some(
+        (event) =>
+          event.type === 'auto-print-mode' && event.enabled === true,
+      ),
+    ).toBe(true)
+    expect(
+      printerEvents?.some((event) => {
+        if (event.type !== 'write' || !Array.isArray(event.data)) {
+          return false
+        }
+        return String.fromCharCode(...event.data) === 'PRINTER-DATA'
+      }),
+    ).toBe(true)
+    expect(
+      printerEvents?.some((event) => event.type === 'print-screen'),
+    ).toBe(true)
   })
 
   test('switches C1 transmission using S7C1T', async ({ page }) => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { TerminalUpdate } from '../src/interpreter/delta'
+import type { PrinterController } from '../src/printer/controller'
 import {
   createInterpreter,
   type TerminalInterpreter,
@@ -16,6 +17,29 @@ class InterpreterSink implements ParserEventSink {
 
   onEvent(event: ParserEvent): void {
     this.updates.push(this.interpreter.handleEvent(event))
+  }
+}
+
+class RecordingPrinterController implements PrinterController {
+  readonly controllerStates: boolean[] = []
+  readonly autoPrintStates: boolean[] = []
+  readonly printScreens: string[][] = []
+  readonly writes: string[] = []
+
+  setPrinterControllerMode(enabled: boolean): void {
+    this.controllerStates.push(enabled)
+  }
+
+  setAutoPrintMode(enabled: boolean): void {
+    this.autoPrintStates.push(enabled)
+  }
+
+  printScreen(lines: ReadonlyArray<string>): void {
+    this.printScreens.push([...lines])
+  }
+
+  write(data: Uint8Array): void {
+    this.writes.push(new TextDecoder().decode(data))
   }
 }
 
@@ -247,6 +271,33 @@ describe('TerminalInterpreter basic behaviour', () => {
     expect(answerbackResponses).toContainEqual(
       Array.from('CUSTOM-ANSWERBACK').map((char) => char.charCodeAt(0)),
     )
+  })
+
+  it('handles printer controller media copy sequences', () => {
+    const printer = new RecordingPrinterController()
+    const parser = createParser()
+    const interpreter = createInterpreter({ printer })
+    const updates: TerminalUpdate[][] = []
+    const sink = new InterpreterSink(interpreter, updates)
+
+    parser.write('\u001b[?5i', sink)
+    parser.write('PRINT', sink)
+    expect(printer.controllerStates).toContain(true)
+    expect(printer.writes.some((entry) => entry.includes('PRINT'))).toBe(true)
+
+    updates.length = 0
+    parser.write('\u001b[4i', sink)
+    parser.write('NOPE', sink)
+    expect(printer.controllerStates).toContain(false)
+    expect(printer.writes.some((entry) => entry.includes('NOPE'))).toBe(false)
+
+    updates.length = 0
+    parser.write('\u001b[0i', sink)
+    expect(printer.printScreens.length).toBeGreaterThan(0)
+
+    updates.length = 0
+    parser.write('\u001b[?4i', sink)
+    expect(printer.autoPrintStates).toContain(true)
   })
 
   it('inserts and deletes lines within the scroll region', () => {

@@ -11,6 +11,7 @@ declare global {
       getSnapshot: () => ReturnType<TerminalHandle['getSnapshot']>
       getSelection: () => ReturnType<TerminalHandle['getSelection']>
       getResponses: () => ReadonlyArray<Uint8Array>
+      getPrinterEvents: () => ReturnType<TerminalHandle['getPrinterEvents']>
     }
   }
 }
@@ -53,6 +54,7 @@ function App(): JSX.Element {
         getSnapshot: () => resolveHandle().getSnapshot(),
         getSelection: () => resolveHandle().getSelection(),
         getResponses: () => responsesRef.current.map((entry) => entry.slice()),
+        getPrinterEvents: () => resolveHandle().getPrinterEvents(),
       }
 
       window.__manaTerminalTestHandle__ = testHandle

@@ -86,6 +86,10 @@ export interface TerminalState {
   lineAttributes: Array<'single' | 'double-top' | 'double-bottom'>
   c1Transmission: C1TransmissionMode
   answerback: string
+  printer: {
+    controller: boolean
+    autoPrint: boolean
+  }
 }
 
 const cloneColor = (color: TerminalColor): TerminalColor => {
@@ -198,6 +202,10 @@ export const createInitialState = (
     lineAttributes: Array.from({ length: rows }, () => 'single'),
     c1Transmission: capabilities.features.defaultC1Transmission,
     answerback: 'VT100',
+    printer: {
+      controller: false,
+      autoPrint: false,
+    },
   }
 }
 

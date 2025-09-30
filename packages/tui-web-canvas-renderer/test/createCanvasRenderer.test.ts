@@ -256,6 +256,10 @@ const createSnapshot = (rows: number, columns: number): TerminalState => ({
   lineAttributes: Array.from({ length: rows }, () => 'single'),
   c1Transmission: '8-bit',
   answerback: 'VT100',
+  printer: {
+    controller: false,
+    autoPrint: false,
+  },
 })
 
 describe('createCanvasRenderer', () => {
