@@ -1,5 +1,11 @@
+import {
+  createCanvasRenderer,
+  type CanvasRendererOptions,
+  type CreateCanvasRenderer,
+  type RendererBackendConfig,
+} from '@mana-ssh/tui-web-canvas-renderer'
 import { Terminal, type TerminalHandle } from '@mana-ssh/tui-react'
-import { type JSX, useEffect, useRef } from 'react'
+import { type JSX, useEffect, useMemo, useRef, useState } from 'react'
 import styles from './App.module.css'
 
 const isE2EMode = import.meta.env?.VITE_E2E === '1'
@@ -19,6 +25,32 @@ declare global {
 function App(): JSX.Element {
   const terminalRef = useRef<TerminalHandle>(null)
   const responsesRef = useRef<Uint8Array[]>([])
+  const [backendConfig] = useState<RendererBackendConfig | undefined>(() => {
+    if (typeof window === 'undefined') {
+      return undefined
+    }
+    const params = new URLSearchParams(window.location.search)
+    const rendererParam = params.get('renderer')?.toLowerCase()
+    switch (rendererParam) {
+      case 'webgl':
+        return { type: 'gpu-webgl', fallback: 'prefer-gpu' }
+      case 'cpu':
+        return { type: 'cpu-2d' }
+      default:
+        return undefined
+    }
+  })
+
+  const rendererFactory = useMemo<CreateCanvasRenderer | undefined>(() => {
+    if (!backendConfig) {
+      return undefined
+    }
+    return (options: CanvasRendererOptions) =>
+      createCanvasRenderer({
+        ...options,
+        backend: backendConfig,
+      })
+  }, [backendConfig])
 
   useEffect(() => {
     terminalRef.current?.focus()
@@ -80,6 +112,7 @@ function App(): JSX.Element {
           ref={terminalRef}
           className={styles.terminalSurface}
           ariaLabel="Interactive terminal"
+          renderer={rendererFactory}
           onData={(data) => {
             responsesRef.current.push(data.slice())
           }}

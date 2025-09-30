@@ -58,6 +58,23 @@ const deriveSelectedText = (
   return lines.join('\n')
 }
 
+const STRIP_ANSI_PATTERN = /\u001b\[[0-9;?]*[ -\/]*[@-~]/g
+
+const stripAnsi = (value: string): string =>
+  value.replace(STRIP_ANSI_PATTERN, '')
+
+const snapshotToPlainText = (snapshot: TerminalState): string => {
+  const lines = snapshot.buffer.map((row) => {
+    const cells = row ?? []
+    const text = cells.map((cell) => cell?.char ?? ' ').join('')
+    return text.replace(/\s+$/u, '')
+  })
+  while (lines.length > 0 && lines[lines.length - 1] === '') {
+    lines.pop()
+  }
+  return lines.join('\n')
+}
+
 const getResponseCodesFrom = async (
   page: Page,
   offset: number,
@@ -114,9 +131,89 @@ test.describe('terminal e2e harness', () => {
     expect(snapshot).toBeTruthy()
   })
 
+  test('renders the welcome banner with the WebGL renderer', async ({
+    page,
+  }) => {
+    test.fixme(true, 'WebGL backend blocked in headless Chromium; tracked for follow-up')
+    test.setTimeout(6_000)
+    await page.goto('/?renderer=webgl')
+
+    const canInitialiseWebgl = await page.evaluate(() => {
+      const canvas = document.createElement('canvas')
+      const gl = canvas.getContext('webgl2', {
+        alpha: false,
+        depth: false,
+        stencil: false,
+        antialias: false,
+        premultipliedAlpha: true,
+        preserveDrawingBuffer: false,
+      })
+      if (!gl) {
+        return false
+      }
+      const vertex = gl.createShader(gl.VERTEX_SHADER)
+      if (!vertex) {
+        return false
+      }
+      gl.shaderSource(
+        vertex,
+        `#version 300 es\nprecision mediump float;\nprecision mediump int;\nlayout(location = 0) in vec2 a_position;\nvoid main() {\n  gl_Position = vec4(a_position, 0.0, 1.0);\n}`,
+      )
+      gl.compileShader(vertex)
+      const status = gl.getShaderParameter(vertex, gl.COMPILE_STATUS)
+      gl.deleteShader(vertex)
+      return Boolean(status)
+    })
+    if (!canInitialiseWebgl) {
+      test.skip()
+      return
+    }
+
+    const terminal = page.getByRole('textbox', {
+      name: 'Interactive terminal',
+    })
+    await expect(terminal).toBeVisible()
+    await terminal.focus()
+
+    await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
+
+    const canvas = page.locator('canvas').first()
+    await expect(canvas).toBeVisible()
+
+    await page.evaluate((banner) => {
+      window.__manaTerminalTestHandle__?.write(banner)
+    }, WELCOME_BANNER)
+
+    await page.waitForTimeout(50)
+
+    const backendAttribute = await canvas.getAttribute(
+      'data-mana-renderer-backend',
+    )
+    if (backendAttribute !== 'gpu-webgl') {
+      test.skip()
+      return
+    }
+
+    const snapshot = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getSnapshot(),
+    )
+    expect(snapshot).toBeTruthy()
+    if (!snapshot) {
+      throw new Error('Snapshot unavailable for WebGL renderer test')
+    }
+
+    const snapshotText = snapshotToPlainText(snapshot)
+    const expectedText = stripAnsi(WELCOME_BANNER)
+      .replace(/\r/g, '')
+      .replace(/\n+$/g, '')
+    expect(snapshotText).toContain('Mana SSH Web Terminal')
+    expect(snapshotText).toBe(expectedText)
+  })
+
   test('supports keyboard selection and clipboard copy/paste', async ({
     page,
   }) => {
+    test.setTimeout(6_000)
     const copyShortcut =
       process.platform === 'darwin' ? 'Meta+C' : 'Control+Shift+C'
     const pasteShortcut =
