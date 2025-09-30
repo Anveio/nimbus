@@ -1,23 +1,32 @@
-# Agent Development Guide
+# Ghostty Context Agent Charter
 
-A file for [guiding coding agents](https://agents.md/).
+This charter summarizes why the Ghostty project sits in our context folder and how to work with it when cross-referencing behaviour.
 
-## Commands
+## Mandate
+- Track Ghostty’s terminal semantics as a comparative benchmark for selection, input ergonomics, and rendering.
+- Provide quick-start commands so we can build, test, and inspect Ghostty when validating behaviour or borrowing UX patterns.
 
-- **Build:** `zig build`
-- **Test (Zig):** `zig build test`
-- **Test filter (Zig)**: `zig build test -Dtest-filter=<test name>`
-- **Formatting (Zig)**: `zig fmt .`
-- **Formatting (other)**: `prettier -w .`
+## Boundaries & Notes
+- Source lives outside the Mana SSH workspace; this folder only stores reference notes. Do not modify Ghostty code from here.
+- Use Ghostty as a specification lens, not as a dependency—mirror behaviours intentionally and document divergences.
 
-## Directory Structure
+## Toolchain Rituals
+- Build: `zig build`
+- Test: `zig build test`
+- Filtered tests: `zig build test -Dtest-filter=<name>`
+- Formatting (Zig): `zig fmt .`
+- Formatting (misc): `prettier -w .`
 
-- Shared Zig core: `src/`
-- C API: `include/ghostty.h`
-- macOS app: `macos/`
-- GTK (Linux and FreeBSD) app: `src/apprt/gtk`
+## Directory Landmarks
+- Core Zig sources: `src/`
+- C API surface: `include/ghostty.h`
+- macOS app scaffolding: `macos/`
+- GTK (Linux/FreeBSD) frontend: `src/apprt/gtk`
 
-## macOS App
+## Platform Guidance
+- Always use `zig build`; avoid `xcodebuild` when working with the macOS app.
 
-- Do not use `xcodebuild`
-- Use `zig build` to build the macOS app and any shared Zig code
+## Memory Bank
+### 2025-09-30 – Charter refresh
+Clarified Ghostty’s role as a comparative reference, preserved build/test commands, and reiterated platform guidance for future studies.
+

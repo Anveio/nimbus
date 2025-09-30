@@ -1,29 +1,52 @@
-# Terminal Web App – Agent Log
+# Terminal Web App Agent Charter
 
-## Mission
+This document anchors how we evolve the reference browser experience. Revise it whenever demo obligations, harness interfaces, or testing rituals shift.
 
-Showcase the Mana SSH terminal stack inside a real browser application. The app should prove that `@mana-ssh/tui-react` can be embedded with zero glue code, handle keyboard/paste input, and expose hooks that a host transport can use to exchange bytes.
+## Mandate
+- Prove that the Mana SSH stack (VT → renderer → React) delivers a production-grade terminal in the browser with zero glue code.
+- Act as the canonical host for Playwright end-to-end coverage, instrumentation, and UX experiments.
+- Demonstrate secure transport wiring patterns (proxy server, simulated host) that align with AWS security expectations.
 
-## Current status
+## Boundaries & Dependencies
+- Lives entirely inside `apps/terminal-web-app` (Vite-powered React app).
+- Depends on `@mana-ssh/tui-react` and renderer packages for terminal UI, and on `apps/proxy-server` / `apps/simulated-instance` for integration scenarios.
+- Owns the Playwright harness (`test/e2e`), test handle (`window.__manaTerminalTestHandle__`), and demo-specific instrumentation. Core terminal behaviour belongs upstream.
 
-- `<Terminal />` from `@mana-ssh/tui-react` renders the interactive canvas with local echo enabled by default.
-- Demo automatically focuses the terminal on load and writes a welcome banner.
-- Vitest (jsdom) unit tests ensure the scaffold renders and matches the expected layout; Playwright e2e smoke test validates the basic typing flow.
-- Project reads configuration from Vite and offers scripts for dev, build, unit tests, and e2e runs.
+## Experience Pillars
+- **Zero-boilerplate embed**: `<Terminal />` mounts with sensible defaults (focus, local echo, metrics) and exposes imperative handle for demos/tests.
+- **Transport showcase**: Optional WebSocket bridge demonstrates round-trip SSH traffic through the proxy server with secure defaults.
+- **Accessibility + UX**: Surface focus cues, ARIA hints, screen-reader-friendly transcripts, and visual diagnostics (connection state, FPS, draw counts).
+- **Observability**: Provide toggles or overlays to visualize renderer diagnostics, selection state, and host latency.
+- **Spec layering**: Reflect spec-compliant behaviour while offering user-friendly affordances (Backspace delete, copy-on-select) via adapters, never by mutating VT core.
 
-## Immediate next steps
+## Testing Doctrine
+- Unit/component: `bunx vitest run` validates layout scaffolding and harness wiring.
+- End-to-end: Playwright suite under `test/e2e` covers typing, paste, resize, selection, clipboard, device reports, and regression scenarios. Run `bun run test:e2e --filter apps/terminal-web-app` (or full `bun run test`) before shipping any behavioural change.
+- Harness contract: `window.__manaTerminalTestHandle__` must expose deterministic helpers (`write`, `injectBytes`, `awaitIdle`, `getSnapshot`, etc.). Document additions in `docs/e2e-test-harness.md` alongside code changes.
+- Type discipline & linting: `bun run typecheck` + `bun run lint` at repo root prior to commit.
 
-1. **Transport wiring** – Add an optional WebSocket demo that pipes `onData` to a backend proxy and feeds remote bytes back via `terminal.write()`. Provide environment-driven configuration for the proxy URL.
-2. **Accessibility polish** – Layer focus styles, ARIA hints (e.g. live regions for bell events), and optional screen-reader friendly text output.
-3. **Visual cues** – Surface diagnostics (FPS/draw calls) and connection state badges, so performance regressions are visible. Consider adding theme switcher presets.
-4. **Clipboard integrations** – Demonstrate OSC 52 copy support by exposing a button that triggers a copy request through the host callback once interpreter support lands.
-5. **Testing** – Expand Playwright coverage to ensure pasting, arrow keys, and resize flows behave correctly across browsers.
-6. **Documentation cadence** – Whenever altering E2E infrastructure or terminal behaviour, update `docs/` (e.g. `docs/e2e-test-harness.md`) alongside the code so future agents understand the rationale.
-7. **Inline guidance** – Only after all other work is complete when implementing features, bugfixes, or refactors, review the modified files and insert concise code comments referencing the relevant docs section when the intent isn’t obvious.
-8. **Harness handle** – The E2E harness now hinges on `window.__manaTerminalTestHandle__` (registered by `App.tsx` when `VITE_E2E=1`). When adding helpers, keep the surface minimal and document any new methods in `docs/e2e-test-harness.md`.
+## Active Focus / Backlog Signals
+- Wire an optional WebSocket demo path that relays `onData` to the proxy server, gated by environment configuration.
+- Expand accessibility polish: focus management, live-region output for bell/status lines, high-contrast themes, and keyboard navigation cues.
+- Surface diagnostics overlays (renderer FPS/draw calls, host latency) with toggles suitable for demos and tests.
+- Integrate clipboard pathways (OSC 52, copy-on-select) once interpreter + React layers expose the necessary hooks.
+- Grow Playwright scenarios for paste workflows, resize semantics, selection/clipboard flows, device status reports, and regression for layered adapters.
 
-## Longer-term ideas
+## Collaboration Rituals
+1. Decide whether a feature belongs in the demo app or upstream packages; avoid demo-specific forks of shared logic.
+2. Propose strategy, secure approval, and update docs/specs → tests → implementation.
+3. Run Playwright suite plus relevant unit tests before landing changes; attach new artifacts when scenarios evolve.
+4. Record harness changes, UX decisions, and outstanding work in the memory bank with dates.
 
-- Extensible demos: add a mock SSH back-end using `@mana-ssh/websocket` and `apps/proxy-server` for true round-trip testing.
-- Embed multiple terminals/tabs to showcase how the renderer/host scales.
-- Integrate tutorial overlays or guided tours explaining how to integrate the React component in external applications.
+## Memory Bank
+### 2025-09-30 – Charter refresh
+Reframed the demo app mandate around zero-boilerplate embedding, Playwright stewardship, and transport showcases; highlighted WebSocket wiring, accessibility polish, diagnostics overlays, clipboard integration, and expanded e2e coverage as active priorities.
+
+### 2025-09-27 – Harness handle expansion
+`window.__manaTerminalTestHandle__` gained deterministic helpers (`write`, `getSnapshot`, `getSelection`) for Playwright; clipboard permissions wired, revealing gaps in keyboard-driven selection propagation that require upstream fixes.
+
+### Early status (undated)
+- `<Terminal />` renders with local echo, auto-focus, and welcome banner injection.
+- Vitest smoke tests cover scaffold rendering; Playwright smoke verifies typing loop.
+- Dev/build/test scripts configured via Vite; documentation cadence established for future harness updates.
+
