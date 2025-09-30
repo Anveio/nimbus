@@ -10,7 +10,7 @@
     "test": "vitest run --reporter=dot --silent",
     "test:watch": "vitest --reporter=default --silent=false",
     "lint": "biome lint .",
-    "lint:fix": "biome lint --apply .",
+    "lint:fix": "biome lint --fix . && biome format --write .",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

@@ -9,7 +9,7 @@
     "clean": "git clean -xfd .",
     "test": "echo 'Test script not implemented yet'",
     "lint": "biome lint .",
-    "lint:fix": "biome lint --apply ."
+    "lint:fix": "biome lint --fix . && biome format --write ."
   },
   "devDependencies": {
     "typescript": "^5.9.2"

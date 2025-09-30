@@ -141,4 +141,8 @@ Replace the inside of the tags with your actual generated problem, solution and 
     2.  Refactor `@mana-ssh/tui-react` to consume these primitives, eliminating ad-hoc CSI writes and consolidating keyboard/pointer selection lifecycles.
     3.  Revisit renderer contracts so selection themes can encode status (idle/dragging) without owning state, and extend E2E/unit coverage around paste replacement.
 
+### Tuesday, September 30, 2025
+
+-   Align every workspace on a `lint:fix` script that runs Biome lint auto-applies plus formatting, then add a Turbo `lint:fix` pipeline task so the fix workflow is runnable across the monorepo.
+
 </memory-bank>

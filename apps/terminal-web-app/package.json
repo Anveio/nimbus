@@ -14,7 +14,7 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",
     "lint": "biome lint .",
-    "lint:fix": "biome lint --apply ."
+    "lint:fix": "biome lint --fix . && biome format --write ."
   },
   "dependencies": {
     "@mana-ssh/tui-react": "workspace:*",

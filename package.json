@@ -11,6 +11,7 @@
     "clean:workspaces": "turbo clean --output-logs=errors-only --log-order=grouped",
     "dev": "turbo dev --parallel",
     "lint": "turbo lint --output-logs=errors-only --log-order=grouped --summarize && manypkg check",
+    "lint:fix": "turbo lint:fix --output-logs=errors-only --log-order=grouped --summarize",
     "test": "turbo test --parallel --output-logs=errors-only --log-order=grouped --summarize",
     "format": "biome format --write .",
     "typecheck": "turbo typecheck --output-logs=errors-only --log-order=grouped --summarize"
