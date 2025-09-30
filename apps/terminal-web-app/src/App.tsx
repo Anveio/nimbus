@@ -1,10 +1,10 @@
+import { Terminal, type TerminalHandle } from '@mana-ssh/tui-react'
 import {
-  createCanvasRenderer,
   type CanvasRendererOptions,
   type CreateCanvasRenderer,
+  createCanvasRenderer,
   type RendererBackendConfig,
 } from '@mana-ssh/tui-web-canvas-renderer'
-import { Terminal, type TerminalHandle } from '@mana-ssh/tui-react'
 import { type JSX, useEffect, useMemo, useRef, useState } from 'react'
 import styles from './App.module.css'
 
