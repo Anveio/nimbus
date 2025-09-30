@@ -18,7 +18,10 @@ export interface CanvasLike {
     contextId: 'webgl' | 'webgl2' | 'experimental-webgl',
     options?: WebGLContextAttributes,
   ): WebGLRenderingContext | WebGL2RenderingContext | null
+  getContext(contextId: 'webgpu'): unknown | null
 }
+
+export type RendererBackendKind = 'cpu-2d' | 'gpu-webgl' | 'gpu-webgpu'
 
 export interface RendererPalette {
   /**
@@ -92,12 +95,67 @@ export interface WebglBackendConfig {
   readonly fallback?: RendererBackendFallback
 }
 
-export type RendererBackendConfig = Cpu2dBackendConfig | WebglBackendConfig
-
-export interface DetectPreferredBackendOptions {
-  readonly contextAttributes?: WebGLContextAttributes
+export interface WebgpuBackendConfig {
+  readonly type: 'gpu-webgpu'
   readonly fallback?: RendererBackendFallback
+  /**
+   * Placeholder for WebGPU adapter configuration. We will refine these fields
+   * once the WebGPU backend moves beyond the planning stage.
+   */
+  readonly deviceDescriptor?: unknown
+  readonly canvasConfiguration?: unknown
+}
+
+export type RendererBackendConfig =
+  | Cpu2dBackendConfig
+  | WebglBackendConfig
+  | WebgpuBackendConfig
+
+export interface RendererBackendProbeContext {
   readonly canvas?: CanvasLike
+  readonly webgl?: {
+    readonly contextAttributes?: WebGLContextAttributes
+  }
+  readonly webgpu?: {
+    /** Adapter/device hints for future WebGPU probing. */
+    readonly deviceDescriptor?: unknown
+    readonly canvasConfiguration?: unknown
+  }
+}
+
+export interface RendererBackendProbeResult {
+  readonly kind: RendererBackendKind
+  readonly supported: boolean
+  readonly reason?: string
+}
+
+export interface RendererBackendProvider<
+  TConfig extends RendererBackendConfig,
+  TResult extends RendererBackendProbeResult = RendererBackendProbeResult,
+> {
+  readonly kind: RendererBackendKind
+  readonly matches: (config: RendererBackendConfig) => config is TConfig
+  readonly normalizeConfig: (config?: TConfig) => TConfig
+  readonly probe: (
+    context: RendererBackendProbeContext,
+    config: TConfig,
+  ) => TResult
+  readonly create: (
+    options: CanvasRendererOptions,
+    config: TConfig,
+    probe: TResult,
+  ) => CanvasRenderer
+}
+
+export interface DetectPreferredBackendOptions
+  extends RendererBackendProbeContext {
+  readonly fallback?: RendererBackendFallback
+  /**
+   * Legacy entry point for WebGL context attributes. Prefer
+   * `webgl.contextAttributes` so additional backends can co-exist without
+   * overloading the shared namespace.
+   */
+  readonly contextAttributes?: WebGLContextAttributes
 }
 
 export interface CanvasRendererOptions {

@@ -1,33 +1,31 @@
 import type {
-  CanvasLike,
-  CanvasRenderer,
-  CanvasRendererDiagnostics,
-  CanvasRendererOptions,
-  CanvasRendererResizeOptions,
-  CanvasRendererUpdateOptions,
-  RendererColor,
-  RendererMetrics,
-  RendererTheme,
-  WebglBackendConfig,
-} from '../types'
-import type {
   SelectionRowSegment,
   TerminalAttributes,
   TerminalCell,
   TerminalSelection,
   TerminalState,
-  TerminalUpdate,
 } from '@mana-ssh/vt'
 import { getSelectionRowSegments } from '@mana-ssh/vt'
-import { ensureCanvasDimensions, setCanvasStyleSize } from '../internal/layout'
+import { ColorCache } from '../internal/color-cache'
 import {
   type PaletteOverrides,
   resolveCellColors,
   resolvePaletteOverrideColor,
 } from '../internal/colors'
-import { GlyphAtlas } from '../internal/glyph-atlas'
 import type { GlyphInfo } from '../internal/glyph-atlas'
-import { ColorCache } from '../internal/color-cache'
+import { GlyphAtlas } from '../internal/glyph-atlas'
+import { ensureCanvasDimensions, setCanvasStyleSize } from '../internal/layout'
+import type {
+  CanvasLike,
+  CanvasRenderer,
+  CanvasRendererDiagnostics,
+  CanvasRendererOptions,
+  RendererBackendProvider,
+  RendererColor,
+  RendererMetrics,
+  RendererTheme,
+  WebglBackendConfig,
+} from '../types'
 
 const WEBGL1_REQUIRED_EXTENSIONS = [
   'ANGLE_instanced_arrays',
@@ -558,6 +556,7 @@ export interface WebglSupportOptions {
 }
 
 export interface WebglSupportResult {
+  readonly kind: 'gpu-webgl'
   readonly supported: boolean
   readonly contextKind: 'webgl2' | 'webgl' | null
   readonly missingExtensions: ReadonlyArray<string>
@@ -588,6 +587,7 @@ export const detectWebglSupport = (
   const canvas = createDetectionCanvas(options)
   if (!canvas) {
     return {
+      kind: 'gpu-webgl',
       supported: false,
       contextKind: null,
       missingExtensions: [],
@@ -601,6 +601,7 @@ export const detectWebglSupport = (
   if (webgl2) {
     releaseContext(webgl2)
     return {
+      kind: 'gpu-webgl',
       supported: true,
       contextKind: 'webgl2',
       missingExtensions: [],
@@ -619,6 +620,7 @@ export const detectWebglSupport = (
 
   if (!webgl1) {
     return {
+      kind: 'gpu-webgl',
       supported: false,
       contextKind: null,
       missingExtensions: [],
@@ -631,6 +633,7 @@ export const detectWebglSupport = (
 
   if (missingExtensions.length > 0) {
     return {
+      kind: 'gpu-webgl',
       supported: false,
       contextKind: 'webgl',
       missingExtensions,
@@ -639,6 +642,7 @@ export const detectWebglSupport = (
   }
 
   return {
+    kind: 'gpu-webgl',
     supported: true,
     contextKind: 'webgl',
     missingExtensions: [],
@@ -1152,11 +1156,14 @@ const createWebglRenderer = (
 export const tryCreateWebglCanvasRenderer = (
   options: CanvasRendererOptions,
   config: WebglBackendConfig,
+  existingSupport?: WebglSupportResult,
 ): WebglInitOutcome => {
-  const support = detectWebglSupport({
-    canvas: options.canvas,
-    contextAttributes: config.contextAttributes,
-  })
+  const support = existingSupport
+    ? existingSupport
+    : detectWebglSupport({
+        canvas: options.canvas,
+        contextAttributes: config.contextAttributes,
+      })
 
   if (!support.supported || !support.contextKind) {
     return {
@@ -1231,3 +1238,33 @@ export const tryCreateWebglCanvasRenderer = (
 
   return attempt('webgl')
 }
+
+export const createWebglBackendProvider = (): RendererBackendProvider<
+  WebglBackendConfig,
+  WebglSupportResult
+> => ({
+  kind: 'gpu-webgl',
+  matches: (config): config is WebglBackendConfig =>
+    config.type === 'gpu-webgl',
+  normalizeConfig: (config) => ({
+    type: 'gpu-webgl',
+    contextAttributes: config?.contextAttributes,
+    fallback: config?.fallback ?? 'prefer-gpu',
+  }),
+  probe: (context, config) =>
+    detectWebglSupport({
+      canvas: context.canvas,
+      contextAttributes:
+        context.webgl?.contextAttributes ?? config.contextAttributes,
+    }),
+  create: (options, config, support) => {
+    if (!support.supported) {
+      throw new Error(support.reason ?? 'WebGL renderer not supported')
+    }
+    const outcome = tryCreateWebglCanvasRenderer(options, config, support)
+    if (!outcome.success) {
+      throw new Error(outcome.reason ?? 'WebGL renderer initialisation failed')
+    }
+    return outcome.renderer
+  },
+})

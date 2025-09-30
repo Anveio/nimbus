@@ -38,8 +38,10 @@
 
 ### 6.1 Backend Selection API
 
-- `CanvasRendererOptions.backend` accepts `{ type: 'gpu-webgl', fallback: 'prefer-gpu' | 'require-gpu' | 'cpu-only' }`. The factory honours the fallback policy and gracefully falls back to the CPU backend when allowed.
-- `detectPreferredBackend()` probes WebGL support and extensions and returns the appropriate configuration so hosts can easily opt in.
+- `CanvasRendererOptions.backend` accepts `{ type: 'gpu-webgl', fallback: 'prefer-gpu' | 'require-gpu' | 'cpu-only' }`. The factory honours the fallback policy and gracefully falls back to the CPU renderer when allowed.
+- Backend selection now routes through a registry of `RendererBackendProvider`s (CPU + WebGL today). Each provider owns `probe`, `normalizeConfig`, and `create` hooks so we can add WebGPU without rewriting callers.
+- `CanvasLike` exposes a `'webgpu'` context entry point and `WebgpuBackendConfig`/probe scaffolding so future work can request adapters/devices while staying within the shared contract.
+- `detectPreferredBackend()` delegates to the registry, probing WebGL support and returning the appropriate configuration so hosts can easily opt in. Additional providers will plug in without changing the public API.
 - The `<Terminal />` demo app reads `?renderer=webgl`/`?renderer=cpu` query parameters and passes a memoised renderer factory down to `@mana-ssh/tui-react`.
 
 ### 6.2 Shared Core Utilities
@@ -89,6 +91,8 @@
    - Playwright GPU coverage remains parked until headless WebGL is stable.
 4. **Phase 3 – Optimisation & Hardening** *(planned)*
    - Dirty-region batching, atlas eviction, custom cursor overlays, headless WebGL smoke tests, and richer profiling hooks.
+5. **Phase 4 – WebGPU Exploration** *(planned)*
+   - Implement a WebGPU provider (device negotiation, queue lifecycle, texture uploads) atop the registry scaffolding, reuse geometry buffers where possible, and update `detectPreferredBackend()` to juggle async probes + capability prioritisation.
 
 ## 9. Risks & Mitigations
 
@@ -109,4 +113,4 @@
 
 - README and `renderer-test-spec.md` will be updated alongside future optimisation work.
 - Track WebGPU exploration and headless WebGL support as separate ADRs once the current backend stabilises.
-
+- Maintain the incremental optimisation roadmap in `webgl-buffer-optimisation.md` and reconcile its milestones once implemented.

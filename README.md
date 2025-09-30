@@ -1,6 +1,6 @@
 # Mana SSH
 
-Mana SSH is a standards-compliant, universally embeddable, high performance terminal with SSH remoting.
+Mana SSH is a zero-dependency, standards-compliant, universally embeddable, high performance terminal with SSH remoting capabilities.
 
 ## Layer map
 - Parser and interpreter: `@mana-ssh/vt`
