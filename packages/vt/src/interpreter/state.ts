@@ -85,6 +85,7 @@ export interface TerminalState {
   protectedMode: 'off' | 'dec'
   lineAttributes: Array<'single' | 'double-top' | 'double-bottom'>
   c1Transmission: C1TransmissionMode
+  answerback: string
 }
 
 const cloneColor = (color: TerminalColor): TerminalColor => {
@@ -196,6 +197,7 @@ export const createInitialState = (
     protectedMode: 'off',
     lineAttributes: Array.from({ length: rows }, () => 'single'),
     c1Transmission: capabilities.features.defaultC1Transmission,
+    answerback: 'VT100',
   }
 }
 

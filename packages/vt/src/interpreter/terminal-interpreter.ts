@@ -783,6 +783,16 @@ export class TerminalInterpreter {
     return Uint8Array.from(bytes)
   }
 
+  private setAnswerbackMessage(message: string): void {
+    const filtered = Array.from(message)
+      .filter((char) => {
+        const code = char.charCodeAt(0)
+        return code >= 0x20 && code <= 0x7e
+      })
+      .join('')
+    this.state.answerback = filtered.slice(0, 30)
+  }
+
   private collectColonSubparameters(
     params: ReadonlyArray<number>,
     separators: ReadonlyArray<'colon' | 'semicolon'>,
@@ -883,6 +893,8 @@ export class TerminalInterpreter {
 
   private handleExecute(codePoint: number): TerminalUpdate[] {
     switch (codePoint) {
+      case 0x05:
+        return this.emitResponse(this.state.answerback)
       case 0x07:
         return [{ type: 'bell' }]
       case 0x08:
@@ -968,6 +980,8 @@ export class TerminalInterpreter {
         return this.setKeypadApplicationMode(true)
       case '>':
         return this.setKeypadApplicationMode(false)
+      case 'Z':
+        return this.emitResponse('\u001B/Z')
       case 'N':
         return this.setSingleShift('g2')
       case 'O':
@@ -1150,6 +1164,12 @@ export class TerminalInterpreter {
     }
     const { finalByte, params, intermediates, chunks } = this.activeDcs
     const data = chunks.join('')
+    if (
+      String.fromCharCode(finalByte) === 'q' &&
+      intermediates.includes('$'.charCodeAt(0))
+    ) {
+      this.setAnswerbackMessage(data)
+    }
     this.activeDcs = null
     return [
       {

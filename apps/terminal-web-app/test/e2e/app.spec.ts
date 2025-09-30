@@ -503,6 +503,44 @@ test.describe('terminal e2e harness', () => {
       )
       return match ? normaliseDeviceAttributes(match) : null
     }).toBe('10;20R')
+
+    const afterDecidCount = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
+    )
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u001bZ')
+    })
+
+    await expect.poll(async () => {
+      const codes = await getResponseCodesFrom(page, afterDecidCount)
+      const match = codes.find(
+        (entry) => entry.length === 3 && entry[0] === 0x1b && entry[1] === 0x2f,
+      )
+      return match ? match : null
+    }).toEqual([0x1b, 0x2f, 0x5a])
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write(
+        '\u001bP$qE2E-ANSWERBACK\u001b\\',
+      )
+    })
+
+    const afterEnqCount = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
+    )
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('\u0005')
+    })
+
+    await expect.poll(async () => {
+      const codes = await getResponseCodesFrom(page, afterEnqCount)
+      const match = codes.find((entry) =>
+        String.fromCharCode(...entry) === 'E2E-ANSWERBACK',
+      )
+      return match ? String.fromCharCode(...match) : null
+    }).toBe('E2E-ANSWERBACK')
   })
 
   test('switches C1 transmission using S7C1T', async ({ page }) => {

@@ -217,6 +217,38 @@ describe('TerminalInterpreter basic behaviour', () => {
     expect(responseStrings).toContain('1;1R')
   })
 
+  it('implements DECID, answerback programming, and ENQ', () => {
+    const parser = createParser()
+    const interpreter = createInterpreter()
+    const updates: TerminalUpdate[][] = []
+    const sink = new InterpreterSink(interpreter, updates)
+
+    parser.write('\u001bZ', sink)
+    const decidResponses = updates
+      .flat()
+      .filter((update): update is Extract<TerminalUpdate, { type: 'response' }> =>
+        update.type === 'response',
+      )
+      .map((update) => Array.from(update.data))
+    expect(decidResponses).toContainEqual([0x1b, 0x2f, 0x5a])
+
+    updates.length = 0
+    parser.write('\u001bP$qCUSTOM-ANSWERBACK\u001b\\', sink)
+    expect(interpreter.snapshot.answerback).toBe('CUSTOM-ANSWERBACK')
+
+    updates.length = 0
+    parser.write('\u0005', sink) // ENQ
+    const answerbackResponses = updates
+      .flat()
+      .filter((update): update is Extract<TerminalUpdate, { type: 'response' }> =>
+        update.type === 'response',
+      )
+      .map((update) => Array.from(update.data))
+    expect(answerbackResponses).toContainEqual(
+      Array.from('CUSTOM-ANSWERBACK').map((char) => char.charCodeAt(0)),
+    )
+  })
+
   it('inserts and deletes lines within the scroll region', () => {
     const sequence = 'line1\r\nline2\r\nline3\u001b[2;1H\u001b[1L'
     const { interpreter } = run(sequence)

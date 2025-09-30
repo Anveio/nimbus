@@ -164,8 +164,8 @@ Using Ghostty as a guide, we can finish SOS/PM/APC support, flesh out C1 semanti
 
 ### VT100 gap follow-up (2025-10-07)
 
-- Device status reports (`CSI Ps n` for printer status, cursor position, etc.) still fall through the interpreter with no response generation (`packages/vt/src/interpreter/terminal-interpreter.ts:1188`). Need handlers plus unit/e2e coverage for `CSI 5 n`, `CSI 6 n`, and related reports.
-- DECID/answerback: `ESC Z` is not recognised in `handleEsc` (`…/terminal-interpreter.ts:940`), so the terminal never returns the VT100 ID string. Implement decode + response pipeline.
+- ~~Device status reports (`CSI Ps n` for printer status, cursor position, etc.) still fall through the interpreter with no response generation (`packages/vt/src/interpreter/terminal-interpreter.ts:1188`). Need handlers plus unit/e2e coverage for `CSI 5 n`, `CSI 6 n`, and related reports.~~ ✅
+- ~~DECID/answerback: `ESC Z` is not recognised in `handleEsc` (`…/terminal-interpreter.ts:940`), so the terminal never returns the VT100 ID string. Implement decode + response pipeline.~~ ✅
 - Printer/AUX control sequences (`CSI ? 4 h/l`, `ESC [ 4 i`, `ESC [ 5 i`, etc.) are unimplemented—no state updates or passthrough to a print channel. We should stub the printer controller and add tests ensuring these no-op safely until printer support lands.
 - Answerback programming via `DCS $ q` and `ENQ` is missing; parser routes the bytes but interpreter ignores the payload. Capture the programmable string and respond to `ENQ` to match DEC behaviour.
 - Parser ignores several VT100-specific fallbacks: sequences like `ESC 1/2` (graphics height), SS2/SS3 7-bit variants, and other legacy ESCapes should either transition to ignore states or emit structured events. Audit `state-rules.ts` to align with the VT100 diagram.
@@ -177,3 +177,30 @@ Using Ghostty as a guide, we can finish SOS/PM/APC support, flesh out C1 semanti
   alongside spec references.
 - Updated the VT README roadmap to call out VT320 priorities, guiding future work
   on device reports, control toggles, and NRCS coverage.
+
+## 2025-09-29 VT100 Coverage Gaps
+
+* @packages/vt/src/interpreter/terminal-interpreter.ts:940 still falls through on ESC Z; we learned Ghostty treats this as DECID but we never emit the ESC/Z answerback or make it programmable, and none of the Vitest/Playwright suites exercise it.
+
+* Printer status & AUX controls remain unhandled. CSI ? 4 h/l, ESC [ 4 i, ESC [ 5 i, or ESC [ ? 5 i never reach printer plumbing, so hosts can’t know the “online” state. No unit/e2e test asserts these flows (@packages/vt/test/interpreter.basic.test.ts / @apps/terminal-web-app/test/e2e/app.spec.ts).
+
+* Soft reset commands (ESC [ ! p DECSTR and ESC [ ? 8 h/l auto-repeat printer) aren’t covered; interpreter logic for full VT100 reset relies on RIS alone, and tests don’t probe soft-reset behaviour.
+
+* Device status reports beyond 5/6 are absent—DSR 3 (printer ready) and 7/8 (macro/printer) aren’t implemented, so our response table is still incomplete.
+* ~~Answerback message programming (DCS $ q + ENQ) isn’t wired; handleDcsHook treats every DCS generically, and ENQ isn’t trapped anywhere, so terminals can’t send their programmed string.~~ ✅
+
+* Parser ignore paths for legacy escapes (e.g., ESC 1/2 line-height, SS2/SS3 7-bit forms) still fall back to printable bytes; we haven’t implemented the ignore path the spec describes.
+
+### Test Audit
+
+* @packages/vt/test/interpreter.basic.test.ts covers DECCOLM, SGR, DSR 5/6, but has no cases for printer/AUX toggles, soft reset, or DECID.
+* @packages/vt/test/interpreter.vt320.test.ts validates DA/DA2, S7C1T, NRCS; nothing touches ESC Z or DCS $ q.
+* Playwright scenarios (apps/terminal-web-app/test/e2e/app.spec.ts) now confirm DA/DA2 and DSRs, yet still miss printer mode toggles, soft reset, answerback, or 7-bit SS3 flows.
+
+### Next Steps
+
+* Add printer/AUX controls: recognise CSI ? 4 h/l, ESC [ 4 i, ESC [ 5 i, CSI ? 5 h/l; even if they no-op, emit mode updates/responses and test them.
+* Support DECSTR (ESC [ ! p) and the rest of the VT100 soft-reset catalogue; tests should confirm state resets without full RIS.
+* Fill out the DSR table (3, 7, 8, etc.) and confirm replies.
+Tighten parser fallback for ESC 1/2 and 7-bit SS2/SS3, with regression tests to ensure bytes don’t leak.
+* Extend Playwright coverage to send the above sequences, verifying raw byte responses and state changes.

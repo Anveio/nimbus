@@ -255,6 +255,7 @@ const createSnapshot = (rows: number, columns: number): TerminalState => ({
   protectedMode: 'off',
   lineAttributes: Array.from({ length: rows }, () => 'single'),
   c1Transmission: '8-bit',
+  answerback: 'VT100',
 })
 
 describe('createCanvasRenderer', () => {
