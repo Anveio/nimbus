@@ -28,7 +28,6 @@ Code Assistant will always propose an implementation strategy and update the mem
 -   **Turbo**: Used for monorepo task orchestration.
 -   **Biome**: Used for linting and formatting.
 -   **Docker/Finch**: Used for creating a simulated SSH environment for development and testing.
--   **Effect**: Used for managing asynchronous operations, dependency injection, and robust error handling.
 
 ## Architectural Overview
 
@@ -48,18 +47,6 @@ The `mana-ssh-web` project is a TypeScript monorepo designed to enable SSH conne
 3.  **Type Safety**: Leverage TypeScript's advanced features to model the SSH protocol's complex data structures and states as accurately as possible. Avoid `any` and other type-safety escape hatches.
 4.  **Extensibility**: The architecture should allow for future expansion, such as supporting different cryptographic algorithms or SSH extensions.
 
-## Why Effect?
-
-The choice to use the Effect library as a core technology is deliberate and central to the project's architecture. It directly supports our key principles and provides significant advantages for a complex, production-focused library like `mana-ssh-web`.
-
-1.  **Composition over Inheritance**: Effect allows us to build complex programs by composing smaller, independent, and highly-cohesive parts. This aligns perfectly with our "Separation of Concerns" principle, enabling us to build, test, and maintain features like transport layers, cryptographic modules, and state machines in isolation before composing them into a final, robust program.
-2.  **Declarative Dependency Injection**: Effect's `Context` provides a powerful, type-safe dependency injection system. This is critical for testability. Instead of mocking modules or classes, we can provide mock *implementations* of our services directly in our tests. For example, when testing the `protocol` package, we can inject a "MockTransport" service that simulates network conditions without any actual network calls, making our tests faster, more reliable, and easier to write.
-3.  **Production-Grade Error Handling**: SSH is a complex protocol with numerous potential points of failure (network issues, cryptographic errors, protocol mismatches, etc.). Effect forces us to handle every possible error case at the type level. There are no `try/catch` blocks to forget or `Promise` rejections to miss. This compile-time guarantee is invaluable for building a library that needs to be reliable and secure. It moves error handling from a runtime concern to a compile-time one.
-4.  **Superior Type-Safety and Inference**: Effect's deep integration with TypeScript's type system allows us to model complex, asynchronous, and potentially fallible workflows with a level of precision that is difficult to achieve with `async/await` and Promises alone. This reduces bugs and improves developer experience.
-5.  **Structured Concurrency**: Effect provides powerful, built-in tools for managing concurrent operations, which will be essential for handling the bi-directional communication streams of an SSH connection. This helps prevent resource leaks and race conditions that are common in complex asynchronous applications.
-
-While smaller libraries like `neverthrow` provide excellent Result types, they do not offer the comprehensive, integrated ecosystem for dependency management, concurrency, and resource handling that Effect does. For a project of this scope and complexity, Effect provides the robust foundation we need to build a production-ready, maintainable, and highly-testable library.
-
 ## How to Help
 
 When assisting with this project, please adhere to the following guidelines:
@@ -68,7 +55,6 @@ When assisting with this project, please adhere to the following guidelines:
 -   **Prioritize Type Safety**: Write code that is as type-safe as possible.
 -   **Write Tests**: Any new features or bug fixes should be accompanied by relevant tests.
 -   **Use the Core Technologies**: Leverage the established tools (Bun, Turbo, Biome) for tasks.
--   **Embrace Effect**: This project has adopted Effect for all asynchronous operations, error handling, and dependency management. **Do not use Promises, `async/await`, or `try/catch` blocks directly.** All fallible and async logic should be wrapped in an `Effect`.
 -   **Understand the Separation of Concerns**: Be mindful of the boundaries between the different packages. For example, do not introduce browser-specific APIs into the `protocol` package.
 
 When in doubt, ask for clarification.
@@ -131,17 +117,6 @@ Replace the inside of the tags with your actual generated problem, solution and 
 ### Wednesday, August 13, 2025
 
 **Summary of Work Done:**
-
--   Conducted a deep design session for the public API of the `@mana-ssh/web` package.
--   Iteratively refined the API based on principles of simplicity, developer ergonomics, and robust error handling, while ensuring the internal `Effect` implementation is completely hidden from the consumer.
--   The final API design is functional (not class-based) and focused exclusively on the primary use case of a browser-based interactive shell (e.g., for `xterm.js`).
--   Key design decisions solidified:
-    1.  **Error Handling**: Shifted from a `Result` object to a more conventional `Promise`-based API that `throws` typed, custom `Error` subclasses (`SshError`, `ConnectionError`, etc.) for explicit and robust error handling in `try...catch` blocks.
-    2.  **API Surface**: Simplified to a single entry point, `startSshSession`, which returns a `Session` handle.
-    3.  **In-Session Events**: Adopted a fully event-driven model for the active session using `onData`, `onError`, and `onExit` callbacks.
-    4.  **Lifecycle Management**: The library will now handle subscription cleanup automatically when a session ends, removing this burden from the developer and preventing memory leaks.
-    5.  **Ergonomics**: The `session.write` method was updated to accept `string` directly to simplify its use with UI components.
--   Updated `packages/web/README.md` with a comprehensive document detailing the final public API, its design principles, rationale for key decisions, and a clear usage example.
 
 ### Friday, August 15, 2025
 
