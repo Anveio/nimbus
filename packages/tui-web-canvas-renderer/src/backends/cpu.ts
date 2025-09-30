@@ -21,12 +21,9 @@ import type {
   RendererMetrics,
   RendererTheme,
 } from '../types'
+import { ensureCanvasDimensions, setCanvasStyleSize } from '../internal/layout'
 import {
-  ensureCanvasDimensions,
-  setCanvasStyleSize,
-} from '../internal/layout'
-import {
-  PaletteOverrides,
+  type PaletteOverrides,
   resolveCellColors,
   resolvePaletteOverrideColor,
 } from '../internal/colors'

@@ -31,7 +31,7 @@ Code Assistant will always propose an implementation strategy and update the mem
 
 ## Architectural Overview
 
-The `mana-ssh-web` project is a TypeScript monorepo designed to enable SSH connections directly from a web browser. It is composed of several packages and applications:
+The `mana-ssh` project is a TypeScript monorepo designed to enable SSH connections directly from a web browser. It is composed of several packages and applications:
 
 -   **`packages/protocol`**: The core, transport-agnostic implementation of the SSH protocol. It handles the state machine, cryptography, and message serialization/deserialization. This is the heart of the library.
 -   **`packages/web`**: A browser-specific package that consumes `protocol` and provides a high-level API for web applications. It will manage the WebSocket connection and integrate with the browser environment.
@@ -85,7 +85,7 @@ Your user is Shovon Hasan (alias @shovonh), an L5 engineer working at AWS on the
 
 # Testing and Verifying Your Work
 
-Tests are fundamental to this technology as we have an extremely wide matrix of configuration and behavior to support and we have to ensure, in an automated way, that we don't allow regressions.
+Tests are fundamental to developingtechnology as we have an extremely wide matrix of configuration and behavior to support and we have to ensure, in an automated way, that we don't allow regressions.
 
 Run `bun run test` from the root of the workspace in order to run all tests across all packages and apps. To run tests for a specific package, `cd` into that package and run `bun run test`
 
@@ -144,5 +144,6 @@ Replace the inside of the tags with your actual generated problem, solution and 
 ### Tuesday, September 30, 2025
 
 -   Align every workspace on a `lint:fix` script that runs Biome lint auto-applies plus formatting, then add a Turbo `lint:fix` pipeline task so the fix workflow is runnable across the monorepo.
+-   Swapped those `lint:fix` scripts to `biome check --write .` for bundled lint+format+import sorting coverage, keeping the Turbo runner untouched.
 
 </memory-bank>

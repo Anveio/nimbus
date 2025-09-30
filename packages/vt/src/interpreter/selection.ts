@@ -74,19 +74,23 @@ const clamp = (value: number, min: number, max: number): number => {
   return value
 }
 
-export const getSelectionBounds = (selection: TerminalSelection): SelectionBounds => {
+export const getSelectionBounds = (
+  selection: TerminalSelection,
+): SelectionBounds => {
   if (selection.kind === 'rectangular') {
     const minRow = Math.min(selection.anchor.row, selection.focus.row)
     const maxRow = Math.max(selection.anchor.row, selection.focus.row)
     const minColumn = Math.min(selection.anchor.column, selection.focus.column)
     const maxColumn = Math.max(selection.anchor.column, selection.focus.column)
 
-    const topSource = selection.anchor.row <= selection.focus.row
-      ? selection.anchor
-      : selection.focus
-    const bottomSource = selection.anchor.row >= selection.focus.row
-      ? selection.anchor
-      : selection.focus
+    const topSource =
+      selection.anchor.row <= selection.focus.row
+        ? selection.anchor
+        : selection.focus
+    const bottomSource =
+      selection.anchor.row >= selection.focus.row
+        ? selection.anchor
+        : selection.focus
 
     return {
       topLeft: clonePoint(topSource, minRow, minColumn),
@@ -178,11 +182,11 @@ export const getSelectionRowSegments = (
   return segments
 }
 
-export const isSelectionCollapsed = (
-  selection: TerminalSelection,
-): boolean => {
+export const isSelectionCollapsed = (selection: TerminalSelection): boolean => {
   const { topLeft, bottomRight } = getSelectionBounds(selection)
-  return topLeft.row === bottomRight.row && topLeft.column === bottomRight.column
+  return (
+    topLeft.row === bottomRight.row && topLeft.column === bottomRight.column
+  )
 }
 
 export const getSelectionRange = (

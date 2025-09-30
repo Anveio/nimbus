@@ -1,12 +1,5 @@
-import type {
-  TerminalAttributes,
-  TerminalColor,
-} from '@mana-ssh/vt'
-import type {
-  RendererColor,
-  RendererPalette,
-  RendererTheme,
-} from '../types'
+import type { TerminalAttributes, TerminalColor } from '@mana-ssh/vt'
+import type { RendererColor, RendererPalette, RendererTheme } from '../types'
 
 const clampByte = (value: number): number =>
   Math.max(0, Math.min(255, Math.round(value)))

@@ -3,7 +3,9 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createCanvas, Image } from 'canvas'
 
-const ARTIFACT_ROOT = fileURLToPath(new URL('../__artifacts__', import.meta.url))
+const ARTIFACT_ROOT = fileURLToPath(
+  new URL('../__artifacts__', import.meta.url),
+)
 const CANVAS_PADDING = 16
 const LABEL_HEIGHT = 20
 const GUTTER = 16
@@ -39,7 +41,8 @@ const composeSideBySide = async (
   const width = Math.max(...images.map((image) => image.width))
   const height = Math.max(...images.map((image) => image.height))
   const columns = images.length
-  const canvasWidth = CANVAS_PADDING * 2 + width * columns + GUTTER * (columns - 1)
+  const canvasWidth =
+    CANVAS_PADDING * 2 + width * columns + GUTTER * (columns - 1)
   const canvasHeight = CANVAS_PADDING * 2 + LABEL_HEIGHT + height
   const composite = createCanvas(canvasWidth, canvasHeight)
   const context = composite.getContext('2d')
@@ -58,12 +61,7 @@ const composeSideBySide = async (
     if (index < columns - 1) {
       const separatorX = x + width + GUTTER / 2
       context.fillStyle = SEPARATOR_COLOR
-      context.fillRect(
-        separatorX,
-        CANVAS_PADDING,
-        2,
-        LABEL_HEIGHT + height,
-      )
+      context.fillRect(separatorX, CANVAS_PADDING, 2, LABEL_HEIGHT + height)
       context.fillStyle = LABEL_COLOR
     }
 
@@ -103,23 +101,19 @@ const sanitizeCaseName = (value: string): string =>
 export const writeComparisonArtifacts = async (
   options: ComparisonArtifactOptions,
 ): Promise<ComparisonArtifactPaths> => {
-  const labels: LabelTriple = options.labels ?? [
-    'expected',
-    'actual',
-    'diff',
-  ]
+  const labels: LabelTriple = options.labels ?? ['expected', 'actual', 'diff']
   const directory = join(ARTIFACT_ROOT, sanitizeCaseName(options.caseName))
   await ensureDirectory(directory)
 
   const [expectedPath, actualPath, diffPath] = await Promise.all([
-    writeFile(join(directory, 'expected.png'), options.expected).then(
-      () => join(directory, 'expected.png'),
+    writeFile(join(directory, 'expected.png'), options.expected).then(() =>
+      join(directory, 'expected.png'),
     ),
-    writeFile(join(directory, 'actual.png'), options.actual).then(
-      () => join(directory, 'actual.png'),
+    writeFile(join(directory, 'actual.png'), options.actual).then(() =>
+      join(directory, 'actual.png'),
     ),
-    writeFile(join(directory, 'diff.png'), options.diff).then(
-      () => join(directory, 'diff.png'),
+    writeFile(join(directory, 'diff.png'), options.diff).then(() =>
+      join(directory, 'diff.png'),
     ),
   ])
 

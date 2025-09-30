@@ -80,10 +80,7 @@ export interface RendererMetrics {
   readonly cell: RendererCellMetrics
 }
 
-export type RendererBackendFallback =
-  | 'cpu-only'
-  | 'prefer-gpu'
-  | 'require-gpu'
+export type RendererBackendFallback = 'cpu-only' | 'prefer-gpu' | 'require-gpu'
 
 export interface Cpu2dBackendConfig {
   readonly type: 'cpu-2d'
@@ -95,9 +92,7 @@ export interface WebglBackendConfig {
   readonly fallback?: RendererBackendFallback
 }
 
-export type RendererBackendConfig =
-  | Cpu2dBackendConfig
-  | WebglBackendConfig
+export type RendererBackendConfig = Cpu2dBackendConfig | WebglBackendConfig
 
 export interface DetectPreferredBackendOptions {
   readonly contextAttributes?: WebGLContextAttributes

@@ -6,4 +6,3 @@ export const fontString = (
   italic: boolean,
 ): string =>
   `${italic ? 'italic ' : ''}${bold ? 'bold ' : ''}${font.size}px ${font.family}`
-

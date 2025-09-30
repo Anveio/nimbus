@@ -25,8 +25,9 @@ const isWebglBackendConfig = (
   config: RendererBackendConfig,
 ): config is WebglBackendConfig => config.type === 'gpu-webgl'
 
-const resolveFallbackMode = (config: WebglBackendConfig): RendererBackendFallback =>
-  config.fallback ?? 'prefer-gpu'
+const resolveFallbackMode = (
+  config: WebglBackendConfig,
+): RendererBackendFallback => config.fallback ?? 'prefer-gpu'
 
 const resolveBackendConfig = (
   config: RendererBackendConfig | undefined,

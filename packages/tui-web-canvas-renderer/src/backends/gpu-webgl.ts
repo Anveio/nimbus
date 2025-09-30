@@ -19,12 +19,9 @@ import type {
   TerminalUpdate,
 } from '@mana-ssh/vt'
 import { getSelectionRowSegments } from '@mana-ssh/vt'
+import { ensureCanvasDimensions, setCanvasStyleSize } from '../internal/layout'
 import {
-  ensureCanvasDimensions,
-  setCanvasStyleSize,
-} from '../internal/layout'
-import {
-  PaletteOverrides,
+  type PaletteOverrides,
   resolveCellColors,
   resolvePaletteOverrideColor,
 } from '../internal/colors'
@@ -75,21 +72,11 @@ const SHADERS_WEBGL2: ShaderBundle = {
 }
 
 const OVERLAY_POSITIONS = new Float32Array([
-  -1, -1,
-  1, -1,
-  -1, 1,
-  -1, 1,
-  1, -1,
-  1, 1,
+  -1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1,
 ])
 
 const OVERLAY_TEX_COORDS = new Float32Array([
-  0, 0,
-  1, 0,
-  0, 1,
-  0, 1,
-  1, 0,
-  1, 1,
+  0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1,
 ])
 
 const now = (): number =>
@@ -252,13 +239,20 @@ const createOverlayCanvas = (): CanvasLike => {
   if (typeof OffscreenCanvas !== 'undefined') {
     return new OffscreenCanvas(1, 1) as unknown as CanvasLike
   }
-  if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
+  if (
+    typeof document !== 'undefined' &&
+    typeof document.createElement === 'function'
+  ) {
     return document.createElement('canvas') as unknown as CanvasLike
   }
   throw new Error('Unable to create overlay canvas')
 }
 
-const ensureOverlaySize = (canvas: CanvasLike, width: number, height: number): void => {
+const ensureOverlaySize = (
+  canvas: CanvasLike,
+  width: number,
+  height: number,
+): void => {
   const w = Math.max(1, Math.ceil(width))
   const h = Math.max(1, Math.ceil(height))
   if (canvas.width !== w) {
@@ -340,20 +334,7 @@ const buildFrameGeometry = ({
     const y1 = toClipY(y + height)
     const y2 = toClipY(y)
 
-    backgroundPositions.push(
-      x1,
-      y1,
-      x2,
-      y1,
-      x1,
-      y2,
-      x1,
-      y2,
-      x2,
-      y1,
-      x2,
-      y2,
-    )
+    backgroundPositions.push(x1, y1, x2, y1, x1, y2, x1, y2, x2, y1, x2, y2)
 
     for (let index = 0; index < 6; index += 1) {
       backgroundColors.push(r, g, b, alpha)
@@ -380,20 +361,7 @@ const buildFrameGeometry = ({
     const y1 = toClipY(y + glyph.height)
     const y2 = toClipY(y)
 
-    glyphPositions.push(
-      x1,
-      y1,
-      x2,
-      y1,
-      x1,
-      y2,
-      x1,
-      y2,
-      x2,
-      y1,
-      x2,
-      y2,
-    )
+    glyphPositions.push(x1, y1, x2, y1, x1, y2, x1, y2, x2, y1, x2, y2)
 
     glyphTexCoords.push(
       glyph.u1,
@@ -480,7 +448,13 @@ const buildFrameGeometry = ({
         if (cell.attr.underline !== 'none') {
           const thickness = Math.max(1, Math.round(cellHeight * 0.08))
           const baseY = y + cellHeight - thickness
-          pushBackgroundQuad(x, baseY, cellWidth, thickness, effectiveForeground)
+          pushBackgroundQuad(
+            x,
+            baseY,
+            cellWidth,
+            thickness,
+            effectiveForeground,
+          )
           if (cell.attr.underline === 'double') {
             const gap = thickness + 2
             const secondY = Math.max(y, baseY - gap)
@@ -553,7 +527,14 @@ const buildFrameGeometry = ({
       }
       case 'block':
       default: {
-        pushBackgroundQuad(x, y, cellWidth, cellHeight, cursorColor, cursorOpacity)
+        pushBackgroundQuad(
+          x,
+          y,
+          cellWidth,
+          cellHeight,
+          cursorColor,
+          cursorOpacity,
+        )
         break
       }
     }
@@ -627,12 +608,14 @@ export const detectWebglSupport = (
   }
 
   const webgl1 =
-    (canvas.getContext('webgl', attributes as never) as
-      | WebGLRenderingContext
-      | null) ??
-    (canvas.getContext('experimental-webgl', attributes as never) as
-      | WebGLRenderingContext
-      | null)
+    (canvas.getContext(
+      'webgl',
+      attributes as never,
+    ) as WebGLRenderingContext | null) ??
+    (canvas.getContext(
+      'experimental-webgl',
+      attributes as never,
+    ) as WebGLRenderingContext | null)
 
   if (!webgl1) {
     return {
@@ -684,15 +667,15 @@ const createWebglContext = (
     ...(attributes ?? {}),
   }
   if (contextKind === 'webgl2') {
-    return canvas.getContext('webgl2', mergedAttributes as never) as
-      | WebGL2RenderingContext
-      | null
+    return canvas.getContext(
+      'webgl2',
+      mergedAttributes as never,
+    ) as WebGL2RenderingContext | null
   }
-  return (
-    canvas.getContext('webgl', mergedAttributes as never) as
-      | WebGLRenderingContext
-      | null
-  )
+  return canvas.getContext(
+    'webgl',
+    mergedAttributes as never,
+  ) as WebGLRenderingContext | null
 }
 
 const updateDiagnostics = (
@@ -712,7 +695,8 @@ const createWebglRenderer = (
   options: CanvasRendererOptions,
   support: WebglSupportResult,
 ): CanvasRenderer => {
-  const shaders = support.contextKind === 'webgl2' ? SHADERS_WEBGL2 : SHADERS_WEBGL1
+  const shaders =
+    support.contextKind === 'webgl2' ? SHADERS_WEBGL2 : SHADERS_WEBGL1
   const paletteOverrides: PaletteOverrides = new Map()
   const glyphAtlas = new GlyphAtlas({ metrics: options.metrics })
   const colorCache = new ColorCache()
@@ -744,7 +728,11 @@ const createWebglRenderer = (
     support.contextKind === 'webgl2' ? 'a_color' : 'a_color',
   )
 
-  const glyphProgram = createProgram(gl, shaders.glyphVertex, shaders.glyphFragment)
+  const glyphProgram = createProgram(
+    gl,
+    shaders.glyphVertex,
+    shaders.glyphFragment,
+  )
   const glyphPositionLocation = gl.getAttribLocation(glyphProgram, 'a_position')
   const glyphTexCoordLocation = gl.getAttribLocation(glyphProgram, 'a_texCoord')
   const glyphColorLocation = gl.getAttribLocation(glyphProgram, 'a_color')
@@ -771,7 +759,13 @@ const createWebglRenderer = (
   const overlayPositionBuffer = overlayProgram ? gl.createBuffer() : null
   const overlayTexCoordBuffer = overlayProgram ? gl.createBuffer() : null
 
-  if (!backgroundPositionBuffer || !backgroundColorBuffer || !glyphPositionBuffer || !glyphTexCoordBuffer || !glyphColorBuffer) {
+  if (
+    !backgroundPositionBuffer ||
+    !backgroundColorBuffer ||
+    !glyphPositionBuffer ||
+    !glyphTexCoordBuffer ||
+    !glyphColorBuffer
+  ) {
     throw new Error('Failed to allocate WebGL buffers')
   }
 
@@ -811,14 +805,12 @@ const createWebglRenderer = (
     lastDcs: null,
   }
 
-  let pendingDcs:
-    | {
-        readonly finalByte: number
-        readonly params: ReadonlyArray<number>
-        readonly intermediates: ReadonlyArray<number>
-        data: string
-      }
-    | null = null
+  let pendingDcs: {
+    readonly finalByte: number
+    readonly params: ReadonlyArray<number>
+    readonly intermediates: ReadonlyArray<number>
+    data: string
+  } | null = null
 
   const consumeSelectionChange = (selection: TerminalSelection | null) => {
     currentSelection = selection
@@ -832,8 +824,12 @@ const createWebglRenderer = (
     setCanvasStyleSize(canvas, layout)
 
     const reverseVideo = Boolean(snapshot.reverseVideo)
-    const fallbackForeground = reverseVideo ? theme.background : theme.foreground
-    const fallbackBackground = reverseVideo ? theme.foreground : theme.background
+    const fallbackForeground = reverseVideo
+      ? theme.background
+      : theme.foreground
+    const fallbackBackground = reverseVideo
+      ? theme.foreground
+      : theme.background
 
     const geometry = buildFrameGeometry({
       snapshot,
@@ -866,9 +862,20 @@ const createWebglRenderer = (
     if (geometry.backgroundVertexCount > 0) {
       gl.useProgram(backgroundProgram)
       gl.bindBuffer(gl.ARRAY_BUFFER, backgroundPositionBuffer)
-      gl.bufferData(gl.ARRAY_BUFFER, geometry.backgroundPositions, gl.DYNAMIC_DRAW)
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        geometry.backgroundPositions,
+        gl.DYNAMIC_DRAW,
+      )
       gl.enableVertexAttribArray(backgroundPositionLocation)
-      gl.vertexAttribPointer(backgroundPositionLocation, 2, gl.FLOAT, false, 0, 0)
+      gl.vertexAttribPointer(
+        backgroundPositionLocation,
+        2,
+        gl.FLOAT,
+        false,
+        0,
+        0,
+      )
 
       gl.bindBuffer(gl.ARRAY_BUFFER, backgroundColorBuffer)
       gl.bufferData(gl.ARRAY_BUFFER, geometry.backgroundColors, gl.DYNAMIC_DRAW)
@@ -904,7 +911,17 @@ const createWebglRenderer = (
       drawCalls += 1
     }
 
-    if (customCursorOverlay && overlayCanvas && overlayCtx && uploadOverlayTexture && overlayProgram && overlayTexture && overlayPositionBuffer && overlayTexCoordBuffer && overlayTextureLocation !== null) {
+    if (
+      customCursorOverlay &&
+      overlayCanvas &&
+      overlayCtx &&
+      uploadOverlayTexture &&
+      overlayProgram &&
+      overlayTexture &&
+      overlayPositionBuffer &&
+      overlayTexCoordBuffer &&
+      overlayTextureLocation !== null
+    ) {
       ensureOverlaySize(
         overlayCanvas,
         layout.logicalWidth,
@@ -1149,10 +1166,12 @@ export const tryCreateWebglCanvasRenderer = (
     }
   }
 
-  const attempt = (
-    kind: 'webgl2' | 'webgl',
-  ): WebglInitOutcome => {
-    const gl = createWebglContext(options.canvas, kind, config.contextAttributes)
+  const attempt = (kind: 'webgl2' | 'webgl'): WebglInitOutcome => {
+    const gl = createWebglContext(
+      options.canvas,
+      kind,
+      config.contextAttributes,
+    )
     if (!gl) {
       return {
         success: false,
@@ -1162,7 +1181,9 @@ export const tryCreateWebglCanvasRenderer = (
     }
 
     if (kind === 'webgl') {
-      const missingExtensions = checkWebgl1Extensions(gl as WebGLRenderingContext)
+      const missingExtensions = checkWebgl1Extensions(
+        gl as WebGLRenderingContext,
+      )
       if (missingExtensions.length > 0) {
         releaseContext(gl)
         return {

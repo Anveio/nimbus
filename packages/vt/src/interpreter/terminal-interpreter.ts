@@ -735,7 +735,7 @@ export class TerminalInterpreter {
       selector = charsets.gl
     } else if (codePoint >= 0xa0 && codePoint <= 0xff) {
       selector = charsets.gr
-      baseCode = (codePoint & 0x7f) || 0x20
+      baseCode = codePoint & 0x7f || 0x20
     }
 
     const charsetId = charsets[selector]
@@ -994,7 +994,10 @@ export class TerminalInterpreter {
             case '3':
               return this.setLineAttribute(this.state.cursor.row, 'double-top')
             case '4':
-              return this.setLineAttribute(this.state.cursor.row, 'double-bottom')
+              return this.setLineAttribute(
+                this.state.cursor.row,
+                'double-bottom',
+              )
             case '5':
               return this.setLineAttribute(this.state.cursor.row, 'single')
             case '8':
@@ -1244,7 +1247,10 @@ export class TerminalInterpreter {
   ): TerminalUpdate[] {
     if (event.intermediates.length > 0) {
       const intermediate = String.fromCharCode(event.intermediates[0]!)
-      if (intermediate === '"' && String.fromCharCode(event.finalByte) === 'q') {
+      if (
+        intermediate === '"' &&
+        String.fromCharCode(event.finalByte) === 'q'
+      ) {
         return this.handleDecsca(event.params)
       }
     }
@@ -1255,7 +1261,11 @@ export class TerminalInterpreter {
 
     if (
       event.prefix === QUESTION_MARK &&
-      (final === 'h' || final === 'l' || final === 'J' || final === 'K' || final === 'p')
+      (final === 'h' ||
+        final === 'l' ||
+        final === 'J' ||
+        final === 'K' ||
+        final === 'p')
     ) {
       return this.handleDecPrivateMode(event)
     }
@@ -1304,8 +1314,7 @@ export class TerminalInterpreter {
           return primary ? this.emitResponse(primary) : []
         }
         if (String.fromCharCode(event.prefix) === '>') {
-          const secondary =
-            this.capabilities.features.secondaryDeviceAttributes
+          const secondary = this.capabilities.features.secondaryDeviceAttributes
           return secondary ? this.emitResponse(secondary) : []
         }
         return []
@@ -1336,10 +1345,7 @@ export class TerminalInterpreter {
     event: ParserEvent & { type: ParserEventType.CsiDispatch },
   ): TerminalUpdate[] {
     const final = String.fromCharCode(event.finalByte)
-    if (
-      final === 'p' &&
-      event.intermediates.includes('$'.charCodeAt(0))
-    ) {
+    if (final === 'p' && event.intermediates.includes('$'.charCodeAt(0))) {
       return this.reportPrivateModes(event.params)
     }
 
@@ -2158,11 +2164,7 @@ export class TerminalInterpreter {
     if (!this.withinScrollRegion(row)) {
       return []
     }
-    const amount = clamp(
-      count,
-      1,
-      this.state.scrollBottom - row + 1,
-    )
+    const amount = clamp(count, 1, this.state.scrollBottom - row + 1)
     const cells: CellDelta[] = []
 
     for (
@@ -2171,7 +2173,8 @@ export class TerminalInterpreter {
       targetRow -= 1
     ) {
       const sourceRow = targetRow - amount
-      this.state.lineAttributes[targetRow] = this.state.lineAttributes[sourceRow]!
+      this.state.lineAttributes[targetRow] =
+        this.state.lineAttributes[sourceRow]!
       for (let column = 0; column < this.state.columns; column += 1) {
         const source = this.state.buffer[sourceRow]?.[column]
         const cell = source
@@ -2203,11 +2206,7 @@ export class TerminalInterpreter {
     if (!this.withinScrollRegion(row)) {
       return []
     }
-    const amount = clamp(
-      count,
-      1,
-      this.state.scrollBottom - row + 1,
-    )
+    const amount = clamp(count, 1, this.state.scrollBottom - row + 1)
     const cells: CellDelta[] = []
 
     for (
@@ -2216,7 +2215,8 @@ export class TerminalInterpreter {
       targetRow += 1
     ) {
       const sourceRow = targetRow + amount
-      this.state.lineAttributes[targetRow] = this.state.lineAttributes[sourceRow]!
+      this.state.lineAttributes[targetRow] =
+        this.state.lineAttributes[sourceRow]!
       for (let column = 0; column < this.state.columns; column += 1) {
         const source = this.state.buffer[sourceRow]?.[column]
         const cell = source
@@ -2327,7 +2327,11 @@ export class TerminalInterpreter {
     this.reset()
     return [
       { type: 'clear', scope: 'display' },
-      { type: 'scroll-region', top: this.state.scrollTop, bottom: this.state.scrollBottom },
+      {
+        type: 'scroll-region',
+        top: this.state.scrollTop,
+        bottom: this.state.scrollBottom,
+      },
       this.cursorUpdate(),
       { type: 'attributes', attributes: this.state.attributes },
       { type: 'mode', mode: 'origin', value: this.state.originMode },
@@ -2380,7 +2384,11 @@ export class TerminalInterpreter {
 
     return [
       { type: 'clear', scope: 'display' },
-      { type: 'scroll-region', top: this.state.scrollTop, bottom: this.state.scrollBottom },
+      {
+        type: 'scroll-region',
+        top: this.state.scrollTop,
+        bottom: this.state.scrollBottom,
+      },
       this.cursorUpdate(),
     ]
   }

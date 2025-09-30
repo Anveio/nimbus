@@ -198,7 +198,7 @@ const createAttributes = (
   ({
     ...baseAttributes(),
     ...overrides,
-  } as TerminalAttributes)
+  }) as TerminalAttributes
 
 const createBlankCell = (): TerminalCell => ({
   char: ' ',
@@ -335,7 +335,12 @@ describe('createCanvasRenderer', () => {
     expectedContext.fillStyle = theme.background
     expectedContext.fillRect(0, 0, expectedCanvas.width, expectedCanvas.height)
     expectedContext.fillStyle = theme.palette.ansi[1]!
-    expectedContext.fillRect(0, 0, baseMetrics.cell.width, baseMetrics.cell.height)
+    expectedContext.fillRect(
+      0,
+      0,
+      baseMetrics.cell.width,
+      baseMetrics.cell.height,
+    )
 
     await assertCanvasEquals(
       'update-cell-bg',
@@ -617,11 +622,7 @@ describe('createCanvasRenderer', () => {
     expect(events).toHaveLength(2)
     expect(events[1]).toEqual(nextSelection)
 
-    const secondRowPixel = getPixel(
-      renderer,
-      0,
-      baseMetrics.cell.height,
-    )
+    const secondRowPixel = getPixel(renderer, 0, baseMetrics.cell.height)
     expect(secondRowPixel[0]).toBe(selectionBg[0])
     expect(secondRowPixel[1]).toBe(selectionBg[1])
     expect(secondRowPixel[2]).toBe(selectionBg[2])

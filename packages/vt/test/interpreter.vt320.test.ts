@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { createParser } from '../src/parser'
-import {
-  type Parser,
-  type ParserEvent,
-  type ParserEventSink,
-  type ParserOptions,
+import type {
+  Parser,
+  ParserEvent,
+  ParserEventSink,
+  ParserOptions,
 } from '../src/types'
 import type { TerminalUpdate } from '../src/interpreter/delta'
-import { createInterpreter, type TerminalInterpreter } from '../src/interpreter/terminal-interpreter'
+import {
+  createInterpreter,
+  type TerminalInterpreter,
+} from '../src/interpreter/terminal-interpreter'
 
 class RecordingSink implements ParserEventSink {
   constructor(
@@ -46,23 +49,8 @@ describe('VT320 capabilities', () => {
     expect(responses).toHaveLength(1)
     if (responses[0]?.type === 'response') {
       expect(Array.from(responses[0].data)).toEqual([
-        0x9b,
-        0x3f,
-        0x36,
-        0x32,
-        0x3b,
-        0x31,
-        0x3b,
-        0x32,
-        0x3b,
-        0x36,
-        0x3b,
-        0x37,
-        0x3b,
-        0x38,
-        0x3b,
-        0x39,
-        0x63,
+        0x9b, 0x3f, 0x36, 0x32, 0x3b, 0x31, 0x3b, 0x32, 0x3b, 0x36, 0x3b, 0x37,
+        0x3b, 0x38, 0x3b, 0x39, 0x63,
       ])
     }
 
@@ -72,15 +60,7 @@ describe('VT320 capabilities', () => {
     expect(responses).toHaveLength(1)
     if (responses[0]?.type === 'response') {
       expect(Array.from(responses[0].data)).toEqual([
-        0x9b,
-        0x3e,
-        0x36,
-        0x32,
-        0x3b,
-        0x31,
-        0x3b,
-        0x32,
-        0x63,
+        0x9b, 0x3e, 0x36, 0x32, 0x3b, 0x31, 0x3b, 0x32, 0x63,
       ])
     }
   })
@@ -136,23 +116,8 @@ describe('VT320 capabilities', () => {
     expect(finalResponses).toHaveLength(1)
     if (finalResponses[0]?.type === 'response') {
       expect(Array.from(finalResponses[0].data)).toEqual([
-        0x9b,
-        0x3f,
-        0x36,
-        0x32,
-        0x3b,
-        0x31,
-        0x3b,
-        0x32,
-        0x3b,
-        0x36,
-        0x3b,
-        0x37,
-        0x3b,
-        0x38,
-        0x3b,
-        0x39,
-        0x63,
+        0x9b, 0x3f, 0x36, 0x32, 0x3b, 0x31, 0x3b, 0x32, 0x3b, 0x36, 0x3b, 0x37,
+        0x3b, 0x38, 0x3b, 0x39, 0x63,
       ])
     }
 

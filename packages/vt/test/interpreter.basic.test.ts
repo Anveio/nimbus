@@ -103,7 +103,12 @@ describe('TerminalInterpreter basic behaviour', () => {
     const { interpreter } = run('foo\b \bx')
     const row = interpreter.snapshot.buffer[0]!
 
-    expect(row.slice(0, 3).map((cell) => cell.char).join('')).toBe('fox')
+    expect(
+      row
+        .slice(0, 3)
+        .map((cell) => cell.char)
+        .join(''),
+    ).toBe('fox')
     expect(interpreter.snapshot.cursor.column).toBe(3)
   })
 
@@ -111,7 +116,12 @@ describe('TerminalInterpreter basic behaviour', () => {
     const { interpreter } = run('foo\x7f')
     const row = interpreter.snapshot.buffer[0]!
 
-    expect(row.slice(0, 3).map((cell) => cell.char).join('')).toBe('foo')
+    expect(
+      row
+        .slice(0, 3)
+        .map((cell) => cell.char)
+        .join(''),
+    ).toBe('foo')
     expect(interpreter.snapshot.cursor.column).toBe(3)
   })
 
@@ -119,7 +129,12 @@ describe('TerminalInterpreter basic behaviour', () => {
     const { interpreter } = run('abcd\x1b[H\x1b[P')
     const row = interpreter.snapshot.buffer[0]!
 
-    expect(row.slice(0, 3).map((cell) => cell.char).join('')).toBe('bcd')
+    expect(
+      row
+        .slice(0, 3)
+        .map((cell) => cell.char)
+        .join(''),
+    ).toBe('bcd')
     expect(row[3]!.char).toBe(' ')
     expect(interpreter.snapshot.cursor.column).toBe(0)
   })
@@ -166,25 +181,45 @@ describe('TerminalInterpreter basic behaviour', () => {
   it('renders DEC special graphics when designated on G0', () => {
     const { interpreter } = run('\u001b(0qqqq\u001b(B')
     const row = interpreter.snapshot.buffer[0]!
-    expect(row.slice(0, 4).map((cell) => cell.char).join('')).toBe('────')
+    expect(
+      row
+        .slice(0, 4)
+        .map((cell) => cell.char)
+        .join(''),
+    ).toBe('────')
   })
 
   it('inserts characters with CSI @', () => {
     const { interpreter } = run('HELLO\u001b[3D\u001b[2@')
     const row = interpreter.snapshot.buffer[0]!
-    expect(row.slice(0, 7).map((cell) => cell.char).join('')).toBe('HE  LLO')
+    expect(
+      row
+        .slice(0, 7)
+        .map((cell) => cell.char)
+        .join(''),
+    ).toBe('HE  LLO')
   })
 
   it('deletes characters with CSI P', () => {
     const { interpreter } = run('ABCDE\u001b[3D\u001b[2P')
     const row = interpreter.snapshot.buffer[0]!
-    expect(row.map((cell) => cell.char).join('').trimEnd()).toBe('ABE')
+    expect(
+      row
+        .map((cell) => cell.char)
+        .join('')
+        .trimEnd(),
+    ).toBe('ABE')
   })
 
   it('erases characters with CSI X', () => {
     const { interpreter } = run('TEXT\u001b[2D\u001b[2X')
     const row = interpreter.snapshot.buffer[0]!
-    expect(row.map((cell) => cell.char).join('').slice(0, 4)).toBe('TE  ')
+    expect(
+      row
+        .map((cell) => cell.char)
+        .join('')
+        .slice(0, 4),
+    ).toBe('TE  ')
   })
 
   it('applies SGR sequences with colon separators', () => {
@@ -234,9 +269,7 @@ describe('TerminalInterpreter basic behaviour', () => {
   })
 
   it('performs selective erase respecting DECSCA', () => {
-    const { interpreter } = run(
-      '\u001b[1"qP\u001b[0"qQ\u001b[1;1H\u001b[?0J',
-    )
+    const { interpreter } = run('\u001b[1"qP\u001b[0"qQ\u001b[1;1H\u001b[?0J')
     const row = interpreter.snapshot.buffer[0]!
     expect(row[0]!.char).toBe('P')
     expect(row[0]!.protected).toBe(true)
@@ -247,19 +280,13 @@ describe('TerminalInterpreter basic behaviour', () => {
     const { updates } = run('\u001b[>0c')
     const responses = updates
       .flat()
-      .filter((update): update is Extract<TerminalUpdate, { type: 'response' }> =>
-        update.type === 'response',
+      .filter(
+        (update): update is Extract<TerminalUpdate, { type: 'response' }> =>
+          update.type === 'response',
       )
       .map((update) => normaliseDeviceAttributes(update.data))
     expect(responses).toContainEqual([
-      0x3e,
-      0x36,
-      0x32,
-      0x3b,
-      0x31,
-      0x3b,
-      0x32,
-      0x63,
+      0x3e, 0x36, 0x32, 0x3b, 0x31, 0x3b, 0x32, 0x63,
     ])
   })
 
@@ -267,8 +294,9 @@ describe('TerminalInterpreter basic behaviour', () => {
     const { updates } = run('\u001b[5n\u001b[6n')
     const responseStrings = updates
       .flat()
-      .filter((update): update is Extract<TerminalUpdate, { type: 'response' }> =>
-        update.type === 'response',
+      .filter(
+        (update): update is Extract<TerminalUpdate, { type: 'response' }> =>
+          update.type === 'response',
       )
       .map((update) =>
         String.fromCharCode(...normaliseDeviceAttributes(update.data)),
@@ -287,8 +315,9 @@ describe('TerminalInterpreter basic behaviour', () => {
     parser.write('\u001bZ', sink)
     const decidResponses = updates
       .flat()
-      .filter((update): update is Extract<TerminalUpdate, { type: 'response' }> =>
-        update.type === 'response',
+      .filter(
+        (update): update is Extract<TerminalUpdate, { type: 'response' }> =>
+          update.type === 'response',
       )
       .map((update) => Array.from(update.data))
     expect(decidResponses).toContainEqual([0x1b, 0x2f, 0x5a])
@@ -301,8 +330,9 @@ describe('TerminalInterpreter basic behaviour', () => {
     parser.write('\u0005', sink) // ENQ
     const answerbackResponses = updates
       .flat()
-      .filter((update): update is Extract<TerminalUpdate, { type: 'response' }> =>
-        update.type === 'response',
+      .filter(
+        (update): update is Extract<TerminalUpdate, { type: 'response' }> =>
+          update.type === 'response',
       )
       .map((update) => Array.from(update.data))
     expect(answerbackResponses).toContainEqual(
@@ -341,25 +371,37 @@ describe('TerminalInterpreter basic behaviour', () => {
     const sequence = 'line1\r\nline2\r\nline3\u001b[2;1H\u001b[1L'
     const { interpreter } = run(sequence)
     const snapshot = interpreter.snapshot
-    expect(snapshot.buffer[0]!.map((cell) => cell.char).join('').trimEnd()).toBe(
-      'line1',
-    )
-    expect(snapshot.buffer[1]!.map((cell) => cell.char).join('').trimEnd()).toBe('')
-    expect(snapshot.buffer[2]!.map((cell) => cell.char).join('').trimEnd()).toBe(
-      'line2',
-    )
+    expect(
+      snapshot.buffer[0]!.map((cell) => cell.char)
+        .join('')
+        .trimEnd(),
+    ).toBe('line1')
+    expect(
+      snapshot.buffer[1]!.map((cell) => cell.char)
+        .join('')
+        .trimEnd(),
+    ).toBe('')
+    expect(
+      snapshot.buffer[2]!.map((cell) => cell.char)
+        .join('')
+        .trimEnd(),
+    ).toBe('line2')
   })
 
   it('deletes lines with CSI M', () => {
     const sequence = 'line1\r\nline2\r\nline3\u001b[2;1H\u001b[1M'
     const { interpreter } = run(sequence)
     const snapshot = interpreter.snapshot
-    expect(snapshot.buffer[0]!.map((cell) => cell.char).join('').trimEnd()).toBe(
-      'line1',
-    )
-    expect(snapshot.buffer[1]!.map((cell) => cell.char).join('').trimEnd()).toBe(
-      'line3',
-    )
+    expect(
+      snapshot.buffer[0]!.map((cell) => cell.char)
+        .join('')
+        .trimEnd(),
+    ).toBe('line1')
+    expect(
+      snapshot.buffer[1]!.map((cell) => cell.char)
+        .join('')
+        .trimEnd(),
+    ).toBe('line3')
   })
 
   it('exposes emitted updates for downstream renderers', () => {
@@ -507,7 +549,9 @@ describe('TerminalInterpreter basic behaviour', () => {
     }
 
     const setUpdates = interpreter.setSelection(initialSelection)
-    expect(setUpdates).toEqual([{ type: 'selection-set', selection: initialSelection }])
+    expect(setUpdates).toEqual([
+      { type: 'selection-set', selection: initialSelection },
+    ])
     expect(interpreter.snapshot.selection).toEqual(initialSelection)
 
     const nextSelection: TerminalSelection = {
@@ -518,7 +562,9 @@ describe('TerminalInterpreter basic behaviour', () => {
     }
 
     const updateUpdates = interpreter.updateSelection(nextSelection)
-    expect(updateUpdates).toEqual([{ type: 'selection-update', selection: nextSelection }])
+    expect(updateUpdates).toEqual([
+      { type: 'selection-update', selection: nextSelection },
+    ])
     expect(interpreter.snapshot.selection).toEqual(nextSelection)
 
     const redundantUpdates = interpreter.updateSelection(nextSelection)
@@ -548,14 +594,19 @@ describe('TerminalInterpreter basic behaviour', () => {
     })
 
     const row0 = interpreter.snapshot.buffer[0]!
-    const rendered = row0.map((cell) => cell.char).join('').trimEnd()
+    const rendered = row0
+      .map((cell) => cell.char)
+      .join('')
+      .trimEnd()
     expect(rendered).toBe('ALPHA keyboard paste')
     expect(interpreter.snapshot.cursor.row).toBe(0)
     expect(interpreter.snapshot.cursor.column).toBe(
       6 + ' keyboard paste'.length,
     )
     expect(interpreter.snapshot.selection).toBeNull()
-    expect(updates.some((update) => update.type === 'selection-clear')).toBe(true)
+    expect(updates.some((update) => update.type === 'selection-clear')).toBe(
+      true,
+    )
     expect(updates.some((update) => update.type === 'cells')).toBe(true)
     expect(updates.some((update) => update.type === 'cursor')).toBe(true)
   })
@@ -577,10 +628,18 @@ describe('TerminalInterpreter basic behaviour', () => {
 
     const firstRow = interpreter.snapshot.buffer[0]!
     const secondRow = interpreter.snapshot.buffer[1]!
-    expect(firstRow.slice(0, 3).map((cell) => cell.char).join('')).toBe('FOO')
-    expect(secondRow.slice(0, 8).map((cell) => cell.char).join('')).toBe(
-      'BARWORLD',
-    )
+    expect(
+      firstRow
+        .slice(0, 3)
+        .map((cell) => cell.char)
+        .join(''),
+    ).toBe('FOO')
+    expect(
+      secondRow
+        .slice(0, 8)
+        .map((cell) => cell.char)
+        .join(''),
+    ).toBe('BARWORLD')
     expect(interpreter.snapshot.cursor.row).toBe(1)
     expect(interpreter.snapshot.cursor.column).toBe(3)
   })
@@ -590,7 +649,12 @@ describe('TerminalInterpreter basic behaviour', () => {
     const updates = interpreter.editSelection({ replacement: 'λ> ' })
 
     const row = interpreter.snapshot.buffer[0]!
-    expect(row.slice(0, 9).map((cell) => cell.char).join('')).toBe('PROMPT λ>')
+    expect(
+      row
+        .slice(0, 9)
+        .map((cell) => cell.char)
+        .join(''),
+    ).toBe('PROMPT λ>')
     expect(interpreter.snapshot.cursor.column).toBe(10)
     expect(updates.some((update) => update.type === 'cells')).toBe(true)
     expect(updates.some((update) => update.type === 'cursor')).toBe(true)
@@ -692,9 +756,7 @@ describe('TerminalInterpreter basic behaviour', () => {
   it('applies the DEC screen alignment pattern', () => {
     const { interpreter } = run('\u001b#8')
     const snapshot = interpreter.snapshot
-    expect(
-      snapshot.buffer[0]!.every((cell) => cell.char === 'E'),
-    ).toBe(true)
+    expect(snapshot.buffer[0]!.every((cell) => cell.char === 'E')).toBe(true)
     expect(snapshot.cursor).toEqual({ row: 0, column: 0 })
   })
 

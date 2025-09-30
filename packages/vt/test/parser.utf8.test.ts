@@ -27,9 +27,10 @@ describe('ParserImpl UTF-8 handling', () => {
       (event) => event.type === ParserEventType.Print,
     )
     expect(printEvents).toHaveLength(1)
-    const data = printEvents[0]?.type === ParserEventType.Print
-      ? Array.from(printEvents[0].data)
-      : []
+    const data =
+      printEvents[0]?.type === ParserEventType.Print
+        ? Array.from(printEvents[0].data)
+        : []
     expect(data).toEqual(Array.from(encoder.encode('👋')))
   })
 
@@ -46,9 +47,10 @@ describe('ParserImpl UTF-8 handling', () => {
       (event) => event.type === ParserEventType.Print,
     )
     expect(printEvents).toHaveLength(1)
-    const data = printEvents[0]?.type === ParserEventType.Print
-      ? Array.from(printEvents[0].data)
-      : []
+    const data =
+      printEvents[0]?.type === ParserEventType.Print
+        ? Array.from(printEvents[0].data)
+        : []
     expect(data).toEqual(Array.from(encoder.encode('💖')))
   })
 

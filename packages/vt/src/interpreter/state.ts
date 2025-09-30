@@ -10,7 +10,12 @@ export type TerminalColor =
   | { readonly type: 'ansi'; readonly index: number }
   | { readonly type: 'ansi-bright'; readonly index: number }
   | { readonly type: 'palette'; readonly index: number }
-  | { readonly type: 'rgb'; readonly r: number; readonly g: number; readonly b: number }
+  | {
+      readonly type: 'rgb'
+      readonly r: number
+      readonly g: number
+      readonly b: number
+    }
 
 export interface TerminalAttributes {
   readonly bold: boolean

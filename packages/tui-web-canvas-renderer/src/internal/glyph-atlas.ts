@@ -42,7 +42,10 @@ const createCanvas = (factory?: () => CanvasLike): CanvasLike => {
     ) as unknown as CanvasLike
     return offscreen
   }
-  if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
+  if (
+    typeof document !== 'undefined' &&
+    typeof document.createElement === 'function'
+  ) {
     const element = document.createElement('canvas') as HTMLCanvasElement
     element.width = DEFAULT_SIZE
     element.height = DEFAULT_SIZE
@@ -131,7 +134,10 @@ export class GlyphAtlas {
     const nextHeight = this.height * 2
     const newCanvas = createCanvas(() => {
       if (typeof OffscreenCanvas !== 'undefined') {
-        return new OffscreenCanvas(nextWidth, nextHeight) as unknown as CanvasLike
+        return new OffscreenCanvas(
+          nextWidth,
+          nextHeight,
+        ) as unknown as CanvasLike
       }
       if (
         typeof document !== 'undefined' &&

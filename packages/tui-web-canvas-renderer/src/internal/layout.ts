@@ -50,4 +50,3 @@ export const setCanvasStyleSize = (
   domCanvas.style.width = `${layout.logicalWidth}px`
   domCanvas.style.height = `${layout.logicalHeight}px`
 }
-
