@@ -17,6 +17,10 @@ Our Playwright suite is the source of truth for verifying the rendered terminal 
 - **What we do now:** Specs focus the terminal like a user (`locator.click()`), then call `window.__manaTerminalTestHandle__?.write(...)` via `page.evaluate`. Snapshots and diagnostics are retrieved through the same handle and asserted in TypeScript.
 - **Why it matters:** We keep the automation surface tiny—`write`, `getSnapshot`, and a handful of diagnostics helpers—and rely on Playwright’s own timing guarantees instead of custom animation-frame helpers.
 
+### GPU Dirty-Rendering Scenarios
+- **Scroll heuristics:** `test/e2e/app.spec.ts` includes `scroll uploads only the newly exposed row`, verifying that GPU diagnostics shrink to a single row after vertical scroll. The test is skipped when WebGL is unavailable.
+- **Horizontal shifts (planned):** Additional scenarios (`insert before double-width glyph`, `double-height rows keep paired geometry`, etc.) are marked `test.fixme` until horizontal memmove heuristics land. They outline the diagnostics we expect so renderer changes can flip them to ✅ later.
+
 ### Visual Snapshots (`toHaveScreenshot` + Baselines)
 - **What they do:** After injecting bytes and waiting for idle, we snapshot the `<canvas>` element. Baseline PNGs live beside their specs under `app.spec.ts-snapshots/`.
 - **Determinism strategy:**

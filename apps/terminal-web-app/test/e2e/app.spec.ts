@@ -1123,4 +1123,159 @@ test.describe('webgl dirty rendering', () => {
       expect(after.gpuBytesUploaded).toBeLessThan(before.gpuBytesUploaded + 1)
     }
   })
+
+  test.fixme(true, 'Horizontal insert heuristics pending implementation')
+  test('insert characters shifts reuse GPU buffers', async ({ page }) => {
+    test.setTimeout(6_000)
+    const supportsWebgl = await canInitialiseWebgl(page)
+    test.skip(!supportsWebgl, 'WebGL not supported in this environment')
+
+    await page.goto('/?renderer=webgl')
+    await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
+
+    const backend = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getRendererBackend() ?? null,
+    )
+    test.skip(backend !== 'gpu-webgl', `GPU backend not active (${backend ?? 'none'})`)
+
+    await page.evaluate(() => {
+      const handle = window.__manaTerminalTestHandle__
+      handle?.write('\u001b[2J\u001b[H')
+      handle?.write('ABCD')
+      handle?.write('\u001b[4D\u001b[@X')
+    })
+
+    await page.waitForTimeout(50)
+
+    const diagnostics = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getDiagnostics() ?? null,
+    )
+
+    if (!diagnostics || diagnostics.gpuCellsProcessed == null) {
+      test.skip(true, 'GPU diagnostics unavailable')
+      return
+    }
+
+    expect(diagnostics.gpuCellsProcessed).toBeGreaterThan(0)
+    if (diagnostics.gpuDirtyRegionCoverage !== null) {
+      expect(diagnostics.gpuDirtyRegionCoverage).toBeLessThanOrEqual(1)
+    }
+  })
+
+  test.fixme(true, 'Horizontal delete heuristics pending implementation')
+  test('delete characters shifts reuse GPU buffers', async ({ page }) => {
+    test.setTimeout(6_000)
+    const supportsWebgl = await canInitialiseWebgl(page)
+    test.skip(!supportsWebgl, 'WebGL not supported in this environment')
+
+    await page.goto('/?renderer=webgl')
+    await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
+
+    const backend = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getRendererBackend() ?? null,
+    )
+    test.skip(backend !== 'gpu-webgl', `GPU backend not active (${backend ?? 'none'})`)
+
+    await page.evaluate(() => {
+      const handle = window.__manaTerminalTestHandle__
+      handle?.write('\u001b[2J\u001b[H')
+      handle?.write('ABCDE')
+      handle?.write('\u001b[5D\u001b[P')
+    })
+
+    await page.waitForTimeout(50)
+
+    const diagnostics = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getDiagnostics() ?? null,
+    )
+
+    if (!diagnostics || diagnostics.gpuCellsProcessed == null) {
+      test.skip(true, 'GPU diagnostics unavailable')
+      return
+    }
+
+    expect(diagnostics.gpuCellsProcessed).toBeGreaterThan(0)
+    if (diagnostics.gpuDirtyRegionCoverage !== null) {
+      expect(diagnostics.gpuDirtyRegionCoverage).toBeLessThanOrEqual(1)
+    }
+  })
+
+  test.fixme(true, 'Wide glyph insert heuristics pending implementation')
+  test('insert before double-width glyph preserves geometry', async ({
+    page,
+  }) => {
+    test.setTimeout(6_000)
+    const supportsWebgl = await canInitialiseWebgl(page)
+    test.skip(!supportsWebgl, 'WebGL not supported in this environment')
+
+    await page.goto('/?renderer=webgl')
+    await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
+
+    const backend = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getRendererBackend() ?? null,
+    )
+    test.skip(backend !== 'gpu-webgl', `GPU backend not active (${backend ?? 'none'})`)
+
+    await page.evaluate(() => {
+      const handle = window.__manaTerminalTestHandle__
+      handle?.write('\u001b[2J\u001b[H')
+      handle?.write('A漢B')
+      handle?.write('\u001b[3D\u001b[@X')
+    })
+
+    await page.waitForTimeout(50)
+
+    const diagnostics = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getDiagnostics() ?? null,
+    )
+
+    if (!diagnostics || diagnostics.gpuCellsProcessed == null) {
+      test.skip(true, 'GPU diagnostics unavailable')
+      return
+    }
+
+    expect(diagnostics.gpuCellsProcessed).toBeGreaterThan(0)
+  })
+
+  test.fixme(true, 'Double-height row heuristics pending implementation')
+  test('double-height rows keep paired geometry after scroll', async ({
+    page,
+  }) => {
+    test.setTimeout(6_000)
+    const supportsWebgl = await canInitialiseWebgl(page)
+    test.skip(!supportsWebgl, 'WebGL not supported in this environment')
+
+    await page.goto('/?renderer=webgl')
+    await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
+
+    const backend = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getRendererBackend() ?? null,
+    )
+    test.skip(backend !== 'gpu-webgl', `GPU backend not active (${backend ?? 'none'})`)
+
+    await page.evaluate(() => {
+      const handle = window.__manaTerminalTestHandle__
+      if (!handle) {
+        return
+      }
+      handle.write('\u001b[2J\u001b[H')
+      handle.write('\u001b#3')
+      handle.write('ABCD')
+      handle.write('\u001b#4')
+      handle.write('\u001bD')
+    })
+
+    await page.waitForTimeout(50)
+
+    const diagnostics = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getDiagnostics() ?? null,
+    )
+
+    if (!diagnostics || diagnostics.gpuCellsProcessed == null) {
+      test.skip(true, 'GPU diagnostics unavailable')
+      return
+    }
+
+    expect(diagnostics.gpuCellsProcessed).toBeGreaterThan(0)
+  })
 })

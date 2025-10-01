@@ -1,16 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, type RefObject } from 'react'
 import {
-  createCanvasRenderer as createDefaultCanvasRenderer,
   type CanvasRenderer,
   type CanvasRendererOptions,
   type CanvasRendererResizeOptions,
   type CanvasRendererUpdateOptions,
   type CreateCanvasRenderer,
   type CursorOverlayStrategy,
+  createCanvasRenderer as createDefaultCanvasRenderer,
   type RendererMetrics,
   type RendererTheme,
 } from '@mana-ssh/tui-web-canvas-renderer'
 import type { TerminalSelection, TerminalState } from '@mana-ssh/vt'
+import { type RefObject, useCallback, useEffect, useMemo, useRef } from 'react'
 
 /**
  * Options accepted by {@link useTerminalCanvasRenderer}. Consumers provide the
@@ -62,7 +62,9 @@ export const useTerminalCanvasRenderer = (
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rendererRef = useRef<CanvasRenderer | null>(null)
   const diagnosticsRef = useRef<CanvasRenderer['diagnostics'] | null>(null)
-  const selectionRef = useRef<TerminalSelection | null>(snapshot.selection ?? null)
+  const selectionRef = useRef<TerminalSelection | null>(
+    snapshot.selection ?? null,
+  )
   const rendererFactoryRef = useRef<CreateCanvasRenderer | undefined>(renderer)
   const latestOptionsRef = useRef({
     metrics,
@@ -70,7 +72,8 @@ export const useTerminalCanvasRenderer = (
     snapshot,
     cursorOverlayStrategy,
   })
-  const selectionCallbackRef = useRef<typeof onSelectionChange>(onSelectionChange)
+  const selectionCallbackRef =
+    useRef<typeof onSelectionChange>(onSelectionChange)
 
   useEffect(() => {
     rendererFactoryRef.current = renderer

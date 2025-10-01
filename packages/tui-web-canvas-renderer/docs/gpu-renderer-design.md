@@ -2,7 +2,7 @@
 
 **Owners:** `@mana-ssh/tui-web-canvas-renderer`
 
-**Last updated:** 2025-10-06
+**Last updated:** 2025-10-01
 
 ## 1. Problem Statement
 
