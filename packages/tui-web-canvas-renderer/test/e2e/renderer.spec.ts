@@ -7,7 +7,11 @@ import type {
 } from '@mana-ssh/vt'
 import { expect, type Page, test } from '@playwright/test'
 import type { RendererMetrics, RendererTheme } from '../../src/types'
-import { disposeHarness, prepareHarness, warmHarnessBundle } from './harness-loader'
+import {
+  disposeHarness,
+  prepareHarness,
+  warmHarnessBundle,
+} from './harness-loader'
 
 const hexToRgba = (hex: string): [number, number, number, number] => {
   const normalized = hex.replace('#', '')
@@ -223,8 +227,8 @@ const isWebglSupported = async (page: Page) => {
     const canvas = document.createElement('canvas')
     return Boolean(
       canvas.getContext('webgl2') ||
-      canvas.getContext('webgl') ||
-      canvas.getContext('experimental-webgl'),
+        canvas.getContext('webgl') ||
+        canvas.getContext('experimental-webgl'),
     )
   })
 }
@@ -646,7 +650,9 @@ test.describe('createCanvasRenderer (browser)', () => {
     })
   })
 
-  test('reports GPU dirty-region metrics for partial updates', async ({ page }) => {
+  test('reports GPU dirty-region metrics for partial updates', async ({
+    page,
+  }) => {
     const supportsWebgl = await isWebglSupported(page)
     test.skip(!supportsWebgl, 'WebGL not supported in this environment')
 
@@ -668,7 +674,10 @@ test.describe('createCanvasRenderer (browser)', () => {
       }
 
       const backend = await getRendererBackend(page)
-      test.skip(backend !== 'gpu-webgl', `GPU backend not active (${backend ?? 'none'})`)
+      test.skip(
+        backend !== 'gpu-webgl',
+        `GPU backend not active (${backend ?? 'none'})`,
+      )
 
       const initialDiagnostics = await getDiagnostics(page)
       expect(initialDiagnostics).toBeTruthy()
@@ -741,16 +750,25 @@ test.describe('createCanvasRenderer (browser)', () => {
       }
 
       const backend = await getRendererBackend(page)
-      test.skip(backend !== 'gpu-webgl', `GPU backend not active (${backend ?? 'none'})`)
+      test.skip(
+        backend !== 'gpu-webgl',
+        `GPU backend not active (${backend ?? 'none'})`,
+      )
 
       const initialDiagnostics = await getDiagnostics(page)
       expect(initialDiagnostics).toBeTruthy()
 
       const scrolledSnapshot = structuredClone(snapshot)
       for (let column = 0; column < scrolledSnapshot.columns; column += 1) {
-        scrolledSnapshot.buffer[0]![column] = cloneCell(snapshot.buffer[1]![column]!)
-        scrolledSnapshot.buffer[1]![column] = cloneCell(snapshot.buffer[2]![column]!)
-        scrolledSnapshot.buffer[2]![column] = cloneCell(snapshot.buffer[3]![column]!)
+        scrolledSnapshot.buffer[0]![column] = cloneCell(
+          snapshot.buffer[1]![column]!,
+        )
+        scrolledSnapshot.buffer[1]![column] = cloneCell(
+          snapshot.buffer[2]![column]!,
+        )
+        scrolledSnapshot.buffer[2]![column] = cloneCell(
+          snapshot.buffer[3]![column]!,
+        )
         scrolledSnapshot.buffer[3]![column] = {
           char: 'Z',
           attr: createAttributes(),
@@ -761,11 +779,16 @@ test.describe('createCanvasRenderer (browser)', () => {
       const bottomRowCells: TerminalUpdate[] = [
         {
           type: 'cells',
-          cells: Array.from({ length: scrolledSnapshot.columns }, (_, column) => ({
-            row: scrolledSnapshot.rows - 1,
-            column,
-            cell: scrolledSnapshot.buffer[scrolledSnapshot.rows - 1]![column]!,
-          })),
+          cells: Array.from(
+            { length: scrolledSnapshot.columns },
+            (_, column) => ({
+              row: scrolledSnapshot.rows - 1,
+              column,
+              cell: scrolledSnapshot.buffer[scrolledSnapshot.rows - 1]![
+                column
+              ]!,
+            }),
+          ),
         },
       ]
 

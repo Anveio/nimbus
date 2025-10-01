@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright'
 import { test as base, expect } from '@playwright/test'
 import {
+  announceTerminalStatus,
   disposeHarness,
   focusTerminal,
   mountTerminal,
@@ -36,6 +37,7 @@ test.afterEach(async ({ page }) => {
 
 export { expect }
 export {
+  announceTerminalStatus,
   focusTerminal,
   mountTerminal,
   readOnDataEvents,

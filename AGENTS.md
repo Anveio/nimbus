@@ -48,7 +48,7 @@ The workspace is a Bun-powered TypeScript monorepo. Each package is a shippable 
 # Testing Doctrine
 - Unit: Vitest for logic (parser fixtures, diff reducers, React hooks). Property-based tests where state spaces explode.
 - Integration: Pixel regression harness (node-canvas + pixelmatch) for renderer; interpreter-to-renderer contract specs.
-- End-to-End: Playwright for `apps/terminal-web-app`. Every behavioral change demands a scenario. Run the full suite (`bun run test:e2e --filter apps/terminal-web-app` or `bun run test` from root) before declaring victory.
+- End-to-End: Playwright for UI packages (tui-react, tui-web-canvas-renderer) and apps (apps/terminal-web-app). Every behavioral change demands a scenario. All statements in specifications MUST have a test scenario. Run the full suite (`bun run test` from root) before declaring victory.
 - Type Discipline: `bun run typecheck` gates every deliverable.
 - Spec Currency: When behavior shifts, update or author the spec document first (see package-level `AGENTS.md`), then tests, then code.
 
@@ -56,10 +56,24 @@ The workspace is a Bun-powered TypeScript monorepo. Each package is a shippable 
 - Package manager + runner: Bun (`bun install`, `bun run test`, `bun run typecheck`).
 - Task orchestration: Turbo (`bun run dev --filter <target>`). Default to `--output-logs=errors-only` unless diagnosing.
 - Lint & format: Biome (`bun run lint`, `bun run lint:fix` → alias for `biome check --write .`).
-- Git hygiene: Respect existing dirty state. Never revert foreign changes. Commit format must follow `<problem>/<solution>/<testing>` tags exactly.
+- Git hygiene: Respect existing dirty state. Never revert foreign changes. Commit format must follow the following format
+
+[Problem]
+<description_of_problem>
+Fill in this section with the problem, how it ties into the mission of the package and the overall software project, and an impact analysis.
+<description_of_problem>
+
+[Solution]
+<description_of_solution>
+Fill in this section with the solution, key decisions made, the overall implementation strategy, small but helpful technical details, any performance or API caveats, and tradeoffs/alternative solutions considered.
+<description_of_solution>
+
+[Testing]
+<description_of_testing>
+Fill in this section with the testing strategy. What new assertions did we make? Did we choose to test against a specification or is there a product requirement? Log all details related to testing and verification that code changes are correct and meet standards, guidelines, and compliance.
+<description_of_testing>
 
 # Operational Guardrails
-- `approval_policy=never`: Do not request elevated shell access. If sandboxing blocks a path, find an alternate strategy.
 - Destructive operations require explicit user mandate. Default to safety.
 - If unexpected changes appear, halt and clarify before proceeding.
 

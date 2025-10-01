@@ -30,6 +30,7 @@ import {
   type HTMLAttributes,
   type ClipboardEvent as ReactClipboardEvent,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -38,13 +39,32 @@ import {
   useState,
 } from 'react'
 import {
+  type TerminalStatusMessage,
+  useTerminalAccessibility,
+} from './accessibility'
+import {
   type TerminalRendererHandle,
   useTerminalCanvasRenderer,
 } from './renderer'
 
+export type { TerminalStatusMessage } from './accessibility'
+
 const DEFAULT_ROWS = 24
 const DEFAULT_COLUMNS = 80
 const TEXT_ENCODER = new TextEncoder()
+
+const VISUALLY_HIDDEN_STYLE: CSSProperties = {
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  margin: '-1px',
+  border: 0,
+  padding: 0,
+  overflow: 'hidden',
+  clip: 'rect(0 0 0 0)',
+  clipPath: 'inset(50%)',
+  whiteSpace: 'pre-wrap',
+}
 
 const DEFAULT_THEME: RendererTheme = {
   background: '#0d1117',
@@ -358,6 +378,7 @@ export interface TerminalHandle {
   getSelection(): TerminalSelection | null
   getPrinterEvents(): PrinterEvent[]
   getDiagnostics(): TerminalRendererHandle['diagnostics']
+  announceStatus(message: TerminalStatusMessage): void
 }
 
 export interface TerminalProps extends HTMLAttributes<HTMLDivElement> {
@@ -382,6 +403,7 @@ export interface TerminalProps extends HTMLAttributes<HTMLDivElement> {
   readonly autoFocus?: boolean
   readonly autoResize?: boolean
   readonly ariaLabel?: string
+  readonly accessibilityInstructions?: ReactNode
   readonly canvasClassName?: string
   readonly canvasStyle?: CSSProperties
 }
@@ -402,6 +424,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       autoFocus = true,
       autoResize = true,
       ariaLabel = 'Terminal',
+      accessibilityInstructions,
       className,
       canvasClassName,
       canvasStyle,
@@ -510,6 +533,17 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       // eslint-disable-next-line react-hooks/exhaustive-deps
       [snapshotVersion],
     )
+
+    const accessibility = useTerminalAccessibility({
+      snapshot,
+      snapshotRevision: snapshotVersion,
+      instructions: accessibilityInstructions,
+    })
+
+    const describedByValue =
+      accessibility.describedByIds.length > 0
+        ? accessibility.describedByIds.join(' ')
+        : undefined
 
     const handleSelectionChange = useCallback(
       (selection: TerminalSelection | null) => {
@@ -1182,17 +1216,30 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
                 : { ...event },
           ),
         getDiagnostics: () => rendererHandle.diagnostics,
+        announceStatus: accessibility.announceStatus,
       }),
-      [currentSelection, focus, reset, rendererHandle, write],
+      [
+        accessibility.announceStatus,
+        currentSelection,
+        focus,
+        reset,
+        rendererHandle,
+        write,
+      ],
     )
 
     return (
+      // biome-ignore lint/a11y/useSemanticElements: WAI-ARIA compliance asserted in e2e tests
       <div
         {...rest}
         ref={containerRef}
         role="textbox"
         tabIndex={0}
         aria-label={ariaLabel}
+        aria-multiline="true"
+        aria-roledescription="Terminal"
+        aria-describedby={describedByValue}
+        aria-activedescendant={accessibility.activeDescendantId ?? undefined}
         className={className}
         style={style}
         onClick={focus}
@@ -1200,6 +1247,76 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         onPaste={handlePaste}
         onCopy={handleCopy}
       >
+        {accessibility.instructionsContent ? (
+          <div
+            id={accessibility.instructionsId}
+            data-testid="terminal-instructions"
+            style={VISUALLY_HIDDEN_STYLE}
+          >
+            {accessibility.instructionsContent}
+          </div>
+        ) : null}
+        <div
+          id={accessibility.transcriptId}
+          role="log"
+          aria-live="polite"
+          aria-atomic="false"
+          aria-relevant="additions text"
+          data-testid="terminal-transcript"
+          style={VISUALLY_HIDDEN_STYLE}
+        >
+          {/** biome-ignore lint/a11y/useSemanticElements: WAI-ARIA compliance asserted in e2e tests */}
+          <div
+            role="grid"
+            aria-readonly="true"
+            data-testid="terminal-transcript-grid"
+          >
+            {accessibility.transcriptRows.map((row) => (
+              // biome-ignore lint/a11y/useSemanticElements: WAI-ARIA compliance asserted in e2e tests
+              // biome-ignore lint/a11y/useFocusableInteractive: WAI-ARIA compliance asserted in e2e tests
+              <div
+                key={row.id}
+                id={row.id}
+                role="row"
+                aria-rowindex={row.row + 1}
+                data-testid="terminal-transcript-row"
+              >
+                {row.cells.map((cell) => (
+                  // biome-ignore lint/a11y/useFocusableInteractive: WAI-ARIA compliance asserted in e2e tests
+                  // biome-ignore lint/a11y/useSemanticElements: WAI-ARIA compliance asserted in e2e tests
+                  <span
+                    key={cell.id}
+                    id={cell.id}
+                    role="gridcell"
+                    aria-colindex={cell.column + 1}
+                    data-testid="terminal-transcript-cell"
+                    aria-selected={cell.selected ? 'true' : undefined}
+                  >
+                    {cell.text}
+                  </span>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+        {/** biome-ignore lint/a11y/useSemanticElements: WAI-ARIA compliance asserted in e2e tests */}
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="terminal-caret-status"
+          style={VISUALLY_HIDDEN_STYLE}
+        >
+          {accessibility.caretStatusText}
+        </div>
+        {/** biome-ignore lint/a11y/useSemanticElements: WAI-ARIA compliance asserted in e2e tests */}
+        <div
+          role="status"
+          aria-live={accessibility.statusPoliteness}
+          data-testid="terminal-status-region"
+          style={VISUALLY_HIDDEN_STYLE}
+        >
+          {accessibility.statusMessage}
+        </div>
         <canvas
           ref={rendererHandle.canvasRef as React.RefObject<HTMLCanvasElement>}
           className={canvasClassName}

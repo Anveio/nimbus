@@ -515,6 +515,27 @@ describe('Terminal', () => {
     expect(extractRowText(snapshot)).toBe('ABD')
   })
 
+  test('announceStatus surfaces messages via live region', async () => {
+    const ref = createRef<TerminalHandle>()
+    render(<Terminal ref={ref} rows={24} columns={80} autoFocus={false} />)
+
+    expect(ref.current).not.toBeNull()
+
+    await act(async () => {
+      ref.current!.announceStatus({
+        kind: 'connection',
+        level: 'error',
+        message: 'Connection lost',
+      })
+    })
+
+    const statusRegion = await screen.findByTestId('terminal-status-region')
+    await waitFor(() => {
+      expect(statusRegion).toHaveTextContent('Connection lost')
+      expect(statusRegion).toHaveAttribute('aria-live', 'assertive')
+    })
+  })
+
   test('single click collapses selection and moves cursor', async () => {
     const ref = createRef<TerminalHandle>()
     render(<Terminal ref={ref} rows={24} columns={80} localEcho={false} />)

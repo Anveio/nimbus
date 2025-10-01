@@ -4,15 +4,10 @@ import type {
   TerminalCell,
   TerminalState,
 } from '@mana-ssh/vt'
-import {
-  __buildRowGeometryForTests as buildRowGeometry,
-} from '../src/backends/gpu-webgl'
+import { __buildRowGeometryForTests as buildRowGeometry } from '../src/backends/gpu-webgl'
 import { ColorCache } from '../src/internal/color-cache'
 import type { GlyphAtlas, GlyphInfo } from '../src/internal/glyph-atlas'
-import type {
-  RendererMetrics,
-  RendererTheme,
-} from '../src/types'
+import type { RendererMetrics, RendererTheme } from '../src/types'
 
 const createAttributes = (
   overrides: Partial<TerminalAttributes> = {},
@@ -30,7 +25,10 @@ const createAttributes = (
   ...overrides,
 })
 
-const createCell = (char: string, overrides?: Partial<TerminalAttributes>): TerminalCell => ({
+const createCell = (
+  char: string,
+  overrides?: Partial<TerminalAttributes>,
+): TerminalCell => ({
   char,
   attr: createAttributes(overrides),
   protected: false,
@@ -101,7 +99,10 @@ const theme: RendererTheme = {
   cursor: { color: '#ff00ff', opacity: 1, shape: 'block' },
   selection: { background: '#123456', foreground: '#fedcba' },
   palette: {
-    ansi: Array.from({ length: 16 }, (_, index) => `#${(index + 1).toString(16).padStart(6, '0')}`),
+    ansi: Array.from(
+      { length: 16 },
+      (_, index) => `#${(index + 1).toString(16).padStart(6, '0')}`,
+    ),
     extended: [],
   },
 }
@@ -137,8 +138,10 @@ describe('buildRowGeometry', () => {
       },
       {
         row: 0,
-        toClipX: (value) => (value / (snapshot.columns * metrics.cell.width)) * 2 - 1,
-        toClipY: (value) => 1 - (value / (snapshot.rows * metrics.cell.height)) * 2,
+        toClipX: (value) =>
+          (value / (snapshot.columns * metrics.cell.width)) * 2 - 1,
+        toClipY: (value) =>
+          1 - (value / (snapshot.rows * metrics.cell.height)) * 2,
         selectionSegment: null,
         selectionTheme: theme.selection,
       },
@@ -173,8 +176,10 @@ describe('buildRowGeometry', () => {
       },
       {
         row: 0,
-        toClipX: (value) => (value / (snapshot.columns * metrics.cell.width)) * 2 - 1,
-        toClipY: (value) => 1 - (value / (snapshot.rows * metrics.cell.height)) * 2,
+        toClipX: (value) =>
+          (value / (snapshot.columns * metrics.cell.width)) * 2 - 1,
+        toClipY: (value) =>
+          1 - (value / (snapshot.rows * metrics.cell.height)) * 2,
         selectionSegment: { row: 0, startColumn: 0, endColumn: 1 },
         selectionTheme: theme.selection,
       },
@@ -206,8 +211,10 @@ describe('buildRowGeometry', () => {
       },
       {
         row: 0,
-        toClipX: (value) => (value / (snapshot.columns * metrics.cell.width)) * 2 - 1,
-        toClipY: (value) => 1 - (value / (snapshot.rows * metrics.cell.height)) * 2,
+        toClipX: (value) =>
+          (value / (snapshot.columns * metrics.cell.width)) * 2 - 1,
+        toClipY: (value) =>
+          1 - (value / (snapshot.rows * metrics.cell.height)) * 2,
         selectionSegment: null,
         selectionTheme: theme.selection,
       },

@@ -3,7 +3,10 @@ import { vi } from 'vitest'
 
 if (typeof window !== 'undefined' && !(window as any).ResizeObserver) {
   type ResizeObserverCallback = (
-    entries: Array<{ target: Element; contentRect: { width: number; height: number } }>,
+    entries: Array<{
+      target: Element
+      contentRect: { width: number; height: number }
+    }>,
     observer: ResizeObserver,
   ) => void
 
@@ -17,7 +20,10 @@ if (typeof window !== 'undefined' && !(window as any).ResizeObserver) {
     observe(target: Element): void {
       const width = (target as HTMLElement).clientWidth ?? 0
       const height = (target as HTMLElement).clientHeight ?? 0
-      this.callback([{ target, contentRect: { width, height } }], this as unknown as ResizeObserver)
+      this.callback(
+        [{ target, contentRect: { width, height } }],
+        this as unknown as ResizeObserver,
+      )
     }
 
     unobserve(): void {}

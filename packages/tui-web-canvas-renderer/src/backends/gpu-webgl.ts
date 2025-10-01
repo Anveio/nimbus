@@ -435,20 +435,7 @@ const buildRowGeometry = (
     const y1 = toClipY(y + height)
     const y2 = toClipY(y)
 
-    backgroundPositions.push(
-      x1,
-      y1,
-      x2,
-      y1,
-      x1,
-      y2,
-      x1,
-      y2,
-      x2,
-      y1,
-      x2,
-      y2,
-    )
+    backgroundPositions.push(x1, y1, x2, y1, x1, y2, x1, y2, x2, y1, x2, y2)
 
     for (let index = 0; index < 6; index += 1) {
       backgroundColors.push(r, g, b, alpha)
@@ -475,20 +462,7 @@ const buildRowGeometry = (
     const y1 = toClipY(y + glyph.height)
     const y2 = toClipY(y)
 
-    glyphPositions.push(
-      x1,
-      y1,
-      x2,
-      y1,
-      x1,
-      y2,
-      x1,
-      y2,
-      x2,
-      y1,
-      x2,
-      y2,
-    )
+    glyphPositions.push(x1, y1, x2, y1, x1, y2, x1, y2, x2, y1, x2, y2)
 
     glyphTexCoords.push(
       glyph.u1,
@@ -563,13 +537,7 @@ const buildRowGeometry = (
       if (cell.attr.underline !== 'none') {
         const thickness = Math.max(1, Math.round(cellHeight * 0.08))
         const baseY = rowY + cellHeight - thickness
-        pushBackgroundQuad(
-          x,
-          baseY,
-          cellWidth,
-          thickness,
-          effectiveForeground,
-        )
+        pushBackgroundQuad(x, baseY, cellWidth, thickness, effectiveForeground)
         if (cell.attr.underline === 'double') {
           const gap = thickness + 2
           const secondY = Math.max(rowY, baseY - gap)
@@ -585,7 +553,8 @@ const buildRowGeometry = (
 
       if (cell.attr.strikethrough) {
         const thickness = Math.max(1, Math.round(cellHeight * 0.08))
-        const strikeY = rowY + Math.round(cellHeight / 2) - Math.floor(thickness / 2)
+        const strikeY =
+          rowY + Math.round(cellHeight / 2) - Math.floor(thickness / 2)
         pushBackgroundQuad(
           x,
           strikeY,
@@ -597,9 +566,7 @@ const buildRowGeometry = (
     }
 
     const char = cell.char
-    const shouldDrawGlyph = Boolean(
-      effectiveForeground && char && char !== ' ',
-    )
+    const shouldDrawGlyph = Boolean(effectiveForeground && char && char !== ' ')
 
     if (shouldDrawGlyph && effectiveForeground) {
       const glyph = glyphAtlas.getGlyph(char!, {
@@ -611,11 +578,7 @@ const buildRowGeometry = (
     }
   }
 
-  if (
-    includeCursor &&
-    snapshot.cursorVisible &&
-    snapshot.cursor.row === row
-  ) {
+  if (includeCursor && snapshot.cursorVisible && snapshot.cursor.row === row) {
     const cursor = snapshot.cursor
     const cursorTheme = theme.cursor
     const cursorShape = cursorTheme.shape ?? 'block'
@@ -1078,7 +1041,11 @@ const createWebglRenderer = (
     deltaClip: number,
   ): void => {
     if (geometry.backgroundPositions.length > 0) {
-      for (let index = 1; index < geometry.backgroundPositions.length; index += 2) {
+      for (
+        let index = 1;
+        index < geometry.backgroundPositions.length;
+        index += 2
+      ) {
         const value = geometry.backgroundPositions[index] ?? 0
         geometry.backgroundPositions[index] = value + deltaClip
       }
@@ -1217,9 +1184,8 @@ const createWebglRenderer = (
 
       let backgroundOffset = 0
       if (backgroundLength > 0) {
-        backgroundOffset = geometryBuffers.backgroundPositions.extend(
-          backgroundLength,
-        )
+        backgroundOffset =
+          geometryBuffers.backgroundPositions.extend(backgroundLength)
         geometryBuffers.backgroundPositions.data.set(
           rowGeometry.backgroundPositions,
           backgroundOffset,
@@ -1239,9 +1205,8 @@ const createWebglRenderer = (
 
       let glyphPositionOffset = 0
       if (glyphPositionLength > 0) {
-        glyphPositionOffset = geometryBuffers.glyphPositions.extend(
-          glyphPositionLength,
-        )
+        glyphPositionOffset =
+          geometryBuffers.glyphPositions.extend(glyphPositionLength)
         geometryBuffers.glyphPositions.data.set(
           rowGeometry.glyphPositions,
           glyphPositionOffset,
@@ -1250,9 +1215,8 @@ const createWebglRenderer = (
 
       let glyphTexCoordOffset = 0
       if (glyphTexCoordLength > 0) {
-        glyphTexCoordOffset = geometryBuffers.glyphTexCoords.extend(
-          glyphTexCoordLength,
-        )
+        glyphTexCoordOffset =
+          geometryBuffers.glyphTexCoords.extend(glyphTexCoordLength)
         geometryBuffers.glyphTexCoords.data.set(
           rowGeometry.glyphTexCoords,
           glyphTexCoordOffset,
@@ -1269,12 +1233,18 @@ const createWebglRenderer = (
       }
 
       rowSlices[row] = {
-        backgroundPositions: { offset: backgroundOffset, length: backgroundLength },
+        backgroundPositions: {
+          offset: backgroundOffset,
+          length: backgroundLength,
+        },
         backgroundColors: {
           offset: backgroundColorOffset,
           length: backgroundColorLength,
         },
-        glyphPositions: { offset: glyphPositionOffset, length: glyphPositionLength },
+        glyphPositions: {
+          offset: glyphPositionOffset,
+          length: glyphPositionLength,
+        },
         glyphTexCoords: {
           offset: glyphTexCoordOffset,
           length: glyphTexCoordLength,
@@ -1499,12 +1469,11 @@ const createWebglRenderer = (
     let geometry: FrameGeometry
     let backgroundPositionsView: Float32Array<ArrayBufferLike> =
       new Float32Array(0)
-    let backgroundColorsView: Float32Array<ArrayBufferLike> =
-      new Float32Array(0)
-    let glyphPositionsView: Float32Array<ArrayBufferLike> =
-      new Float32Array(0)
-    let glyphTexCoordsView: Float32Array<ArrayBufferLike> =
-      new Float32Array(0)
+    let backgroundColorsView: Float32Array<ArrayBufferLike> = new Float32Array(
+      0,
+    )
+    let glyphPositionsView: Float32Array<ArrayBufferLike> = new Float32Array(0)
+    let glyphTexCoordsView: Float32Array<ArrayBufferLike> = new Float32Array(0)
     let glyphColorsView: Float32Array<ArrayBufferLike> = new Float32Array(0)
     let fullRebuildPerformed = false
 
@@ -1534,10 +1503,8 @@ const createWebglRenderer = (
             slice.backgroundPositions.length ||
             rowGeometry.backgroundColors.length !==
               slice.backgroundColors.length ||
-            rowGeometry.glyphPositions.length !==
-              slice.glyphPositions.length ||
-            rowGeometry.glyphTexCoords.length !==
-              slice.glyphTexCoords.length ||
+            rowGeometry.glyphPositions.length !== slice.glyphPositions.length ||
+            rowGeometry.glyphTexCoords.length !== slice.glyphTexCoords.length ||
             rowGeometry.glyphColors.length !== slice.glyphColors.length)
         ) {
           requiresFullRebuild = true
@@ -2038,11 +2005,7 @@ const createWebglRenderer = (
             break
           case 'scroll':
             if (
-              !handleScrollUpdate(
-                update.amount,
-                previousSnapshot,
-                snapshot,
-              )
+              !handleScrollUpdate(update.amount, previousSnapshot, snapshot)
             ) {
               dirtyTracker.markFull()
             }
@@ -2134,10 +2097,7 @@ const createWebglRenderer = (
           }
           case 'selection-set':
           case 'selection-update':
-            dirtyTracker.markSelection(
-              trackedSelection,
-              snapshot.columns,
-            )
+            dirtyTracker.markSelection(trackedSelection, snapshot.columns)
             trackedSelection = update.selection
             dirtyTracker.markSelection(trackedSelection, snapshot.columns)
             currentSelection = update.selection
@@ -2146,10 +2106,7 @@ const createWebglRenderer = (
             break
           case 'selection-clear':
             if (currentSelection !== null) {
-              dirtyTracker.markSelection(
-                trackedSelection,
-                snapshot.columns,
-              )
+              dirtyTracker.markSelection(trackedSelection, snapshot.columns)
               trackedSelection = null
               currentSelection = null
               selectionChanged = true

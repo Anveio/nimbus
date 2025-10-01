@@ -5,7 +5,9 @@ export interface TerminalHost {
   dispose(): void
 }
 
-export type TerminalHostFactory = (options: TerminalHostFactoryOptions) => TerminalHost
+export type TerminalHostFactory = (
+  options: TerminalHostFactoryOptions,
+) => TerminalHost
 
 export interface TerminalHostFactoryOptions {
   readonly onError?: (error: unknown) => void

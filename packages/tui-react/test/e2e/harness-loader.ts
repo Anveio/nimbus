@@ -7,6 +7,7 @@ import type {
   TerminalHarnessMountOptions,
   TerminalHarnessOnDataEvent,
 } from './harness-types'
+import type { TerminalStatusMessage } from '../../src/Terminal'
 
 const HARNESS_ENTRY = path.resolve(__dirname, 'harness.tsx')
 
@@ -125,4 +126,13 @@ export const resetOnDataEvents = async (page: Page): Promise<void> => {
   await page.evaluate(() => {
     window.__manaTuiReactTest__?.resetOnDataEvents()
   })
+}
+
+export const announceTerminalStatus = async (
+  page: Page,
+  message: TerminalStatusMessage,
+): Promise<void> => {
+  await page.evaluate((detail) => {
+    window.__manaTuiReactTest__?.announceStatus(detail)
+  }, message)
 }

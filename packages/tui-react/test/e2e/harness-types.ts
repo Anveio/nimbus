@@ -1,4 +1,5 @@
 import type { TerminalSelection, TerminalState } from '@mana-ssh/vt'
+import type { TerminalStatusMessage } from '../../src/Terminal'
 
 export interface TerminalHarnessMountOptions {
   readonly rows?: number
@@ -23,4 +24,5 @@ export interface TerminalHarnessExports {
   getSelection(): TerminalSelection | null
   getOnDataEvents(): TerminalHarnessOnDataEvent[]
   resetOnDataEvents(): void
+  announceStatus(message: TerminalStatusMessage): void
 }

@@ -13,7 +13,7 @@ import { WELCOME_BANNER } from './fixtures/welcomeBanner'
 declare global {
   interface Window {
     __manaTerminalTestHandle__?: {
-      write: (input: string) => void
+      write: (input: string | Uint8Array) => void
       getSnapshot: () => ReturnType<TerminalHandle['getSnapshot']>
       getSelection: () => ReturnType<TerminalHandle['getSelection']>
       getResponses: () => ReadonlyArray<Uint8Array>
@@ -62,7 +62,10 @@ const deriveSelectedText = (
   return lines.join('\n')
 }
 
+// biome-ignore lint/suspicious/noControlCharactersInRegex: Required
 const STRIP_ANSI_PATTERN = /\u001b\[[0-9;?]*[ -/]*[@-~]/g
+
+const SNAPSHOT_PATTERN = /\s+$/u
 
 const stripAnsi = (value: string): string =>
   value.replace(STRIP_ANSI_PATTERN, '')
@@ -71,7 +74,7 @@ const snapshotToPlainText = (snapshot: TerminalState): string => {
   const lines = snapshot.buffer.map((row) => {
     const cells = row ?? []
     const text = cells.map((cell) => cell?.char ?? ' ').join('')
-    return text.replace(/\s+$/u, '')
+    return text.replace(SNAPSHOT_PATTERN, '')
   })
   while (lines.length > 0 && lines[lines.length - 1] === '') {
     lines.pop()
@@ -1104,7 +1107,7 @@ test.describe('webgl dirty rendering', () => {
     )
 
     if (!after || after.gpuCellsProcessed == null) {
-      test.skip('GPU diagnostics unavailable')
+      test.skip(true, 'GPU diagnostics unavailable')
       return
     }
 

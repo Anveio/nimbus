@@ -29,7 +29,9 @@ const createBuildConfig = (): InlineConfig => ({
   },
 })
 
-const extractBundle = (output: RollupOutput | RollupOutput[] | undefined): string => {
+const extractBundle = (
+  output: RollupOutput | RollupOutput[] | undefined,
+): string => {
   const outputs = Array.isArray(output) ? output : output ? [output] : []
   for (const result of outputs) {
     for (const chunk of result.output) {

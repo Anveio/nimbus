@@ -106,6 +106,12 @@ const createHarness = (): TerminalHarnessExports => {
     onDataEvents.length = 0
   }
 
+  const announceStatus = (
+    message: Parameters<TerminalHarnessExports['announceStatus']>[0],
+  ) => {
+    terminalRef.current?.announceStatus(message)
+  }
+
   return {
     mount,
     dispose,
@@ -115,6 +121,7 @@ const createHarness = (): TerminalHarnessExports => {
     getSelection,
     getOnDataEvents,
     resetOnDataEvents,
+    announceStatus,
   }
 }
 

@@ -32,11 +32,8 @@ const cpuBackendProvider: RendererBackendProvider<Cpu2dBackendConfig> = {
   matches: (config): config is Cpu2dBackendConfig => config.type === 'cpu-2d',
   normalizeConfig: (_config) => ({ type: 'cpu-2d' }),
   probe: (_context, _config) => ({ kind: 'cpu-2d', supported: true }),
-  create: (
-    options,
-    _config,
-    _probe,
-  ) => createCpuCanvasRenderer({ ...options, backend: { type: 'cpu-2d' } }),
+  create: (options, _config, _probe) =>
+    createCpuCanvasRenderer({ ...options, backend: { type: 'cpu-2d' } }),
 }
 
 const webglBackendProvider = createWebglBackendProvider()
@@ -47,7 +44,10 @@ const resolveFallbackMode = (
   if (config.type === 'cpu-2d') {
     return 'cpu-only'
   }
-  return (config as WebglBackendConfig | WebgpuBackendConfig).fallback ?? 'prefer-gpu'
+  return (
+    (config as WebglBackendConfig | WebgpuBackendConfig).fallback ??
+    'prefer-gpu'
+  )
 }
 
 const buildProbeContext = (
@@ -88,7 +88,7 @@ const createWithProvider = <
     throw new Error(
       provider.kind === 'cpu-2d'
         ? 'CPU renderer probe unexpectedly failed'
-        : probeResult.reason ?? 'Renderer backend not supported',
+        : (probeResult.reason ?? 'Renderer backend not supported'),
     )
   }
   return provider.create(options, config, probeResult)
@@ -98,9 +98,8 @@ export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
   const requestedConfig = options.backend ?? DEFAULT_BACKEND
   switch (requestedConfig.type) {
     case 'gpu-webgl': {
-      const normalizedConfig = webglBackendProvider.normalizeConfig(
-        requestedConfig,
-      )
+      const normalizedConfig =
+        webglBackendProvider.normalizeConfig(requestedConfig)
       const fallbackMode = resolveFallbackMode(normalizedConfig)
 
       if (fallbackMode === 'cpu-only') {
@@ -110,7 +109,11 @@ export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
       }
 
       try {
-        return createWithProvider(options, webglBackendProvider, normalizedConfig)
+        return createWithProvider(
+          options,
+          webglBackendProvider,
+          normalizedConfig,
+        )
       } catch (error) {
         if (fallbackMode === 'require-gpu') {
           const reason = error instanceof Error ? error.message : String(error)
@@ -133,9 +136,8 @@ export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
     }
     case 'cpu-2d':
     default: {
-      const normalizedConfig = cpuBackendProvider.normalizeConfig(
-        requestedConfig,
-      )
+      const normalizedConfig =
+        cpuBackendProvider.normalizeConfig(requestedConfig)
       return createWithProvider(options, cpuBackendProvider, normalizedConfig)
     }
   }
