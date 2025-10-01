@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import { createElement, forwardRef, useImperativeHandle } from 'react'
 import { vi } from 'vitest'
 
-vi.mock('@mana-ssh/tui-react', () => {
+vi.mock('@mana/tui-react', () => {
   const focus = vi.fn()
   const write = vi.fn()
   const reset = vi.fn()

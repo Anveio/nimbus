@@ -1,6 +1,6 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { HotkeyContext, HotkeyResult } from './context'
-import type { TerminalUpdate } from '@mana-ssh/vt'
+import type { TerminalUpdate } from '@mana/vt'
 
 const noopResult: HotkeyResult = { handled: false }
 
@@ -56,7 +56,7 @@ export const handleTerminalHotkey = (
   const shouldExtendSelection = event.shiftKey && arrowKey
   const snapshot = context.interpreter.getSnapshot()
   const previousCursor = snapshot.cursor
-  let anchorPoint = shouldExtendSelection
+  const anchorPoint = shouldExtendSelection
     ? context.keyboardSelectionAnchorRef.current ?? {
         row: previousCursor.row,
         column: previousCursor.column,

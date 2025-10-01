@@ -1,5 +1,5 @@
-import type { TerminalSelection, TerminalState } from '@mana-ssh/vt'
-import { getSelectionRowSegments } from '@mana-ssh/vt'
+import type { TerminalSelection, TerminalState } from '@mana/vt'
+import { getSelectionRowSegments } from '@mana/vt'
 import type { JSX, ReactNode } from 'react'
 import {
   Fragment,
@@ -390,22 +390,22 @@ export const useTerminalAccessibilityAdapter = (
 
   const selectionIndex = useMemo(
     () => createSelectionIndex(snapshot.selection ?? null, snapshot.columns),
-    [snapshotRevision, snapshot.selection, snapshot.columns],
+    [snapshot.selection, snapshot.columns],
   )
 
   const transcriptRows = useMemo(
     () => createTranscriptRows(snapshot, transcriptId, selectionIndex),
-    [snapshotRevision, snapshot, transcriptId, selectionIndex],
+    [snapshot, transcriptId, selectionIndex],
   )
 
   const activeDescendantId = useMemo(
     () => resolveActiveCellId(snapshot, transcriptId),
-    [snapshotRevision, snapshot, transcriptId],
+    [snapshot, transcriptId],
   )
 
   const caretStatusText = useMemo(
     () => createCaretStatusText(snapshot, selectionIndex.cells.size > 0),
-    [snapshotRevision, snapshot, selectionIndex],
+    [snapshot, selectionIndex],
   )
 
   const [status, setStatus] = useState<
@@ -599,7 +599,6 @@ export const TerminalAccessibilityLayer = ({
 
   const caretStatusNode = (
     <output
-      role="status"
       aria-live="polite"
       data-testid="terminal-caret-status"
       style={VISUALLY_HIDDEN_STYLE}
@@ -610,7 +609,6 @@ export const TerminalAccessibilityLayer = ({
 
   const statusRegionNode = (
     <output
-      role="status"
       aria-live={adapter.statusPoliteness}
       data-testid="terminal-status-region"
       style={VISUALLY_HIDDEN_STYLE}
@@ -677,6 +675,7 @@ const ShortcutGuideOverlay = ({
   )
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: backdrop is pointer-only escape surface
     <div
       style={SHORTCUT_BACKDROP_STYLE}
       onClick={handleBackdropClick}

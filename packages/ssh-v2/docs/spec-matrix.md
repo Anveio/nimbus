@@ -1,4 +1,4 @@
-# Specification Matrix — `@mana-ssh/ssh-v2`
+# Specification Matrix — `@mana/ssh-v2`
 
 | Feature | Primary Spec | Supplemental Notes | Status |
 | --- | --- | --- | --- |

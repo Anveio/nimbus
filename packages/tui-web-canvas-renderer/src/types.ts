@@ -3,7 +3,7 @@ import type {
   TerminalSelection,
   TerminalState,
   TerminalUpdate,
-} from '@mana-ssh/vt'
+} from '@mana/vt'
 
 export type RendererColor = string
 

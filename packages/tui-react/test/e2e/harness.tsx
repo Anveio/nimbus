@@ -1,5 +1,5 @@
-import { createCanvasRenderer, type CreateCanvasRenderer } from '@mana-ssh/tui-web-canvas-renderer'
-import type { RendererBackendConfig } from '@mana-ssh/tui-web-canvas-renderer'
+import { createCanvasRenderer, type CreateCanvasRenderer } from '@mana/tui-web-canvas-renderer'
+import type { RendererBackendConfig } from '@mana/tui-web-canvas-renderer'
 import { type CSSProperties, createRef } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { Terminal, type TerminalHandle } from '../../src/Terminal'
@@ -48,7 +48,7 @@ const createHarness = (): TerminalHarnessExports => {
 
     document.body.innerHTML = `
       <main id="terminal-harness-root" role="main">
-        <h1>Mana SSH Terminal Harness</h1>
+        <h1>Mana Terminal Harness</h1>
       </main>
     `
 
@@ -137,8 +137,8 @@ const createHarness = (): TerminalHarnessExports => {
       const fallback = new Event(type, {
         bubbles: true,
         cancelable: true,
-      })
-      ;(fallback as any).data = value
+      }) as Event & { data: string }
+      fallback.data = value
       target.dispatchEvent(fallback)
     }
 
@@ -156,8 +156,8 @@ const createHarness = (): TerminalHarnessExports => {
         }),
       )
     } else {
-      const fallback = new Event('input', { bubbles: true, cancelable: true })
-      ;(fallback as any).data = text
+      const fallback = new Event('input', { bubbles: true, cancelable: true }) as Event & { data: string }
+      fallback.data = text
       target.dispatchEvent(fallback)
     }
   }

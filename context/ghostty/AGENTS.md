@@ -7,7 +7,7 @@ This charter summarizes why the Ghostty project sits in our context folder and h
 - Provide quick-start commands so we can build, test, and inspect Ghostty when validating behaviour or borrowing UX patterns.
 
 ## Boundaries & Notes
-- Source lives outside the Mana SSH workspace; this folder only stores reference notes. Do not modify Ghostty code from here.
+- Source lives outside the Mana workspace; this folder only stores reference notes. Do not modify Ghostty code from here.
 - Use Ghostty as a specification lens, not as a dependency—mirror behaviours intentionally and document divergences.
 
 ## Toolchain Rituals

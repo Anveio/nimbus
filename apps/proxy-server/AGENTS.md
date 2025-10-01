@@ -9,7 +9,7 @@ This charter directs development of the WebSocket ⇄ TCP bridge. Update it when
 
 ## Boundaries & Dependencies
 - Lives inside `apps/proxy-server`; owns HTTP/WebSocket listeners, TCP socket plumbing, and policy enforcement.
-- Does not implement SSH semantics—raw bytes flow between client and target. Protocol logic stays in `@mana-ssh/protocol` or upstream hosts.
+- Does not implement SSH semantics—raw bytes flow between client and target. Protocol logic stays in `@mana/protocol` or upstream hosts.
 - Integrates with `apps/simulated-instance` for development but must be configurable for arbitrary SSH endpoints in production.
 
 ## Design Pillars

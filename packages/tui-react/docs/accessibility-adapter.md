@@ -1,7 +1,7 @@
 # Accessibility Adapter Guide
 
 ## Overview
-`@mana-ssh/tui-react` now ships its accessibility surface as a standalone module. The combo of `useTerminalAccessibilityAdapter` and `TerminalAccessibilityLayer` renders the hidden DOM transcript, live regions, and optional shortcut guide while staying decoupled from the canvas renderer. `<Terminal />` uses the same adapter internally, and host apps can opt-in to the pieces they need if they compose their own shell component.
+`@mana/tui-react` now ships its accessibility surface as a standalone module. The combo of `useTerminalAccessibilityAdapter` and `TerminalAccessibilityLayer` renders the hidden DOM transcript, live regions, and optional shortcut guide while staying decoupled from the canvas renderer. `<Terminal />` uses the same adapter internally, and host apps can opt-in to the pieces they need if they compose their own shell component.
 
 ```
 ┌────────────────────────────────────┐
@@ -96,10 +96,10 @@ interface TerminalHandle {
 Use these when you need to expose your own “Show shortcuts” buttons or automation hooks.
 
 ## Testing Notes
-- The Playwright harness for `@mana-ssh/tui-react` uses `data-testid="terminal-transcript-row"` and the modal dialog semantics to assert transcript mirroring and accessibility.
+- The Playwright harness for `@mana/tui-react` uses `data-testid="terminal-transcript-row"` and the modal dialog semantics to assert transcript mirroring and accessibility.
 - When you disable the built-in overlay (via `shortcutGuide: { enabled: false }`), ensure your host still surfaces a discoverable entry point for the provided shortcut metadata.
 
 ## Migration Checklist
 - Replace calls to the deprecated `useTerminalAccessibility` (if you imported it directly) with `useTerminalAccessibilityAdapter` + `<TerminalAccessibilityLayer />`.
-- Update TypeScript imports: the adapter exports live in `packages/tui-react/src/accessibility-layer.tsx` and are re-exported from `@mana-ssh/tui-react/accessibility`.
+- Update TypeScript imports: the adapter exports live in `packages/tui-react/src/accessibility-layer.tsx` and are re-exported from `@mana/tui-react/accessibility`.
 - Review `onShortcutGuideToggle` handlers to ensure they handle both `hotkey` and `imperative` reasons (e.g., closing when the user clicks outside the overlay).

@@ -100,7 +100,7 @@ Fill in this section with the testing strategy. What new assertions did we make?
 # Memory Bank
 ### Friday, August 15, 2025
 
-- Locked the bootstrap strategy for `@mana-ssh/tui-web-canvas-renderer`: finalize the renderer contract (`init`, `applyUpdates`, `resize`, `dispose`), keep internal helpers private, and scaffold type definitions for themes, metrics, and diff payloads.
+- Locked the bootstrap strategy for `@mana/tui-web-canvas-renderer`: finalize the renderer contract (`init`, `applyUpdates`, `resize`, `dispose`), keep internal helpers private, and scaffold type definitions for themes, metrics, and diff payloads.
 - Establish the cross-environment test harness with Vitest, the `canvas` package for headless drawing, and `pixelmatch` for image assertions and snapshots.
 - Plan the first rendering tests that feed a minimal interpreter snapshot, assert framebuffer accuracy, and document integration guidance for React consumers.
 - Tuned developer ergonomics by defaulting Turbo runs to `--output-logs=errors-only`/grouped logs and configuring Vitest to use dot reporting + silent mode unless `VITEST_VERBOSE=true`.
@@ -115,9 +115,9 @@ Fill in this section with the testing strategy. What new assertions did we make?
 
 ### Sunday, October 5, 2025 (Evening)
 
-- Locked in the layered selection/paste roadmap: `@mana-ssh/vt` will expose caret-aware range helpers and interpreter editing primitives, renderers stay passive highlighting engines, and `@mana-ssh/tui-react` orchestrates user input via the new APIs. Hosts remain responsible for clipboard integration and policy toggles.
+- Locked in the layered selection/paste roadmap: `@mana/vt` will expose caret-aware range helpers and interpreter editing primitives, renderers stay passive highlighting engines, and `@mana/tui-react` orchestrates user input via the new APIs. Hosts remain responsible for clipboard integration and policy toggles.
 - Next sprint tasks:
-    1. Spec and implement an interpreter-level `editSelection`/`replaceRange` API with supporting pure helpers in `@mana-ssh/vt` (multi-line aware, returns granular `TerminalUpdate`s).
-    2. Refactor `@mana-ssh/tui-react` to consume these primitives, eliminating ad-hoc CSI writes and consolidating keyboard/pointer selection lifecycles.
+    1. Spec and implement an interpreter-level `editSelection`/`replaceRange` API with supporting pure helpers in `@mana/vt` (multi-line aware, returns granular `TerminalUpdate`s).
+    2. Refactor `@mana/tui-react` to consume these primitives, eliminating ad-hoc CSI writes and consolidating keyboard/pointer selection lifecycles.
     3. Revisit renderer contracts so selection themes can encode status (idle/dragging) without owning state, and extend E2E/unit coverage around paste replacement.
 

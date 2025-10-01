@@ -1,5 +1,5 @@
-import type { TerminalSelection } from '@mana-ssh/vt'
-import { getSelectionRowSegments } from '@mana-ssh/vt'
+import type { TerminalSelection } from '@mana/vt'
+import { getSelectionRowSegments } from '@mana/vt'
 
 interface RowSpan {
   start: number

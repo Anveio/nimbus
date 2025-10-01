@@ -4,7 +4,7 @@ import type {
   TerminalSelection,
   TerminalState,
   TerminalUpdate,
-} from '@mana-ssh/vt'
+} from '@mana/vt'
 import { expect, type Page, test } from '@playwright/test'
 import type { RendererMetrics, RendererTheme } from '../../src/types'
 import {
@@ -201,7 +201,7 @@ const setTheme = async (page: Page, theme: RendererTheme) => {
   }, theme)
 }
 
-const syncRenderer = async (page: Page, snapshot: TerminalState) => {
+const _syncRenderer = async (page: Page, snapshot: TerminalState) => {
   await page.evaluate((nextSnapshot) => {
     window.__manaRendererTest__?.sync(nextSnapshot)
   }, snapshot)
@@ -565,7 +565,8 @@ test.describe('createCanvasRenderer (browser)', () => {
       const reversedPixel = await getPixel(page, 0, 0)
       const brightnessAfter =
         reversedPixel[0] + reversedPixel[1] + reversedPixel[2]
-      expect(brightnessAfter,
+      expect(
+        brightnessAfter,
         `reverse video should invert to brighter background (before=${brightnessBefore}, after=${brightnessAfter})`,
       ).toBeGreaterThan(brightnessBefore + 120)
 
@@ -585,7 +586,10 @@ test.describe('createCanvasRenderer (browser)', () => {
       const brightnessReverted =
         revertedPixel[0] + revertedPixel[1] + revertedPixel[2]
       const delta = Math.abs(brightnessReverted - brightnessBefore)
-      expect(delta, `reverse video reset should restore brightness (delta=${delta})`).toBeLessThanOrEqual(60)
+      expect(
+        delta,
+        `reverse video reset should restore brightness (delta=${delta})`,
+      ).toBeLessThanOrEqual(60)
     })
   })
 

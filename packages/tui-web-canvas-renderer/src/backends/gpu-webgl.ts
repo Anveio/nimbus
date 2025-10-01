@@ -4,8 +4,8 @@ import type {
   TerminalCell,
   TerminalSelection,
   TerminalState,
-} from '@mana-ssh/vt'
-import { getSelectionRowSegments } from '@mana-ssh/vt'
+} from '@mana/vt'
+import { getSelectionRowSegments } from '@mana/vt'
 import { ColorCache } from '../internal/color-cache'
 import {
   type PaletteOverrides,

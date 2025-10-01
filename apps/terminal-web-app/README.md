@@ -1,10 +1,10 @@
 # Terminal Web App
 
-This package hosts the interactive browser demo for the Mana SSH stack. It renders a `<Terminal />` component from `@mana-ssh/tui-react`, wires keyboard and paste events, and demonstrates how the React renderer can operate in a standalone setting (using local echo) before being connected to a real host.
+This package hosts the interactive browser demo for the Mana stack. It renders a `<Terminal />` component from `@mana/tui-react`, wires keyboard and paste events, and demonstrates how the React renderer can operate in a standalone setting (using local echo) before being connected to a real host.
 
 ## What it showcases
 
-- Drop-in usage of `@mana-ssh/tui-react`: the app renders a self-contained terminal widget that internally manages the VT parser, interpreter, and canvas renderer.
+- Drop-in usage of `@mana/tui-react`: the app renders a self-contained terminal widget that internally manages the VT parser, interpreter, and canvas renderer.
 - Input plumbing: keystrokes and clipboard events are captured and translated into byte streams that `onData` could forward to a transport (e.g. WebSocket, WebRTC).
 - Renderer integration: the canvas renderer paints the terminal output, driven by the updates emitted from the interpreter.
 

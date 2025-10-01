@@ -1,5 +1,5 @@
-import react from '@vitejs/plugin-react'
 import path from 'node:path'
+import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import dts from 'vite-plugin-dts'
 
@@ -28,8 +28,8 @@ export default defineConfig({
         'react',
         'react-dom',
         'react/jsx-runtime',
-        '@mana-ssh/vt',
-        '@mana-ssh/tui-web-canvas-renderer',
+        '@mana/vt',
+        '@mana/tui-web-canvas-renderer',
       ],
     },
   },

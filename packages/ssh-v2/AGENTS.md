@@ -1,4 +1,4 @@
-# @mana-ssh/ssh-v2 Agent Charter
+# @mana/ssh-v2 Agent Charter
 
 This brief governs the SSH protocol core. Update it whenever RFC scope, security posture, or vendor expectations shift.
 
@@ -10,7 +10,7 @@ This brief governs the SSH protocol core. Update it whenever RFC scope, security
 ## Scope & Boundaries
 - Lives entirely within `packages/ssh-v2`; everything else integrates via typed adapters (transport, crypto, storage, telemetry).
 - Randomness, monotonic clocks, and crypto primitives are injected — default wiring may use WebCrypto, but the engine never calls it directly.
-- No direct socket ownership. Higher layers (`@mana-ssh/web`, `@mana-ssh/websocket`, proxy server) are responsible for IO and policy UX.
+- No direct socket ownership. Higher layers (`@mana/web`, `@mana/websocket`, proxy server) are responsible for IO and policy UX.
 
 ## Specification Library
 - Canonical texts (RFCs, Internet-Drafts, OpenSSH protocol notes) live under `packages/ssh-v2/context/*.txt`.

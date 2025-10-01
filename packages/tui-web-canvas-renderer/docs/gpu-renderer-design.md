@@ -1,12 +1,12 @@
 # GPU Renderer Design (WebGL Backend)
 
-**Owners:** `@mana-ssh/tui-web-canvas-renderer`
+**Owners:** `@mana/tui-web-canvas-renderer`
 
 **Last updated:** 2025-10-06
 
 ## 1. Problem Statement
 
-`@mana-ssh/tui-web-canvas-renderer` renders terminal frames with the Canvas 2D API today. While this is reliable, CPU rasterisation becomes a bottleneck for high-frequency workloads (rapid palette swaps, selection animation, large dirty regions) and limits our ability to experiment with richer effects (glyph composition, inline graphics, diagnostics overlays). A GPU-backed renderer lets us keep parity with modern terminals, push towards higher frame rates, and open the door to future WebGL/WebGPU work.
+`@mana/tui-web-canvas-renderer` renders terminal frames with the Canvas 2D API today. While this is reliable, CPU rasterisation becomes a bottleneck for high-frequency workloads (rapid palette swaps, selection animation, large dirty regions) and limits our ability to experiment with richer effects (glyph composition, inline graphics, diagnostics overlays). A GPU-backed renderer lets us keep parity with modern terminals, push towards higher frame rates, and open the door to future WebGL/WebGPU work.
 
 ## 2. Goals
 
@@ -19,7 +19,7 @@
 ## 3. Non-Goals
 
 - Shipping a WebGPU backend in this cycle. WebGL now, WebGPU tracked separately once the abstraction layer stabilises.
-- Rewriting host frameworks (`@mana-ssh/tui-react`, apps) beyond wiring an optional backend selector.
+- Rewriting host frameworks (`@mana/tui-react`, apps) beyond wiring an optional backend selector.
 - Implementing Sixel/kitty graphics immediately. The pipeline is structured to support them later.
 
 ## 4. Constraints & Assumptions
@@ -42,7 +42,7 @@
 - Backend selection now routes through a registry of `RendererBackendProvider`s (CPU + WebGL today). Each provider owns `probe`, `normalizeConfig`, and `create` hooks so we can add WebGPU without rewriting callers.
 - `CanvasLike` exposes a `'webgpu'` context entry point and `WebgpuBackendConfig`/probe scaffolding so future work can request adapters/devices while staying within the shared contract.
 - `detectPreferredBackend()` delegates to the registry, probing WebGL support and returning the appropriate configuration so hosts can easily opt in. Additional providers will plug in without changing the public API.
-- The `<Terminal />` demo app reads `?renderer=webgl`/`?renderer=cpu` query parameters and passes a memoised renderer factory down to `@mana-ssh/tui-react`.
+- The `<Terminal />` demo app reads `?renderer=webgl`/`?renderer=cpu` query parameters and passes a memoised renderer factory down to `@mana/tui-react`.
 
 ### 6.2 Shared Core Utilities
 

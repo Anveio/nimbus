@@ -1,5 +1,5 @@
+import type { TerminalSelection } from '@mana/vt'
 import { describe, expect, it } from 'vitest'
-import type { TerminalSelection } from '@mana-ssh/vt'
 import { DirtyRegionTracker } from '../src/internal/dirty-region-tracker'
 
 const flushInitialFullState = (tracker: DirtyRegionTracker) => {

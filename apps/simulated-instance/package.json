@@ -1,5 +1,5 @@
 {
-  "name": "@mana-ssh/simulated-instance",
+  "name": "@mana/simulated-instance",
   "version": "0.0.1",
   "private": true,
   "description": "A simulated SSH server instance for demonstrating and testing the ManaSSHWeb library.",

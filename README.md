@@ -1,13 +1,13 @@
-# Mana SSH
+# Mana
 
-Mana SSH is a zero-dependency, standards-compliant, universally embeddable, high performance terminal with SSH remoting capabilities.
+Mana is a zero-dependency, standards-compliant, universally embeddable, high performance terminal with SSH remoting capabilities.
 
 ## Layer map
-- Parser and interpreter: `@mana-ssh/vt`
-- Renderer backends: `@mana-ssh/tui-web-canvas-renderer` today, SVG/WebGL/native next
-- React bindings: `@mana-ssh/tui-react`
-- SSHv2 Protocol Implementation: `@mana-ssh/ssh-v2` (under construction)
-- Browser transports: `@mana-ssh/web`, `@mana-ssh/websocket` (planned)
+- Parser and interpreter: `@mana/vt`
+- Renderer backends: `@mana/tui-web-canvas-renderer` today, SVG/WebGL/native next
+- React bindings: `@mana/tui-react`
+- SSHv2 Protocol Implementation: `@mana/ssh-v2` (under construction)
+- Browser transports: `@mana/web`, `@mana/websocket` (planned)
 - Demo and infra: `apps/terminal-web-app`, `apps/proxy-server`, `apps/simulated-instance`
 
 Status legend: Delivered = in main, In progress = active work, Planned = design/backlog.
@@ -50,7 +50,7 @@ Status legend: Delivered = in main, In progress = active work, Planned = design/
 ## Rendering and UX targets
 | Capability | Status | Notes |
 | --- | --- | --- |
-| Canvas renderer (`@mana-ssh/tui-web-canvas-renderer`) | Delivered | Lifecycle contract exported; palette and selection polish ongoing.
+| Canvas renderer (`@mana/tui-web-canvas-renderer`) | Delivered | Lifecycle contract exported; palette and selection polish ongoing.
 | SVG renderer | Planned | Will implement shared renderer interface for accessibility focus.
 | WebGL / offscreen renderer | Planned | Targeting high FPS and diagnostics instrumentation.
 | React `<Terminal />` component | In progress | Zero-boilerplate API rewrite scheduled in current sprint.
@@ -60,9 +60,9 @@ Status legend: Delivered = in main, In progress = active work, Planned = design/
 ## SSH protocol and transport
 | Capability | Status | Notes |
 | --- | --- | --- |
-| SSHv2 key exchange and cipher suite | In progress | `@mana-ssh/protocol` scaffolding state machine and crypto plumbing.
+| SSHv2 key exchange and cipher suite | In progress | `@mana/protocol` scaffolding state machine and crypto plumbing.
 | Channel and window management | Planned | Scheduled after key exchange milestone.
-| Browser WebSocket transport | Planned | `@mana-ssh/websocket` package stub pending protocol milestone.
+| Browser WebSocket transport | Planned | `@mana/websocket` package stub pending protocol milestone.
 | Alternate transports (HTTP/3, QUIC, SSE) | Planned | API contracts drafted; awaiting protocol baseline.
 | Proxy bridge (`apps/proxy-server`) | Delivered | WebSocket <-> TCP relay for development and tests.
 | Simulated host (`apps/simulated-instance`) | Delivered | Amazon Linux 2023 SSH target via Finch/Docker.

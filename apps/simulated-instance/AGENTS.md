@@ -5,7 +5,7 @@ This charter governs the containerised SSH target used for development and tests
 ## Mandate
 - Provide a reproducible Amazon Linux–based SSH server that mirrors AWS production expectations.
 - Offer developer ergonomics (fast startup, deterministic credentials) while remaining configurable for CI pipelines and security audits.
-- Serve as the canonical endpoint for end-to-end, integration, and interoperability testing of the Mana SSH stack.
+- Serve as the canonical endpoint for end-to-end, integration, and interoperability testing of the Mana stack.
 
 ## Boundaries & Dependencies
 - Lives inside `apps/simulated-instance`; owns Docker/Finch orchestration, image build context, and runtime scripts.

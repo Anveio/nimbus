@@ -1,5 +1,5 @@
 {
-  "name": "@mana-ssh/proxy-server",
+  "name": "@mana/proxy-server",
   "version": "0.0.1",
   "private": true,
   "description": "A WebSocket-to-TCP proxy for the ManaSSHWeb demonstration.",

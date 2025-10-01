@@ -1,6 +1,6 @@
-# @mana-ssh/tui-react Agent Charter
+# @mana/tui-react Agent Charter
 
-This charter guides how we evolve the React bindings for the Mana SSH terminal stack. Update it whenever architectural shifts, risks, or rituals change.
+This charter guides how we evolve the React bindings for the Mana terminal stack. Update it whenever architectural shifts, risks, or rituals change.
 
 ## Mandate
 - Deliver a zero-boilerplate React terminal component that orchestrates parser, interpreter, renderer, and host wiring on behalf of application code.
@@ -9,7 +9,7 @@ This charter guides how we evolve the React bindings for the Mana SSH terminal s
 
 ## Boundaries & Dependencies
 - Owns React-specific controllers, hooks, and components located in `packages/tui-react`.
-- Depends on `@mana-ssh/vt` for terminal semantics and on renderer packages (e.g. `@mana-ssh/tui-web-canvas-renderer`) for drawing.
+- Depends on `@mana/vt` for terminal semantics and on renderer packages (e.g. `@mana/tui-web-canvas-renderer`) for drawing.
 - Exposes typed contracts (`TerminalHost`, renderer registry, imperative handle) consumed by apps (`apps/terminal-web-app`) and future environments. Never inline transport, crypto, or DOM-global hacks.
 
 ## Design Pillars
@@ -22,7 +22,7 @@ This charter guides how we evolve the React bindings for the Mana SSH terminal s
 
 ## Testing Doctrine
 - Unit & component tests: `bunx vitest run` inside `packages/tui-react` with React Testing Library/jsdom to cover hooks, lifecycle, and imperative handles.
-- Integration: Contract tests with `@mana-ssh/tui-web-canvas-renderer` ensure renderer swapping, selection propagation, and diagnostics remain stable.
+- Integration: Contract tests with `@mana/tui-web-canvas-renderer` ensure renderer swapping, selection propagation, and diagnostics remain stable.
 - End-to-end: Package-local Playwright harness (`bun run test:e2e`) mounts `<Terminal />`, drives keyboard flows, and runs `axe-core` scans; keep it green alongside the `apps/terminal-web-app` Playwright suite that exercises full host flows.
 - Type discipline: `bun run typecheck` across the monorepo before landing changes; avoid ambient `any` escape hatches.
 - Spec-first workflow: Update or author package-level specs (e.g. controller lifecycle, selection semantics) prior to modifying code/tests.

@@ -1,5 +1,5 @@
-import type { CanvasRendererDiagnostics } from '@mana-ssh/tui-web-canvas-renderer'
-import type { TerminalSelection, TerminalState } from '@mana-ssh/vt'
+import type { CanvasRendererDiagnostics } from '@mana/tui-web-canvas-renderer'
+import type { TerminalSelection, TerminalState } from '@mana/vt'
 import type { TerminalStatusMessage } from '../../src/Terminal'
 
 export interface TerminalHarnessMountOptions {

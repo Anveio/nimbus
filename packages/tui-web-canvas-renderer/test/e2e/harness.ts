@@ -2,7 +2,7 @@ import type {
   TerminalSelection,
   TerminalState,
   TerminalUpdate,
-} from '@mana-ssh/vt'
+} from '@mana/vt'
 import {
   type CanvasRenderer,
   createCanvasRenderer,

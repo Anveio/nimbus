@@ -3,7 +3,7 @@ import type {
   SelectionPoint,
   TerminalState,
   TerminalUpdate,
-} from '@mana-ssh/vt'
+} from '@mana/vt'
 
 export type ShortcutGuideReason = 'hotkey' | 'imperative'
 

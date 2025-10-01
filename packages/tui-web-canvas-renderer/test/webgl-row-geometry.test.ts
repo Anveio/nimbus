@@ -1,9 +1,5 @@
+import type { TerminalAttributes, TerminalCell, TerminalState } from '@mana/vt'
 import { describe, expect, it } from 'vitest'
-import type {
-  TerminalAttributes,
-  TerminalCell,
-  TerminalState,
-} from '@mana-ssh/vt'
 import { __buildRowGeometryForTests as buildRowGeometry } from '../src/backends/gpu-webgl'
 import { ColorCache } from '../src/internal/color-cache'
 import type { GlyphAtlas, GlyphInfo } from '../src/internal/glyph-atlas'

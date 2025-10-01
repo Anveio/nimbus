@@ -9,21 +9,31 @@
         "noMisusedPromises": "error"
       },
       "security": "error",
-      "performance": "warn",
+      "performance": {
+        "noBarrelFile": "off",
+        "noReExportAll": "off",
+        "useSolidForComponent": "off",
+        "useTopLevelRegex": "off"
+      },
       "a11y": {
         "noSvgWithoutTitle": "off",
         "useKeyWithClickEvents": "off"
       },
       "style": {
-        "noNonNullAssertion": "off"
+        "noNonNullAssertion": "off",
+        "useTemplate": "off"
       },
       "correctness": {
-        "useExhaustiveDependencies": "warn"
+        "useExhaustiveDependencies": "warn",
+        "noUnusedPrivateClassMembers": "off"
+      },
+      "suspicious": {
+        "noAssignInExpressions": "off"
       }
     }
   },
   "files": {
-    "includes": ["**", "!**/node_modules/**", "!**/dist/**", "!**/coverage/**"]
+    "includes": ["**", "!**/node_modules", "!**/dist", "!**/coverage"]
   },
   "formatter": {
     "indentStyle": "space",

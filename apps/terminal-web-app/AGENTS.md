@@ -3,13 +3,13 @@
 This document anchors how we evolve the reference browser experience. Revise it whenever demo obligations, harness interfaces, or testing rituals shift.
 
 ## Mandate
-- Prove that the Mana SSH stack (VT → renderer → React) delivers a production-grade terminal in the browser with zero glue code.
+- Prove that the Mana stack (VT → renderer → React) delivers a production-grade terminal in the browser with zero glue code.
 - Act as the canonical host for Playwright end-to-end coverage, instrumentation, and UX experiments.
 - Demonstrate secure transport wiring patterns (proxy server, simulated host) that align with AWS security expectations.
 
 ## Boundaries & Dependencies
 - Lives entirely inside `apps/terminal-web-app` (Vite-powered React app).
-- Depends on `@mana-ssh/tui-react` and renderer packages for terminal UI, and on `apps/proxy-server` / `apps/simulated-instance` for integration scenarios.
+- Depends on `@mana/tui-react` and renderer packages for terminal UI, and on `apps/proxy-server` / `apps/simulated-instance` for integration scenarios.
 - Owns the Playwright harness (`test/e2e`), test handle (`window.__manaTerminalTestHandle__`), and demo-specific instrumentation. Core terminal behaviour belongs upstream.
 
 ## Experience Pillars

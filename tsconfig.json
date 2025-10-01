@@ -1,5 +1,5 @@
 {
-  "extends": "@mana-ssh/tsconfig/workspace-app-config.json",
+  "extends": "@mana/tsconfig/workspace-app-config.json",
   "references": [
     { "path": "./packages/vt" },
     { "path": "./packages/tui-react" }

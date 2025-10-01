@@ -2,7 +2,7 @@ import {
   getSelectionRowSegments,
   type TerminalSelection,
   type TerminalState,
-} from '@mana-ssh/vt'
+} from '@mana/vt'
 import {
   composeTerminalText,
   expect,

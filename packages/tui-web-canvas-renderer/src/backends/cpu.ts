@@ -5,8 +5,8 @@ import type {
   TerminalSelection,
   TerminalState,
   TerminalUpdate,
-} from '@mana-ssh/vt'
-import { getSelectionRowSegments } from '@mana-ssh/vt'
+} from '@mana/vt'
+import { getSelectionRowSegments } from '@mana/vt'
 import type {
   CanvasLike,
   CanvasRenderer,

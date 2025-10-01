@@ -8,8 +8,8 @@ import type {
   RendererPalette,
   RendererSelectionTheme,
   RendererTheme,
-} from '@mana-ssh/tui-web-canvas-renderer'
-import type { PrinterController, TerminalInterpreter } from '@mana-ssh/vt'
+} from '@mana/tui-web-canvas-renderer'
+import type { PrinterController, TerminalInterpreter } from '@mana/vt'
 import {
   createInterpreter,
   createParser,
@@ -22,7 +22,7 @@ import {
   type TerminalSelection,
   type TerminalState,
   type TerminalUpdate,
-} from '@mana-ssh/vt'
+} from '@mana/vt'
 import {
   type CSSProperties,
   type ForwardedRef,

@@ -1,7 +1,12 @@
+import type { TerminalSelection } from '@mana/vt'
 import '@testing-library/jest-dom/vitest'
 import { vi } from 'vitest'
 
-if (typeof window !== 'undefined' && !(window as any).ResizeObserver) {
+const win = globalThis as typeof window & {
+  ResizeObserver?: typeof ResizeObserver
+}
+
+if (typeof window !== 'undefined' && !win.ResizeObserver) {
   type ResizeObserverCallback = (
     entries: Array<{
       target: Element
@@ -30,12 +35,42 @@ if (typeof window !== 'undefined' && !(window as any).ResizeObserver) {
     disconnect(): void {}
   }
 
-  ;(window as any).ResizeObserver = ResizeObserverPolyfill
+  win.ResizeObserver =
+    ResizeObserverPolyfill as unknown as typeof ResizeObserver
 }
 
-vi.mock('@mana-ssh/tui-web-canvas-renderer', () => {
-  const createCanvasRenderer = vi.fn((options: any) => {
-    const instance: any = {
+vi.mock('@mana/tui-web-canvas-renderer', () => {
+  type SelectionSnapshot = { selection?: TerminalSelection | null } | undefined
+  type RendererOptions = {
+    canvas: HTMLCanvasElement | null
+    snapshot?: SelectionSnapshot
+    onSelectionChange?: (selection: TerminalSelection | null) => void
+  } & Record<string, unknown>
+
+  type CanvasRendererMock = {
+    canvas: HTMLCanvasElement | null
+    diagnostics: {
+      lastFrameDurationMs: number | null
+      lastDrawCallCount: number | null
+      lastOsc: string | null
+      lastSosPmApc: string | null
+      lastDcs: string | null
+    }
+    currentSelection: TerminalSelection | null
+    applyUpdates: ReturnType<
+      typeof vi.fn<(payload: { snapshot?: SelectionSnapshot }) => void>
+    >
+    resize: ReturnType<
+      typeof vi.fn<(payload: { snapshot?: SelectionSnapshot }) => void>
+    >
+    setTheme: ReturnType<typeof vi.fn<() => void>>
+    sync: ReturnType<typeof vi.fn<(snapshot: SelectionSnapshot) => void>>
+    dispose: ReturnType<typeof vi.fn<() => void>>
+    onSelectionChange?: (selection: TerminalSelection | null) => void
+  }
+
+  const createCanvasRenderer = vi.fn((options: RendererOptions) => {
+    const instance: CanvasRendererMock = {
       canvas: options.canvas,
       diagnostics: {
         lastFrameDurationMs: null,
@@ -45,6 +80,11 @@ vi.mock('@mana-ssh/tui-web-canvas-renderer', () => {
         lastDcs: null,
       },
       currentSelection: options.snapshot?.selection ?? null,
+      applyUpdates: vi.fn(),
+      resize: vi.fn(),
+      setTheme: vi.fn(),
+      sync: vi.fn(),
+      dispose: vi.fn(),
     }
 
     let selectionListener = options.onSelectionChange
@@ -52,33 +92,37 @@ vi.mock('@mana-ssh/tui-web-canvas-renderer', () => {
       selectionListener?.(instance.currentSelection)
     }
 
-    instance.applyUpdates = vi.fn(({ snapshot }: any) => {
+    instance.applyUpdates = vi.fn(
+      ({ snapshot }: { snapshot?: SelectionSnapshot }) => {
+        const next = snapshot?.selection ?? null
+        if (
+          JSON.stringify(next) !== JSON.stringify(instance.currentSelection)
+        ) {
+          instance.currentSelection = next
+          notifySelection()
+        }
+      },
+    )
+
+    instance.resize = vi.fn(
+      ({ snapshot }: { snapshot?: SelectionSnapshot }) => {
+        const next = snapshot?.selection ?? null
+        if (
+          JSON.stringify(next) !== JSON.stringify(instance.currentSelection)
+        ) {
+          instance.currentSelection = next
+          notifySelection()
+        }
+      },
+    )
+
+    instance.sync = vi.fn((snapshot: SelectionSnapshot) => {
       const next = snapshot?.selection ?? null
       if (JSON.stringify(next) !== JSON.stringify(instance.currentSelection)) {
         instance.currentSelection = next
         notifySelection()
       }
     })
-
-    instance.resize = vi.fn(({ snapshot }: any) => {
-      const next = snapshot?.selection ?? null
-      if (JSON.stringify(next) !== JSON.stringify(instance.currentSelection)) {
-        instance.currentSelection = next
-        notifySelection()
-      }
-    })
-
-    instance.setTheme = vi.fn()
-
-    instance.sync = vi.fn((snapshot: any) => {
-      const next = snapshot?.selection ?? null
-      if (JSON.stringify(next) !== JSON.stringify(instance.currentSelection)) {
-        instance.currentSelection = next
-        notifySelection()
-      }
-    })
-
-    instance.dispose = vi.fn()
 
     Object.defineProperty(instance, 'onSelectionChange', {
       configurable: true,

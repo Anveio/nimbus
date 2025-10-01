@@ -7,9 +7,9 @@ import { Terminal, type TerminalHandle } from '../src/Terminal'
 import {
   createCanvasRenderer,
   type CanvasRendererOptions,
-} from '@mana-ssh/tui-web-canvas-renderer'
-import type { TerminalSelection } from '@mana-ssh/vt'
-import { getSelectionRowSegments } from '@mana-ssh/vt'
+} from '@mana/tui-web-canvas-renderer'
+import type { TerminalSelection } from '@mana/vt'
+import { getSelectionRowSegments } from '@mana/vt'
 
 const encoder = new TextEncoder()
 
@@ -42,8 +42,17 @@ type CanvasRendererMock = ReturnType<typeof createCanvasRenderer> & {
   onSelectionChange?: (selection: TerminalSelection | null) => void
 }
 
+type PointerCaptureCanvas = HTMLCanvasElement & {
+  setPointerCapture: ReturnType<typeof vi.fn>
+  releasePointerCapture: ReturnType<typeof vi.fn>
+  hasPointerCapture: ReturnType<typeof vi.fn>
+}
+
 const installResizeObserverMock = () => {
-  const original = (window as any).ResizeObserver
+  const win = window as typeof window & {
+    ResizeObserver?: typeof ResizeObserver
+  }
+  const original = win.ResizeObserver
   let callback: ResizeObserverCallback | null = null
   const observe = vi.fn<(target: Element) => void>()
   const disconnect = vi.fn()
@@ -66,7 +75,7 @@ const installResizeObserverMock = () => {
     }
   }
 
-  ;(window as any).ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver
+  win.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver
 
   return {
     observe,
@@ -87,7 +96,11 @@ const installResizeObserverMock = () => {
       )
     },
     restore: () => {
-      ;(window as any).ResizeObserver = original
+      if (original) {
+        win.ResizeObserver = original
+      } else {
+        Reflect.deleteProperty(win, 'ResizeObserver')
+      }
     },
   }
 }
@@ -398,9 +411,10 @@ describe('Terminal', () => {
     const canvas = region.querySelector('canvas') as HTMLCanvasElement
     expect(canvas).not.toBeNull()
 
-    ;(canvas as any).setPointerCapture = vi.fn()
-    ;(canvas as any).releasePointerCapture = vi.fn()
-    ;(canvas as any).hasPointerCapture = vi.fn(() => true)
+    const pointerCanvas = canvas as PointerCaptureCanvas
+    pointerCanvas.setPointerCapture = vi.fn()
+    pointerCanvas.releasePointerCapture = vi.fn()
+    pointerCanvas.hasPointerCapture = vi.fn(() => true)
     const rectSpy = vi
       .spyOn(canvas, 'getBoundingClientRect')
       .mockReturnValue({
@@ -672,9 +686,10 @@ describe('Terminal', () => {
       } as DOMRect)
 
     try {
-      ;(canvas as any).setPointerCapture = vi.fn()
-      ;(canvas as any).releasePointerCapture = vi.fn()
-      ;(canvas as any).hasPointerCapture = vi.fn(() => true)
+      const pointerCanvas = canvas as PointerCaptureCanvas
+      pointerCanvas.setPointerCapture = vi.fn()
+      pointerCanvas.releasePointerCapture = vi.fn()
+      pointerCanvas.hasPointerCapture = vi.fn(() => true)
 
       fireEvent.pointerDown(canvas, {
         button: 0,

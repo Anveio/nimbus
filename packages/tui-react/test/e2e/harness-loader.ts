@@ -7,7 +7,7 @@ import type {
   TerminalHarnessMountOptions,
   TerminalHarnessOnDataEvent,
 } from './harness-types'
-import type { CanvasRendererDiagnostics } from '@mana-ssh/tui-web-canvas-renderer'
+import type { CanvasRendererDiagnostics } from '@mana/tui-web-canvas-renderer'
 import type { TerminalStatusMessage } from '../../src/Terminal'
 
 const HARNESS_ENTRY = path.resolve(__dirname, 'harness.tsx')

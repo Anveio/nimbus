@@ -1,5 +1,5 @@
 {
-  "extends": "@mana-ssh/tsconfig/workspace-app-config.json",
+  "extends": "@mana/tsconfig/workspace-app-config.json",
   "compilerOptions": {
     "baseUrl": ".",
     "jsx": "react-jsx",

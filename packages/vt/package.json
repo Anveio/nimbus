@@ -1,5 +1,5 @@
 {
-  "name": "@mana-ssh/vt",
+  "name": "@mana/vt",
   "version": "0.0.1",
   "private": true,
   "sideEffects": false,
@@ -26,7 +26,7 @@
   },
   "devDependencies": {
     "fast-check": "^3.18.0",
-    "typescript": "^5.0.4",
+    "typescript": "^5.9.2",
     "vitest": "^3.2.4"
   }
 }

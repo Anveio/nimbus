@@ -8,8 +8,8 @@ import {
   createCanvasRenderer as createDefaultCanvasRenderer,
   type RendererMetrics,
   type RendererTheme,
-} from '@mana-ssh/tui-web-canvas-renderer'
-import type { TerminalSelection, TerminalState } from '@mana-ssh/vt'
+} from '@mana/tui-web-canvas-renderer'
+import type { TerminalSelection, TerminalState } from '@mana/vt'
 import { type RefObject, useCallback, useEffect, useMemo, useRef } from 'react'
 
 /**
@@ -173,6 +173,7 @@ export const useTerminalCanvasRenderer = (
     [ensureRenderer, onDiagnostics],
   )
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: renderer disposal must react to strategy even though refs carry state
   useEffect(() => {
     if (!rendererRef.current) {
       return

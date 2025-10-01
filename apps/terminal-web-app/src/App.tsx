@@ -1,10 +1,10 @@
-import { Terminal, type TerminalHandle } from '@mana-ssh/tui-react'
+import { Terminal, type TerminalHandle } from '@mana/tui-react'
 import {
   type CanvasRendererOptions,
   type CreateCanvasRenderer,
   createCanvasRenderer,
   type RendererBackendConfig,
-} from '@mana-ssh/tui-web-canvas-renderer'
+} from '@mana/tui-web-canvas-renderer'
 import { type JSX, useEffect, useMemo, useRef, useState } from 'react'
 import styles from './App.module.css'
 
@@ -112,7 +112,7 @@ function App(): JSX.Element {
 
   return (
     <main className={styles.container}>
-      <h1 className={styles.heading}>Mana SSH Web Terminal</h1>
+      <h1 className={styles.heading}>Mana Web Terminal</h1>
       <div className={styles.terminalWrapper}>
        <Terminal
          ref={terminalRef}

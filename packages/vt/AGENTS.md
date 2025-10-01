@@ -1,4 +1,4 @@
-# @mana-ssh/vt Agent Charter
+# @mana/vt Agent Charter
 
 This file anchors how we reason about the VT parser + interpreter stack. Treat it as a living contract—revise whenever new capabilities or risks emerge.
 
@@ -9,7 +9,7 @@ This file anchors how we reason about the VT parser + interpreter stack. Treat i
 
 ## Boundaries & Dependencies
 - Owns classification, state machines, interpreter deltas, and capability descriptors inside `packages/vt`.
-- Exports typed surfaces for `@mana-ssh/tui-react`, `@mana-ssh/tui-web-canvas-renderer`, and future hosts. No browser APIs, no transport logic.
+- Exports typed surfaces for `@mana/tui-react`, `@mana/tui-web-canvas-renderer`, and future hosts. No browser APIs, no transport logic.
 - Shares spec and roadmap context through `docs/` alongside per-feature specs that precede implementation and test work.
 
 ## Design Pillars

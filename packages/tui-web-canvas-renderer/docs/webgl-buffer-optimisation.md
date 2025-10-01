@@ -1,6 +1,6 @@
 # WebGL Renderer Buffer Optimisation Plan
 
-**Owner:** `@mana-ssh/tui-web-canvas-renderer`
+**Owner:** `@mana/tui-web-canvas-renderer`
 
 **Last updated:** 2025-10-09
 
