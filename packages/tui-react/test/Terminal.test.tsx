@@ -106,6 +106,13 @@ describe('Terminal', () => {
     expect(region).toHaveFocus()
   })
 
+  test('does not focus itself by default', () => {
+    render(<Terminal ariaLabel="Focus opt-in" rows={24} columns={80} />)
+
+    const region = screen.getByRole('textbox', { name: 'Focus opt-in' })
+    expect(region).not.toHaveFocus()
+  })
+
   test('forwards key input via onData and echoes locally by default', async () => {
     const onData = vi.fn()
     render(<Terminal onData={onData} rows={24} columns={80} />)
@@ -117,6 +124,79 @@ describe('Terminal', () => {
     expect(onData).toHaveBeenCalledWith(encoder.encode('a'))
     const renderer = lastRenderer()
     expect(renderer.applyUpdates).toHaveBeenCalled()
+  })
+
+  test('exposes shortcut guide controls via the imperative handle', async () => {
+    const ref = createRef<TerminalHandle>()
+    const onShortcutGuideToggle = vi.fn()
+
+    render(
+      <Terminal
+        ref={ref}
+        ariaLabel="Shortcut host"
+        rows={24}
+        columns={80}
+        onShortcutGuideToggle={onShortcutGuideToggle}
+      />,
+    )
+
+    expect(ref.current).not.toBeNull()
+    expect(screen.queryByRole('dialog', { name: /terminal shortcuts/i })).toBeNull()
+
+    await act(async () => {
+      ref.current!.openShortcutGuide()
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog', { name: /terminal shortcuts/i })).toBeVisible()
+    })
+
+    expect(onShortcutGuideToggle).toHaveBeenCalledWith(true, 'imperative')
+
+    await act(async () => {
+      ref.current!.closeShortcutGuide()
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /terminal shortcuts/i })).toBeNull()
+    })
+
+    expect(onShortcutGuideToggle).toHaveBeenCalledWith(false, 'imperative')
+  })
+
+  test('Shift + ? toggles the shortcut guide without emitting data', async () => {
+    const onShortcutGuideToggle = vi.fn()
+    const onData = vi.fn()
+
+    render(
+      <Terminal
+        ariaLabel="Shortcut hotkey"
+        rows={24}
+        columns={80}
+        onData={onData}
+        onShortcutGuideToggle={onShortcutGuideToggle}
+      />,
+    )
+
+    const region = screen.getByRole('textbox')
+    await userEvent.click(region)
+
+    await userEvent.keyboard('?')
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog', { name: /terminal shortcuts/i })).toBeVisible()
+    })
+
+    expect(onShortcutGuideToggle).toHaveBeenCalledWith(true, 'hotkey')
+    expect(onData).not.toHaveBeenCalled()
+
+    await userEvent.keyboard('?')
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /terminal shortcuts/i })).toBeNull()
+    })
+
+    expect(onShortcutGuideToggle).toHaveBeenCalledWith(false, 'hotkey')
   })
 
   test('supports imperative write and reset APIs', async () => {

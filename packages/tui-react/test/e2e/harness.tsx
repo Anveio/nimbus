@@ -72,7 +72,7 @@ const createHarness = (): TerminalHarnessExports => {
         rows={options.rows}
         columns={options.columns}
         localEcho={options.localEcho ?? true}
-        autoFocus={options.autoFocus ?? true}
+        autoFocus={options.autoFocus ?? false}
         autoResize={options.autoResize ?? false}
         onData={(data) => {
           onDataEvents.push({
@@ -148,6 +148,8 @@ const createHarness = (): TerminalHarnessExports => {
 
   const getSelection = () => terminalRef.current?.getSelection() ?? null
 
+  const getDiagnostics = () => terminalRef.current?.getDiagnostics() ?? null
+
   const getOnDataEvents = () => onDataEvents.map((event) => ({ ...event }))
 
   const resetOnDataEvents = () => {
@@ -168,6 +170,7 @@ const createHarness = (): TerminalHarnessExports => {
     compose,
     getSnapshot,
     getSelection,
+    getDiagnostics,
     getOnDataEvents,
     resetOnDataEvents,
     announceStatus,

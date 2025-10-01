@@ -41,6 +41,10 @@ This charter guides how we evolve the React bindings for the Mana SSH terminal s
 4. Log consequential changes, gaps, and decisions in the memory bank with dates for future maintainers.
 
 ## Memory Bank
+- Defaulted `<Terminal />` focus to opt-in and shipped a built-in Shift + `?` modal surfaced through `useTerminalAccessibilityAdapter` / `TerminalAccessibilityLayer`.
+- Added imperative + callback hooks so hosts can open, close, or replace the guide, while keeping the visually hidden instructions for screen readers.
+- Next follow-up: expose visible entry points in host UIs and localise the shortcut descriptions before broad rollout.
+
 ### 2025-10-06 – Vite build + Playwright harness
 - Swapped the package build to Vite library mode (ESM + CJS + bundled declarations) and published the output from `dist/`.
 - Added a package-scoped Playwright + axe harness that bundles a React test surface via Vite, feeding smoke & accessibility checks through `bun run test:e2e`.

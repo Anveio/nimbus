@@ -7,6 +7,7 @@ import {
   mountTerminal,
   prepareHarness,
   readOnDataEvents,
+  readTerminalDiagnostics,
   resetOnDataEvents,
   warmHarnessBundle,
   composeTerminalText,
@@ -42,6 +43,7 @@ export {
   focusTerminal,
   mountTerminal,
   readOnDataEvents,
+  readTerminalDiagnostics,
   composeTerminalText,
   writeToTerminal,
 }

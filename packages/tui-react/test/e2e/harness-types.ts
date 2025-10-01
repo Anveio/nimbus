@@ -1,3 +1,4 @@
+import type { CanvasRendererDiagnostics } from '@mana-ssh/tui-web-canvas-renderer'
 import type { TerminalSelection, TerminalState } from '@mana-ssh/vt'
 import type { TerminalStatusMessage } from '../../src/Terminal'
 
@@ -23,6 +24,7 @@ export interface TerminalHarnessExports {
   compose(data: string): void
   getSnapshot(): TerminalState | null
   getSelection(): TerminalSelection | null
+  getDiagnostics(): CanvasRendererDiagnostics | null
   getOnDataEvents(): TerminalHarnessOnDataEvent[]
   resetOnDataEvents(): void
   announceStatus(message: TerminalStatusMessage): void

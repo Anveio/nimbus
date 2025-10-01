@@ -39,33 +39,30 @@ import {
   useRef,
   useState,
 } from 'react'
+import type { TerminalStatusMessage } from './accessibility'
 import {
-  type TerminalStatusMessage,
-  useTerminalAccessibility,
-} from './accessibility'
+  type ShortcutGuideConfig,
+  type ShortcutGuideReason,
+  TerminalAccessibilityLayer,
+  useTerminalAccessibilityAdapter,
+} from './accessibility-layer'
+
+type TerminalShortcutGuideOptions = ShortcutGuideConfig
+
 import {
   type TerminalRendererHandle,
   useTerminalCanvasRenderer,
 } from './renderer'
 
 export type { TerminalStatusMessage } from './accessibility'
+export type {
+  ShortcutGuideConfig as TerminalShortcutGuideOptions,
+  ShortcutGuideReason,
+} from './accessibility-layer'
 
 const DEFAULT_ROWS = 24
 const DEFAULT_COLUMNS = 80
 const TEXT_ENCODER = new TextEncoder()
-
-const VISUALLY_HIDDEN_STYLE: CSSProperties = {
-  position: 'absolute',
-  width: '1px',
-  height: '1px',
-  margin: '-1px',
-  border: 0,
-  padding: 0,
-  overflow: 'hidden',
-  clip: 'rect(0 0 0 0)',
-  clipPath: 'inset(50%)',
-  whiteSpace: 'pre-wrap',
-}
 
 const DEFAULT_THEME: RendererTheme = {
   background: '#0d1117',
@@ -116,7 +113,7 @@ const DEFAULT_METRICS: RendererMetrics = {
   cell: DEFAULT_CELL,
 }
 
-const DEFAULT_ARIA_KEYSHORTCUTS = [
+const DEFAULT_ARIA_SHORTCUTS = [
   'Enter',
   'Shift+ArrowLeft',
   'Shift+ArrowRight',
@@ -132,7 +129,7 @@ const DEFAULT_ARIA_KEYSHORTCUTS = [
   'Meta+V',
   'Control+Shift+C',
   'Control+Shift+V',
-].join(' ')
+]
 
 export type PrinterEvent =
   | { type: 'controller-mode'; enabled: boolean }
@@ -398,6 +395,9 @@ export interface TerminalHandle {
   getPrinterEvents(): PrinterEvent[]
   getDiagnostics(): TerminalRendererHandle['diagnostics']
   announceStatus(message: TerminalStatusMessage): void
+  openShortcutGuide(): void
+  closeShortcutGuide(): void
+  toggleShortcutGuide(): void
 }
 
 export interface TerminalProps extends HTMLAttributes<HTMLDivElement> {
@@ -423,6 +423,11 @@ export interface TerminalProps extends HTMLAttributes<HTMLDivElement> {
   readonly autoResize?: boolean
   readonly ariaLabel?: string
   readonly accessibilityInstructions?: ReactNode
+  readonly shortcutGuide?: TerminalShortcutGuideOptions | false
+  readonly onShortcutGuideToggle?: (
+    visible: boolean,
+    reason: ShortcutGuideReason,
+  ) => void
   readonly canvasClassName?: string
   readonly canvasStyle?: CSSProperties
 }
@@ -440,10 +445,12 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       onDiagnostics,
       onCursorSelectionChange,
       localEcho = true,
-      autoFocus = true,
+      autoFocus = false,
       autoResize = true,
       ariaLabel = 'Terminal',
       accessibilityInstructions,
+      shortcutGuide: shortcutGuideProp = {},
+      onShortcutGuideToggle,
       className,
       canvasClassName,
       canvasStyle,
@@ -553,16 +560,50 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       [snapshotVersion],
     )
 
-    const accessibility = useTerminalAccessibility({
+    const accessibilityAdapter = useTerminalAccessibilityAdapter({
       snapshot,
       snapshotRevision: snapshotVersion,
       instructions: accessibilityInstructions,
+      shortcutGuide: shortcutGuideProp as ShortcutGuideConfig | false,
+      onShortcutGuideToggle,
     })
 
+    const {
+      enabled: shortcutGuideEnabled,
+      visible: shortcutGuideVisible,
+      open: openShortcutGuide,
+      close: closeShortcutGuide,
+      toggle: toggleShortcutGuide,
+    } = accessibilityAdapter.shortcutGuide
+
+    const previousShortcutGuideVisibilityRef = useRef(shortcutGuideVisible)
+    useEffect(() => {
+      if (previousShortcutGuideVisibilityRef.current && !shortcutGuideVisible) {
+        containerRef.current?.focus()
+      }
+      previousShortcutGuideVisibilityRef.current = shortcutGuideVisible
+    }, [shortcutGuideVisible])
+
     const describedByValue =
-      accessibility.describedByIds.length > 0
-        ? accessibility.describedByIds.join(' ')
+      accessibilityAdapter.describedByIds.length > 0
+        ? accessibilityAdapter.describedByIds.join(' ')
         : undefined
+
+    const ariaKeyShortcuts = useMemo(() => {
+      const keys = accessibilityAdapter.shortcuts.flatMap((shortcut) =>
+        shortcut.ariaKeys ? [...shortcut.ariaKeys] : [...shortcut.keys],
+      )
+      if (keys.length === 0) {
+        return undefined
+      }
+      const unique = Array.from(new Set(keys))
+      const matchesDefault =
+        unique.length === DEFAULT_ARIA_SHORTCUTS.length &&
+        DEFAULT_ARIA_SHORTCUTS.every((combo) => unique.includes(combo))
+      return matchesDefault
+        ? DEFAULT_ARIA_SHORTCUTS.join(' ')
+        : unique.join(' ')
+    }, [accessibilityAdapter.shortcuts])
 
     const handleSelectionChange = useCallback(
       (selection: TerminalSelection | null) => {
@@ -1070,10 +1111,21 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
 
     const handleKeyDown = useCallback(
       (event: ReactKeyboardEvent<HTMLDivElement>) => {
-        if (event.nativeEvent.isComposing || compositionStateRef.current.active) {
+        if (
+          event.nativeEvent.isComposing ||
+          compositionStateRef.current.active
+        ) {
           return
         }
         const key = event.key
+        if (
+          shortcutGuideEnabled &&
+          (key === '?' || (key === '/' && event.shiftKey))
+        ) {
+          event.preventDefault()
+          toggleShortcutGuide('hotkey')
+          return
+        }
         if (key === 'Process') {
           return
         }
@@ -1221,7 +1273,16 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         event.preventDefault()
         emitData(bytes)
       },
-      [applyUpdates, clearSelection, emitData, interpreter, onData, write],
+      [
+        applyUpdates,
+        clearSelection,
+        emitData,
+        interpreter,
+        onData,
+        shortcutGuideEnabled,
+        toggleShortcutGuide,
+        write,
+      ],
     )
 
     const handlePaste = useCallback(
@@ -1291,14 +1352,20 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
                 : { ...event },
           ),
         getDiagnostics: () => rendererHandle.diagnostics,
-        announceStatus: accessibility.announceStatus,
+        announceStatus: accessibilityAdapter.announceStatus,
+        openShortcutGuide: () => openShortcutGuide('imperative'),
+        closeShortcutGuide: () => closeShortcutGuide('imperative'),
+        toggleShortcutGuide: () => toggleShortcutGuide('imperative'),
       }),
       [
-        accessibility.announceStatus,
+        accessibilityAdapter.announceStatus,
         currentSelection,
         focus,
+        closeShortcutGuide,
         reset,
         rendererHandle,
+        openShortcutGuide,
+        toggleShortcutGuide,
         write,
       ],
     )
@@ -1313,9 +1380,11 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         aria-label={ariaLabel}
         aria-multiline="true"
         aria-roledescription="Terminal"
-        aria-keyshortcuts={DEFAULT_ARIA_KEYSHORTCUTS}
+        aria-keyshortcuts={ariaKeyShortcuts}
         aria-describedby={describedByValue}
-        aria-activedescendant={accessibility.activeDescendantId ?? undefined}
+        aria-activedescendant={
+          accessibilityAdapter.activeDescendantId ?? undefined
+        }
         className={className}
         style={style}
         onClick={focus}
@@ -1326,76 +1395,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         onPaste={handlePaste}
         onCopy={handleCopy}
       >
-        {accessibility.instructionsContent ? (
-          <div
-            id={accessibility.instructionsId}
-            data-testid="terminal-instructions"
-            style={VISUALLY_HIDDEN_STYLE}
-          >
-            {accessibility.instructionsContent}
-          </div>
-        ) : null}
-        <div
-          id={accessibility.transcriptId}
-          role="log"
-          aria-live="polite"
-          aria-atomic="false"
-          aria-relevant="additions text"
-          data-testid="terminal-transcript"
-          style={VISUALLY_HIDDEN_STYLE}
-        >
-          {/** biome-ignore lint/a11y/useSemanticElements: WAI-ARIA compliance asserted in e2e tests */}
-          <div
-            role="grid"
-            aria-readonly="true"
-            data-testid="terminal-transcript-grid"
-          >
-            {accessibility.transcriptRows.map((row) => (
-              // biome-ignore lint/a11y/useSemanticElements: WAI-ARIA compliance asserted in e2e tests
-              // biome-ignore lint/a11y/useFocusableInteractive: WAI-ARIA compliance asserted in e2e tests
-              <div
-                key={row.id}
-                id={row.id}
-                role="row"
-                aria-rowindex={row.row + 1}
-                data-testid="terminal-transcript-row"
-              >
-                {row.cells.map((cell) => (
-                  // biome-ignore lint/a11y/useFocusableInteractive: WAI-ARIA compliance asserted in e2e tests
-                  // biome-ignore lint/a11y/useSemanticElements: WAI-ARIA compliance asserted in e2e tests
-                  <span
-                    key={cell.id}
-                    id={cell.id}
-                    role="gridcell"
-                    aria-colindex={cell.column + 1}
-                    data-testid="terminal-transcript-cell"
-                    aria-selected={cell.selected ? 'true' : undefined}
-                  >
-                    {cell.text}
-                  </span>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-        {/** biome-ignore lint/a11y/useSemanticElements: WAI-ARIA compliance asserted in e2e tests */}
-        <div
-          role="status"
-          aria-live="polite"
-          data-testid="terminal-caret-status"
-          style={VISUALLY_HIDDEN_STYLE}
-        >
-          {accessibility.caretStatusText}
-        </div>
-        {/** biome-ignore lint/a11y/useSemanticElements: WAI-ARIA compliance asserted in e2e tests */}
-        <div
-          role="status"
-          aria-live={accessibility.statusPoliteness}
-          data-testid="terminal-status-region"
-          style={VISUALLY_HIDDEN_STYLE}
-        >
-          {accessibility.statusMessage}
-        </div>
+        <TerminalAccessibilityLayer
+          adapter={accessibilityAdapter}
+          instructionsContent={accessibilityInstructions ?? null}
+        />
         <canvas
           ref={rendererHandle.canvasRef as React.RefObject<HTMLCanvasElement>}
           className={canvasClassName}

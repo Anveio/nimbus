@@ -7,6 +7,7 @@ import type {
   TerminalHarnessMountOptions,
   TerminalHarnessOnDataEvent,
 } from './harness-types'
+import type { CanvasRendererDiagnostics } from '@mana-ssh/tui-web-canvas-renderer'
 import type { TerminalStatusMessage } from '../../src/Terminal'
 
 const HARNESS_ENTRY = path.resolve(__dirname, 'harness.tsx')
@@ -130,6 +131,11 @@ export const readOnDataEvents = async (
   page: Page,
 ): Promise<TerminalHarnessOnDataEvent[]> =>
   page.evaluate(() => window.__manaTuiReactTest__?.getOnDataEvents() ?? [])
+
+export const readTerminalDiagnostics = async (
+  page: Page,
+): Promise<CanvasRendererDiagnostics | null> =>
+  page.evaluate(() => window.__manaTuiReactTest__?.getDiagnostics() ?? null)
 
 export const resetOnDataEvents = async (page: Page): Promise<void> => {
   await page.evaluate(() => {

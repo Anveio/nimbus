@@ -3,7 +3,9 @@ import {
   focusTerminal,
   mountTerminal,
   composeTerminalText,
+  readTerminalDiagnostics,
   readOnDataEvents,
+  writeToTerminal,
   test,
 } from './fixtures'
 
@@ -50,6 +52,24 @@ test.describe('tui-react terminal', () => {
     await expect(transcript).toContainText('あ')
   })
 
+  test('Shift + ? toggles the shortcut guide overlay', async ({ page }) => {
+    await mountTerminal(page, { ariaLabel: 'Shortcut Terminal' })
+    await focusTerminal(page)
+
+    await page.keyboard.press('Shift+?')
+
+    const dialog = page.getByRole('dialog', { name: 'Terminal shortcuts' })
+    await expect(dialog).toBeVisible()
+
+    const closeButton = dialog.getByRole('button', { name: 'Close' })
+    await expect(closeButton).toBeFocused()
+
+    await page.keyboard.press('Escape')
+
+    await expect(dialog).toHaveCount(0)
+    await expect(page.getByRole('textbox', { name: 'Shortcut Terminal' })).toBeFocused()
+  })
+
   test('has no axe-core accessibility violations', async ({
     makeAxeBuilder,
     page,
@@ -59,5 +79,39 @@ test.describe('tui-react terminal', () => {
 
     const results = await makeAxeBuilder().analyze()
     expect(results.violations).toEqual([])
+  })
+
+  test('exposes row metadata diagnostics for insert/delete sequences', async ({
+    page,
+  }) => {
+    await mountTerminal(page, { ariaLabel: 'Row Metadata Terminal' })
+    await focusTerminal(page)
+
+    await writeToTerminal(page, 'abcdef')
+    await writeToTerminal(page, '\u001b[3D')
+    await writeToTerminal(page, '\u001b[@')
+    await writeToTerminal(page, 'Z')
+    await writeToTerminal(page, '\u001b[P')
+
+    await page.waitForTimeout(0)
+
+    const diagnostics = await readTerminalDiagnostics(page)
+    test.skip(
+      !diagnostics || !diagnostics.gpuRowMetadata,
+      'WebGL diagnostics unavailable in this environment',
+    )
+
+    const metadata = diagnostics!.gpuRowMetadata!
+    const disabledTotal =
+      metadata.disabledBySelection +
+      metadata.disabledByWideGlyph +
+      metadata.disabledByOverlay +
+      metadata.disabledByOther
+
+    expect(metadata.rowsWithColumnOffsets).toBeGreaterThan(0)
+    expect(metadata.rowsWithoutColumnOffsets).toBe(disabledTotal)
+    expect(metadata.disabledBySelection).toBe(0)
+    expect(metadata.disabledByWideGlyph).toBe(0)
+    expect(metadata.disabledByOverlay).toBe(0)
   })
 })

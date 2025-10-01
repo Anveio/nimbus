@@ -76,6 +76,7 @@ test.describe('tui-react terminal accessibility contract', () => {
       const instructions = page.locator(`#${id}`)
       await expect(instructions).toBeAttached()
       await expect(instructions).toHaveAttribute('data-testid', TEST_IDS.instructions)
+      await expect(instructions).toHaveAttribute('role', 'note')
     }
 
     await expect(container).not.toBeFocused()
