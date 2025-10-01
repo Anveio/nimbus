@@ -125,6 +125,9 @@ benefit of persistent buffers.
   - `gpuDirtyRegionCoverage` – ratio of dirty cells to total cells (0–1).
   - `gpuOverlayBytesUploaded` – bytes written to overlay buffers for cursor /
     selection rendering in the current frame.
+  - `gpuRowMetadata` – summary of how many rows carried column-offset metadata
+    vs. fell back (selection, wide glyph, overlay, other) so heuristics can
+    attribute fallbacks during debugging.
 - Update `updateDiagnostics` to accept these metrics and expose them alongside
   existing timing & draw counts.
 - Emit console warnings (guarded behind `options.verboseDiagnostics`) when a

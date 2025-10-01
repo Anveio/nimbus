@@ -198,6 +198,8 @@ export interface CanvasRendererDiagnostics {
   readonly gpuDirtyRegionCoverage?: number | null
   /** Bytes uploaded for cursor/selection overlay textures in the last frame. */
   readonly gpuOverlayBytesUploaded?: number | null
+  /** Summary of per-row column metadata availability for the last frame. */
+  readonly gpuRowMetadata?: RendererRowMetadataDiagnostics | null
   /** Most recent OSC payload observed, if any. */
   readonly lastOsc: {
     readonly identifier: string
@@ -215,6 +217,15 @@ export interface CanvasRendererDiagnostics {
     readonly intermediates: ReadonlyArray<number>
     readonly data: string
   } | null
+}
+
+export interface RendererRowMetadataDiagnostics {
+  readonly rowsWithColumnOffsets: number
+  readonly rowsWithoutColumnOffsets: number
+  readonly disabledBySelection: number
+  readonly disabledByWideGlyph: number
+  readonly disabledByOverlay: number
+  readonly disabledByOther: number
 }
 
 export type CursorOverlayStrategy = (options: {

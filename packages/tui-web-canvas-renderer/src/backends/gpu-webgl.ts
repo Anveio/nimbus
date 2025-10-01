@@ -26,6 +26,7 @@ import type {
   RendererMetrics,
   RendererTheme,
   WebglBackendConfig,
+  RendererRowMetadataDiagnostics,
 } from '../types'
 
 const WEBGL1_REQUIRED_EXTENSIONS = [
@@ -268,6 +269,8 @@ interface FrameGeometry {
   readonly glyphCount: number
 }
 
+type RowMetadataSummary = RendererRowMetadataDiagnostics
+
 interface BuildGeometryParams {
   readonly snapshot: TerminalState
   readonly metrics: RendererMetrics
@@ -280,6 +283,13 @@ interface BuildGeometryParams {
   readonly includeCursor: boolean
 }
 
+type ColumnMetadataReason =
+  | 'supported'
+  | 'selection'
+  | 'wide-glyph'
+  | 'cursor-overlay'
+  | 'unknown'
+
 interface RowGeometry {
   readonly backgroundPositions: Float32Array
   readonly backgroundColors: Float32Array
@@ -289,11 +299,50 @@ interface RowGeometry {
   readonly backgroundVertexCount: number
   readonly glyphVertexCount: number
   readonly glyphCount: number
+  readonly supportsColumnOffsets: boolean
+  readonly columns: ReadonlyArray<RowGeometryColumn>
+  readonly columnMetadataReason: ColumnMetadataReason
 }
 
 interface RowSliceEntry {
   readonly offset: number
   readonly length: number
+}
+
+interface ColumnGeometrySegment {
+  readonly positions: RowSliceEntry
+  readonly colors: RowSliceEntry
+}
+
+interface GlyphGeometrySegment {
+  readonly positions: RowSliceEntry
+  readonly texCoords: RowSliceEntry
+  readonly colors: RowSliceEntry
+}
+
+interface RowGeometryColumn {
+  readonly column: number
+  readonly clipStart: number
+  readonly clipEnd: number
+  readonly backgroundSegments: ReadonlyArray<ColumnGeometrySegment>
+  readonly glyphSegments: ReadonlyArray<GlyphGeometrySegment>
+}
+
+interface RowColumnSegment {
+  readonly positions: RowSliceEntry
+  readonly colors: RowSliceEntry
+}
+
+interface RowColumnGlyphSegment extends RowColumnSegment {
+  readonly texCoords: RowSliceEntry
+}
+
+interface RowColumnSlice {
+  readonly column: number
+  readonly clipStart: number
+  readonly clipEnd: number
+  readonly backgroundSegments: ReadonlyArray<RowColumnSegment>
+  readonly glyphSegments: ReadonlyArray<RowColumnGlyphSegment>
 }
 
 interface RowSlice {
@@ -306,6 +355,9 @@ interface RowSlice {
   glyphVertexCount: number
   glyphCount: number
   version: number
+  supportsColumnOffsets: boolean
+  columns: ReadonlyArray<RowColumnSlice>
+  columnMetadataReason: ColumnMetadataReason
 }
 
 class DynamicFloat32Array {
@@ -423,13 +475,15 @@ const buildRowGeometry = (
     height: number,
     color: RendererColor,
     alphaMultiplier = 1,
-  ) => {
+  ): ColumnGeometrySegment | null => {
     const [r, g, b, baseAlpha] = colorCache.get(color)
     const alpha = baseAlpha * alphaMultiplier
     if (alpha <= 0) {
-      return
+      return null
     }
 
+    const positionOffset = backgroundPositions.length
+    const colorOffset = backgroundColors.length
     const x1 = toClipX(x)
     const x2 = toClipX(x + width)
     const y1 = toClipY(y + height)
@@ -442,6 +496,10 @@ const buildRowGeometry = (
     }
 
     backgroundVertexCount += 6
+    return {
+      positions: { offset: positionOffset, length: 12 },
+      colors: { offset: colorOffset, length: 24 },
+    }
   }
 
   const pushGlyphQuad = (
@@ -450,13 +508,16 @@ const buildRowGeometry = (
     glyph: GlyphInfo,
     color: RendererColor,
     alphaMultiplier: number,
-  ) => {
+  ): GlyphGeometrySegment | null => {
     const [r, g, b, baseAlpha] = colorCache.get(color)
     const alpha = baseAlpha * alphaMultiplier
     if (alpha <= 0) {
-      return
+      return null
     }
 
+    const positionOffset = glyphPositions.length
+    const texCoordOffset = glyphTexCoords.length
+    const colorOffset = glyphColors.length
     const x1 = toClipX(x)
     const x2 = toClipX(x + glyph.width)
     const y1 = toClipY(y + glyph.height)
@@ -485,6 +546,37 @@ const buildRowGeometry = (
 
     glyphVertexCount += 6
     glyphCount += 1
+    return {
+      positions: { offset: positionOffset, length: 12 },
+      texCoords: { offset: texCoordOffset, length: 12 },
+      colors: { offset: colorOffset, length: 24 },
+    }
+  }
+
+  let supportsColumnOffsets = selectionSegment === null
+  let columnMetadataReason: ColumnMetadataReason = supportsColumnOffsets
+    ? 'supported'
+    : 'selection'
+
+  type MutableColumnEntry = {
+    column: number
+    clipStart: number
+    clipEnd: number
+    backgroundSegments: ColumnGeometrySegment[]
+    glyphSegments: GlyphGeometrySegment[]
+  }
+
+  const columnEntries: MutableColumnEntry[] = []
+
+  const disableColumnOffsets = (reason: ColumnMetadataReason): void => {
+    if (columnMetadataReason === 'supported') {
+      columnMetadataReason = reason
+    }
+    if (!supportsColumnOffsets) {
+      return
+    }
+    supportsColumnOffsets = false
+    columnEntries.length = 0
   }
 
   if (selectionSegment && selectionTheme?.background) {
@@ -501,7 +593,12 @@ const buildRowGeometry = (
     )
   }
 
+  if (selectionSegment) {
+    disableColumnOffsets('selection')
+  }
+
   const bufferRow = snapshot.buffer[row]
+  const singleWidthThreshold = cellWidth + 0.5
 
   for (let column = 0; column < snapshot.columns; column += 1) {
     const cell = bufferRow?.[column] ?? DEFAULT_CELL
@@ -529,25 +626,60 @@ const buildRowGeometry = (
       effectiveBackground = null
     }
 
+    let columnEntry: MutableColumnEntry | null = null
+    if (supportsColumnOffsets) {
+      const clipStart = toClipX(x)
+      const clipEnd = toClipX(x + cellWidth)
+      columnEntry = {
+        column,
+        clipStart,
+        clipEnd,
+        backgroundSegments: [],
+        glyphSegments: [],
+      }
+      columnEntries.push(columnEntry)
+    }
+
     if (effectiveBackground) {
-      pushBackgroundQuad(x, rowY, cellWidth, cellHeight, effectiveBackground)
+      const segment = pushBackgroundQuad(
+        x,
+        rowY,
+        cellWidth,
+        cellHeight,
+        effectiveBackground,
+      )
+      if (segment && supportsColumnOffsets && columnEntry) {
+        columnEntry.backgroundSegments.push(segment)
+      }
     }
 
     if (effectiveForeground) {
       if (cell.attr.underline !== 'none') {
         const thickness = Math.max(1, Math.round(cellHeight * 0.08))
         const baseY = rowY + cellHeight - thickness
-        pushBackgroundQuad(x, baseY, cellWidth, thickness, effectiveForeground)
+        const primarySegment = pushBackgroundQuad(
+          x,
+          baseY,
+          cellWidth,
+          thickness,
+          effectiveForeground,
+        )
+        if (primarySegment && supportsColumnOffsets && columnEntry) {
+          columnEntry.backgroundSegments.push(primarySegment)
+        }
         if (cell.attr.underline === 'double') {
           const gap = thickness + 2
           const secondY = Math.max(rowY, baseY - gap)
-          pushBackgroundQuad(
+          const secondarySegment = pushBackgroundQuad(
             x,
             secondY,
             cellWidth,
             thickness,
             effectiveForeground,
           )
+          if (secondarySegment && supportsColumnOffsets && columnEntry) {
+            columnEntry.backgroundSegments.push(secondarySegment)
+          }
         }
       }
 
@@ -555,13 +687,16 @@ const buildRowGeometry = (
         const thickness = Math.max(1, Math.round(cellHeight * 0.08))
         const strikeY =
           rowY + Math.round(cellHeight / 2) - Math.floor(thickness / 2)
-        pushBackgroundQuad(
+        const segment = pushBackgroundQuad(
           x,
           strikeY,
           cellWidth,
           thickness,
           effectiveForeground,
         )
+        if (segment && supportsColumnOffsets && columnEntry) {
+          columnEntry.backgroundSegments.push(segment)
+        }
       }
     }
 
@@ -573,8 +708,28 @@ const buildRowGeometry = (
         bold: Boolean(cell.attr.bold),
         italic: Boolean(cell.attr.italic),
       })
+
+      if (
+        supportsColumnOffsets &&
+        (glyph.width > singleWidthThreshold ||
+          glyph.width <= 0 ||
+          Math.abs(glyph.height - cellHeight) > 0.5)
+      ) {
+        disableColumnOffsets('wide-glyph')
+        columnEntry = null
+      }
+
       const alphaMultiplier = cell.attr.faint ? 0.6 : 1
-      pushGlyphQuad(x, rowY, glyph, effectiveForeground, alphaMultiplier)
+      const segment = pushGlyphQuad(
+        x,
+        rowY,
+        glyph,
+        effectiveForeground,
+        alphaMultiplier,
+      )
+      if (segment && supportsColumnOffsets && columnEntry) {
+        columnEntry.glyphSegments.push(segment)
+      }
     }
   }
 
@@ -586,48 +741,93 @@ const buildRowGeometry = (
     const cursorColor = cursorTheme.color
     const x = cursor.column * cellWidth
 
+    const cursorSegment = (segment: ColumnGeometrySegment | null) => {
+      if (segment && supportsColumnOffsets) {
+        const entry = columnEntries.find(
+          (item) => item.column === cursor.column,
+        )
+        if (entry) {
+          entry.backgroundSegments.push(segment)
+        }
+      }
+    }
+
     switch (cursorShape) {
       case 'underline': {
         const height = Math.max(1, Math.round(cellHeight * 0.2))
-        pushBackgroundQuad(
-          x,
-          rowY + cellHeight - height,
-          cellWidth,
-          height,
-          cursorColor,
-          cursorOpacity,
+        cursorSegment(
+          pushBackgroundQuad(
+            x,
+            rowY + cellHeight - height,
+            cellWidth,
+            height,
+            cursorColor,
+            cursorOpacity,
+          ),
         )
         break
       }
       case 'bar': {
         const width = Math.max(1, Math.round(cellWidth * 0.2))
-        pushBackgroundQuad(
-          x,
-          rowY,
-          width,
-          cellHeight,
-          cursorColor,
-          cursorOpacity,
+        cursorSegment(
+          pushBackgroundQuad(
+            x,
+            rowY,
+            width,
+            cellHeight,
+            cursorColor,
+            cursorOpacity,
+          ),
         )
         break
       }
       case 'block':
       default: {
-        pushBackgroundQuad(
-          x,
-          rowY,
-          cellWidth,
-          cellHeight,
-          cursorColor,
-          cursorOpacity,
+        cursorSegment(
+          pushBackgroundQuad(
+            x,
+            rowY,
+            cellWidth,
+            cellHeight,
+            cursorColor,
+            cursorOpacity,
+          ),
         )
         break
       }
     }
   }
 
+  if (!supportsColumnOffsets && columnEntries.length > 0) {
+    if (
+      typeof process !== 'undefined' &&
+      process.env.NODE_ENV !== 'production'
+    ) {
+      throw new Error(
+        'Row column metadata disabled but column segments were still recorded',
+      )
+    }
+  }
+
   const toFloat32 = (values: number[]): Float32Array =>
     values.length > 0 ? new Float32Array(values) : new Float32Array(0)
+
+  const columns: ReadonlyArray<RowGeometryColumn> = supportsColumnOffsets
+    ? columnEntries.map((entry) => ({
+        column: entry.column,
+        clipStart: entry.clipStart,
+        clipEnd: entry.clipEnd,
+        backgroundSegments: entry.backgroundSegments.map((segment) => ({
+          positions: { ...segment.positions },
+          colors: { ...segment.colors },
+        })),
+        glyphSegments: entry.glyphSegments.map((segment) => ({
+          positions: { ...segment.positions },
+          texCoords: { ...segment.texCoords },
+          colors: { ...segment.colors },
+        })),
+      }))
+    : []
 
   return {
     backgroundPositions: toFloat32(backgroundPositions),
@@ -638,6 +838,9 @@ const buildRowGeometry = (
     backgroundVertexCount,
     glyphVertexCount,
     glyphCount,
+    supportsColumnOffsets,
+    columns,
+    columnMetadataReason,
   }
 }
 
@@ -782,6 +985,7 @@ interface GpuFrameMetrics {
   readonly bytesUploaded: number | null
   readonly dirtyRegionCoverage: number | null
   readonly overlayBytesUploaded: number | null
+  readonly rowMetadata: RowMetadataSummary | null
 }
 
 const updateDiagnostics = (
@@ -797,6 +1001,7 @@ const updateDiagnostics = (
   gpuBytesUploaded: metrics.bytesUploaded,
   gpuDirtyRegionCoverage: metrics.dirtyRegionCoverage,
   gpuOverlayBytesUploaded: metrics.overlayBytesUploaded,
+  gpuRowMetadata: metrics.rowMetadata,
 })
 
 interface GlBufferState {
@@ -974,6 +1179,7 @@ const createWebglRenderer = (
     gpuBytesUploaded: null,
     gpuDirtyRegionCoverage: null,
     gpuOverlayBytesUploaded: null,
+    gpuRowMetadata: null,
     lastOsc: null,
     lastSosPmApc: null,
     lastDcs: null,
@@ -1058,6 +1264,49 @@ const createWebglRenderer = (
     }
   }
 
+  interface ColumnSliceOffsets {
+    readonly backgroundPositions: number
+    readonly backgroundColors: number
+    readonly glyphPositions: number
+    readonly glyphTexCoords: number
+    readonly glyphColors: number
+  }
+
+  const createColumnSlices = (
+    rowGeometry: RowGeometry,
+    baseOffsets: ColumnSliceOffsets,
+  ): ReadonlyArray<RowColumnSlice> => {
+    if (!rowGeometry.supportsColumnOffsets) {
+      return []
+    }
+
+    const toSliceEntry = (
+      entry: RowSliceEntry,
+      base: number,
+    ): RowSliceEntry => ({
+      offset: base + entry.offset,
+      length: entry.length,
+    })
+
+    return rowGeometry.columns.map((column) => ({
+      column: column.column,
+      clipStart: column.clipStart,
+      clipEnd: column.clipEnd,
+      backgroundSegments: column.backgroundSegments.map((segment) => ({
+        positions: toSliceEntry(
+          segment.positions,
+          baseOffsets.backgroundPositions,
+        ),
+        colors: toSliceEntry(segment.colors, baseOffsets.backgroundColors),
+      })),
+      glyphSegments: column.glyphSegments.map((segment) => ({
+        positions: toSliceEntry(segment.positions, baseOffsets.glyphPositions),
+        texCoords: toSliceEntry(segment.texCoords, baseOffsets.glyphTexCoords),
+        colors: toSliceEntry(segment.colors, baseOffsets.glyphColors),
+      })),
+    }))
+  }
+
   const allocateRowSlice = (rowGeometry: RowGeometry): RowSlice => {
     let backgroundOffset = 0
     if (rowGeometry.backgroundPositions.length > 0) {
@@ -1119,6 +1368,14 @@ const createWebglRenderer = (
     totalGlyphCount += rowGeometry.glyphCount
     totalsNeedRecompute = true
 
+    const columnSlices = createColumnSlices(rowGeometry, {
+      backgroundPositions: backgroundOffset,
+      backgroundColors: backgroundColorOffset,
+      glyphPositions: glyphPositionOffset,
+      glyphTexCoords: glyphTexCoordOffset,
+      glyphColors: glyphColorOffset,
+    })
+
     return {
       backgroundPositions: {
         offset: backgroundOffset,
@@ -1144,6 +1401,60 @@ const createWebglRenderer = (
       glyphVertexCount: rowGeometry.glyphVertexCount,
       glyphCount: rowGeometry.glyphCount,
       version: nextSliceVersion(),
+      supportsColumnOffsets: rowGeometry.supportsColumnOffsets,
+      columns: columnSlices,
+      columnMetadataReason: rowGeometry.columnMetadataReason,
+    }
+  }
+
+  const summarizeRowMetadata = (
+    slices: ReadonlyArray<RowSlice | null>,
+  ): RowMetadataSummary | null => {
+    let rowsWithColumnOffsets = 0
+    let rowsWithoutColumnOffsets = 0
+    let disabledBySelection = 0
+    let disabledByWideGlyph = 0
+    let disabledByOverlay = 0
+    let disabledByOther = 0
+    let hasData = false
+
+    for (const slice of slices) {
+      if (!slice) {
+        continue
+      }
+      hasData = true
+      if (slice.supportsColumnOffsets) {
+        rowsWithColumnOffsets += 1
+        continue
+      }
+      rowsWithoutColumnOffsets += 1
+      switch (slice.columnMetadataReason) {
+        case 'selection':
+          disabledBySelection += 1
+          break
+        case 'wide-glyph':
+          disabledByWideGlyph += 1
+          break
+        case 'cursor-overlay':
+          disabledByOverlay += 1
+          break
+        default:
+          disabledByOther += 1
+          break
+      }
+    }
+
+    if (!hasData) {
+      return null
+    }
+
+    return {
+      rowsWithColumnOffsets,
+      rowsWithoutColumnOffsets,
+      disabledBySelection,
+      disabledByWideGlyph,
+      disabledByOverlay,
+      disabledByOther,
     }
   }
 
@@ -1232,6 +1543,14 @@ const createWebglRenderer = (
         )
       }
 
+      const columnSlices = createColumnSlices(rowGeometry, {
+        backgroundPositions: backgroundOffset,
+        backgroundColors: backgroundColorOffset,
+        glyphPositions: glyphPositionOffset,
+        glyphTexCoords: glyphTexCoordOffset,
+        glyphColors: glyphColorOffset,
+      })
+
       rowSlices[row] = {
         backgroundPositions: {
           offset: backgroundOffset,
@@ -1254,6 +1573,9 @@ const createWebglRenderer = (
         glyphVertexCount: rowGeometry.glyphVertexCount,
         glyphCount: rowGeometry.glyphCount,
         version: nextSliceVersion(),
+        supportsColumnOffsets: rowGeometry.supportsColumnOffsets,
+        columns: columnSlices,
+        columnMetadataReason: rowGeometry.columnMetadataReason,
       }
 
       totalBackgroundVertexCount += rowGeometry.backgroundVertexCount
@@ -1621,6 +1943,15 @@ const createWebglRenderer = (
           currentSlice.glyphVertexCount = rowGeometry.glyphVertexCount
           currentSlice.glyphCount = rowGeometry.glyphCount
           currentSlice.version = nextSliceVersion()
+          currentSlice.supportsColumnOffsets = rowGeometry.supportsColumnOffsets
+          currentSlice.columnMetadataReason = rowGeometry.columnMetadataReason
+          currentSlice.columns = createColumnSlices(rowGeometry, {
+            backgroundPositions: currentSlice.backgroundPositions.offset,
+            backgroundColors: currentSlice.backgroundColors.offset,
+            glyphPositions: currentSlice.glyphPositions.offset,
+            glyphTexCoords: currentSlice.glyphTexCoords.offset,
+            glyphColors: currentSlice.glyphColors.offset,
+          })
           rowGeometries[row] = rowGeometry
           totalsNeedRecompute = true
         } else {
@@ -1699,6 +2030,8 @@ const createWebglRenderer = (
         glyphCount: totalGlyphCount,
       }
     }
+
+    const rowMetadataSummary = summarizeRowMetadata(rowSlices)
 
     const glyphCanvas = glyphAtlas.getCanvas()
     const glyphDirty = glyphAtlas.consumeDirtyFlag()
@@ -1950,6 +2283,7 @@ const createWebglRenderer = (
       bytesUploaded,
       dirtyRegionCoverage,
       overlayBytesUploaded,
+      rowMetadata: rowMetadataSummary,
     })
   }
 

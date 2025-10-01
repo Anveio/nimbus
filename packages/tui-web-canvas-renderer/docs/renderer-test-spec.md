@@ -57,6 +57,7 @@ This document enumerates the behaviours we expect the canvas renderer to support
 | Last-frame diagnostics capture draw call count and frame duration | ✅ | Playwright scenario "records OSC, DCS, and SOS diagnostics" checks draw call counts without forcing repaints. |
 | Diagnostics exposed via events (e.g. onFrame) | 🟡 | Reserved for future instrumentation hook. |
 | GPU diagnostics report cells processed, bytes uploaded, and dirty-region coverage | 🟡 | Harness now exposes backend + metrics, and a Playwright scenario asserts the diff counters when WebGL is available (skipped in headless environments without GPU support). |
+| GPU diagnostics summarise row metadata coverage | ✅ | `webgl-row-geometry.test.ts` asserts the single-width column metadata path and the renderer now records selection/wide-glyph fallbacks in `diagnostics.gpuRowMetadata`. |
 
 ## 7. Advanced media (future work)
 

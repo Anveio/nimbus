@@ -151,6 +151,13 @@ describe('buildRowGeometry', () => {
     expect(geometry.glyphCount).toBe(1)
     expect(geometry.backgroundPositions.length % 12).toBe(0)
     expect(geometry.glyphPositions.length).toBe(12)
+    expect(geometry.supportsColumnOffsets).toBe(true)
+    expect(geometry.columnMetadataReason).toBe('supported')
+    expect(geometry.columns).toHaveLength(2)
+    const firstColumn = geometry.columns[0]!
+    expect(firstColumn.column).toBe(0)
+    expect(firstColumn.glyphSegments).toHaveLength(1)
+    expect(firstColumn.glyphSegments[0]!.positions.offset).toBe(0)
   })
 
   it('draws selection highlight before cell backgrounds', () => {
@@ -190,6 +197,9 @@ describe('buildRowGeometry', () => {
     expect(geometry.backgroundColors[0]).toBeCloseTo(r)
     expect(geometry.backgroundColors[1]).toBeCloseTo(g)
     expect(geometry.backgroundColors[2]).toBeCloseTo(b)
+    expect(geometry.supportsColumnOffsets).toBe(false)
+    expect(geometry.columnMetadataReason).toBe('selection')
+    expect(geometry.columns).toHaveLength(0)
   })
 
   it('adds cursor quad when cursor is visible on the row', () => {
@@ -226,5 +236,97 @@ describe('buildRowGeometry', () => {
       geometry.backgroundColors.slice(lastColorIndex, lastColorIndex + 4),
     )
     expect(cursorSlice).toEqual(cursorColor)
+  })
+
+  it('tracks per-column offsets for single-width glyph rows', () => {
+    const snapshot = createSnapshot(1, 3)
+    snapshot.buffer[0]![0] = createCell('A')
+    snapshot.buffer[0]![1] = createCell('B')
+
+    const geometry = buildRowGeometry(
+      {
+        snapshot,
+        metrics,
+        theme,
+        paletteOverrides: new Map(),
+        glyphAtlas,
+        colorCache,
+        fallbackForeground: theme.foreground,
+        fallbackBackground: theme.background,
+        includeCursor: false,
+      },
+      {
+        row: 0,
+        toClipX: (value) =>
+          (value / (snapshot.columns * metrics.cell.width)) * 2 - 1,
+        toClipY: (value) =>
+          1 - (value / (snapshot.rows * metrics.cell.height)) * 2,
+        selectionSegment: null,
+        selectionTheme: theme.selection,
+      },
+    )
+
+    expect(geometry.supportsColumnOffsets).toBe(true)
+    expect(geometry.columnMetadataReason).toBe('supported')
+    expect(geometry.columns).toHaveLength(3)
+
+    const first = geometry.columns[0]!
+    const second = geometry.columns[1]!
+    const third = geometry.columns[2]!
+
+    expect(first.glyphSegments).toHaveLength(1)
+    expect(first.glyphSegments[0]!.positions.offset).toBe(0)
+    expect(first.glyphSegments[0]!.texCoords.offset).toBe(0)
+    expect(first.glyphSegments[0]!.colors.offset).toBe(0)
+
+    expect(second.glyphSegments).toHaveLength(1)
+    expect(second.glyphSegments[0]!.positions.offset).toBe(12)
+    expect(second.glyphSegments[0]!.texCoords.offset).toBe(12)
+    expect(second.glyphSegments[0]!.colors.offset).toBe(24)
+
+    expect(third.glyphSegments).toHaveLength(0)
+  })
+
+  it('disables column metadata when wide glyphs are encountered', () => {
+    const snapshot = createSnapshot(1, 2)
+    snapshot.buffer[0]![0] = createCell('W')
+
+    const wideGlyphAtlas = {
+      getGlyph: (): GlyphInfo => ({
+        width: metrics.cell.width * 2,
+        height: metrics.cell.height,
+        u1: 0,
+        v1: 0,
+        u2: 1,
+        v2: 1,
+      }),
+    } as unknown as GlyphAtlas
+
+    const geometry = buildRowGeometry(
+      {
+        snapshot,
+        metrics,
+        theme,
+        paletteOverrides: new Map(),
+        glyphAtlas: wideGlyphAtlas,
+        colorCache,
+        fallbackForeground: theme.foreground,
+        fallbackBackground: theme.background,
+        includeCursor: false,
+      },
+      {
+        row: 0,
+        toClipX: (value) =>
+          (value / (snapshot.columns * metrics.cell.width)) * 2 - 1,
+        toClipY: (value) =>
+          1 - (value / (snapshot.rows * metrics.cell.height)) * 2,
+        selectionSegment: null,
+        selectionTheme: theme.selection,
+      },
+    )
+
+    expect(geometry.supportsColumnOffsets).toBe(false)
+    expect(geometry.columnMetadataReason).toBe('wide-glyph')
+    expect(geometry.columns).toHaveLength(0)
   })
 })
