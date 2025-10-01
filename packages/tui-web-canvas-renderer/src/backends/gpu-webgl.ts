@@ -262,12 +262,7 @@ const ensureOverlaySize = (
 }
 
 interface FrameGeometry {
-  readonly backgroundPositions: Float32Array
-  readonly backgroundColors: Float32Array
   readonly backgroundVertexCount: number
-  readonly glyphPositions: Float32Array
-  readonly glyphTexCoords: Float32Array
-  readonly glyphColors: Float32Array
   readonly glyphVertexCount: number
   readonly glyphCount: number
 }
@@ -284,17 +279,91 @@ interface BuildGeometryParams {
   readonly includeCursor: boolean
 }
 
-const buildFrameGeometry = ({
-  snapshot,
-  metrics,
-  theme,
-  paletteOverrides,
-  glyphAtlas,
-  colorCache,
-  fallbackForeground,
-  fallbackBackground,
-  includeCursor,
-}: BuildGeometryParams): FrameGeometry => {
+class DynamicFloat32Array {
+  private storage: Float32Array
+  length: number
+
+  constructor(initialCapacity = 1024) {
+    this.storage = new Float32Array(initialCapacity)
+    this.length = 0
+  }
+
+  reset(): void {
+    this.length = 0
+  }
+
+  ensureCapacity(additional: number): void {
+    const required = this.length + additional
+    if (required <= this.storage.length) {
+      return
+    }
+    let nextCapacity = this.storage.length || 1
+    while (nextCapacity < required) {
+      nextCapacity *= 2
+    }
+    const next = new Float32Array(nextCapacity)
+    next.set(this.storage.subarray(0, this.length))
+    this.storage = next
+  }
+
+  extend(count: number): number {
+    this.ensureCapacity(count)
+    const offset = this.length
+    this.length += count
+    return offset
+  }
+
+  get data(): Float32Array {
+    return this.storage
+  }
+
+  view(): Float32Array {
+    return this.storage.subarray(0, this.length)
+  }
+
+  get capacityBytes(): number {
+    return this.storage.byteLength
+  }
+}
+
+interface GeometryBuffers {
+  readonly backgroundPositions: DynamicFloat32Array
+  readonly backgroundColors: DynamicFloat32Array
+  readonly glyphPositions: DynamicFloat32Array
+  readonly glyphTexCoords: DynamicFloat32Array
+  readonly glyphColors: DynamicFloat32Array
+}
+
+const createGeometryBuffers = (): GeometryBuffers => ({
+  backgroundPositions: new DynamicFloat32Array(12 * 256),
+  backgroundColors: new DynamicFloat32Array(24 * 256),
+  glyphPositions: new DynamicFloat32Array(12 * 256),
+  glyphTexCoords: new DynamicFloat32Array(12 * 256),
+  glyphColors: new DynamicFloat32Array(24 * 256),
+})
+
+const resetGeometryBuffers = (buffers: GeometryBuffers): void => {
+  buffers.backgroundPositions.reset()
+  buffers.backgroundColors.reset()
+  buffers.glyphPositions.reset()
+  buffers.glyphTexCoords.reset()
+  buffers.glyphColors.reset()
+}
+
+const buildFrameGeometry = (
+  {
+    snapshot,
+    metrics,
+    theme,
+    paletteOverrides,
+    glyphAtlas,
+    colorCache,
+    fallbackForeground,
+    fallbackBackground,
+    includeCursor,
+  }: BuildGeometryParams,
+  buffers: GeometryBuffers,
+): FrameGeometry => {
   const cellWidth = metrics.cell.width
   const cellHeight = metrics.cell.height
   const logicalWidth = Math.max(1, snapshot.columns * cellWidth)
@@ -303,11 +372,7 @@ const buildFrameGeometry = ({
   const toClipX = (value: number): number => (value / logicalWidth) * 2 - 1
   const toClipY = (value: number): number => 1 - (value / logicalHeight) * 2
 
-  const backgroundPositions: number[] = []
-  const backgroundColors: number[] = []
-  const glyphPositions: number[] = []
-  const glyphTexCoords: number[] = []
-  const glyphColors: number[] = []
+  resetGeometryBuffers(buffers)
 
   let backgroundVertexCount = 0
   let glyphVertexCount = 0
@@ -332,10 +397,28 @@ const buildFrameGeometry = ({
     const y1 = toClipY(y + height)
     const y2 = toClipY(y)
 
-    backgroundPositions.push(x1, y1, x2, y1, x1, y2, x1, y2, x2, y1, x2, y2)
+    const positionOffset = buffers.backgroundPositions.extend(12)
+    const positions = buffers.backgroundPositions.data
+    positions[positionOffset + 0] = x1
+    positions[positionOffset + 1] = y1
+    positions[positionOffset + 2] = x2
+    positions[positionOffset + 3] = y1
+    positions[positionOffset + 4] = x1
+    positions[positionOffset + 5] = y2
+    positions[positionOffset + 6] = x1
+    positions[positionOffset + 7] = y2
+    positions[positionOffset + 8] = x2
+    positions[positionOffset + 9] = y1
+    positions[positionOffset + 10] = x2
+    positions[positionOffset + 11] = y2
 
-    for (let index = 0; index < 6; index += 1) {
-      backgroundColors.push(r, g, b, alpha)
+    const colorOffset = buffers.backgroundColors.extend(24)
+    const colors = buffers.backgroundColors.data
+    for (let index = 0; index < 24; index += 4) {
+      colors[colorOffset + index + 0] = r
+      colors[colorOffset + index + 1] = g
+      colors[colorOffset + index + 2] = b
+      colors[colorOffset + index + 3] = alpha
     }
 
     backgroundVertexCount += 6
@@ -359,25 +442,43 @@ const buildFrameGeometry = ({
     const y1 = toClipY(y + glyph.height)
     const y2 = toClipY(y)
 
-    glyphPositions.push(x1, y1, x2, y1, x1, y2, x1, y2, x2, y1, x2, y2)
+    const positionOffset = buffers.glyphPositions.extend(12)
+    const positions = buffers.glyphPositions.data
+    positions[positionOffset + 0] = x1
+    positions[positionOffset + 1] = y1
+    positions[positionOffset + 2] = x2
+    positions[positionOffset + 3] = y1
+    positions[positionOffset + 4] = x1
+    positions[positionOffset + 5] = y2
+    positions[positionOffset + 6] = x1
+    positions[positionOffset + 7] = y2
+    positions[positionOffset + 8] = x2
+    positions[positionOffset + 9] = y1
+    positions[positionOffset + 10] = x2
+    positions[positionOffset + 11] = y2
 
-    glyphTexCoords.push(
-      glyph.u1,
-      glyph.v1,
-      glyph.u2,
-      glyph.v1,
-      glyph.u1,
-      glyph.v2,
-      glyph.u1,
-      glyph.v2,
-      glyph.u2,
-      glyph.v1,
-      glyph.u2,
-      glyph.v2,
-    )
+    const texCoordOffset = buffers.glyphTexCoords.extend(12)
+    const texCoords = buffers.glyphTexCoords.data
+    texCoords[texCoordOffset + 0] = glyph.u1
+    texCoords[texCoordOffset + 1] = glyph.v1
+    texCoords[texCoordOffset + 2] = glyph.u2
+    texCoords[texCoordOffset + 3] = glyph.v1
+    texCoords[texCoordOffset + 4] = glyph.u1
+    texCoords[texCoordOffset + 5] = glyph.v2
+    texCoords[texCoordOffset + 6] = glyph.u1
+    texCoords[texCoordOffset + 7] = glyph.v2
+    texCoords[texCoordOffset + 8] = glyph.u2
+    texCoords[texCoordOffset + 9] = glyph.v1
+    texCoords[texCoordOffset + 10] = glyph.u2
+    texCoords[texCoordOffset + 11] = glyph.v2
 
-    for (let index = 0; index < 6; index += 1) {
-      glyphColors.push(r, g, b, alpha)
+    const colorOffset = buffers.glyphColors.extend(24)
+    const colors = buffers.glyphColors.data
+    for (let index = 0; index < 24; index += 4) {
+      colors[colorOffset + index + 0] = r
+      colors[colorOffset + index + 1] = g
+      colors[colorOffset + index + 2] = b
+      colors[colorOffset + index + 3] = alpha
     }
 
     glyphVertexCount += 6
@@ -539,12 +640,7 @@ const buildFrameGeometry = ({
   }
 
   return {
-    backgroundPositions: new Float32Array(backgroundPositions),
-    backgroundColors: new Float32Array(backgroundColors),
     backgroundVertexCount,
-    glyphPositions: new Float32Array(glyphPositions),
-    glyphTexCoords: new Float32Array(glyphTexCoords),
-    glyphColors: new Float32Array(glyphColors),
     glyphVertexCount,
     glyphCount,
   }
@@ -694,6 +790,27 @@ const updateDiagnostics = (
   gpuDrawCallCount: drawCalls,
 })
 
+interface GlBufferState {
+  capacityBytes: number
+}
+
+const createGlBufferState = (): GlBufferState => ({ capacityBytes: 0 })
+
+const ensureArrayBufferCapacity = (
+  gl: WebGLRenderingContext | WebGL2RenderingContext,
+  target: GLenum,
+  state: GlBufferState,
+  requiredBytes: number,
+) => {
+  if (requiredBytes <= 0) {
+    return
+  }
+  if (state.capacityBytes !== requiredBytes) {
+    gl.bufferData(target, requiredBytes, gl.DYNAMIC_DRAW)
+    state.capacityBytes = requiredBytes
+  }
+}
+
 const createWebglRenderer = (
   gl: WebGLRenderingContext | WebGL2RenderingContext,
   options: CanvasRendererOptions,
@@ -784,6 +901,8 @@ const createWebglRenderer = (
     gl.bufferData(gl.ARRAY_BUFFER, OVERLAY_TEX_COORDS, gl.STATIC_DRAW)
   }
 
+  const geometryBuffers = createGeometryBuffers()
+
   const glyphTexture = createTexture(gl)
   const uploadGlyphTexture = createTextureUploader(gl, glyphTexture)
 
@@ -791,6 +910,12 @@ const createWebglRenderer = (
   const uploadOverlayTexture = overlayTexture
     ? createTextureUploader(gl, overlayTexture)
     : null
+
+  const backgroundPositionBufferState = createGlBufferState()
+  const backgroundColorBufferState = createGlBufferState()
+  const glyphPositionBufferState = createGlBufferState()
+  const glyphTexCoordBufferState = createGlBufferState()
+  const glyphColorBufferState = createGlBufferState()
 
   let disposed = false
   let metrics = options.metrics
@@ -835,17 +960,26 @@ const createWebglRenderer = (
       ? theme.foreground
       : theme.background
 
-    const geometry = buildFrameGeometry({
-      snapshot,
-      metrics,
-      theme,
-      paletteOverrides,
-      glyphAtlas,
-      colorCache,
-      fallbackForeground,
-      fallbackBackground,
-      includeCursor: !customCursorOverlay,
-    })
+    const geometry = buildFrameGeometry(
+      {
+        snapshot,
+        metrics,
+        theme,
+        paletteOverrides,
+        glyphAtlas,
+        colorCache,
+        fallbackForeground,
+        fallbackBackground,
+        includeCursor: !customCursorOverlay,
+      },
+      geometryBuffers,
+    )
+
+    const backgroundPositionsView = geometryBuffers.backgroundPositions.view()
+    const backgroundColorsView = geometryBuffers.backgroundColors.view()
+    const glyphPositionsView = geometryBuffers.glyphPositions.view()
+    const glyphTexCoordsView = geometryBuffers.glyphTexCoords.view()
+    const glyphColorsView = geometryBuffers.glyphColors.view()
 
     const glyphCanvas = glyphAtlas.getCanvas()
     const glyphDirty = glyphAtlas.consumeDirtyFlag()
@@ -866,11 +1000,15 @@ const createWebglRenderer = (
     if (geometry.backgroundVertexCount > 0) {
       gl.useProgram(backgroundProgram)
       gl.bindBuffer(gl.ARRAY_BUFFER, backgroundPositionBuffer)
-      gl.bufferData(
+      ensureArrayBufferCapacity(
+        gl,
         gl.ARRAY_BUFFER,
-        geometry.backgroundPositions,
-        gl.DYNAMIC_DRAW,
+        backgroundPositionBufferState,
+        geometryBuffers.backgroundPositions.capacityBytes,
       )
+      if (backgroundPositionsView.length > 0) {
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, backgroundPositionsView)
+      }
       gl.enableVertexAttribArray(backgroundPositionLocation)
       gl.vertexAttribPointer(
         backgroundPositionLocation,
@@ -882,7 +1020,15 @@ const createWebglRenderer = (
       )
 
       gl.bindBuffer(gl.ARRAY_BUFFER, backgroundColorBuffer)
-      gl.bufferData(gl.ARRAY_BUFFER, geometry.backgroundColors, gl.DYNAMIC_DRAW)
+      ensureArrayBufferCapacity(
+        gl,
+        gl.ARRAY_BUFFER,
+        backgroundColorBufferState,
+        geometryBuffers.backgroundColors.capacityBytes,
+      )
+      if (backgroundColorsView.length > 0) {
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, backgroundColorsView)
+      }
       gl.enableVertexAttribArray(backgroundColorLocation)
       gl.vertexAttribPointer(backgroundColorLocation, 4, gl.FLOAT, false, 0, 0)
 
@@ -893,17 +1039,41 @@ const createWebglRenderer = (
     if (geometry.glyphVertexCount > 0) {
       gl.useProgram(glyphProgram)
       gl.bindBuffer(gl.ARRAY_BUFFER, glyphPositionBuffer)
-      gl.bufferData(gl.ARRAY_BUFFER, geometry.glyphPositions, gl.DYNAMIC_DRAW)
+      ensureArrayBufferCapacity(
+        gl,
+        gl.ARRAY_BUFFER,
+        glyphPositionBufferState,
+        geometryBuffers.glyphPositions.capacityBytes,
+      )
+      if (glyphPositionsView.length > 0) {
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, glyphPositionsView)
+      }
       gl.enableVertexAttribArray(glyphPositionLocation)
       gl.vertexAttribPointer(glyphPositionLocation, 2, gl.FLOAT, false, 0, 0)
 
       gl.bindBuffer(gl.ARRAY_BUFFER, glyphTexCoordBuffer)
-      gl.bufferData(gl.ARRAY_BUFFER, geometry.glyphTexCoords, gl.DYNAMIC_DRAW)
+      ensureArrayBufferCapacity(
+        gl,
+        gl.ARRAY_BUFFER,
+        glyphTexCoordBufferState,
+        geometryBuffers.glyphTexCoords.capacityBytes,
+      )
+      if (glyphTexCoordsView.length > 0) {
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, glyphTexCoordsView)
+      }
       gl.enableVertexAttribArray(glyphTexCoordLocation)
       gl.vertexAttribPointer(glyphTexCoordLocation, 2, gl.FLOAT, false, 0, 0)
 
       gl.bindBuffer(gl.ARRAY_BUFFER, glyphColorBuffer)
-      gl.bufferData(gl.ARRAY_BUFFER, geometry.glyphColors, gl.DYNAMIC_DRAW)
+      ensureArrayBufferCapacity(
+        gl,
+        gl.ARRAY_BUFFER,
+        glyphColorBufferState,
+        geometryBuffers.glyphColors.capacityBytes,
+      )
+      if (glyphColorsView.length > 0) {
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, glyphColorsView)
+      }
       gl.enableVertexAttribArray(glyphColorLocation)
       gl.vertexAttribPointer(glyphColorLocation, 4, gl.FLOAT, false, 0, 0)
 

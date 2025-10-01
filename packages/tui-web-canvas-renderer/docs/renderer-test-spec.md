@@ -14,16 +14,16 @@ This document enumerates the behaviours we expect the canvas renderer to support
 
 | Scenario | Status | Notes |
 | --- | --- | --- |
-| Initial render paints theme background across entire viewport | ✅ | `createCanvasRenderer` initialises canvas dimensions, fills theme background (`createCanvasRenderer.test.ts` "initial-background"). |
-| Theme swap repaints background colour without changing diagnostics semantics | ✅ | `setTheme` test ensures redraw + diagnostics update. |
+| Initial render paints theme background across entire viewport | ✅ | Playwright `renderer.spec.ts` scenario "paints the initial snapshot" runs in Chromium and asserts the background pixels. |
+| Theme swap repaints background colour without changing diagnostics semantics | ✅ | Covered by the Playwright "setTheme triggers repaint" scenario. |
 | Palette swap retains existing glyphs but updates colours in-place | 🟡 | Requires partial repaint support once implemented. |
 
 ## 2. Cell rendering & colour attributes
 
 | Scenario | Status | Notes |
 | --- | --- | --- |
-| Applying a cell update with background colour repaints the correct rectangle | ✅ | `update-cell-bg` comparison. |
-| Foreground palette colour renders glyphs with the expected tone | ✅ | New `foreground-palette` test to assert against rendered text. |
+| Applying a cell update with background colour repaints the correct rectangle | ✅ | Playwright scenario "applies cell updates" reads canvas pixels after applying VT updates. |
+| Foreground palette colour renders glyphs with the expected tone | ✅ | Playwright scenario "renders foreground glyphs" scans rendered glyph pixels in-browser. |
 | Truecolour (24-bit) foreground/background combinations | 🟡 | Needs renderer support for RGB SGR codes. |
 | SGR reset restores default attributes | 🟡 | Add when attribute state machine is wired. |
 
@@ -39,7 +39,7 @@ This document enumerates the behaviours we expect the canvas renderer to support
 
 | Scenario | Status | Notes |
 | --- | --- | --- |
-| Visible block cursor draws using theme cursor colour | ✅ | Pixel probe test (`cursor` case). |
+| Visible block cursor draws using theme cursor colour | ✅ | Playwright scenario "draws the cursor when visible" samples the cursor cell. |
 | Cursor blink toggles via diagnostics instrumentation | 🟡 | Need timer-driven renderer support. |
 | Selection overlay draws translucent rectangle matching selection bounds | ⛔️ | Feature not implemented yet. |
 
@@ -47,14 +47,14 @@ This document enumerates the behaviours we expect the canvas renderer to support
 
 | Scenario | Status | Notes |
 | --- | --- | --- |
-| Resizing with updated metrics adjusts backing store & DPR scaling | ✅ | `resize` test ensures width/height changes. |
+| Resizing with updated metrics adjusts backing store & DPR scaling | ✅ | Playwright scenario "recalculates canvas size on resize" verifies diagnostics after resizing. |
 | Renderer recomputes tab stops / cursor bounds on resize | 🟡 | Add when renderer exposes snapshots of these mechanics. |
 
 ## 6. Diagnostics & instrumentation
 
 | Scenario | Status | Notes |
 | --- | --- | --- |
-| Last-frame diagnostics capture draw call count and frame duration | ✅ | Assertions in existing tests verify non-null metrics. |
+| Last-frame diagnostics capture draw call count and frame duration | ✅ | Playwright scenario "records OSC, DCS, and SOS diagnostics" checks draw call counts without forcing repaints. |
 | Diagnostics exposed via events (e.g. onFrame) | 🟡 | Reserved for future instrumentation hook. |
 
 ## 7. Advanced media (future work)
@@ -69,10 +69,10 @@ This document enumerates the behaviours we expect the canvas renderer to support
 
 ## Test naming conventions
 
-Each automated scenario writes artefacts under `test/__artifacts__/<case>/` so failures have a pointer to actual vs expected output. When adding new tests:
+Playwright captures traces, videos, and screenshot diffs under `test-results/` for failing scenarios. When adding new tests:
 
 1. Document the scenario here with ✅/🟡/⛔️.
-2. Use a descriptive `caseName` slug (e.g. `foreground-palette`), matching the table entry.
-3. Ensure expected images are generated deterministically to keep the diff noise-free.
+2. Prefer descriptive `test()` names that match the table entry so Playwright artifacts are easy to correlate.
+3. When using `expect(...).toHaveScreenshot`, commit deterministic baselines and describe the intent in this document.
 
 This spec evolves alongside renderer capability; when the implementation grows (e.g. selection painting, RGB colours) we’ll promote 🟡/⛔️ entries to ✅ as the tests land.

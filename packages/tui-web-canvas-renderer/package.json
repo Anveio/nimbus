@@ -7,19 +7,18 @@
   "types": "src/index.ts",
   "scripts": {
     "clean": "git clean -xfd .",
-    "test": "vitest run --reporter=dot --silent",
-    "test:watch": "vitest --reporter=default --silent=false",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
     "lint": "biome lint .",
     "lint:fix": "biome lint --fix . && biome format --write .",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.1",
     "@types/node": "^24.5.2",
-    "@types/pixelmatch": "^5.2.6",
-    "canvas": "^3.2.0",
-    "pixelmatch": "^7.1.0",
-    "typescript": "^5.9.2",
-    "vitest": "^3.2.4"
+    "esbuild": "^0.24.0",
+    "typescript": "^5.9.2"
   },
   "dependencies": {
     "@mana-ssh/vt": "workspace:*"
