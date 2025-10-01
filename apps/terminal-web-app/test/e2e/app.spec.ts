@@ -62,7 +62,7 @@ const deriveSelectedText = (
   return lines.join('\n')
 }
 
-const STRIP_ANSI_PATTERN = /\u001b\[[0-9;?]*[ -\/]*[@-~]/g
+const STRIP_ANSI_PATTERN = /\u001b\[[0-9;?]*[ -/]*[@-~]/g
 
 const stripAnsi = (value: string): string =>
   value.replace(STRIP_ANSI_PATTERN, '')
@@ -167,7 +167,10 @@ test.describe('terminal e2e harness', () => {
   test('renders the welcome banner with the WebGL renderer', async ({
     page,
   }) => {
-    test.fixme(true, 'WebGL backend blocked in headless Chromium; tracked for follow-up')
+    test.fixme(
+      true,
+      'WebGL backend blocked in headless Chromium; tracked for follow-up',
+    )
     test.setTimeout(6_000)
     await page.goto('/?renderer=webgl')
 
@@ -328,7 +331,10 @@ test.describe('terminal e2e harness', () => {
         return false
       }
       const snapshot = handle.getSnapshot()
-      const row = snapshot.buffer[0]?.map((cell) => cell?.char ?? ' ').join('').trimEnd()
+      const row = snapshot.buffer[0]
+        ?.map((cell) => cell?.char ?? ' ')
+        .join('')
+        .trimEnd()
       return row === 'foo'
     })
 
@@ -349,7 +355,10 @@ test.describe('terminal e2e harness', () => {
         return false
       }
       const snapshot = handle.getSnapshot()
-      const row = snapshot.buffer[0]?.map((cell) => cell?.char ?? ' ').join('').trimEnd()
+      const row = snapshot.buffer[0]
+        ?.map((cell) => cell?.char ?? ' ')
+        .join('')
+        .trimEnd()
       return row === 'TES'
     })
 
@@ -429,13 +438,16 @@ test.describe('terminal e2e harness', () => {
     })
 
     // 1. Single chunk emoji as raw bytes.
-    await page.evaluate((chunk) => {
-      const handle = window.__manaTerminalTestHandle__
-      if (!handle) {
-        throw new Error('Terminal handle unavailable')
-      }
-      handle.write(new Uint8Array(chunk))
-    }, [0xf0, 0x9f, 0x91, 0x8b])
+    await page.evaluate(
+      (chunk) => {
+        const handle = window.__manaTerminalTestHandle__
+        if (!handle) {
+          throw new Error('Terminal handle unavailable')
+        }
+        handle.write(new Uint8Array(chunk))
+      },
+      [0xf0, 0x9f, 0x91, 0x8b],
+    )
 
     await expect.poll(() => readRow(0)).toBe('👋')
 
@@ -445,18 +457,21 @@ test.describe('terminal e2e harness', () => {
     })
 
     // 2. Emoji split across two writes to verify buffering works across boundaries.
-    await page.evaluate((chunks) => {
-      const handle = window.__manaTerminalTestHandle__
-      if (!handle) {
-        throw new Error('Terminal handle unavailable')
-      }
-      for (const chunk of chunks) {
-        handle.write(new Uint8Array(chunk))
-      }
-    }, [
-      [0xf0, 0x9f],
-      [0x92, 0x96],
-    ])
+    await page.evaluate(
+      (chunks) => {
+        const handle = window.__manaTerminalTestHandle__
+        if (!handle) {
+          throw new Error('Terminal handle unavailable')
+        }
+        for (const chunk of chunks) {
+          handle.write(new Uint8Array(chunk))
+        }
+      },
+      [
+        [0xf0, 0x9f],
+        [0x92, 0x96],
+      ],
+    )
 
     await expect.poll(() => readRow(1)).toBe('💖')
 
@@ -465,18 +480,18 @@ test.describe('terminal e2e harness', () => {
     })
 
     // 3. Unterminated multibyte sequence followed by ASCII should yield replacement + ASCII.
-    await page.evaluate((chunks) => {
-      const handle = window.__manaTerminalTestHandle__
-      if (!handle) {
-        throw new Error('Terminal handle unavailable')
-      }
-      for (const chunk of chunks) {
-        handle.write(new Uint8Array(chunk))
-      }
-    }, [
-      [0xf0],
-      [0x41],
-    ])
+    await page.evaluate(
+      (chunks) => {
+        const handle = window.__manaTerminalTestHandle__
+        if (!handle) {
+          throw new Error('Terminal handle unavailable')
+        }
+        for (const chunk of chunks) {
+          handle.write(new Uint8Array(chunk))
+        }
+      },
+      [[0xf0], [0x41]],
+    )
 
     await expect.poll(() => readRow(2)).toBe('\ufffdA')
 
@@ -504,7 +519,9 @@ test.describe('terminal e2e harness', () => {
       position: { x: number; y: number } = { x: 10, y: 10 },
     ): Promise<[number, number, number]> => {
       return page.evaluate(({ x, y }) => {
-        const canvas = document.querySelector('canvas') as HTMLCanvasElement | null
+        const canvas = document.querySelector(
+          'canvas',
+        ) as HTMLCanvasElement | null
         if (!canvas) {
           throw new Error('Canvas element not found')
         }
@@ -532,11 +549,15 @@ test.describe('terminal e2e harness', () => {
       window.__manaTerminalTestHandle__?.write('\u001b[?5h')
     })
 
-    await expect.poll(() =>
-      page.evaluate(() =>
-        window.__manaTerminalTestHandle__?.getSnapshot().reverseVideo ?? false,
-      ),
-    ).toBe(true)
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            window.__manaTerminalTestHandle__?.getSnapshot().reverseVideo ??
+            false,
+        ),
+      )
+      .toBe(true)
 
     await page.waitForTimeout(50)
     const after = await readPixel()
@@ -548,16 +569,22 @@ test.describe('terminal e2e harness', () => {
       window.__manaTerminalTestHandle__?.write('\u001b[?5l')
     })
 
-    await expect.poll(() =>
-      page.evaluate(() =>
-        window.__manaTerminalTestHandle__?.getSnapshot().reverseVideo ?? true,
-      ),
-    ).toBe(false)
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            window.__manaTerminalTestHandle__?.getSnapshot().reverseVideo ??
+            true,
+        ),
+      )
+      .toBe(false)
 
     await page.waitForTimeout(50)
     const reverted = await readPixel()
     const brightnessReverted = reverted[0] + reverted[1] + reverted[2]
-    expect(Math.abs(brightnessReverted - brightnessBefore)).toBeLessThanOrEqual(60)
+    expect(Math.abs(brightnessReverted - brightnessBefore)).toBeLessThanOrEqual(
+      60,
+    )
   })
 
   test('renders SGR sequences with colon separators', async ({ page }) => {
@@ -616,7 +643,9 @@ test.describe('terminal e2e harness', () => {
       if (!snapshot) {
         return null
       }
-      return snapshot.buffer[0]?.slice(0, 2).map((cell) => cell?.char ?? '') ?? []
+      return (
+        snapshot.buffer[0]?.slice(0, 2).map((cell) => cell?.char ?? '') ?? []
+      )
     })
 
     expect(chars).toEqual(['─', '─'])
@@ -629,8 +658,8 @@ test.describe('terminal e2e harness', () => {
     await terminal.click()
 
     await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
-    const initialCount = await page.evaluate(() =>
-      window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
+    const initialCount = await page.evaluate(
+      () => window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
     )
 
     await page.evaluate(() => {
@@ -644,84 +673,100 @@ test.describe('terminal e2e harness', () => {
       '?62;1;2;6;7;8;9c',
     )
 
-    const afterPrimaryCount = await page.evaluate(() =>
-      window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
+    const afterPrimaryCount = await page.evaluate(
+      () => window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
     )
 
     await page.evaluate(() => {
       window.__manaTerminalTestHandle__?.write('\u001b[>0c')
     })
 
-    const secondaryResponses = await getResponseCodesFrom(page, afterPrimaryCount)
+    const secondaryResponses = await getResponseCodesFrom(
+      page,
+      afterPrimaryCount,
+    )
     const secondaryDeviceAttributes = secondaryResponses.pop() ?? []
     expect(secondaryDeviceAttributes[0]).toBe(0x9b)
-    expect(normaliseDeviceAttributes(secondaryDeviceAttributes)).toBe('>62;1;2c')
+    expect(normaliseDeviceAttributes(secondaryDeviceAttributes)).toBe(
+      '>62;1;2c',
+    )
 
-    const afterSecondaryCount = await page.evaluate(() =>
-      window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
+    const afterSecondaryCount = await page.evaluate(
+      () => window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
     )
 
     await page.evaluate(() => {
       window.__manaTerminalTestHandle__?.write('\u001b[?6$p')
     })
 
-    await expect.poll(async () => {
-      const codes = await getResponseCodesFrom(page, afterSecondaryCount)
-      const match = codes.find((entry) => normaliseDeviceAttributes(entry).includes('?6;'))
-      return match ? normaliseDeviceAttributes(match) : null
-    }).toContain('?6;')
+    await expect
+      .poll(async () => {
+        const codes = await getResponseCodesFrom(page, afterSecondaryCount)
+        const match = codes.find((entry) =>
+          normaliseDeviceAttributes(entry).includes('?6;'),
+        )
+        return match ? normaliseDeviceAttributes(match) : null
+      })
+      .toContain('?6;')
 
-    const afterStatusCount = await page.evaluate(() =>
-      window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
+    const afterStatusCount = await page.evaluate(
+      () => window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
     )
 
     await page.evaluate(() => {
       window.__manaTerminalTestHandle__?.write('\u001b[5n')
     })
 
-    await expect.poll(async () => {
-      const codes = await getResponseCodesFrom(page, afterStatusCount)
-      const match = codes.find(
-        (entry) => normaliseDeviceAttributes(entry) === '0n',
-      )
-      return match ? normaliseDeviceAttributes(match) : null
-    }).toBe('0n')
+    await expect
+      .poll(async () => {
+        const codes = await getResponseCodesFrom(page, afterStatusCount)
+        const match = codes.find(
+          (entry) => normaliseDeviceAttributes(entry) === '0n',
+        )
+        return match ? normaliseDeviceAttributes(match) : null
+      })
+      .toBe('0n')
 
     await page.evaluate(() => {
       window.__manaTerminalTestHandle__?.write('\u001b[10;20H')
     })
 
-    const afterCprCount = await page.evaluate(() =>
-      window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
+    const afterCprCount = await page.evaluate(
+      () => window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
     )
 
     await page.evaluate(() => {
       window.__manaTerminalTestHandle__?.write('\u001b[6n')
     })
 
-    await expect.poll(async () => {
-      const codes = await getResponseCodesFrom(page, afterCprCount)
-      const match = codes.find(
-        (entry) => normaliseDeviceAttributes(entry) === '10;20R',
-      )
-      return match ? normaliseDeviceAttributes(match) : null
-    }).toBe('10;20R')
+    await expect
+      .poll(async () => {
+        const codes = await getResponseCodesFrom(page, afterCprCount)
+        const match = codes.find(
+          (entry) => normaliseDeviceAttributes(entry) === '10;20R',
+        )
+        return match ? normaliseDeviceAttributes(match) : null
+      })
+      .toBe('10;20R')
 
-    const afterDecidCount = await page.evaluate(() =>
-      window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
+    const afterDecidCount = await page.evaluate(
+      () => window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
     )
 
     await page.evaluate(() => {
       window.__manaTerminalTestHandle__?.write('\u001bZ')
     })
 
-    await expect.poll(async () => {
-      const codes = await getResponseCodesFrom(page, afterDecidCount)
-      const match = codes.find(
-        (entry) => entry.length === 3 && entry[0] === 0x1b && entry[1] === 0x2f,
-      )
-      return match ? match : null
-    }).toEqual([0x1b, 0x2f, 0x5a])
+    await expect
+      .poll(async () => {
+        const codes = await getResponseCodesFrom(page, afterDecidCount)
+        const match = codes.find(
+          (entry) =>
+            entry.length === 3 && entry[0] === 0x1b && entry[1] === 0x2f,
+        )
+        return match ? match : null
+      })
+      .toEqual([0x1b, 0x2f, 0x5a])
 
     await page.evaluate(() => {
       window.__manaTerminalTestHandle__?.write(
@@ -729,21 +774,23 @@ test.describe('terminal e2e harness', () => {
       )
     })
 
-    const afterEnqCount = await page.evaluate(() =>
-      window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
+    const afterEnqCount = await page.evaluate(
+      () => window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
     )
 
     await page.evaluate(() => {
       window.__manaTerminalTestHandle__?.write('\u0005')
     })
 
-    await expect.poll(async () => {
-      const codes = await getResponseCodesFrom(page, afterEnqCount)
-      const match = codes.find((entry) =>
-        String.fromCharCode(...entry) === 'E2E-ANSWERBACK',
-      )
-      return match ? String.fromCharCode(...match) : null
-    }).toBe('E2E-ANSWERBACK')
+    await expect
+      .poll(async () => {
+        const codes = await getResponseCodesFrom(page, afterEnqCount)
+        const match = codes.find(
+          (entry) => String.fromCharCode(...entry) === 'E2E-ANSWERBACK',
+        )
+        return match ? String.fromCharCode(...match) : null
+      })
+      .toBe('E2E-ANSWERBACK')
 
     await page.evaluate(() => {
       window.__manaTerminalTestHandle__?.write('\u001b[?4i')
@@ -765,8 +812,7 @@ test.describe('terminal e2e harness', () => {
     ).toBe(true)
     expect(
       printerEvents?.some(
-        (event) =>
-          event.type === 'auto-print-mode' && event.enabled === true,
+        (event) => event.type === 'auto-print-mode' && event.enabled === true,
       ),
     ).toBe(true)
     expect(
@@ -777,9 +823,9 @@ test.describe('terminal e2e harness', () => {
         return String.fromCharCode(...event.data) === 'PRINTER-DATA'
       }),
     ).toBe(true)
-    expect(
-      printerEvents?.some((event) => event.type === 'print-screen'),
-    ).toBe(true)
+    expect(printerEvents?.some((event) => event.type === 'print-screen')).toBe(
+      true,
+    )
   })
 
   test('switches C1 transmission using S7C1T', async ({ page }) => {
@@ -790,8 +836,8 @@ test.describe('terminal e2e harness', () => {
 
     await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
 
-    const initialCount = await page.evaluate(() =>
-      window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
+    const initialCount = await page.evaluate(
+      () => window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
     )
 
     await page.evaluate(() => {
@@ -802,31 +848,38 @@ test.describe('terminal e2e harness', () => {
     const initialDeviceAttributes = initialResponses.pop() ?? []
     expect(initialDeviceAttributes[0]).toBe(0x9b)
 
-    await expect.poll(() =>
-      page.evaluate(
-        () => window.__manaTerminalTestHandle__?.getSnapshot().c1Transmission,
-      ),
-    ).toBe('8-bit')
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => window.__manaTerminalTestHandle__?.getSnapshot().c1Transmission,
+        ),
+      )
+      .toBe('8-bit')
 
     await page.evaluate(() => {
       window.__manaTerminalTestHandle__?.write('\u001b[?66h')
     })
 
-    await expect.poll(() =>
-      page.evaluate(
-        () => window.__manaTerminalTestHandle__?.getSnapshot().c1Transmission,
-      ),
-    ).toBe('7-bit')
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => window.__manaTerminalTestHandle__?.getSnapshot().c1Transmission,
+        ),
+      )
+      .toBe('7-bit')
 
-    const afterToggleCount = await page.evaluate(() =>
-      window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
+    const afterToggleCount = await page.evaluate(
+      () => window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
     )
 
     await page.evaluate(() => {
       window.__manaTerminalTestHandle__?.write('\u001b[c')
     })
 
-    const responsesAfterToggle = await getResponseCodesFrom(page, afterToggleCount)
+    const responsesAfterToggle = await getResponseCodesFrom(
+      page,
+      afterToggleCount,
+    )
     const sevenBitResponse = responsesAfterToggle.pop() ?? []
     expect(sevenBitResponse.slice(0, 2)).toEqual([0x1b, 0x5b])
 
@@ -834,21 +887,26 @@ test.describe('terminal e2e harness', () => {
       window.__manaTerminalTestHandle__?.write('\u001b[?66l')
     })
 
-    await expect.poll(() =>
-      page.evaluate(
-        () => window.__manaTerminalTestHandle__?.getSnapshot().c1Transmission,
-      ),
-    ).toBe('8-bit')
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => window.__manaTerminalTestHandle__?.getSnapshot().c1Transmission,
+        ),
+      )
+      .toBe('8-bit')
 
-    const afterRestoreCount = await page.evaluate(() =>
-      window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
+    const afterRestoreCount = await page.evaluate(
+      () => window.__manaTerminalTestHandle__?.getResponses().length ?? 0,
     )
 
     await page.evaluate(() => {
       window.__manaTerminalTestHandle__?.write('\u001b[c')
     })
 
-    const responsesAfterRestore = await getResponseCodesFrom(page, afterRestoreCount)
+    const responsesAfterRestore = await getResponseCodesFrom(
+      page,
+      afterRestoreCount,
+    )
     const eightBitResponse = responsesAfterRestore.pop() ?? []
     expect(eightBitResponse[0]).toBe(0x9b)
   })
@@ -958,9 +1016,9 @@ test.describe('terminal e2e harness', () => {
       })
     }
 
-    await expect.poll(async () => (await getRowChars()).join('').trimEnd()).toBe(
-      'ABCD',
-    )
+    await expect
+      .poll(async () => (await getRowChars()).join('').trimEnd())
+      .toBe('ABCD')
 
     // Move cursor two columns left (ESC [ 2 D)
     await page.evaluate(() => {
@@ -969,36 +1027,27 @@ test.describe('terminal e2e harness', () => {
 
     // Type X in replace mode (default IRM off)
     await page.keyboard.type('X')
-    await expect.poll(async () => (await getRowChars()).join('').trimEnd()).toBe(
-      'ABXD',
-    )
+    await expect
+      .poll(async () => (await getRowChars()).join('').trimEnd())
+      .toBe('ABXD')
 
     // Enable insert mode and type Y
     await page.evaluate(() => {
       window.__manaTerminalTestHandle__?.write('\u001b[4h')
     })
     await page.keyboard.type('Y')
-    await expect.poll(async () => (await getRowChars()).slice(0, 6)).toEqual([
-      'A',
-      'B',
-      'X',
-      'Y',
-      ' ',
-      ' ',
-    ])
+    await expect
+      .poll(async () => (await getRowChars()).slice(0, 6))
+      .toEqual(['A', 'B', 'X', 'Y', ' ', ' '])
 
     // Disable insert mode and type Z (should overwrite)
     await page.evaluate(() => {
       window.__manaTerminalTestHandle__?.write('\u001b[4l')
     })
     await page.keyboard.type('Z')
-    await expect.poll(async () => (await getRowChars()).slice(0, 5)).toEqual([
-      'A',
-      'B',
-      'X',
-      'Y',
-      'Z',
-    ])
+    await expect
+      .poll(async () => (await getRowChars()).slice(0, 5))
+      .toEqual(['A', 'B', 'X', 'Y', 'Z'])
 
     expect((await getRowChars()).join('').trimEnd()).toBe('ABXYZ')
   })
@@ -1013,10 +1062,13 @@ test.describe('webgl dirty rendering', () => {
     await page.goto('/?renderer=webgl')
     await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
 
-    const backend = await page.evaluate(() =>
-      window.__manaTerminalTestHandle__?.getRendererBackend() ?? null,
+    const backend = await page.evaluate(
+      () => window.__manaTerminalTestHandle__?.getRendererBackend() ?? null,
     )
-    test.skip(backend !== 'gpu-webgl', `GPU backend not active (${backend ?? 'none'})`)
+    test.skip(
+      backend !== 'gpu-webgl',
+      `GPU backend not active (${backend ?? 'none'})`,
+    )
 
     const snapshot = await page.evaluate(() =>
       window.__manaTerminalTestHandle__?.getSnapshot(),
@@ -1037,8 +1089,8 @@ test.describe('webgl dirty rendering', () => {
       }
     }, rows - 1)
 
-    const before = await page.evaluate(() =>
-      window.__manaTerminalTestHandle__?.getDiagnostics() ?? null,
+    const before = await page.evaluate(
+      () => window.__manaTerminalTestHandle__?.getDiagnostics() ?? null,
     )
 
     await page.evaluate(() => {
@@ -1047,8 +1099,8 @@ test.describe('webgl dirty rendering', () => {
 
     await page.waitForTimeout(50)
 
-    const after = await page.evaluate(() =>
-      window.__manaTerminalTestHandle__?.getDiagnostics() ?? null,
+    const after = await page.evaluate(
+      () => window.__manaTerminalTestHandle__?.getDiagnostics() ?? null,
     )
 
     if (!after || after.gpuCellsProcessed == null) {

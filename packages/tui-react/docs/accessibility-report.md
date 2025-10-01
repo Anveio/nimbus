@@ -38,7 +38,7 @@ Users interacting with a web terminal expect:
 | Selection exposure | Internal selection not reflected via `aria-activedescendant`/`aria-selected`. | Assistive tech cannot report current selection or caret. | High |
 | Focus strategy | `autoFocus` defaults to true and triggers focus on mount (`packages/tui-react/src/Terminal.tsx:401-403,1154-1158`). | Unexpected focus shift disrupts keyboard flow. | Medium |
 | Visual adaptability | Fixed palette/metrics ignore prefers-contrast/prefers-reduced-motion. | Users with vision sensitivities face reduced readability. | Medium |
-| Testing | No automated accessibility checks in test suite (`packages/tui-react/test/Terminal.test.tsx`). | Regressions remain undetected. | High |
+| Testing | Playwright + axe harness (`packages/tui-react/test/e2e/terminal.spec.ts`) covers smoke semantics only. | Regressions caught for baseline flows; richer scenarios remain untested. | Medium |
 
 ## Recommendations
 ### Immediate (Blocker resolution)
@@ -60,6 +60,12 @@ Users interacting with a web terminal expect:
 3. **Documentation:** Publish an Accessibility Guide detailing customization points, known limitations, testing coverage, and manual verification scripts.
 4. **Cross-package alignment:** Coordinate with `@mana-ssh/vt` to produce accessible snapshots (text rows, selection metadata) consumable by all renderers, ensuring parity between canvas and DOM experiences.
 
+## Implementation Strategy
+- **Interpreter-first contract:** Treat the interpreter diff stream as the single source of truth for both pixels and semantics. Extend the shared payload (if needed) with lightweight metadata—line identifiers, printable text, caret coordinates—exposed from `@mana-ssh/vt` so higher layers can build accessibility features without querying renderer internals.
+- **Renderer isolation:** Keep `@mana-ssh/tui-web-canvas-renderer` focused on rasterization (CPU/WebGL/WebGPU). It continues to consume interpreter updates and report selection changes; no ARIA awareness or DOM coupling is introduced at this layer.
+- **Host accessibility adapter:** Introduce a React-level helper (e.g., `useTerminalAccessibility`) that subscribes to the interpreter snapshots/diffs, maintains a DOM transcript, manages `aria-live`, `aria-activedescendant`, and instructions, and mirrors selection/caret state. `<Terminal>` composes this adapter alongside `useTerminalCanvasRenderer`, ensuring the canvas renderer and the accessibility surface stay in sync.
+- **Reusable boundary:** Document the semantic update contract so other hosts (future Svelte/Web Components adapters) can reuse the accessibility adapter pattern. This keeps accessibility responsibilities with host packages while preserving backend-agnostic renderer APIs.
+
 ## Testing & Verification Plan
 - **Automated:**
   - Integrate `@axe-core/playwright` into E2E harnesses (`apps/terminal-web-app/test/e2e/app.spec.ts`) to fail builds on critical violations.
@@ -79,4 +85,3 @@ Users interacting with a web terminal expect:
 1. Align on the immediate remediation scope and resource owners across `@mana-ssh/tui-react` and `@mana-ssh/vt`.
 2. Author/update specs (`packages/tui-react/AGENTS.md`) to capture accessible renderer contracts before implementation.
 3. Schedule pair-testing sessions with assistive technology users once the mirror/log prototype is ready.
-

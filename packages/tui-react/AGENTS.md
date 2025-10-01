@@ -23,7 +23,7 @@ This charter guides how we evolve the React bindings for the Mana SSH terminal s
 ## Testing Doctrine
 - Unit & component tests: `bunx vitest run` inside `packages/tui-react` with React Testing Library/jsdom to cover hooks, lifecycle, and imperative handles.
 - Integration: Contract tests with `@mana-ssh/tui-web-canvas-renderer` ensure renderer swapping, selection propagation, and diagnostics remain stable.
-- End-to-end: Rely on `apps/terminal-web-app` Playwright suite for behavioural coverage (keyboard semantics, pointer selection, clipboard). Coordinate changes across repos when public APIs shift.
+- End-to-end: Package-local Playwright harness (`bun run test:e2e`) mounts `<Terminal />`, drives keyboard flows, and runs `axe-core` scans; keep it green alongside the `apps/terminal-web-app` Playwright suite that exercises full host flows.
 - Type discipline: `bun run typecheck` across the monorepo before landing changes; avoid ambient `any` escape hatches.
 - Spec-first workflow: Update or author package-level specs (e.g. controller lifecycle, selection semantics) prior to modifying code/tests.
 
@@ -41,6 +41,11 @@ This charter guides how we evolve the React bindings for the Mana SSH terminal s
 4. Log consequential changes, gaps, and decisions in the memory bank with dates for future maintainers.
 
 ## Memory Bank
+### 2025-10-06 – Vite build + Playwright harness
+- Swapped the package build to Vite library mode (ESM + CJS + bundled declarations) and published the output from `dist/`.
+- Added a package-scoped Playwright + axe harness that bundles a React test surface via Vite, feeding smoke & accessibility checks through `bun run test:e2e`.
+- Unified the npm script surface so `bun run test` fans out to Vitest and Playwright, mirroring the renderer package’s patterns.
+
 ### 2025-09-30 – Charter refresh
 Reframed the React agent charter around mandate, boundaries, and testing doctrine; promoted the `<Terminal />` rewrite, selection parity, and auto-resize as active backlog signals.
 
@@ -56,4 +61,3 @@ Documented selection lifecycle: pointer drag, keyboard extension, auto-scroll, a
 - Established renderer registry, controller hook, and host abstraction shared with canvas renderer and demo app.
 - Scaffolded keyboard input path emitting native escape sequences while updating local state for immediate visual feedback.
 - Demo app integration confirmed zero-glue embedding via `<TerminalCanvas />` proof-of-concept.
-

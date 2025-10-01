@@ -84,10 +84,6 @@ The workspace is a Bun-powered TypeScript monorepo. Each package is a shippable 
 - E2E (terminal app): `bun run test:e2e --filter apps/terminal-web-app`
 
 # Memory Bank
-### Wednesday, August 13, 2025
-
-**Summary of Work Done:**
-
 ### Friday, August 15, 2025
 
 - Locked the bootstrap strategy for `@mana-ssh/tui-web-canvas-renderer`: finalize the renderer contract (`init`, `applyUpdates`, `resize`, `dispose`), keep internal helpers private, and scaffold type definitions for themes, metrics, and diff payloads.
@@ -110,13 +106,4 @@ The workspace is a Bun-powered TypeScript monorepo. Each package is a shippable 
     1. Spec and implement an interpreter-level `editSelection`/`replaceRange` API with supporting pure helpers in `@mana-ssh/vt` (multi-line aware, returns granular `TerminalUpdate`s).
     2. Refactor `@mana-ssh/tui-react` to consume these primitives, eliminating ad-hoc CSI writes and consolidating keyboard/pointer selection lifecycles.
     3. Revisit renderer contracts so selection themes can encode status (idle/dragging) without owning state, and extend E2E/unit coverage around paste replacement.
-
-### Tuesday, September 30, 2025
-
-- Align every workspace on a `lint:fix` script that runs Biome lint auto-applies plus formatting, then add a Turbo `lint:fix` pipeline task so the fix workflow is runnable across the monorepo.
-- Swapped those `lint:fix` scripts to `biome check --write .` for bundled lint+format+import sorting coverage, keeping the Turbo runner untouched.
-
-### Tuesday, September 30, 2025 (Morning)
-
-- Refreshed the root `AGENTS.md` to reflect current architecture, testing doctrine, spec layering philosophy, and collaboration protocol. Preserved the co-creative preamble while tightening engineering guardrails and toolchain rituals.
 
