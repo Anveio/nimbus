@@ -16,6 +16,10 @@ declare global {
       write: (input: string) => void
       getSnapshot: () => ReturnType<TerminalHandle['getSnapshot']>
       getSelection: () => ReturnType<TerminalHandle['getSelection']>
+      getResponses: () => ReadonlyArray<Uint8Array>
+      getDiagnostics: () => ReturnType<TerminalHandle['getDiagnostics']>
+      getPrinterEvents: () => ReturnType<TerminalHandle['getPrinterEvents']>
+      getRendererBackend: () => string | null
     }
   }
 }
@@ -73,6 +77,35 @@ const snapshotToPlainText = (snapshot: TerminalState): string => {
     lines.pop()
   }
   return lines.join('\n')
+}
+
+const canInitialiseWebgl = async (page: Page): Promise<boolean> => {
+  return page.evaluate(() => {
+    const canvas = document.createElement('canvas')
+    const gl = canvas.getContext('webgl2', {
+      alpha: false,
+      depth: false,
+      stencil: false,
+      antialias: false,
+      premultipliedAlpha: true,
+      preserveDrawingBuffer: false,
+    })
+    if (!gl) {
+      return false
+    }
+    const shader = gl.createShader(gl.VERTEX_SHADER)
+    if (!shader) {
+      return false
+    }
+    gl.shaderSource(
+      shader,
+      `#version 300 es\nprecision mediump float;\nprecision mediump int;\nlayout(location = 0) in vec2 a_position;\nvoid main() {\n  gl_Position = vec4(a_position, 0.0, 1.0);\n}`,
+    )
+    gl.compileShader(shader)
+    const status = gl.getShaderParameter(shader, gl.COMPILE_STATUS)
+    gl.deleteShader(shader)
+    return Boolean(status)
+  })
 }
 
 const getResponseCodesFrom = async (
@@ -138,33 +171,8 @@ test.describe('terminal e2e harness', () => {
     test.setTimeout(6_000)
     await page.goto('/?renderer=webgl')
 
-    const canInitialiseWebgl = await page.evaluate(() => {
-      const canvas = document.createElement('canvas')
-      const gl = canvas.getContext('webgl2', {
-        alpha: false,
-        depth: false,
-        stencil: false,
-        antialias: false,
-        premultipliedAlpha: true,
-        preserveDrawingBuffer: false,
-      })
-      if (!gl) {
-        return false
-      }
-      const vertex = gl.createShader(gl.VERTEX_SHADER)
-      if (!vertex) {
-        return false
-      }
-      gl.shaderSource(
-        vertex,
-        `#version 300 es\nprecision mediump float;\nprecision mediump int;\nlayout(location = 0) in vec2 a_position;\nvoid main() {\n  gl_Position = vec4(a_position, 0.0, 1.0);\n}`,
-      )
-      gl.compileShader(vertex)
-      const status = gl.getShaderParameter(vertex, gl.COMPILE_STATUS)
-      gl.deleteShader(vertex)
-      return Boolean(status)
-    })
-    if (!canInitialiseWebgl) {
+    const supportsWebgl = await canInitialiseWebgl(page)
+    if (!supportsWebgl) {
       test.skip()
       return
     }
@@ -993,5 +1001,71 @@ test.describe('terminal e2e harness', () => {
     ])
 
     expect((await getRowChars()).join('').trimEnd()).toBe('ABXYZ')
+  })
+})
+
+test.describe('webgl dirty rendering', () => {
+  test('scroll uploads only the newly exposed row', async ({ page }) => {
+    test.setTimeout(6_000)
+    const supportsWebgl = await canInitialiseWebgl(page)
+    test.skip(!supportsWebgl, 'WebGL not supported in this environment')
+
+    await page.goto('/?renderer=webgl')
+    await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
+
+    const backend = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getRendererBackend() ?? null,
+    )
+    test.skip(backend !== 'gpu-webgl', `GPU backend not active (${backend ?? 'none'})`)
+
+    const snapshot = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getSnapshot(),
+    )
+    expect(snapshot).toBeTruthy()
+    const rows = snapshot!.rows
+    const columns = snapshot!.columns
+    expect(rows).toBeGreaterThan(1)
+    expect(columns).toBeGreaterThan(0)
+
+    await page.evaluate((count) => {
+      const handle = window.__manaTerminalTestHandle__
+      if (!handle) {
+        return
+      }
+      for (let index = 0; index < count; index += 1) {
+        handle.write(`row-${index}\n`)
+      }
+    }, rows - 1)
+
+    const before = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getDiagnostics() ?? null,
+    )
+
+    await page.evaluate(() => {
+      window.__manaTerminalTestHandle__?.write('final-line\n')
+    })
+
+    await page.waitForTimeout(50)
+
+    const after = await page.evaluate(() =>
+      window.__manaTerminalTestHandle__?.getDiagnostics() ?? null,
+    )
+
+    if (!after || after.gpuCellsProcessed == null) {
+      test.skip('GPU diagnostics unavailable')
+      return
+    }
+
+    expect(after.gpuCellsProcessed).toBe(columns)
+    if (after.gpuDirtyRegionCoverage !== null) {
+      expect(after.gpuDirtyRegionCoverage).toBeCloseTo(1 / rows, 5)
+    }
+    if (
+      before?.gpuBytesUploaded !== null &&
+      after.gpuBytesUploaded !== null &&
+      before?.gpuBytesUploaded !== undefined
+    ) {
+      expect(after.gpuBytesUploaded).toBeLessThan(before.gpuBytesUploaded + 1)
+    }
   })
 })

@@ -356,6 +356,8 @@ export interface TerminalHandle {
   reset(): void
   getSnapshot(): TerminalState
   getSelection(): TerminalSelection | null
+  getPrinterEvents(): PrinterEvent[]
+  getDiagnostics(): TerminalRendererHandle['diagnostics']
 }
 
 export interface TerminalProps extends HTMLAttributes<HTMLDivElement> {
@@ -1176,11 +1178,12 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
             event.type === 'print-screen'
               ? { ...event, lines: [...event.lines] }
               : event.type === 'write'
-                ? { ...event, data: Array.from(event.data) }
+                ? { ...event, data: event.data.slice() }
                 : { ...event },
           ),
+        getDiagnostics: () => rendererHandle.diagnostics,
       }),
-      [currentSelection, focus, reset, write],
+      [currentSelection, focus, reset, rendererHandle, write],
     )
 
     return (

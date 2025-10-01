@@ -229,6 +229,23 @@ const isWebglSupported = async (page: Page) => {
   })
 }
 
+const cloneCell = (cell: TerminalCell): TerminalCell => ({
+  char: cell.char,
+  attr: {
+    bold: cell.attr.bold,
+    faint: cell.attr.faint,
+    italic: cell.attr.italic,
+    underline: cell.attr.underline,
+    blink: cell.attr.blink,
+    inverse: cell.attr.inverse,
+    hidden: cell.attr.hidden,
+    strikethrough: cell.attr.strikethrough,
+    foreground: { ...cell.attr.foreground },
+    background: { ...cell.attr.background },
+  },
+  protected: cell.protected,
+})
+
 const getSelectionEvents = async (page: Page) => {
   return page.evaluate(() => window.__manaRendererTest__?.getSelectionEvents())
 }
@@ -687,6 +704,97 @@ test.describe('createCanvasRenderer (browser)', () => {
       expect(after?.gpuCellsProcessed).toBe(snapshot.columns)
       expect(after?.gpuDirtyRegionCoverage).toBeCloseTo(1 / snapshot.rows)
       expect(after?.gpuBytesUploaded).toBeGreaterThan(0)
+    })
+  })
+
+  test('scroll updates reuse GPU buffers with minimal uploads', async ({
+    page,
+  }) => {
+    const supportsWebgl = await isWebglSupported(page)
+    test.skip(!supportsWebgl, 'WebGL not supported in this environment')
+
+    await withHarness(page, async () => {
+      const theme = createTheme()
+      const snapshot = createSnapshot(4, 4)
+      for (let row = 0; row < snapshot.rows; row += 1) {
+        for (let column = 0; column < snapshot.columns; column += 1) {
+          snapshot.buffer[row]![column] = {
+            char: String.fromCharCode(65 + row),
+            attr: createAttributes(),
+            protected: false,
+          }
+        }
+      }
+
+      try {
+        await initRenderer(page, {
+          snapshot,
+          theme,
+          metrics: baseMetrics,
+          backend: 'webgl',
+        })
+      } catch (error) {
+        test.skip(
+          true,
+          `GPU renderer failed to initialise: ${(error as Error).message}`,
+        )
+      }
+
+      const backend = await getRendererBackend(page)
+      test.skip(backend !== 'gpu-webgl', `GPU backend not active (${backend ?? 'none'})`)
+
+      const initialDiagnostics = await getDiagnostics(page)
+      expect(initialDiagnostics).toBeTruthy()
+
+      const scrolledSnapshot = structuredClone(snapshot)
+      for (let column = 0; column < scrolledSnapshot.columns; column += 1) {
+        scrolledSnapshot.buffer[0]![column] = cloneCell(snapshot.buffer[1]![column]!)
+        scrolledSnapshot.buffer[1]![column] = cloneCell(snapshot.buffer[2]![column]!)
+        scrolledSnapshot.buffer[2]![column] = cloneCell(snapshot.buffer[3]![column]!)
+        scrolledSnapshot.buffer[3]![column] = {
+          char: 'Z',
+          attr: createAttributes(),
+          protected: false,
+        }
+      }
+
+      const bottomRowCells: TerminalUpdate[] = [
+        {
+          type: 'cells',
+          cells: Array.from({ length: scrolledSnapshot.columns }, (_, column) => ({
+            row: scrolledSnapshot.rows - 1,
+            column,
+            cell: scrolledSnapshot.buffer[scrolledSnapshot.rows - 1]![column]!,
+          })),
+        },
+      ]
+
+      await applyUpdates(page, {
+        snapshot: scrolledSnapshot,
+        updates: [{ type: 'scroll', amount: 1 }, ...bottomRowCells],
+      })
+
+      const after = await getDiagnostics(page)
+      if (!after || after.gpuCellsProcessed == null) {
+        test.skip(true, 'GPU diagnostics unavailable')
+        return
+      }
+      expect(after.gpuCellsProcessed).toBe(scrolledSnapshot.columns)
+      if (after.gpuDirtyRegionCoverage !== null) {
+        expect(after.gpuDirtyRegionCoverage).toBeCloseTo(
+          1 / scrolledSnapshot.rows,
+          5,
+        )
+      }
+
+      if (
+        typeof after.gpuBytesUploaded === 'number' &&
+        typeof initialDiagnostics?.gpuBytesUploaded === 'number'
+      ) {
+        expect(after.gpuBytesUploaded).toBeLessThan(
+          initialDiagnostics.gpuBytesUploaded,
+        )
+      }
     })
   })
 })

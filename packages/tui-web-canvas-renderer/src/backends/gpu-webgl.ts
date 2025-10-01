@@ -305,6 +305,7 @@ interface RowSlice {
   backgroundVertexCount: number
   glyphVertexCount: number
   glyphCount: number
+  version: number
 }
 
 class DynamicFloat32Array {
@@ -969,6 +970,30 @@ const createWebglRenderer = (
   let totalGlyphVertexCount = 0
   let totalGlyphCount = 0
   let buffersInitialized = false
+  let sliceVersionCounter = 0
+  let totalsNeedRecompute = false
+
+  const nextSliceVersion = (): number => {
+    sliceVersionCounter = (sliceVersionCounter + 1) % Number.MAX_SAFE_INTEGER
+    if (sliceVersionCounter === 0) {
+      sliceVersionCounter = 1
+    }
+    return sliceVersionCounter
+  }
+
+  const recomputeTotals = (): void => {
+    totalBackgroundVertexCount = 0
+    totalGlyphVertexCount = 0
+    totalGlyphCount = 0
+    for (const slice of rowSlices) {
+      if (!slice) {
+        continue
+      }
+      totalBackgroundVertexCount += slice.backgroundVertexCount
+      totalGlyphVertexCount += slice.glyphVertexCount
+      totalGlyphCount += slice.glyphCount
+    }
+  }
 
   let disposed = false
   let metrics = options.metrics
@@ -1021,6 +1046,137 @@ const createWebglRenderer = (
     }
     while (rowSlices.length < rowCount) {
       rowSlices.push(null)
+    }
+  }
+
+  const translateRowSliceInBuffers = (
+    slice: RowSlice,
+    deltaClip: number,
+  ): void => {
+    if (slice.backgroundPositions.length > 0) {
+      const { offset, length } = slice.backgroundPositions
+      const data = geometryBuffers.backgroundPositions.data
+      for (let i = 1; i < length; i += 2) {
+        const idx = offset + i
+        const current = data[idx] ?? 0
+        data[idx] = current + deltaClip
+      }
+    }
+    if (slice.glyphPositions.length > 0) {
+      const { offset, length } = slice.glyphPositions
+      const data = geometryBuffers.glyphPositions.data
+      for (let i = 1; i < length; i += 2) {
+        const idx = offset + i
+        const current = data[idx] ?? 0
+        data[idx] = current + deltaClip
+      }
+    }
+  }
+
+  const translateRowGeometryArrays = (
+    geometry: RowGeometry,
+    deltaClip: number,
+  ): void => {
+    if (geometry.backgroundPositions.length > 0) {
+      for (let index = 1; index < geometry.backgroundPositions.length; index += 2) {
+        const value = geometry.backgroundPositions[index] ?? 0
+        geometry.backgroundPositions[index] = value + deltaClip
+      }
+    }
+    if (geometry.glyphPositions.length > 0) {
+      for (let index = 1; index < geometry.glyphPositions.length; index += 2) {
+        const value = geometry.glyphPositions[index] ?? 0
+        geometry.glyphPositions[index] = value + deltaClip
+      }
+    }
+  }
+
+  const allocateRowSlice = (rowGeometry: RowGeometry): RowSlice => {
+    let backgroundOffset = 0
+    if (rowGeometry.backgroundPositions.length > 0) {
+      backgroundOffset = geometryBuffers.backgroundPositions.extend(
+        rowGeometry.backgroundPositions.length,
+      )
+      geometryBuffers.backgroundPositions.data.set(
+        rowGeometry.backgroundPositions,
+        backgroundOffset,
+      )
+    }
+
+    let backgroundColorOffset = 0
+    if (rowGeometry.backgroundColors.length > 0) {
+      backgroundColorOffset = geometryBuffers.backgroundColors.extend(
+        rowGeometry.backgroundColors.length,
+      )
+      geometryBuffers.backgroundColors.data.set(
+        rowGeometry.backgroundColors,
+        backgroundColorOffset,
+      )
+    }
+
+    let glyphPositionOffset = 0
+    if (rowGeometry.glyphPositions.length > 0) {
+      glyphPositionOffset = geometryBuffers.glyphPositions.extend(
+        rowGeometry.glyphPositions.length,
+      )
+      geometryBuffers.glyphPositions.data.set(
+        rowGeometry.glyphPositions,
+        glyphPositionOffset,
+      )
+    }
+
+    let glyphTexCoordOffset = 0
+    if (rowGeometry.glyphTexCoords.length > 0) {
+      glyphTexCoordOffset = geometryBuffers.glyphTexCoords.extend(
+        rowGeometry.glyphTexCoords.length,
+      )
+      geometryBuffers.glyphTexCoords.data.set(
+        rowGeometry.glyphTexCoords,
+        glyphTexCoordOffset,
+      )
+    }
+
+    let glyphColorOffset = 0
+    if (rowGeometry.glyphColors.length > 0) {
+      glyphColorOffset = geometryBuffers.glyphColors.extend(
+        rowGeometry.glyphColors.length,
+      )
+      geometryBuffers.glyphColors.data.set(
+        rowGeometry.glyphColors,
+        glyphColorOffset,
+      )
+    }
+
+    totalBackgroundVertexCount += rowGeometry.backgroundVertexCount
+    totalGlyphVertexCount += rowGeometry.glyphVertexCount
+    totalGlyphCount += rowGeometry.glyphCount
+    totalsNeedRecompute = true
+
+    return {
+      backgroundPositions: {
+        offset: backgroundOffset,
+        length: rowGeometry.backgroundPositions.length,
+      },
+      backgroundColors: {
+        offset: backgroundColorOffset,
+        length: rowGeometry.backgroundColors.length,
+      },
+      glyphPositions: {
+        offset: glyphPositionOffset,
+        length: rowGeometry.glyphPositions.length,
+      },
+      glyphTexCoords: {
+        offset: glyphTexCoordOffset,
+        length: rowGeometry.glyphTexCoords.length,
+      },
+      glyphColors: {
+        offset: glyphColorOffset,
+        length: rowGeometry.glyphColors.length,
+      },
+      backgroundVertexCount: rowGeometry.backgroundVertexCount,
+      glyphVertexCount: rowGeometry.glyphVertexCount,
+      glyphCount: rowGeometry.glyphCount,
+      version: nextSliceVersion(),
     }
   }
 
@@ -1127,6 +1283,7 @@ const createWebglRenderer = (
         backgroundVertexCount: rowGeometry.backgroundVertexCount,
         glyphVertexCount: rowGeometry.glyphVertexCount,
         glyphCount: rowGeometry.glyphCount,
+        version: nextSliceVersion(),
       }
 
       totalBackgroundVertexCount += rowGeometry.backgroundVertexCount
@@ -1139,6 +1296,7 @@ const createWebglRenderer = (
       glyphVertexCount: totalGlyphVertexCount,
       glyphCount: totalGlyphCount,
     }
+    totalsNeedRecompute = false
 
     return {
       geometry,
@@ -1155,6 +1313,122 @@ const createWebglRenderer = (
     }
   }
 
+  const handleScrollUpdate = (
+    amount: number,
+    previousSnapshot: TerminalState,
+    nextSnapshot: TerminalState,
+  ): boolean => {
+    if (!buffersInitialized) {
+      return false
+    }
+    if (amount === 0) {
+      return true
+    }
+    if (previousSnapshot.rows !== nextSnapshot.rows) {
+      return false
+    }
+    const start = Math.max(0, nextSnapshot.scrollTop)
+    const end = Math.min(
+      nextSnapshot.scrollBottom,
+      Math.max(0, nextSnapshot.rows - 1),
+    )
+    if (start > end) {
+      return false
+    }
+    // Limit heuristics to full-viewport scrolls for now.
+    if (start !== 0 || end !== nextSnapshot.rows - 1) {
+      return false
+    }
+    const regionHeight = end - start + 1
+    if (regionHeight <= 0 || Math.abs(amount) >= regionHeight) {
+      return false
+    }
+
+    const clipPerRow = nextSnapshot.rows > 0 ? 2 / nextSnapshot.rows : 0
+    if (clipPerRow === 0) {
+      return false
+    }
+
+    const oldSlices = rowSlices.slice()
+    const oldGeometries = rowGeometries.slice()
+    const newSlices = rowSlices.slice()
+    const newGeometries = rowGeometries.slice()
+    const rowsNeedingRebuild: Array<number> = []
+
+    if (amount > 0) {
+      for (let target = start; target <= end; target += 1) {
+        const source = target + amount
+        if (source <= end) {
+          const slice = oldSlices[source] ?? null
+          const geometry = oldGeometries[source] ?? null
+          if (slice && geometry) {
+            const deltaRows = target - source
+            const deltaClip = -deltaRows * clipPerRow
+            translateRowSliceInBuffers(slice, deltaClip)
+            translateRowGeometryArrays(geometry, deltaClip)
+            slice.version = nextSliceVersion()
+            newSlices[target] = slice
+            newGeometries[target] = geometry
+          } else {
+            newSlices[target] = null
+            newGeometries[target] = null
+            rowsNeedingRebuild.push(target)
+          }
+        } else {
+          newSlices[target] = null
+          newGeometries[target] = null
+          rowsNeedingRebuild.push(target)
+        }
+        if (target + amount <= end && target + amount >= start) {
+          newSlices[target + amount] = null
+          newGeometries[target + amount] = null
+        }
+      }
+    } else {
+      for (let target = end; target >= start; target -= 1) {
+        const source = target + amount
+        if (source >= start) {
+          const slice = oldSlices[source] ?? null
+          const geometry = oldGeometries[source] ?? null
+          if (slice && geometry) {
+            const deltaRows = target - source
+            const deltaClip = -deltaRows * clipPerRow
+            translateRowSliceInBuffers(slice, deltaClip)
+            translateRowGeometryArrays(geometry, deltaClip)
+            slice.version = nextSliceVersion()
+            newSlices[target] = slice
+            newGeometries[target] = geometry
+          } else {
+            newSlices[target] = null
+            newGeometries[target] = null
+            rowsNeedingRebuild.push(target)
+          }
+        } else {
+          newSlices[target] = null
+          newGeometries[target] = null
+          rowsNeedingRebuild.push(target)
+        }
+        if (target + amount >= start && target + amount <= end) {
+          newSlices[target + amount] = null
+          newGeometries[target + amount] = null
+        }
+      }
+    }
+
+    for (let row = start; row <= end; row += 1) {
+      rowSlices[row] = newSlices[row] ?? null
+      rowGeometries[row] = newGeometries[row] ?? null
+    }
+
+    for (const row of rowsNeedingRebuild) {
+      rowSlices[row] = null
+      rowGeometries[row] = null
+      dirtyTracker.markRange(row, 0, nextSnapshot.columns - 1)
+    }
+
+    totalsNeedRecompute = true
+    return true
+  }
   const renderSnapshot = (snapshot: TerminalState): void => {
     const layout = ensureCanvasDimensions(canvas, snapshot, metrics)
     setCanvasStyleSize(canvas, layout)
@@ -1234,7 +1508,10 @@ const createWebglRenderer = (
     let glyphColorsView: Float32Array<ArrayBufferLike> = new Float32Array(0)
     let fullRebuildPerformed = false
 
-    const pendingRowGeometry = new Map<number, RowGeometry>()
+    const pendingRowGeometry = new Map<
+      number,
+      { geometry: RowGeometry; expectedVersion: number | null }
+    >()
     let requiresFullRebuild = rebuildAll
 
     if (!requiresFullRebuild) {
@@ -1246,20 +1523,22 @@ const createWebglRenderer = (
           selectionSegment: selectionByRow.get(row) ?? null,
           selectionTheme,
         })
-        pendingRowGeometry.set(row, rowGeometry)
-        const slice = rowSlices[row]
-        if (!slice) {
-          requiresFullRebuild = true
-          break
-        }
+        const slice = rowSlices[row] ?? null
+        pendingRowGeometry.set(row, {
+          geometry: rowGeometry,
+          expectedVersion: slice ? slice.version : null,
+        })
         if (
-          rowGeometry.backgroundPositions.length !==
+          slice !== null &&
+          (rowGeometry.backgroundPositions.length !==
             slice.backgroundPositions.length ||
-          rowGeometry.backgroundColors.length !==
-            slice.backgroundColors.length ||
-          rowGeometry.glyphPositions.length !== slice.glyphPositions.length ||
-          rowGeometry.glyphTexCoords.length !== slice.glyphTexCoords.length ||
-          rowGeometry.glyphColors.length !== slice.glyphColors.length
+            rowGeometry.backgroundColors.length !==
+              slice.backgroundColors.length ||
+            rowGeometry.glyphPositions.length !==
+              slice.glyphPositions.length ||
+            rowGeometry.glyphTexCoords.length !==
+              slice.glyphTexCoords.length ||
+            rowGeometry.glyphColors.length !== slice.glyphColors.length)
         ) {
           requiresFullRebuild = true
           break
@@ -1304,79 +1583,149 @@ const createWebglRenderer = (
       glyphColorsView = rebuildResult.glyphColorsView
       fullRebuildPerformed = true
     } else {
+      let fallbackToFull = false
       for (const row of rowsToRebuildArray) {
-        const rowGeometry = pendingRowGeometry.get(row)!
-        rowGeometries[row] = rowGeometry
-        const slice = rowSlices[row]
-        if (!slice) {
-          continue
-        }
+        const entry = pendingRowGeometry.get(row)!
+        const rowGeometry = entry.geometry
+        const slice = rowSlices[row] ?? null
 
-        if (rowGeometry.backgroundPositions.length > 0) {
-          geometryBuffers.backgroundPositions.data.set(
-            rowGeometry.backgroundPositions,
-            slice.backgroundPositions.offset,
-          )
-          backgroundPositionUpdates.push({
-            offset: slice.backgroundPositions.offset,
-            data: rowGeometry.backgroundPositions,
-          })
-        }
-        if (rowGeometry.backgroundColors.length > 0) {
-          geometryBuffers.backgroundColors.data.set(
-            rowGeometry.backgroundColors,
-            slice.backgroundColors.offset,
-          )
-          backgroundColorUpdates.push({
-            offset: slice.backgroundColors.offset,
-            data: rowGeometry.backgroundColors,
-          })
-        }
-        if (rowGeometry.glyphPositions.length > 0) {
-          geometryBuffers.glyphPositions.data.set(
-            rowGeometry.glyphPositions,
-            slice.glyphPositions.offset,
-          )
-          glyphPositionUpdates.push({
-            offset: slice.glyphPositions.offset,
-            data: rowGeometry.glyphPositions,
-          })
-        }
-        if (rowGeometry.glyphTexCoords.length > 0) {
-          geometryBuffers.glyphTexCoords.data.set(
-            rowGeometry.glyphTexCoords,
-            slice.glyphTexCoords.offset,
-          )
-          glyphTexCoordUpdates.push({
-            offset: slice.glyphTexCoords.offset,
-            data: rowGeometry.glyphTexCoords,
-          })
-        }
-        if (rowGeometry.glyphColors.length > 0) {
-          geometryBuffers.glyphColors.data.set(
-            rowGeometry.glyphColors,
-            slice.glyphColors.offset,
-          )
-          glyphColorUpdates.push({
-            offset: slice.glyphColors.offset,
-            data: rowGeometry.glyphColors,
-          })
-        }
+        if (slice !== null) {
+          const currentSlice: RowSlice = slice
+          if (
+            entry.expectedVersion !== null &&
+            currentSlice.version !== entry.expectedVersion
+          ) {
+            fallbackToFull = true
+            break
+          }
 
-        totalBackgroundVertexCount +=
-          rowGeometry.backgroundVertexCount - slice.backgroundVertexCount
-        totalGlyphVertexCount +=
-          rowGeometry.glyphVertexCount - slice.glyphVertexCount
-        totalGlyphCount += rowGeometry.glyphCount - slice.glyphCount
+          if (rowGeometry.backgroundPositions.length > 0) {
+            geometryBuffers.backgroundPositions.data.set(
+              rowGeometry.backgroundPositions,
+              currentSlice.backgroundPositions.offset,
+            )
+            backgroundPositionUpdates.push({
+              offset: currentSlice.backgroundPositions.offset,
+              data: rowGeometry.backgroundPositions,
+            })
+          }
+          if (rowGeometry.backgroundColors.length > 0) {
+            geometryBuffers.backgroundColors.data.set(
+              rowGeometry.backgroundColors,
+              currentSlice.backgroundColors.offset,
+            )
+            backgroundColorUpdates.push({
+              offset: currentSlice.backgroundColors.offset,
+              data: rowGeometry.backgroundColors,
+            })
+          }
+          if (rowGeometry.glyphPositions.length > 0) {
+            geometryBuffers.glyphPositions.data.set(
+              rowGeometry.glyphPositions,
+              currentSlice.glyphPositions.offset,
+            )
+            glyphPositionUpdates.push({
+              offset: currentSlice.glyphPositions.offset,
+              data: rowGeometry.glyphPositions,
+            })
+          }
+          if (rowGeometry.glyphTexCoords.length > 0) {
+            geometryBuffers.glyphTexCoords.data.set(
+              rowGeometry.glyphTexCoords,
+              currentSlice.glyphTexCoords.offset,
+            )
+            glyphTexCoordUpdates.push({
+              offset: currentSlice.glyphTexCoords.offset,
+              data: rowGeometry.glyphTexCoords,
+            })
+          }
+          if (rowGeometry.glyphColors.length > 0) {
+            geometryBuffers.glyphColors.data.set(
+              rowGeometry.glyphColors,
+              currentSlice.glyphColors.offset,
+            )
+            glyphColorUpdates.push({
+              offset: currentSlice.glyphColors.offset,
+              data: rowGeometry.glyphColors,
+            })
+          }
 
-        rowSlices[row] = {
-          ...slice,
-          backgroundVertexCount: rowGeometry.backgroundVertexCount,
-          glyphVertexCount: rowGeometry.glyphVertexCount,
-          glyphCount: rowGeometry.glyphCount,
+          currentSlice.backgroundVertexCount = rowGeometry.backgroundVertexCount
+          currentSlice.glyphVertexCount = rowGeometry.glyphVertexCount
+          currentSlice.glyphCount = rowGeometry.glyphCount
+          currentSlice.version = nextSliceVersion()
+          rowGeometries[row] = rowGeometry
+          totalsNeedRecompute = true
+        } else {
+          const allocatedSlice = allocateRowSlice(rowGeometry)
+          rowSlices[row] = allocatedSlice
+          rowGeometries[row] = rowGeometry
+
+          if (rowGeometry.backgroundPositions.length > 0) {
+            backgroundPositionUpdates.push({
+              offset: allocatedSlice.backgroundPositions.offset,
+              data: rowGeometry.backgroundPositions,
+            })
+          }
+          if (rowGeometry.backgroundColors.length > 0) {
+            backgroundColorUpdates.push({
+              offset: allocatedSlice.backgroundColors.offset,
+              data: rowGeometry.backgroundColors,
+            })
+          }
+          if (rowGeometry.glyphPositions.length > 0) {
+            glyphPositionUpdates.push({
+              offset: allocatedSlice.glyphPositions.offset,
+              data: rowGeometry.glyphPositions,
+            })
+          }
+          if (rowGeometry.glyphTexCoords.length > 0) {
+            glyphTexCoordUpdates.push({
+              offset: allocatedSlice.glyphTexCoords.offset,
+              data: rowGeometry.glyphTexCoords,
+            })
+          }
+          if (rowGeometry.glyphColors.length > 0) {
+            glyphColorUpdates.push({
+              offset: allocatedSlice.glyphColors.offset,
+              data: rowGeometry.glyphColors,
+            })
+          }
         }
       }
 
+      if (fallbackToFull) {
+        const rebuildResult = performFullRebuild(
+          geometryContext,
+          selectionByRow,
+          selectionTheme,
+          toClipX,
+          toClipY,
+        )
+        geometry = rebuildResult.geometry
+        backgroundPositionsView = rebuildResult.backgroundPositionsView
+        backgroundColorsView = rebuildResult.backgroundColorsView
+        glyphPositionsView = rebuildResult.glyphPositionsView
+        glyphTexCoordsView = rebuildResult.glyphTexCoordsView
+        glyphColorsView = rebuildResult.glyphColorsView
+        fullRebuildPerformed = true
+        totalsNeedRecompute = false
+      } else {
+        if (totalsNeedRecompute) {
+          recomputeTotals()
+          totalsNeedRecompute = false
+        }
+        geometry = {
+          backgroundVertexCount: totalBackgroundVertexCount,
+          glyphVertexCount: totalGlyphVertexCount,
+          glyphCount: totalGlyphCount,
+        }
+      }
+    }
+
+    if (!fullRebuildPerformed && totalsNeedRecompute) {
+      recomputeTotals()
+      totalsNeedRecompute = false
       geometry = {
         backgroundVertexCount: totalBackgroundVertexCount,
         glyphVertexCount: totalGlyphVertexCount,
@@ -1688,7 +2037,15 @@ const createWebglRenderer = (
             requiresRepaint = true
             break
           case 'scroll':
-            dirtyTracker.markFull()
+            if (
+              !handleScrollUpdate(
+                update.amount,
+                previousSnapshot,
+                snapshot,
+              )
+            ) {
+              dirtyTracker.markFull()
+            }
             requiresRepaint = true
             break
           case 'bell':

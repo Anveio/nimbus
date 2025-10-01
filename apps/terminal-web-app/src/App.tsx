@@ -18,6 +18,8 @@ declare global {
       getSelection: () => ReturnType<TerminalHandle['getSelection']>
       getResponses: () => ReadonlyArray<Uint8Array>
       getPrinterEvents: () => ReturnType<TerminalHandle['getPrinterEvents']>
+      getDiagnostics: () => ReturnType<TerminalHandle['getDiagnostics']>
+      getRendererBackend: () => string | null
     }
   }
 }
@@ -25,6 +27,7 @@ declare global {
 function App(): JSX.Element {
   const terminalRef = useRef<TerminalHandle>(null)
   const responsesRef = useRef<Uint8Array[]>([])
+  const diagnosticsRef = useRef<ReturnType<TerminalHandle['getDiagnostics']>>(null)
   const [backendConfig] = useState<RendererBackendConfig | undefined>(() => {
     if (typeof window === 'undefined') {
       return undefined
@@ -87,6 +90,9 @@ function App(): JSX.Element {
         getSelection: () => resolveHandle().getSelection(),
         getResponses: () => responsesRef.current.map((entry) => entry.slice()),
         getPrinterEvents: () => resolveHandle().getPrinterEvents(),
+        getDiagnostics: () => diagnosticsRef.current,
+        getRendererBackend: () =>
+          document.querySelector('canvas')?.dataset?.manaRendererBackend ?? null,
       }
 
       window.__manaTerminalTestHandle__ = testHandle
@@ -108,13 +114,16 @@ function App(): JSX.Element {
     <main className={styles.container}>
       <h1 className={styles.heading}>Mana SSH Web Terminal</h1>
       <div className={styles.terminalWrapper}>
-        <Terminal
-          ref={terminalRef}
-          className={styles.terminalSurface}
-          ariaLabel="Interactive terminal"
-          renderer={rendererFactory}
-          onData={(data) => {
+       <Terminal
+         ref={terminalRef}
+         className={styles.terminalSurface}
+         ariaLabel="Interactive terminal"
+         renderer={rendererFactory}
+         onData={(data) => {
             responsesRef.current.push(data.slice())
+          }}
+          onDiagnostics={(diagnostics) => {
+            diagnosticsRef.current = diagnostics
           }}
         />
       </div>
