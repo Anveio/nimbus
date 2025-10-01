@@ -151,6 +151,20 @@ describe('TerminalInterpreter basic behaviour', () => {
     expect(interpreter.snapshot.lineAttributes[1]).toBe('double-bottom')
   })
 
+  it('toggles reverse video via DECSCNM', () => {
+    const parser = createParser()
+    const interpreter = createInterpreter()
+    const sink = new InterpreterSink(interpreter, [])
+
+    expect(interpreter.snapshot.reverseVideo).toBe(false)
+
+    parser.write('\u001b[?5h', sink)
+    expect(interpreter.snapshot.reverseVideo).toBe(true)
+
+    parser.write('\u001b[?5l', sink)
+    expect(interpreter.snapshot.reverseVideo).toBe(false)
+  })
+
   it('clears the screen with CSI 2J and positions cursor with CSI H', () => {
     const { interpreter } = run('seed\x1b[2J\x1b[10;10Hmark')
     const state = interpreter.snapshot
@@ -243,6 +257,37 @@ describe('TerminalInterpreter basic behaviour', () => {
     const row = interpreter.snapshot.buffer[0]!
     expect(row[0]!.char).toBe('─')
     expect(row[1]!.char).toBe('─')
+  })
+
+  it('honours insert mode toggles with CSI 4 h/l', () => {
+    const parser = createParser()
+    const interpreter = createInterpreter()
+    const sink = new InterpreterSink(interpreter, [])
+
+    parser.write('ABCD', sink)
+    parser.write('\u001b[2D', sink)
+    parser.write('X', sink)
+    const afterReplace = interpreter.snapshot.buffer[0]
+      ?.map((cell) => cell?.char ?? ' ')
+      .join('')
+      .trimEnd()
+    expect(afterReplace).toBe('ABXD')
+
+    parser.write('\u001b[4h', sink)
+    parser.write('Y', sink)
+    const afterInsert = interpreter.snapshot.buffer[0]
+      ?.map((cell) => cell?.char ?? ' ')
+      .join('')
+      .trimEnd()
+    expect(afterInsert).toBe('ABXY')
+
+    parser.write('\u001b[4l', sink)
+    parser.write('Z', sink)
+    const afterOverwrite = interpreter.snapshot.buffer[0]
+      ?.map((cell) => cell?.char ?? ' ')
+      .join('')
+      .trimEnd()
+    expect(afterOverwrite).toBe('ABXYZ')
   })
 
   it('handles single shift SS2 without altering GL', () => {

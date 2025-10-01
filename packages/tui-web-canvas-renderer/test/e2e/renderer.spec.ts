@@ -538,6 +538,56 @@ test.describe('createCanvasRenderer (browser)', () => {
     })
   })
 
+  test('repaints using inverted theme colours when reverse video toggles', async ({
+    page,
+  }) => {
+    await withHarness(page, async () => {
+      const theme = createTheme()
+      const snapshot = createSnapshot(1, 1)
+      await initRenderer(page, { snapshot, theme, metrics: baseMetrics })
+
+      const basePixel = await getPixel(page, 0, 0)
+      const brightnessBefore = basePixel[0] + basePixel[1] + basePixel[2]
+
+      const reverseSnapshot = structuredClone(snapshot)
+      reverseSnapshot.reverseVideo = true
+      await applyUpdates(page, {
+        snapshot: reverseSnapshot,
+        updates: [
+          {
+            type: 'mode',
+            mode: 'reverse-video',
+            value: true,
+          },
+        ],
+      })
+
+      const reversedPixel = await getPixel(page, 0, 0)
+      const brightnessAfter =
+        reversedPixel[0] + reversedPixel[1] + reversedPixel[2]
+      expect(brightnessAfter).toBeGreaterThan(brightnessBefore + 120)
+
+      const normalSnapshot = structuredClone(snapshot)
+      await applyUpdates(page, {
+        snapshot: normalSnapshot,
+        updates: [
+          {
+            type: 'mode',
+            mode: 'reverse-video',
+            value: false,
+          },
+        ],
+      })
+
+      const revertedPixel = await getPixel(page, 0, 0)
+      const brightnessReverted =
+        revertedPixel[0] + revertedPixel[1] + revertedPixel[2]
+      expect(Math.abs(brightnessReverted - brightnessBefore)).toBeLessThanOrEqual(
+        60,
+      )
+    })
+  })
+
   test('tracks selection changes and notifies listeners', async ({ page }) => {
     await withHarness(page, async () => {
       const theme = createTheme()

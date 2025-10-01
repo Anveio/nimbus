@@ -6,8 +6,46 @@ import {
   readTerminalDiagnostics,
   readOnDataEvents,
   writeToTerminal,
+  resetOnDataEvents,
   test,
 } from './fixtures'
+import {
+  getSelectionRowSegments,
+  type TerminalSelection,
+  type TerminalState,
+} from '@mana-ssh/vt'
+
+const deriveSelectedText = (
+  snapshot: TerminalState,
+  selection: TerminalSelection,
+): string => {
+  const segments = getSelectionRowSegments(selection, snapshot.columns)
+  if (segments.length === 0) {
+    return ''
+  }
+  const lines: string[] = []
+  let currentRow = segments[0]!.row
+  let currentLine = ''
+
+  const flush = () => {
+    lines.push(currentLine)
+    currentLine = ''
+  }
+
+  for (const segment of segments) {
+    if (segment.row !== currentRow) {
+      flush()
+      currentRow = segment.row
+    }
+    const rowCells = snapshot.buffer[segment.row] ?? []
+    for (let column = segment.startColumn; column <= segment.endColumn; column += 1) {
+      currentLine += rowCells[column]?.char ?? ' '
+    }
+  }
+
+  flush()
+  return lines.join('\n')
+}
 
 test.describe('tui-react terminal', () => {
   test('renders focusable textbox with canvas output', async ({ page }) => {
@@ -113,5 +151,188 @@ test.describe('tui-react terminal', () => {
     expect(metadata.disabledBySelection).toBe(0)
     expect(metadata.disabledByWideGlyph).toBe(0)
     expect(metadata.disabledByOverlay).toBe(0)
+  })
+
+  test('supports keyboard selection and clipboard copy/paste', async ({
+    page,
+  }) => {
+    await mountTerminal(page, { ariaLabel: 'Clipboard Terminal' })
+    await focusTerminal(page)
+
+    await page.evaluate(() => {
+      const store = { value: '' }
+      const originalSetData = DataTransfer.prototype.setData
+      DataTransfer.prototype.setData = function setDataOverride(format, data) {
+        if (format === 'text/plain' || format === 'text') {
+          store.value = data ?? ''
+        }
+        return originalSetData.call(this, format, data)
+      }
+      const originalGetData = DataTransfer.prototype.getData
+      DataTransfer.prototype.getData = function getDataOverride(format) {
+        if (format === 'text/plain' || format === 'text') {
+          return store.value
+        }
+        return originalGetData.call(this, format)
+      }
+      ;(window as any).__testClipboardStore__ = store
+    })
+
+    await writeToTerminal(page, 'ALPHA BETA')
+
+    await page.keyboard.down('Shift')
+    for (let index = 0; index < 4; index += 1) {
+      await page.keyboard.press('ArrowLeft')
+    }
+    await page.keyboard.up('Shift')
+
+    await page.waitForFunction(() => {
+      const handle = window.__manaTuiReactTest__
+      const selection = handle?.getSelection()
+      return selection && selection.status === 'idle'
+    })
+
+    const selectionData = await page.evaluate(() => {
+      const handle = window.__manaTuiReactTest__
+      if (!handle) {
+        return null
+      }
+      return {
+        selection: handle.getSelection(),
+        snapshot: handle.getSnapshot(),
+      }
+    })
+
+    expect(selectionData).toBeTruthy()
+    const { selection, snapshot } = selectionData!
+    expect(selection).not.toBeNull()
+    const selectedText = deriveSelectedText(snapshot, selection!)
+    expect(selectedText).toBe('BETA')
+
+    const copyShortcut = process.platform === 'darwin' ? 'Meta+C' : 'Control+Shift+C'
+    const pasteShortcut = process.platform === 'darwin' ? 'Meta+V' : 'Control+Shift+V'
+
+    await page.evaluate(() => {
+      const store = (window as any).__testClipboardStore__
+      store.value = ''
+    })
+    await page.keyboard.press(copyShortcut)
+    await page.waitForTimeout(50)
+    const clipboardText = await page.evaluate(() => {
+      const store = (window as any).__testClipboardStore__
+      return store.value
+    })
+    expect(clipboardText).toBe('BETA')
+
+    const pastePayload = ' keyboard paste'
+    await page.evaluate((payload) => {
+      const store = (window as any).__testClipboardStore__
+      store.value = payload
+    }, pastePayload)
+    await page.keyboard.press(pasteShortcut)
+    await page.waitForTimeout(50)
+
+    const postPaste = await page.evaluate(() => {
+      const handle = window.__manaTuiReactTest__
+      return handle?.getSnapshot() ?? null
+    })
+    expect(postPaste).toBeTruthy()
+    const pastedRow = postPaste!.buffer[0]
+      ?.map((cell) => cell?.char ?? ' ')
+      .join('')
+      .trimEnd()
+    expect(pastedRow).toContain(`ALPHA${pastePayload}`)
+  })
+
+  test('treats raw DEL as inert while DOM Backspace erases locally', async ({
+    page,
+  }) => {
+    await mountTerminal(page, { ariaLabel: 'Backspace Terminal' })
+    await focusTerminal(page)
+
+    await writeToTerminal(page, '\u001b[2J\u001b[H')
+    await writeToTerminal(page, 'foo')
+    await writeToTerminal(page, String.fromCharCode(0x7f))
+
+    const afterDelSnapshot = await page.evaluate(() => {
+      const handle = window.__manaTuiReactTest__
+      return handle?.getSnapshot() ?? null
+    })
+    expect(afterDelSnapshot).toBeTruthy()
+    const afterDelRow = afterDelSnapshot!.buffer[0]
+      ?.map((cell) => cell?.char ?? ' ')
+      .join('')
+      .trimEnd()
+    expect(afterDelRow).toBe('foo')
+
+    await writeToTerminal(page, '\u001b[2J\u001b[H')
+    await resetOnDataEvents(page)
+
+    await page.keyboard.type('TEST')
+    await page.keyboard.press('Backspace')
+
+    await page.waitForFunction(() => {
+      const handle = window.__manaTuiReactTest__
+      const snapshot = handle?.getSnapshot()
+      if (!snapshot) {
+        return false
+      }
+      const row = snapshot.buffer[0]
+        ?.map((cell) => cell?.char ?? ' ')
+        .join('')
+        .trimEnd()
+      return row === 'TES'
+    })
+
+    const events = await readOnDataEvents(page)
+    expect(events.length).toBeGreaterThan(0)
+    const lastEvent = events[events.length - 1]
+    expect(lastEvent?.bytes).toEqual([0x7f])
+  })
+
+  test('single clicks reposition the cursor within the line', async ({ page }) => {
+    await mountTerminal(page, { ariaLabel: 'Pointer Terminal' })
+    await focusTerminal(page)
+
+    await writeToTerminal(page, 'HELLO')
+
+    const canvas = page.locator('#terminal-harness canvas').first()
+    const box = await canvas.boundingBox()
+    if (!box) {
+      throw new Error('Canvas bounding box unavailable')
+    }
+
+    const snapshotBefore = await page.evaluate(() => {
+      const handle = window.__manaTuiReactTest__
+      return handle?.getSnapshot() ?? null
+    })
+    if (!snapshotBefore) {
+      throw new Error('Snapshot unavailable before click')
+    }
+
+    const cellWidth = box.width / snapshotBefore.columns
+    const cellHeight = box.height / snapshotBefore.rows
+
+    await canvas.click({
+      position: {
+        x: box.width - cellWidth / 4,
+        y: cellHeight / 2,
+      },
+    })
+
+    await page.waitForFunction(() => {
+      const handle = window.__manaTuiReactTest__
+      const snapshot = handle?.getSnapshot()
+      return snapshot?.cursor.column === 5
+    })
+
+    const snapshotAfter = await page.evaluate(() => {
+      const handle = window.__manaTuiReactTest__
+      return handle?.getSnapshot() ?? null
+    })
+    expect(snapshotAfter).toBeTruthy()
+    expect(snapshotAfter!.cursor.row).toBe(0)
+    expect(snapshotAfter!.cursor.column).toBe(5)
+    expect(snapshotAfter!.selection).toBeNull()
   })
 })

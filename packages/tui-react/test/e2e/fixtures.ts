@@ -9,7 +9,6 @@ import {
   readOnDataEvents,
   readTerminalDiagnostics,
   resetOnDataEvents,
-  warmHarnessBundle,
   composeTerminalText,
   writeToTerminal,
 } from './harness-loader'
@@ -29,9 +28,7 @@ export const test = base.extend<AxeFixture>({
   },
 })
 
-test.beforeAll(async () => {
-  await warmHarnessBundle()
-})
+test.setTimeout(10_000)
 
 test.afterEach(async ({ page }) => {
   await resetOnDataEvents(page)
@@ -46,4 +43,5 @@ export {
   readTerminalDiagnostics,
   composeTerminalText,
   writeToTerminal,
+  resetOnDataEvents,
 }
