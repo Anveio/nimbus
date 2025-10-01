@@ -58,16 +58,7 @@ This document enumerates the behaviours we expect the canvas renderer to support
 | Diagnostics exposed via events (e.g. onFrame) | 🟡 | Reserved for future instrumentation hook. |
 | GPU diagnostics report cells processed, bytes uploaded, and dirty-region coverage | 🟡 | Harness now exposes backend + metrics, and a Playwright scenario asserts the diff counters when WebGL is available (skipped in headless environments without GPU support). |
 
-## 7. Horizontal editing heuristics
-
-| Scenario | Status | Notes |
-| --- | --- | --- |
-| CSI `@` insert shifts reuse GPU buffers (single-width) | 🟡 | Playwright `renderer.spec.ts` test `insert characters shifts reuse GPU buffers` (currently `test.fixme`) captures the desired diagnostics profile once the memmove heuristic lands. |
-| CSI `P` delete shifts reuse GPU buffers (single-width) | 🟡 | Partner `test.fixme` scenario mirrors the delete path to ensure the tail memmove touches only the exposed gap. |
-| Insert before double-width glyph preserves geometry | 🟡 | `test.fixme` scenario populates a row with CJK glyphs and asserts future heuristics keep both columns aligned with minimal uploads. |
-| Double-height row scroll keeps paired slices aligned | 🟡 | `test.fixme` scenario exercises DEC double-height top/bottom rows to ensure paired geometry marches in lockstep during scroll. |
-
-## 8. Advanced media (future work)
+## 7. Advanced media (future work)
 
 | Scenario | Status | Notes |
 | --- | --- | --- |

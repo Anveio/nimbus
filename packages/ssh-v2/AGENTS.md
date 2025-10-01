@@ -1,4 +1,4 @@
-# @mana-ssh/protocol Agent Charter
+# @mana-ssh/ssh-v2 Agent Charter
 
 This charter governs the SSH protocol core. Update it whenever RFC scope, security posture, or implementation rituals evolve.
 
@@ -8,7 +8,7 @@ This charter governs the SSH protocol core. Update it whenever RFC scope, securi
 - Surface strictly typed APIs that higher layers (`@mana-ssh/web`, `@mana-ssh/websocket`, proxy services) can drive without touching internal state.
 
 ## Boundaries & Dependencies
-- Lives entirely within `packages/protocol`; no direct network sockets, timers, or global state. Randomness and crypto sources are injectable.
+- Lives entirely within `packages/ssh-v2`; no direct network sockets, timers, or global state. Randomness and crypto sources are injectable.
 - Depends on audited crypto libraries (WebCrypto, wasm backends) through explicit adapters. Keep FIPS/AWS compliance in mind when selecting algorithms.
 - Emits abstract channel events (open/close/data, requests, global alerts) that transports or hosts translate into IO. Never embed UI, React, or renderer assumptions.
 

@@ -6,7 +6,7 @@ Mana SSH is a zero-dependency, standards-compliant, universally embeddable, high
 - Parser and interpreter: `@mana-ssh/vt`
 - Renderer backends: `@mana-ssh/tui-web-canvas-renderer` today, SVG/WebGL/native next
 - React bindings: `@mana-ssh/tui-react`
-- Protocol core: `@mana-ssh/protocol` (under construction)
+- SSHv2 Protocol Implementation: `@mana-ssh/ssh-v2` (under construction)
 - Browser transports: `@mana-ssh/web`, `@mana-ssh/websocket` (planned)
 - Demo and infra: `apps/terminal-web-app`, `apps/proxy-server`, `apps/simulated-instance`
 
