@@ -29,6 +29,7 @@ import {
   forwardRef,
   type HTMLAttributes,
   type ClipboardEvent as ReactClipboardEvent,
+  type CompositionEvent as ReactCompositionEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   useCallback,
@@ -114,6 +115,24 @@ const DEFAULT_METRICS: RendererMetrics = {
   font: DEFAULT_FONT,
   cell: DEFAULT_CELL,
 }
+
+const DEFAULT_ARIA_KEYSHORTCUTS = [
+  'Enter',
+  'Shift+ArrowLeft',
+  'Shift+ArrowRight',
+  'Shift+ArrowUp',
+  'Shift+ArrowDown',
+  'Meta+ArrowLeft',
+  'Meta+ArrowRight',
+  'Alt+ArrowLeft',
+  'Alt+ArrowRight',
+  'Control+ArrowLeft',
+  'Control+ArrowRight',
+  'Meta+C',
+  'Meta+V',
+  'Control+Shift+C',
+  'Control+Shift+V',
+].join(' ')
 
 export type PrinterEvent =
   | { type: 'controller-mode'; enabled: boolean }
@@ -564,6 +583,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     })
 
     const keyboardSelectionAnchorRef = useRef<SelectionPoint | null>(null)
+    const compositionStateRef = useRef<{ active: boolean; data: string }>({
+      active: false,
+      data: '',
+    })
     const pointerSelectionRef = useRef<{
       pointerId: number | null
       anchor: TerminalSelection['anchor'] | null
@@ -962,6 +985,52 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       [applyUpdates, interpreter],
     )
 
+    const flushComposition = useCallback(
+      (value: string | null | undefined) => {
+        keyboardSelectionAnchorRef.current = null
+        const text = value ?? ''
+        if (!text) {
+          return
+        }
+
+        const selection = interpreter.snapshot.selection ?? null
+        const replacementApplied = replaceSelectionWithText(selection, text)
+        const payload = TEXT_ENCODER.encode(text)
+        if (replacementApplied) {
+          onData?.(payload)
+        } else {
+          emitData(payload)
+        }
+      },
+      [emitData, interpreter, onData, replaceSelectionWithText],
+    )
+
+    const handleCompositionStart = useCallback(
+      (_event: ReactCompositionEvent<HTMLDivElement>) => {
+        compositionStateRef.current = { active: true, data: '' }
+      },
+      [],
+    )
+
+    const handleCompositionUpdate = useCallback(
+      (event: ReactCompositionEvent<HTMLDivElement>) => {
+        compositionStateRef.current = {
+          active: true,
+          data: event.data ?? '',
+        }
+      },
+      [],
+    )
+
+    const handleCompositionEnd = useCallback(
+      (event: ReactCompositionEvent<HTMLDivElement>) => {
+        const data = event.data ?? compositionStateRef.current.data
+        compositionStateRef.current = { active: false, data: '' }
+        flushComposition(data)
+      },
+      [flushComposition],
+    )
+
     const performLocalErase = useCallback(
       (direction: 'backspace' | 'delete'): boolean => {
         if (!localEcho) {
@@ -1001,7 +1070,13 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
 
     const handleKeyDown = useCallback(
       (event: ReactKeyboardEvent<HTMLDivElement>) => {
+        if (event.nativeEvent.isComposing || compositionStateRef.current.active) {
+          return
+        }
         const key = event.key
+        if (key === 'Process') {
+          return
+        }
         const lowerKey = key.length === 1 ? key.toLowerCase() : key
         const isArrowKey =
           key === 'ArrowUp' ||
@@ -1238,11 +1313,15 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         aria-label={ariaLabel}
         aria-multiline="true"
         aria-roledescription="Terminal"
+        aria-keyshortcuts={DEFAULT_ARIA_KEYSHORTCUTS}
         aria-describedby={describedByValue}
         aria-activedescendant={accessibility.activeDescendantId ?? undefined}
         className={className}
         style={style}
         onClick={focus}
+        onCompositionStart={handleCompositionStart}
+        onCompositionUpdate={handleCompositionUpdate}
+        onCompositionEnd={handleCompositionEnd}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
         onCopy={handleCopy}

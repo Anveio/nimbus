@@ -17,59 +17,53 @@ Users interacting with a web terminal expect:
 - **Testing transparency:** Documented manual + automated validation processes (axe, Playwright, screen readers) to prevent regressions and build trust.
 
 ## Current Implementation Overview
-- The focusable wrapper (`packages/tui-react/src/Terminal.tsx:1190-1210`) exposes `role="textbox"`, `tabIndex={0}`, and `aria-label="Terminal"`. All rendering happens inside a `<canvas>` element.
-- Keyboard input is intercepted (`packages/tui-react/src/Terminal.tsx:968-1114`) and re-encoded for the interpreter. Selection state is maintained internally but not projected to the DOM.
-- Output is drawn exclusively on the canvas through `useTerminalCanvasRenderer` (`packages/tui-react/src/renderer.ts`), with no textual mirror or live region updates.
-- Visual defaults (theme/metrics) are hard-coded (`packages/tui-react/src/Terminal.tsx:49-96`) and do not adjust automatically to user accessibility settings.
+- The focusable wrapper (`packages/tui-react/src/Terminal.tsx:1231-1320`) exposes `role="textbox"`, `tabIndex={0}`, `aria-label`, `aria-multiline="true"`, `aria-roledescription="Terminal"`, enumerates key gestures via `aria-keyshortcuts`, and wires `aria-describedby` to authored instructions. Focus management is opt-in via the `autoFocus` prop, but the default remains `true`.
+- `useTerminalAccessibility` (`packages/tui-react/src/accessibility.tsx`) maintains an off-screen DOM transcript (`role="log"`/`role="grid"`) backed by the interpreter snapshot, including `aria-live` semantics, row/column indices, and `aria-selected` state that reflects the active selection.
+- Caret position and host status updates are announced through dedicated live regions (`role="status"`) with politeness levels derived from runtime events.
+- Keyboard input is intercepted at the wrapper (`packages/tui-react/src/Terminal.tsx:1002-1148`) and re-encoded for the interpreter, with IME composition buffered via `compositionstart/update/end` handling.
+- Visual defaults (theme/metrics) are hard-coded (`packages/tui-react/src/Terminal.tsx:49-96`) and do not yet adapt to user accessibility preferences (contrast, reduced motion).
 
 ## Compliance Assessment (WCAG 2.2 Level AA)
-- **Perceivable (1.x):** Fails 1.1.1 (non-text content) and 1.3.1 (info/relationships). Canvas output lacks a text alternative, and there is no DOM structure for rows/cells.
-- **Operable (2.x):** Partially compliant. Keyboard input works for terminal commands, but absence of documented shortcuts, focus trapping via default `autoFocus`, and missing scrollback controls create barriers (violating 2.1.2, 2.4.3).
-- **Understandable (3.x):** Missing instructions and IME support cause failures of 3.3.2 (input assistance) and 3.1.5 (reading level for non-Latin scripts) due to lost characters.
-- **Robust (4.x):** Fails 4.1.2/4.1.3; assistive technologies cannot perceive dynamic changes or selection state because no ARIA live announcements or state descriptors exist.
+- **Perceivable (1.x):** Largely compliant. The DOM transcript/layers satisfy 1.1.1 (non-text alternatives) and 1.3.1 (info relationships), though visual adaptability gaps remain (1.4.3/1.4.11).
+- **Operable (2.x):** Partially compliant. Keyboard interaction parity is strong, `aria-keyshortcuts` announces core gestures, yet the default autofocus can unexpectedly steal focus (2.1.2, 2.4.3 risks) and there is no richer help surface for advanced workflows.
+- **Understandable (3.x):** Instructions are surfaced via `aria-describedby`, IME sequences now commit reliably, yet we still lack localized guidance for alternative layouts.
+- **Robust (4.x):** Compliant for announced states: live regions, `aria-activedescendant`, and selection metadata are present. Continued manual AT validation is needed to confirm interoperability across screen readers.
 
 ## Gap Analysis
 | Area | Issue | Impact | Severity |
 | --- | --- | --- | --- |
-| Semantics | `role="textbox"` without `aria-multiline`, roledescription, or descriptive guidance (`packages/tui-react/src/Terminal.tsx:1190-1199`). | Screen readers report an empty single-line control. | High |
-| Output discoverability | No DOM transcript or `aria-live` region for terminal output. | Screen reader/Braille users cannot review history or receive updates. | Critical |
-| Keyboard help | Custom bindings (e.g., Shift+Arrow for selection) undiscoverable; no `aria-keyshortcuts` or help text. | Users cannot learn interaction model. | Medium |
-| IME & composition | Lack of `compositionstart`/`compositionend` handling in `handleKeyDown`. | CJK and accented input break, blocking key markets. | Critical |
-| Selection exposure | Internal selection not reflected via `aria-activedescendant`/`aria-selected`. | Assistive tech cannot report current selection or caret. | High |
-| Focus strategy | `autoFocus` defaults to true and triggers focus on mount (`packages/tui-react/src/Terminal.tsx:401-403,1154-1158`). | Unexpected focus shift disrupts keyboard flow. | Medium |
-| Visual adaptability | Fixed palette/metrics ignore prefers-contrast/prefers-reduced-motion. | Users with vision sensitivities face reduced readability. | Medium |
-| Testing | Playwright + axe harness (`packages/tui-react/test/e2e/terminal.spec.ts`) covers smoke semantics only. | Regressions caught for baseline flows; richer scenarios remain untested. | Medium |
+| Shortcut guidance depth | `aria-keyshortcuts` exposes combos, but instructions remain terse and there is no discoverable, structured help surface. | Users relying on AT hints may miss multi-step workflows (scrollback, selection anchors). | Medium |
+| Focus strategy | `autoFocus` defaults to true and shifts focus on mount (`packages/tui-react/src/Terminal.tsx:424,1190-1199`). | Unexpected focus grabs derail keyboard users navigating the page. | Medium |
+| Visual adaptability | Fixed palette/metrics ignore `prefers-contrast` and `prefers-reduced-motion`. | Users needing high contrast or reduced motion must override styles manually. | Medium |
+| Documentation currency | Accessibility report and package README do not yet reflect the DOM transcript + live region contract. | Integrators underestimate existing coverage and may duplicate work. | Low |
 
 ## Recommendations
 ### Immediate (Blocker resolution)
-1. **Textual mirror + live announcements:** Maintain an offscreen DOM log synchronized with the interpreter buffer, using `aria-live="polite"` and `aria-atomic="false"` for incremental updates.
-2. **Role semantics:** Extend container attributes with `aria-multiline="true"`, `aria-roledescription="Terminal"`, and `aria-describedby` pointing to instructions/help content.
-3. **Focus opt-in:** Default `autoFocus` to `false` and document opt-in usage. Preserve focus rings and ensure manual focus management is predictable.
-4. **IME support:** Handle `compositionstart/updated/end` events to buffer composed text before dispatching to the interpreter.
+1. **Focus opt-in:** Flip the default `autoFocus` to `false`, document the rationale, and ensure focus rings remain visible when consumers opt in.
+2. **Shortcut guidance:** Layer richer instructions or a help affordance so users can discover multi-step gestures beyond the terse announcement.
+3. **Testing depth:** Extend automated coverage to assert IME flows inside consumer apps and across locales, ensuring regressions are caught early.
 
 ### Near Term (Quarterly goals)
-1. **Interactive proxy element:** Integrate an underlying contenteditable or hidden textarea that mirrors the canonical buffer, enabling native screen reader navigation and selection narration.
-2. **Selection state exposure:** Drive `aria-activedescendant` across line elements or map selections via `aria-selected` attributes in the DOM log.
-3. **Configurable accessibility themes:** Offer high-contrast and reduced-motion presets, and expose them via props/context. React to `prefers-contrast`/`prefers-reduced-motion` media queries by default.
-4. **Instructional UI:** Provide an accessible shortcut guide (`aria-keyshortcuts`, `role="note"`) that explains how to enter command mode, selection gestures, and clipboard behavior.
-5. **Automated tests:** Add axe-core checks to Vitest + Playwright suites and cover regression scenarios (focus trap, live region updates, selection announcements).
+1. **Configurable accessibility themes:** Offer high-contrast and reduced-motion presets, reacting to `prefers-contrast` / `prefers-reduced-motion` by default.
+2. **Instructional UI:** Layer an accessible shortcut/help surface (toggleable overlay or `role="note"`) that expands beyond the terse default instructions.
+3. **Automated tests:** Extend Vitest + Playwright suites with IME simulations, focus regression scenarios, and full axe audits within host apps (`apps/terminal-web-app`).
+4. **Documentation refresh:** Publish an Accessibility Guide describing the DOM transcript contract, integration hooks, and host responsibilities.
 
 ### Long Term (Strategic investments)
 1. **Assistive technology integrations:** Explore the ARIA `role="application"` pattern with virtual cursor overrides, and evaluate browser APIs for Braille display updates.
-2. **Status & telemetry announcements:** Surface connection state, errors, and notifications through dedicated `aria-live` regions with severity-based politeness settings.
-3. **Documentation:** Publish an Accessibility Guide detailing customization points, known limitations, testing coverage, and manual verification scripts.
-4. **Cross-package alignment:** Coordinate with `@mana-ssh/vt` to produce accessible snapshots (text rows, selection metadata) consumable by all renderers, ensuring parity between canvas and DOM experiences.
+2. **Advanced telemetry:** Extend status/log channels to cover transport-level changes, task progress, and host notifications with severity-aware politeness.
+3. **Cross-package alignment:** Keep `@mana-ssh/vt` exporting rich semantics (line identifiers, bidi markers) so alternate renderers achieve parity with the React host.
 
 ## Implementation Strategy
-- **Interpreter-first contract:** Treat the interpreter diff stream as the single source of truth for both pixels and semantics. Extend the shared payload (if needed) with lightweight metadata—line identifiers, printable text, caret coordinates—exposed from `@mana-ssh/vt` so higher layers can build accessibility features without querying renderer internals.
-- **Renderer isolation:** Keep `@mana-ssh/tui-web-canvas-renderer` focused on rasterization (CPU/WebGL/WebGPU). It continues to consume interpreter updates and report selection changes; no ARIA awareness or DOM coupling is introduced at this layer.
-- **Host accessibility adapter:** Introduce a React-level helper (e.g., `useTerminalAccessibility`) that subscribes to the interpreter snapshots/diffs, maintains a DOM transcript, manages `aria-live`, `aria-activedescendant`, and instructions, and mirrors selection/caret state. `<Terminal>` composes this adapter alongside `useTerminalCanvasRenderer`, ensuring the canvas renderer and the accessibility surface stay in sync.
-- **Reusable boundary:** Document the semantic update contract so other hosts (future Svelte/Web Components adapters) can reuse the accessibility adapter pattern. This keeps accessibility responsibilities with host packages while preserving backend-agnostic renderer APIs.
+- **Interpreter-first contract:** Continue treating interpreter snapshots/diffs as the semantic source of truth. Any new metadata required for IME buffering or bidi/RTL support should originate in `@mana-ssh/vt`.
+- **Renderer isolation:** Keep `@mana-ssh/tui-web-canvas-renderer` focused on rasterization. Accessibility remains a host concern layered through React hooks and DOM adapters.
+- **Host accessibility adapter:** Evolve `useTerminalAccessibility` to manage shortcut metadata, focus heuristics, and richer status streams without coupling to renderer internals.
+- **Reusable boundary:** Document the semantic update contract so other hosts (future Svelte/Web Components adapters) can reuse the accessibility adapter pattern.
 
 ## Testing & Verification Plan
 - **Automated:**
-  - Integrate `@axe-core/playwright` into E2E harnesses (`apps/terminal-web-app/test/e2e/app.spec.ts`) to fail builds on critical violations.
-  - Extend Vitest suites with DOM snapshots verifying live region updates and role attributes (`packages/tui-react/test/Terminal.test.tsx`).
+  - Maintain `@axe-core/playwright` coverage in both package-level specs (`packages/tui-react/test/e2e/terminal.accessibility.spec.ts`) and consumer apps.
+  - Add unit coverage for `useTerminalAccessibility` selection math and IME buffering once implemented.
 - **Manual:**
   - Screen reader runs: NVDA + Firefox, JAWS + Chrome, VoiceOver + Safari; includes command entry, history review, selection narration.
   - Keyboard-only audits covering focus trapping, shortcut discoverability, and selection workflows.

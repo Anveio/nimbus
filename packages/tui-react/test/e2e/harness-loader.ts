@@ -117,6 +117,15 @@ export const writeToTerminal = async (
   }, data)
 }
 
+export const composeTerminalText = async (
+  page: Page,
+  data: string,
+): Promise<void> => {
+  await page.evaluate((input) => {
+    window.__manaTuiReactTest__?.compose(input ?? '')
+  }, data)
+}
+
 export const readOnDataEvents = async (
   page: Page,
 ): Promise<TerminalHarnessOnDataEvent[]> =>

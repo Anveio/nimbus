@@ -9,6 +9,7 @@ import {
   readOnDataEvents,
   resetOnDataEvents,
   warmHarnessBundle,
+  composeTerminalText,
   writeToTerminal,
 } from './harness-loader'
 
@@ -41,5 +42,6 @@ export {
   focusTerminal,
   mountTerminal,
   readOnDataEvents,
+  composeTerminalText,
   writeToTerminal,
 }

@@ -20,6 +20,7 @@ export interface TerminalHarnessExports {
   dispose(): void
   focus(): void
   write(data: string): void
+  compose(data: string): void
   getSnapshot(): TerminalState | null
   getSelection(): TerminalSelection | null
   getOnDataEvents(): TerminalHarnessOnDataEvent[]

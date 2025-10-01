@@ -96,6 +96,54 @@ const createHarness = (): TerminalHarnessExports => {
     terminalRef.current?.write(data)
   }
 
+  const compose = (data: string) => {
+    const target = document.querySelector<HTMLDivElement>(
+      '[data-testid="terminal-root"]',
+    )
+    if (!target) {
+      return
+    }
+    const text = data ?? ''
+    const dispatchComposition = (type: string, value: string) => {
+      if (typeof window.CompositionEvent === 'function') {
+        target.dispatchEvent(
+          new CompositionEvent(type, {
+            data: value,
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+          }),
+        )
+        return
+      }
+      const fallback = new Event(type, {
+        bubbles: true,
+        cancelable: true,
+      })
+      ;(fallback as any).data = value
+      target.dispatchEvent(fallback)
+    }
+
+    dispatchComposition('compositionstart', '')
+    dispatchComposition('compositionupdate', text)
+    dispatchComposition('compositionend', text)
+
+    if (typeof window.InputEvent === 'function') {
+      target.dispatchEvent(
+        new InputEvent('input', {
+          data: text,
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+        }),
+      )
+    } else {
+      const fallback = new Event('input', { bubbles: true, cancelable: true })
+      ;(fallback as any).data = text
+      target.dispatchEvent(fallback)
+    }
+  }
+
   const getSnapshot = () => terminalRef.current?.getSnapshot() ?? null
 
   const getSelection = () => terminalRef.current?.getSelection() ?? null
@@ -117,6 +165,7 @@ const createHarness = (): TerminalHarnessExports => {
     dispose,
     focus,
     write,
+    compose,
     getSnapshot,
     getSelection,
     getOnDataEvents,

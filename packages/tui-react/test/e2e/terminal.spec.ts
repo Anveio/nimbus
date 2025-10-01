@@ -2,6 +2,7 @@ import {
   expect,
   focusTerminal,
   mountTerminal,
+  composeTerminalText,
   readOnDataEvents,
   test,
 } from './fixtures'
@@ -30,6 +31,23 @@ test.describe('tui-react terminal', () => {
     const events = await readOnDataEvents(page)
     expect(events.map((event) => event.text)).toEqual(['l', 's'])
     expect(events.map((event) => event.bytes)).toEqual([[108], [115]])
+  })
+
+  test('commits IME composition text and mirrors it in the transcript', async ({
+    page,
+  }) => {
+    await mountTerminal(page, { ariaLabel: 'IME Terminal' })
+    await focusTerminal(page)
+
+    await composeTerminalText(page, 'あ')
+
+    const events = await readOnDataEvents(page)
+    expect(events.map((event) => event.text)).toEqual(['あ'])
+
+    const transcript = page
+      .locator('[data-testid="terminal-transcript"] [data-testid="terminal-transcript-row"]')
+      .first()
+    await expect(transcript).toContainText('あ')
   })
 
   test('has no axe-core accessibility violations', async ({

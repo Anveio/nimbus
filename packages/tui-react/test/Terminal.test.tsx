@@ -194,6 +194,35 @@ describe('Terminal', () => {
     expect(text).toBe('BETA')
   })
 
+  test('commits IME composition sequences before emitting data', async () => {
+    const ref = createRef<TerminalHandle>()
+    const onData = vi.fn()
+
+    render(<Terminal ref={ref} onData={onData} rows={24} columns={80} />)
+
+    const region = screen.getByRole('textbox')
+    await userEvent.click(region)
+
+    await act(async () => {
+      fireEvent.compositionStart(region, { data: '' })
+      fireEvent.compositionUpdate(region, { data: 'あ' })
+      fireEvent.keyDown(region, { key: 'Process' })
+    })
+
+    expect(onData).not.toHaveBeenCalled()
+
+    await act(async () => {
+      fireEvent.compositionEnd(region, { data: 'あ' })
+    })
+
+    await waitFor(() => {
+      expect(onData).toHaveBeenCalledWith(encoder.encode('あ'))
+    })
+
+    const snapshot = ref.current!.getSnapshot()
+    expect(extractRowText(snapshot)).toBe('あ')
+  })
+
   test('falls back to local newline when no onData handler is provided', async () => {
     const ref = createRef<TerminalHandle>()
     render(<Terminal ref={ref} rows={24} columns={80} />)

@@ -17,6 +17,24 @@ const TEST_IDS = {
   statusRegion: 'terminal-status-region',
 } as const
 
+const ARIA_KEYSHORTCUTS = [
+  'Enter',
+  'Shift+ArrowLeft',
+  'Shift+ArrowRight',
+  'Shift+ArrowUp',
+  'Shift+ArrowDown',
+  'Meta+ArrowLeft',
+  'Meta+ArrowRight',
+  'Alt+ArrowLeft',
+  'Alt+ArrowRight',
+  'Control+ArrowLeft',
+  'Control+ArrowRight',
+  'Meta+C',
+  'Meta+V',
+  'Control+Shift+C',
+  'Control+Shift+V',
+].join(' ')
+
 const ROOT_SELECTOR = `[data-testid="${TEST_IDS.root}"]`
 const TRANSCRIPT_SELECTOR = `[data-testid="${TEST_IDS.transcript}"]`
 const TRANSCRIPT_ROW_SELECTOR = `[data-testid="${TEST_IDS.transcriptRow}"]`
@@ -49,6 +67,7 @@ test.describe('tui-react terminal accessibility contract', () => {
     await expect(container).toHaveAttribute('role', 'textbox')
     await expect(container).toHaveAttribute('aria-multiline', 'true')
     await expect(container).toHaveAttribute('aria-roledescription', 'Terminal')
+    await expect(container).toHaveAttribute('aria-keyshortcuts', ARIA_KEYSHORTCUTS)
 
     const describedByIds = splitIds(await container.getAttribute('aria-describedby'))
     expect(describedByIds.length).toBeGreaterThan(0)
