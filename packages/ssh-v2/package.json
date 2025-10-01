@@ -26,13 +26,17 @@
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
-    "./web": {
-      "types": "./src/web/index.ts",
-      "default": "./src/web/index.ts"
+    "./client/web": {
+      "types": "./src/client/web/index.ts",
+      "default": "./src/client/web/index.ts"
     },
-    "./node": {
-      "types": "./src/node/index.ts",
-      "default": "./src/node/index.ts"
+    "./client/node": {
+      "types": "./src/client/node/index.ts",
+      "default": "./src/client/node/index.ts"
+    },
+    "./server/node": {
+      "types": "./src/server/node/index.ts",
+      "default": "./src/server/node/index.ts"
     }
   },
   "files": [

@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig/workspace-package-config.json",
+  "compilerOptions": {
+    "paths": {
+      "@mana/websocket": ["./src/index.ts"]
+    }
+  },
+  "include": ["src"],
+  "exclude": ["dist", "build", "node_modules"]
+}

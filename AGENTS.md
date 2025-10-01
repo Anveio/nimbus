@@ -27,12 +27,13 @@ Core Principles:
 The workspace is a Bun-powered TypeScript monorepo. Each package is a shippable unit; each app is a deliverable artifact. Respect their boundaries.
 
 ## Packages
-- `mana-ssh/vt` (`packages/vt`): VT parser + interpreter. Pure, deterministic, spec-first. Emits terminal state diffs for higher layers.
-- `mana-ssh/tui-web-canvas-renderer` (`packages/tui-web-canvas-renderer`): Canvas-based renderer backends (CPU/WebGL). Consumes interpreter diffs, manages glyph atlases, enforces pixel-accurate playback.
-- `mana-ssh/tui-react` (`packages/tui-react`): React bindings and host control surface. Mediates input, focus, accessibility hooks, and renderer lifecycle.
-- `mana-ssh/ssh-v2` (`packages/ssh-v2`): Implementation of the SSHv2 spec in the browser. SSHv2 core state machine, key exchange, message codecs. Transport-agnostic, cryptography-forward.
-- `mana-ssh/websocket` (stubs/planned): Browser transports and convenience APIs layered atop the protocol core.
-- `mana-ssh/tsconfig`: Shared compiler baselines. Do not fork TypeScript settings casually; propose rationale first.
+- `@mana/vt` (`packages/vt`): VT parser + interpreter. Pure, deterministic, spec-first. Emits terminal state diffs for higher layers.
+- `@mana/tui-web-canvas-renderer` (`packages/tui-web-canvas-renderer`): Canvas-based renderer backends (CPU/WebGL). Consumes interpreter diffs, manages glyph atlases, enforces pixel-accurate playback.
+- `@mana/tui-react` (`packages/tui-react`): React bindings and host control surface. Mediates input, focus, accessibility hooks, and renderer lifecycle.
+- `@mana/ssh-v2` (`packages/ssh-v2`): SSHv2 protocol core with sub-exports for `client/web`, `client/node`, and `server/node`. Spec-driven state machine, codecs, and crypto scaffolding.
+- `@mana/websocket` (`packages/websocket`): WebSocket transport primitives, connection policies, and backpressure controls for browser clients.
+- `@mana/web` (`packages/web`): Batteries-included browser SDK that wires interpreter, renderer, transport, telemetry, and policy guardrails for SaaS integrations.
+- `@mana/tsconfig` (`packages/tsconfig`): Shared compiler baselines. Do not fork TypeScript settings casually; propose rationale first.
 
 ## Apps
 - `apps/terminal-web-app`: Reference terminal experience. Must remain production-grade: Playwright E2E coverage, deterministic assets, telemetry hooks.
@@ -50,28 +51,14 @@ The workspace is a Bun-powered TypeScript monorepo. Each package is a shippable 
 - Integration: Pixel regression harness (node-canvas + pixelmatch) for renderer; interpreter-to-renderer contract specs.
 - End-to-End: Playwright for UI packages (tui-react, tui-web-canvas-renderer) and apps (apps/terminal-web-app). Every behavioral change demands a scenario. All statements in specifications MUST have a test scenario. Run the full suite (`bun run test` from root) before declaring victory.
 - Type Discipline: `bun run typecheck` gates every deliverable.
+- Build Smoke Test: run `bun run build` before committing so every change lands atomically.
 - Spec Currency: When behavior shifts, update or author the spec document first (see package-level `AGENTS.md`), then tests, then code.
 
 # Toolchain Rituals
 - Package manager + runner: Bun (`bun install`, `bun run test`, `bun run typecheck`).
 - Task orchestration: Turbo (`bun run dev --filter <target>`). Default to `--output-logs=errors-only` unless diagnosing.
 - Lint & format: Biome (`bun run lint`, `bun run lint:fix` → alias for `biome check --write .`).
-- Git hygiene: Respect existing dirty state. Never revert foreign changes. Commit format must follow the following format
-
-[Problem]
-<description_of_problem>
-Fill in this section with the problem, how it ties into the mission of the package and the overall software project, and an impact analysis.
-<description_of_problem>
-
-[Solution]
-<description_of_solution>
-Fill in this section with the solution, key decisions made, the overall implementation strategy, small but helpful technical details, any performance or API caveats, and tradeoffs/alternative solutions considered.
-<description_of_solution>
-
-[Testing]
-<description_of_testing>
-Fill in this section with the testing strategy. What new assertions did we make? Did we choose to test against a specification or is there a product requirement? Log all details related to testing and verification that code changes are correct and meet standards, guidelines, and compliance.
-<description_of_testing>
+- Git hygiene: Respect existing dirty state. Never revert foreign changes. Commit format must follow the mandated template (`[Problem]`, `[Solution]`, `[Testing]` sections completed).
 
 # Operational Guardrails
 - Destructive operations require explicit user mandate. Default to safety.

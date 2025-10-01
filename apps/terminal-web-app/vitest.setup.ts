@@ -8,7 +8,12 @@ vi.mock('@mana/tui-react', () => {
   const reset = vi.fn()
   const getSnapshot = vi.fn(() => ({ buffer: [] }))
 
-  ;(globalThis as any).__manaTerminalMock__ = { focus, write, reset, getSnapshot }
+  ;(globalThis as any).__manaTerminalMock__ = {
+    focus,
+    write,
+    reset,
+    getSnapshot,
+  }
 
   const Terminal = forwardRef((_props: any, ref) => {
     useImperativeHandle(ref, () => ({

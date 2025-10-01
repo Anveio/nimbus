@@ -3,8 +3,9 @@
   "compilerOptions": {
     "paths": {
       "@mana/ssh-v2": ["./src/index.ts"],
-      "@mana/ssh-v2/web": ["./src/web/index.ts"],
-      "@mana/ssh-v2/node": ["./src/node/index.ts"]
+      "@mana/ssh-v2/client/web": ["./src/client/web/index.ts"],
+      "@mana/ssh-v2/client/node": ["./src/client/node/index.ts"],
+      "@mana/ssh-v2/server/node": ["./src/server/node/index.ts"]
     }
   },
   "include": ["src", "test", "vitest.config.ts"],
