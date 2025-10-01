@@ -271,7 +271,7 @@ describe('TerminalInterpreter basic behaviour', () => {
       ?.map((cell) => cell?.char ?? ' ')
       .join('')
       .trimEnd()
-    expect(afterReplace).toBe('ABXD')
+    expect(afterReplace, 'IRM off should overwrite existing cells').toBe('ABXD')
 
     parser.write('\u001b[4h', sink)
     parser.write('Y', sink)
@@ -279,7 +279,7 @@ describe('TerminalInterpreter basic behaviour', () => {
       ?.map((cell) => cell?.char ?? ' ')
       .join('')
       .trimEnd()
-    expect(afterInsert).toBe('ABXY')
+    expect(afterInsert, 'IRM on should shift cells to the right').toBe('ABXY')
 
     parser.write('\u001b[4l', sink)
     parser.write('Z', sink)
@@ -287,7 +287,7 @@ describe('TerminalInterpreter basic behaviour', () => {
       ?.map((cell) => cell?.char ?? ' ')
       .join('')
       .trimEnd()
-    expect(afterOverwrite).toBe('ABXYZ')
+    expect(afterOverwrite, 'IRM off after toggle should overwrite at cursor').toBe('ABXYZ')
   })
 
   it('handles single shift SS2 without altering GL', () => {

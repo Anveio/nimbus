@@ -1,19 +1,19 @@
 import {
-  expect,
-  focusTerminal,
-  mountTerminal,
-  composeTerminalText,
-  readTerminalDiagnostics,
-  readOnDataEvents,
-  writeToTerminal,
-  resetOnDataEvents,
-  test,
-} from './fixtures'
-import {
   getSelectionRowSegments,
   type TerminalSelection,
   type TerminalState,
 } from '@mana-ssh/vt'
+import {
+  composeTerminalText,
+  expect,
+  focusTerminal,
+  mountTerminal,
+  readOnDataEvents,
+  readTerminalDiagnostics,
+  resetOnDataEvents,
+  test,
+  writeToTerminal,
+} from './fixtures'
 
 const deriveSelectedText = (
   snapshot: TerminalState,
@@ -38,7 +38,11 @@ const deriveSelectedText = (
       currentRow = segment.row
     }
     const rowCells = snapshot.buffer[segment.row] ?? []
-    for (let column = segment.startColumn; column <= segment.endColumn; column += 1) {
+    for (
+      let column = segment.startColumn;
+      column <= segment.endColumn;
+      column += 1
+    ) {
       currentLine += rowCells[column]?.char ?? ' '
     }
   }
@@ -85,7 +89,9 @@ test.describe('tui-react terminal', () => {
     expect(events.map((event) => event.text)).toEqual(['あ'])
 
     const transcript = page
-      .locator('[data-testid="terminal-transcript"] [data-testid="terminal-transcript-row"]')
+      .locator(
+        '[data-testid="terminal-transcript"] [data-testid="terminal-transcript-row"]',
+      )
       .first()
     await expect(transcript).toContainText('あ')
   })
@@ -105,7 +111,9 @@ test.describe('tui-react terminal', () => {
     await page.keyboard.press('Escape')
 
     await expect(dialog).toHaveCount(0)
-    await expect(page.getByRole('textbox', { name: 'Shortcut Terminal' })).toBeFocused()
+    await expect(
+      page.getByRole('textbox', { name: 'Shortcut Terminal' }),
+    ).toBeFocused()
   })
 
   test('has no axe-core accessibility violations', async ({
@@ -203,14 +211,21 @@ test.describe('tui-react terminal', () => {
       }
     })
 
-    expect(selectionData).toBeTruthy()
+    expect(
+      selectionData,
+      'selection data should be present after keyboard selection',
+    ).toBeTruthy()
     const { selection, snapshot } = selectionData!
-    expect(selection).not.toBeNull()
-    const selectedText = deriveSelectedText(snapshot, selection!)
-    expect(selectedText).toBe('BETA')
+    expect(selection, 'selection handle should not be null').not.toBeNull()
+    const selectedText = deriveSelectedText(snapshot!, selection!)
+    expect(selectedText, `selected text mismatch (got=${selectedText})`).toBe(
+      'BETA',
+    )
 
-    const copyShortcut = process.platform === 'darwin' ? 'Meta+C' : 'Control+Shift+C'
-    const pasteShortcut = process.platform === 'darwin' ? 'Meta+V' : 'Control+Shift+V'
+    const copyShortcut =
+      process.platform === 'darwin' ? 'Meta+C' : 'Control+Shift+C'
+    const pasteShortcut =
+      process.platform === 'darwin' ? 'Meta+V' : 'Control+Shift+V'
 
     await page.evaluate(() => {
       const store = (window as any).__testClipboardStore__
@@ -222,7 +237,10 @@ test.describe('tui-react terminal', () => {
       const store = (window as any).__testClipboardStore__
       return store.value
     })
-    expect(clipboardText).toBe('BETA')
+    expect(
+      clipboardText,
+      `clipboard should contain copied text (got=${clipboardText})`,
+    ).toBe('BETA')
 
     const pastePayload = ' keyboard paste'
     await page.evaluate((payload) => {
@@ -236,12 +254,15 @@ test.describe('tui-react terminal', () => {
       const handle = window.__manaTuiReactTest__
       return handle?.getSnapshot() ?? null
     })
-    expect(postPaste).toBeTruthy()
+    expect(postPaste, 'snapshot should be available after paste').toBeTruthy()
     const pastedRow = postPaste!.buffer[0]
       ?.map((cell) => cell?.char ?? ' ')
       .join('')
       .trimEnd()
-    expect(pastedRow).toContain(`ALPHA${pastePayload}`)
+    expect(
+      pastedRow,
+      `row after paste should contain payload (row=${pastedRow})`,
+    ).toContain(`ALPHA${pastePayload}`)
   })
 
   test('treats raw DEL as inert while DOM Backspace erases locally', async ({
@@ -258,12 +279,17 @@ test.describe('tui-react terminal', () => {
       const handle = window.__manaTuiReactTest__
       return handle?.getSnapshot() ?? null
     })
-    expect(afterDelSnapshot).toBeTruthy()
+    expect(
+      afterDelSnapshot,
+      'snapshot should be available after DEL write',
+    ).toBeTruthy()
     const afterDelRow = afterDelSnapshot!.buffer[0]
       ?.map((cell) => cell?.char ?? ' ')
       .join('')
       .trimEnd()
-    expect(afterDelRow).toBe('foo')
+    expect(afterDelRow, `DEL should not mutate row (row=${afterDelRow})`).toBe(
+      'foo',
+    )
 
     await writeToTerminal(page, '\u001b[2J\u001b[H')
     await resetOnDataEvents(page)
@@ -285,12 +311,20 @@ test.describe('tui-react terminal', () => {
     })
 
     const events = await readOnDataEvents(page)
-    expect(events.length).toBeGreaterThan(0)
+    expect(
+      events.length,
+      'Backspace should emit at least one onData event',
+    ).toBeGreaterThan(0)
     const lastEvent = events[events.length - 1]
-    expect(lastEvent?.bytes).toEqual([0x7f])
+    expect(
+      lastEvent?.bytes,
+      `Backspace should emit DEL byte (event=${JSON.stringify(lastEvent)})`,
+    ).toEqual([0x7f])
   })
 
-  test('single clicks reposition the cursor within the line', async ({ page }) => {
+  test('single clicks reposition the cursor within the line', async ({
+    page,
+  }) => {
     await mountTerminal(page, { ariaLabel: 'Pointer Terminal' })
     await focusTerminal(page)
 
@@ -330,9 +364,15 @@ test.describe('tui-react terminal', () => {
       const handle = window.__manaTuiReactTest__
       return handle?.getSnapshot() ?? null
     })
-    expect(snapshotAfter).toBeTruthy()
+    expect(
+      snapshotAfter,
+      'snapshot should be available after pointer click',
+    ).toBeTruthy()
     expect(snapshotAfter!.cursor.row).toBe(0)
     expect(snapshotAfter!.cursor.column).toBe(5)
-    expect(snapshotAfter!.selection).toBeNull()
+    expect(
+      snapshotAfter!.selection,
+      'pointer click should clear selection',
+    ).toBeNull()
   })
 })

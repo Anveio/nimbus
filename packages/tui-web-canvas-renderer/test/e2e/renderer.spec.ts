@@ -565,7 +565,9 @@ test.describe('createCanvasRenderer (browser)', () => {
       const reversedPixel = await getPixel(page, 0, 0)
       const brightnessAfter =
         reversedPixel[0] + reversedPixel[1] + reversedPixel[2]
-      expect(brightnessAfter).toBeGreaterThan(brightnessBefore + 120)
+      expect(brightnessAfter,
+        `reverse video should invert to brighter background (before=${brightnessBefore}, after=${brightnessAfter})`,
+      ).toBeGreaterThan(brightnessBefore + 120)
 
       const normalSnapshot = structuredClone(snapshot)
       await applyUpdates(page, {
@@ -582,9 +584,8 @@ test.describe('createCanvasRenderer (browser)', () => {
       const revertedPixel = await getPixel(page, 0, 0)
       const brightnessReverted =
         revertedPixel[0] + revertedPixel[1] + revertedPixel[2]
-      expect(Math.abs(brightnessReverted - brightnessBefore)).toBeLessThanOrEqual(
-        60,
-      )
+      const delta = Math.abs(brightnessReverted - brightnessBefore)
+      expect(delta, `reverse video reset should restore brightness (delta=${delta})`).toBeLessThanOrEqual(60)
     })
   })
 
