@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './test/e2e',
-  timeout: 5_000,
+  timeout: 2_000,
   fullyParallel: true,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI

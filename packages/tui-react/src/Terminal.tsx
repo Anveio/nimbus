@@ -42,10 +42,11 @@ import {
 import type { TerminalStatusMessage } from './accessibility'
 import {
   type ShortcutGuideConfig,
-  type ShortcutGuideReason,
   TerminalAccessibilityLayer,
   useTerminalAccessibilityAdapter,
 } from './accessibility-layer'
+import type { ShortcutGuideReason } from './hotkeys'
+import { handleTerminalHotkey } from './hotkeys'
 
 type TerminalShortcutGuideOptions = ShortcutGuideConfig
 
@@ -1109,7 +1110,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       [interpreter, localEcho, replaceSelectionWithText],
     )
 
-    const handleKeyDown = useCallback(
+
+        const handleKeyDown = useCallback(
       (event: ReactKeyboardEvent<HTMLDivElement>) => {
         if (
           event.nativeEvent.isComposing ||
@@ -1117,161 +1119,43 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         ) {
           return
         }
-        const key = event.key
-        if (
-          shortcutGuideEnabled &&
-          (key === '?' || (key === '/' && event.shiftKey))
-        ) {
+
+        const result = handleTerminalHotkey(event, {
+          interpreter: {
+            moveCursorLeft: (options) => interpreter.moveCursorLeft(options),
+            moveCursorRight: (options) => interpreter.moveCursorRight(options),
+            moveCursorUp: (options) => interpreter.moveCursorUp(options),
+            moveCursorDown: (options) => interpreter.moveCursorDown(options),
+            moveCursorLineStart: (options) =>
+              interpreter.moveCursorLineStart(options),
+            moveCursorLineEnd: (options) =>
+              interpreter.moveCursorLineEnd(options),
+            moveCursorWordLeft: (options) =>
+              interpreter.moveCursorWordLeft(options),
+            moveCursorWordRight: (options) =>
+              interpreter.moveCursorWordRight(options),
+            getSnapshot: () => interpreter.snapshot,
+          },
+          performLocalErase,
+          applyUpdates,
+          encodeKeyEvent,
+          emitData,
+          clearSelection,
+          write,
+          onData,
+          toggleShortcutGuide,
+          shortcutGuideEnabled,
+          keyboardSelectionAnchorRef,
+          compositionStateRef,
+        })
+
+        if (!result.handled) {
+          return
+        }
+
+        if (result.preventDefault) {
           event.preventDefault()
-          toggleShortcutGuide('hotkey')
-          return
         }
-        if (key === 'Process') {
-          return
-        }
-        const lowerKey = key.length === 1 ? key.toLowerCase() : key
-        const isArrowKey =
-          key === 'ArrowUp' ||
-          key === 'ArrowDown' ||
-          key === 'ArrowLeft' ||
-          key === 'ArrowRight'
-        const isCopyCombo =
-          (event.metaKey && lowerKey === 'c') ||
-          (event.ctrlKey && event.shiftKey && lowerKey === 'c')
-        const isPasteCombo =
-          (event.metaKey && lowerKey === 'v') ||
-          (event.ctrlKey && event.shiftKey && lowerKey === 'v')
-
-        if (isCopyCombo || isPasteCombo) {
-          return
-        }
-
-        if (key === 'Enter' && !onData) {
-          event.preventDefault()
-          write('\r\n')
-          clearSelection()
-          return
-        }
-
-        const shouldExtendSelection = event.shiftKey && isArrowKey
-        const previousCursor = interpreter.snapshot.cursor
-        let anchorPoint: SelectionPoint | null = null
-
-        if (shouldExtendSelection) {
-          anchorPoint = keyboardSelectionAnchorRef.current ?? {
-            row: previousCursor.row,
-            column: previousCursor.column,
-            timestamp: Date.now(),
-          }
-        }
-
-        let handledLocally = false
-        let handledViaLocalErase = false
-        if (!event.altKey && !event.ctrlKey && !event.metaKey) {
-          if (key === 'Backspace') {
-            handledLocally = performLocalErase('backspace')
-            handledViaLocalErase = handledLocally
-          } else if (key === 'Delete') {
-            handledLocally = performLocalErase('delete')
-            handledViaLocalErase = handledLocally
-          }
-        }
-        if (isArrowKey) {
-          const isLineMotion = event.metaKey
-          const isWordMotion =
-            !isLineMotion && (event.altKey || (event.ctrlKey && !event.metaKey))
-
-          let updates: TerminalUpdate[] = []
-          switch (key) {
-            case 'ArrowLeft':
-              if (isLineMotion) {
-                updates = interpreter.moveCursorLineStart({
-                  extendSelection: shouldExtendSelection,
-                  selectionAnchor: anchorPoint,
-                })
-              } else if (isWordMotion) {
-                updates = interpreter.moveCursorWordLeft({
-                  extendSelection: shouldExtendSelection,
-                  selectionAnchor: anchorPoint,
-                })
-              } else {
-                updates = interpreter.moveCursorLeft({
-                  extendSelection: shouldExtendSelection,
-                  selectionAnchor: anchorPoint,
-                })
-              }
-              break
-            case 'ArrowRight':
-              if (isLineMotion) {
-                updates = interpreter.moveCursorLineEnd({
-                  extendSelection: shouldExtendSelection,
-                  selectionAnchor: anchorPoint,
-                })
-              } else if (isWordMotion) {
-                updates = interpreter.moveCursorWordRight({
-                  extendSelection: shouldExtendSelection,
-                  selectionAnchor: anchorPoint,
-                })
-              } else {
-                updates = interpreter.moveCursorRight({
-                  extendSelection: shouldExtendSelection,
-                  selectionAnchor: anchorPoint,
-                })
-              }
-              break
-            case 'ArrowUp':
-              updates = interpreter.moveCursorUp({
-                extendSelection: shouldExtendSelection,
-                selectionAnchor: anchorPoint,
-              })
-              break
-            case 'ArrowDown':
-              updates = interpreter.moveCursorDown({
-                extendSelection: shouldExtendSelection,
-                selectionAnchor: anchorPoint,
-              })
-              break
-            default:
-              break
-          }
-
-          if (updates.length > 0) {
-            applyUpdates(updates)
-            handledLocally = true
-            keyboardSelectionAnchorRef.current = shouldExtendSelection
-              ? anchorPoint
-              : null
-          }
-        }
-
-        if (handledLocally) {
-          event.preventDefault()
-          if (handledViaLocalErase) {
-            keyboardSelectionAnchorRef.current = null
-          }
-          const bytes = encodeKeyEvent(event)
-          if (bytes) {
-            emitData(bytes, { skipLocalEcho: true })
-          }
-          return
-        }
-
-        const bytes = encodeKeyEvent(event)
-        if (!bytes) {
-          return
-        }
-
-        const selectionExists = Boolean(interpreter.snapshot.selection)
-        if (selectionExists && !event.shiftKey) {
-          clearSelection()
-        }
-
-        if (!event.shiftKey) {
-          keyboardSelectionAnchorRef.current = null
-        }
-
-        event.preventDefault()
-        emitData(bytes)
       },
       [
         applyUpdates,
@@ -1279,13 +1163,14 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         emitData,
         interpreter,
         onData,
+        performLocalErase,
         shortcutGuideEnabled,
         toggleShortcutGuide,
         write,
       ],
     )
 
-    const handlePaste = useCallback(
+const handlePaste = useCallback(
       (event: ReactClipboardEvent<HTMLDivElement>) => {
         const text = event.clipboardData.getData('text')
         if (!text) {

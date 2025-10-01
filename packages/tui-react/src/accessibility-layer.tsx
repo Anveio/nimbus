@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import type { ShortcutGuideReason } from './hotkeys'
 export type TerminalStatusLevel = 'info' | 'warning' | 'error'
 
 export interface TerminalStatusMessage {
@@ -99,8 +100,6 @@ const SHORTCUT_CLOSE_BUTTON_STYLE = {
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value))
-
-export type ShortcutGuideReason = 'hotkey' | 'imperative'
 
 export interface TerminalShortcut {
   readonly id: string
@@ -678,10 +677,10 @@ const ShortcutGuideOverlay = ({
   )
 
   return (
-    <button
-      type="button"
+    <div
       style={SHORTCUT_BACKDROP_STYLE}
       onClick={handleBackdropClick}
+      role="presentation"
     >
       <div
         role="dialog"
@@ -708,6 +707,8 @@ const ShortcutGuideOverlay = ({
           Close
         </button>
       </div>
-    </button>
+    </div>
   )
 }
+
+export type { ShortcutGuideReason } from './hotkeys'

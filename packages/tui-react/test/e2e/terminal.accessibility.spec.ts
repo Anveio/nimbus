@@ -67,15 +67,23 @@ test.describe('tui-react terminal accessibility contract', () => {
     await expect(container).toHaveAttribute('role', 'textbox')
     await expect(container).toHaveAttribute('aria-multiline', 'true')
     await expect(container).toHaveAttribute('aria-roledescription', 'Terminal')
-    await expect(container).toHaveAttribute('aria-keyshortcuts', ARIA_KEYSHORTCUTS)
+    await expect(container).toHaveAttribute(
+      'aria-keyshortcuts',
+      ARIA_KEYSHORTCUTS,
+    )
 
-    const describedByIds = splitIds(await container.getAttribute('aria-describedby'))
+    const describedByIds = splitIds(
+      await container.getAttribute('aria-describedby'),
+    )
     expect(describedByIds.length).toBeGreaterThan(0)
 
     for (const id of describedByIds) {
       const instructions = page.locator(`#${id}`)
       await expect(instructions).toBeAttached()
-      await expect(instructions).toHaveAttribute('data-testid', TEST_IDS.instructions)
+      await expect(instructions).toHaveAttribute(
+        'data-testid',
+        TEST_IDS.instructions,
+      )
       await expect(instructions).toHaveAttribute('role', 'note')
     }
 
@@ -100,7 +108,9 @@ test.describe('tui-react terminal accessibility contract', () => {
     await expect(transcript).toHaveAttribute('aria-atomic', 'false')
     await expect(transcript).toHaveAttribute('aria-relevant', 'additions text')
 
-    const axeResults = await makeAxeBuilder().include(TRANSCRIPT_SELECTOR).analyze()
+    const axeResults = await makeAxeBuilder()
+      .include(TRANSCRIPT_SELECTOR)
+      .analyze()
     expect(axeResults.violations).toEqual([])
   })
 
@@ -123,7 +133,9 @@ test.describe('tui-react terminal accessibility contract', () => {
     await expect(firstRow).toContainText('hello world')
     await expect(secondRow).toContainText('second line')
 
-    const axeResults = await makeAxeBuilder().include(TRANSCRIPT_SELECTOR).analyze()
+    const axeResults = await makeAxeBuilder()
+      .include(TRANSCRIPT_SELECTOR)
+      .analyze()
     expect(axeResults.violations).toEqual([])
   })
 
@@ -142,24 +154,33 @@ test.describe('tui-react terminal accessibility contract', () => {
     await page.keyboard.press('Shift+ArrowLeft')
 
     const container = page.locator(ROOT_SELECTOR)
-    const activeDescendant = await container.getAttribute('aria-activedescendant')
+    const activeDescendant = await container.getAttribute(
+      'aria-activedescendant',
+    )
     expect(activeDescendant).not.toBeNull()
 
     if (activeDescendant) {
       const activeElement = page.locator(`#${activeDescendant}`)
       await expect(activeElement).toBeVisible()
-      await expect(activeElement).toHaveAttribute('data-testid', 'terminal-transcript-cell')
+      await expect(activeElement).toHaveAttribute(
+        'data-testid',
+        'terminal-transcript-cell',
+      )
     }
 
-    const selectionState = await page.evaluate(() =>
-      window.__manaTuiReactTest__?.getSelection() ?? null,
+    const selectionState = await page.evaluate(
+      () => window.__manaTuiReactTest__?.getSelection() ?? null,
     )
     expect(selectionState).not.toBeNull()
 
-    const selectedCell = page.locator(`${TRANSCRIPT_CELL_SELECTOR}[aria-selected="true"]`).first()
+    const selectedCell = page
+      .locator(`${TRANSCRIPT_CELL_SELECTOR}[aria-selected="true"]`)
+      .first()
     await expect(selectedCell).toHaveAttribute('aria-selected', 'true')
 
-    const axeResults = await makeAxeBuilder().include(TRANSCRIPT_SELECTOR).analyze()
+    const axeResults = await makeAxeBuilder()
+      .include(TRANSCRIPT_SELECTOR)
+      .analyze()
     expect(axeResults.violations).toEqual([])
   })
 
@@ -182,7 +203,9 @@ test.describe('tui-react terminal accessibility contract', () => {
     await expect(statusRegion).toContainText(/row\s+\d+/i)
     await expect(statusRegion).toContainText(/column\s+\d+/i)
 
-    const axeResults = await makeAxeBuilder().include(CARET_STATUS_SELECTOR).analyze()
+    const axeResults = await makeAxeBuilder()
+      .include(CARET_STATUS_SELECTOR)
+      .analyze()
     expect(axeResults.violations).toEqual([])
   })
 
@@ -206,7 +229,9 @@ test.describe('tui-react terminal accessibility contract', () => {
     await expect(statusRegion).toHaveAttribute('aria-live', 'assertive')
     await expect(statusRegion).toContainText(/connection lost/i)
 
-    const axeResults = await makeAxeBuilder().include(STATUS_REGION_SELECTOR).analyze()
+    const axeResults = await makeAxeBuilder()
+      .include(STATUS_REGION_SELECTOR)
+      .analyze()
     expect(axeResults.violations).toEqual([])
   })
 
