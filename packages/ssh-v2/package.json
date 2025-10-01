@@ -3,15 +3,39 @@
   "version": "0.0.1",
   "private": true,
   "description": "The core, transport-agnostic SSHv2 protocol implementation for ManaSSHWeb.",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "scripts": {
     "clean": "git clean -xfd .",
-    "test": "echo 'Test script not implemented yet'",
+    "clean:artifacts": "rm -rf dist",
+    "test": "vitest run",
+    "test:watch": "vitest --reporter=default --silent=false",
+    "test:coverage": "vitest run --coverage --reporter=dot --silent",
     "lint": "biome lint .",
-    "lint:fix": "biome lint --fix . && biome format --write ."
+    "lint:fix": "biome lint --fix . && biome format --write .",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "typescript": "^5.9.2"
-  }
+    "typescript": "^5.9.2",
+    "@types/node": "^22.7.4",
+    "vitest": "^3.2.4"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./web": {
+      "types": "./src/web/index.ts",
+      "default": "./src/web/index.ts"
+    },
+    "./node": {
+      "types": "./src/node/index.ts",
+      "default": "./src/node/index.ts"
+    }
+  },
+  "files": [
+    "dist/**"
+  ]
 }

@@ -1,45 +1,71 @@
 # @mana-ssh/ssh-v2 Agent Charter
 
-This charter governs the SSH protocol core. Update it whenever RFC scope, security posture, or implementation rituals evolve.
+This brief governs the SSH protocol core. Update it whenever RFC scope, security posture, or vendor expectations shift.
 
 ## Mandate
-- Implement SSHv2 (RFC 4250–4254, RFC 5656, extensions) as a transport-agnostic state machine that consumes bytes and produces deterministic protocol events/responses.
-- Provide cryptographic primitives (key exchange, host authentication, bulk ciphers, MACs) with constant-time, side-channel mindful implementations.
-- Surface strictly typed APIs that higher layers (`@mana-ssh/web`, `@mana-ssh/websocket`, proxy services) can drive without touching internal state.
+- Ship a transport-agnostic SSHv2 engine that consumes raw octets and emits deterministic protocol intents/events.
+- Track RFC 4250–4256 plus required extensions (RFC 4344, 4419, 5656, 6668, 7478, 8308, 8332, 8709, 9142, etc.) exactly; document any divergence.
+- Keep the package standalone and vendable: no implicit browser, DOM, or runtime globals.
 
-## Boundaries & Dependencies
-- Lives entirely within `packages/ssh-v2`; no direct network sockets, timers, or global state. Randomness and crypto sources are injectable.
-- Depends on audited crypto libraries (WebCrypto, wasm backends) through explicit adapters. Keep FIPS/AWS compliance in mind when selecting algorithms.
-- Emits abstract channel events (open/close/data, requests, global alerts) that transports or hosts translate into IO. Never embed UI, React, or renderer assumptions.
+## Scope & Boundaries
+- Lives entirely within `packages/ssh-v2`; everything else integrates via typed adapters (transport, crypto, storage, telemetry).
+- Randomness, monotonic clocks, and crypto primitives are injected — default wiring may use WebCrypto, but the engine never calls it directly.
+- No direct socket ownership. Higher layers (`@mana-ssh/web`, `@mana-ssh/websocket`, proxy server) are responsible for IO and policy UX.
 
-## Design Pillars
-- **Spec fidelity**: Encode RFC requirements verbatim; cite clauses in code comments when behaviour diverges. Extension points (e.g., curve25519, chacha20-poly1305, agent forwarding) must be opt-in overlays.
-- **Deterministic state machine**: Treat all operations as pure functions over immutable session state; isolate mutability inside orchestrators to aid testing and replay.
-- **Security first**: Constant-time comparisons, transcript binding, rekey thresholds, and defensive parsing are non-negotiable. Treat malformed inputs as hostile.
-- **Extensibility**: Algorithm negotiation tables and packet handlers should allow additive additions without rewriting the core.
-- **Telemetry hooks**: Provide structured diagnostics (handshake timings, negotiated algorithms, error codes) so hosts can log and alert without leaking secrets.
+## Specification Library
+- Canonical texts (RFCs, Internet-Drafts, OpenSSH protocol notes) live under `packages/ssh-v2/context/*.txt`.
+- Treat the directory as read-only source material; cite filenames + section numbers in code/comments when implementing a requirement.
+- Missing or unavailable drafts (e.g., `draft-miller-ssh-curve25519-sha256-04`) are tracked as placeholders with guidance on alternate references.
+
+## API Direction
+- Expose `createClientSession(config: SshClientConfig): SshSession` as the primary entry point.
+- Configuration supplies deterministic dependencies only (clock, randomness, algorithm catalog, host key policy, authentication strategy, channel limits, diagnostics).
+- Session ingests byte sequences via `receive` and emits typed events (`SshEvent`)—including `outbound-data` events—without owning any transport callbacks.
+- Hosts pull pending outbound packets via the event iterator or explicit flush helpers; transport wrappers live outside this package.
+- State transitions remain pure; no IO, sockets, timers, or global access inside the engine.
+
+## Interoperability Priorities
+- **Tier 1**: OpenSSH (client/server) and libssh. Maintain replay fixtures, ensure RSA-SHA2, curve25519, chacha20-poly1305, and ext-info behaviors match.
+- **Tier 2**: Dropbear, embedded appliances, and legacy Cisco/Juniper deployments. Support when safe (group-exchange DH, hmac-sha1) and guard with policy toggles.
+- **Tier 3**: Other vendors. Provide algorithm registration hooks and document how adopters can extend without forking.
+
+## Distribution Strategy
+- Publish dual artifacts: `web` build targeting browsers/workers (ES2022, tree-shakeable, no Node globals) and `node` build optimized for Node 18+.
+- Maintain identical TypeScript types for both entry points; choose implementation via `exports` map in `package.json`.
+- Plan follow-on support for Bun and Deno once the core stabilizes—keep abstractions runtime-neutral so additional builds remain additive.
+
+## Security & Compliance Pillars
+- Constant-time comparisons, defensive parsing, transcript binding, and strict rekey thresholds are mandatory.
+- Default algorithm catalog prefers modern suites (curve25519, Ed25519, chacha20-poly1305, AES-GCM, HMAC-SHA2). SHA-1 and legacy RSA are opt-in only.
+- Host key trust flows must support TOFU, SSHFP/DNSSEC (RFC 4255), X.509 (RFC 6187), and OpenSSH KRL revocation checks.
 
 ## Testing Doctrine
-- Unit/property tests: Use Vitest/fast-check against packet parsers, key-exchange math, and negotiation fallbacks. Mock entropy sources for determinism.
-- Integration transcripts: Reproduce known-good SSH handshakes (OpenSSH golden captures) and assert byte-for-byte parity through replay harnesses.
-- Interop harness: Periodically run against real OpenSSH/Dropbear targets via the proxy server; capture divergences as specs.
-- Type & lint gates: `bun run typecheck` and `bun run lint` at repo root; avoid ambient `any`.
-- Spec workflow: Document protocol changes in `docs/` (e.g., KEX support matrices, message flow diagrams) before altering code/tests.
+- **Type & lint gates**: `bun run typecheck`, `bun run lint` required for every change.
+- **Unit / property**: Vitest + fast-check over packet reducers, negotiation tables, and crypto glue.
+- **Integration transcripts**: Replay captures from OpenSSH/libssh/Dropbear to assert byte-for-byte compatibility.
+- **End-to-end**: Once wired into `apps/terminal-web-app`, run Playwright scenarios exercising handshake, auth, channel flows, and rekeying through the canvas renderer harness.
+- **Crypto validation**: Known-answer tests for curve25519 (RFC 7748), Ed25519 (RFC 8032), ChaCha20-Poly1305 (RFC 8439).
 
-## Active Focus / Backlog Signals
-- Stand up the initial handshake pipeline (banner exchange, algorithm negotiation, curve25519-sha256 key exchange, AES-GCM record layer).
-- Implement channel management (session channels, window sizing, global requests) with typed events for higher layers.
-- Define crypto provider abstraction so WebCrypto, Node crypto, and wasm fallbacks share the same surface.
-- Model host key verification and known-host persistence hooks suitable for AWS/Amazon Linux targets.
-- Plan rekey strategy (packet limits, timeouts) plus extension hooks for pubkey auth, agent forwarding, and port forwarding.
+## Roadmap Signals
+1. **Phase 0** – Scaffolding: type baselines, spec matrix, deterministic RNG/time adapters.
+2. **Phase 1** – Transport core: framing, algorithm negotiation, curve25519 + group14 key exchange, AES-GCM/chacha20 ciphers, rekey rules.
+3. **Phase 2** – Authentication: public-key (RSA-SHA2, Ed25519, ECDSA), password, keyboard-interactive, GSS-API hooks.
+4. **Phase 3** – Connection protocol: channel lifecycle, global requests, vendor channel extensions (OpenSSH `session@openssh.com`, streamlocal).
+5. **Phase 4** – Host trust: known-host stores, SSHFP/DNSSEC validation, X.509, KRL ingestion.
+6. **Phase 5** – Extended ecosystem: agent forwarding, port forwarding, optional SFTP module riding the channel API.
 
 ## Collaboration Rituals
-1. Challenge requirements: confirm behaviour belongs in the protocol core versus transports or hosts.
-2. Propose strategy → secure approval → update docs/specs → tests → implementation.
-3. Run targeted unit/property suites plus any available integration transcripts before landing changes.
-4. Record security decisions, interoperability findings, and roadmap moves in the memory bank with precise dates.
+1. Challenge every requirement: confirm it belongs in the protocol core versus adapters.
+2. Draft strategy → secure approval → update docs/spec references → tests → implementation.
+3. Land work only after unit/property suites and relevant transcripts pass; note gaps explicitly.
+4. Log security decisions, vendor quirks, and roadmap updates in the memory bank with dates + spec citations.
 
 ## Memory Bank
-### 2025-09-30 – Charter established
-Created the protocol agent charter outlining mandate, security pillars, testing cadence, and immediate backlog (handshake pipeline, channel management, crypto abstraction).
+### 2025-09-30 — Charter established
+Initial mandate, design pillars, and testing cadence captured.
+
+### 2025-10-01 — Spec catalog & interop tiers
+Clarified that the core package emits outbound data as events while transport wrappers live in separate packages, keeping the engine strictly spec-focused.
+
+Curated raw spec corpus under `context/`, agreed to focus interoperability on OpenSSH/libssh first, Dropbear second, and expose extension hooks for additional vendors. Defined client-session API direction and phased roadmap.
 
