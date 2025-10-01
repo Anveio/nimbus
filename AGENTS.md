@@ -27,12 +27,12 @@ Core Principles:
 The workspace is a Bun-powered TypeScript monorepo. Each package is a shippable unit; each app is a deliverable artifact. Respect their boundaries.
 
 ## Packages
-- `@mana-ssh/vt` (`packages/vt`): VT parser + interpreter. Pure, deterministic, spec-first. Emits terminal state diffs for higher layers.
-- `@mana-ssh/tui-web-canvas-renderer` (`packages/tui-web-canvas-renderer`): Canvas-based renderer backends (CPU/WebGL). Consumes interpreter diffs, manages glyph atlases, enforces pixel-accurate playback.
-- `@mana-ssh/tui-react` (`packages/tui-react`): React bindings and host control surface. Mediates input, focus, accessibility hooks, and renderer lifecycle.
-- `@mana-ssh/ssh-v2` (`packages/ssh-v2`): Implementation of the SSHv2 spec in the browser. SSHv2 core state machine, key exchange, message codecs. Transport-agnostic, cryptography-forward.
-- `@mana-ssh/web` & `@mana-ssh/websocket` (stubs/planned): Browser transports and convenience APIs layered atop the protocol core.
-- `packages/tsconfig`: Shared compiler baselines. Do not fork TypeScript settings casually; propose rationale first.
+- `mana-ssh/vt` (`packages/vt`): VT parser + interpreter. Pure, deterministic, spec-first. Emits terminal state diffs for higher layers.
+- `mana-ssh/tui-web-canvas-renderer` (`packages/tui-web-canvas-renderer`): Canvas-based renderer backends (CPU/WebGL). Consumes interpreter diffs, manages glyph atlases, enforces pixel-accurate playback.
+- `mana-ssh/tui-react` (`packages/tui-react`): React bindings and host control surface. Mediates input, focus, accessibility hooks, and renderer lifecycle.
+- `mana-ssh/ssh-v2` (`packages/ssh-v2`): Implementation of the SSHv2 spec in the browser. SSHv2 core state machine, key exchange, message codecs. Transport-agnostic, cryptography-forward.
+- `mana-ssh/websocket` (stubs/planned): Browser transports and convenience APIs layered atop the protocol core.
+- `mana-ssh/tsconfig`: Shared compiler baselines. Do not fork TypeScript settings casually; propose rationale first.
 
 ## Apps
 - `apps/terminal-web-app`: Reference terminal experience. Must remain production-grade: Playwright E2E coverage, deterministic assets, telemetry hooks.
