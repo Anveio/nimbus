@@ -8,4 +8,3 @@ export const WELCOME_BANNER =
   `  🔁  \u001b[4mEcho is local until you wire a host\u001b[0m\r\n` +
   `  ⌨️  Paste, arrow keys, and Ctrl shortcuts supported\r\n` +
   `\u001b[38;2;88;166;255m┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\u001b[0m\r\n\r\n`
-

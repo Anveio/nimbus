@@ -60,8 +60,8 @@
         "vitest": "^3.2.4",
       },
     },
-    "packages/protocol": {
-      "name": "@mana-ssh/protocol",
+    "packages/ssh-v2": {
+      "name": "@mana-ssh/ssh-v2",
       "version": "0.0.1",
       "devDependencies": {
         "typescript": "^5.9.2",
@@ -282,11 +282,11 @@
 
     "@js-sdsl/ordered-map": ["@js-sdsl/ordered-map@4.4.2", "", {}, "sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw=="],
 
-    "@mana-ssh/protocol": ["@mana-ssh/protocol@workspace:packages/protocol"],
-
     "@mana-ssh/proxy-server": ["@mana-ssh/proxy-server@workspace:apps/proxy-server"],
 
     "@mana-ssh/simulated-instance": ["@mana-ssh/simulated-instance@workspace:apps/simulated-instance"],
+
+    "@mana-ssh/ssh-v2": ["@mana-ssh/ssh-v2@workspace:packages/ssh-v2"],
 
     "@mana-ssh/terminal-web-app": ["@mana-ssh/terminal-web-app@workspace:apps/terminal-web-app"],
 

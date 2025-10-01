@@ -1,3 +1,5 @@
+import { createCanvasRenderer, type CreateCanvasRenderer } from '@mana-ssh/tui-web-canvas-renderer'
+import type { RendererBackendConfig } from '@mana-ssh/tui-web-canvas-renderer'
 import { type CSSProperties, createRef } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { Terminal, type TerminalHandle } from '../../src/Terminal'
@@ -63,6 +65,21 @@ const createHarness = (): TerminalHarnessExports => {
     document.documentElement.lang = 'en'
     document.title = 'tui-react harness'
 
+    const backendConfig: RendererBackendConfig | undefined =
+      options.rendererBackend === 'gpu-webgl'
+        ? { type: 'gpu-webgl', fallback: 'prefer-gpu' }
+        : options.rendererBackend === 'cpu-2d'
+          ? { type: 'cpu-2d' }
+          : undefined
+
+    const rendererFactory: CreateCanvasRenderer | undefined = backendConfig
+      ? (rendererOptions) =>
+          createCanvasRenderer({
+            ...rendererOptions,
+            backend: backendConfig,
+          })
+      : undefined
+
     root = createRoot(container)
 
     root.render(
@@ -74,6 +91,7 @@ const createHarness = (): TerminalHarnessExports => {
         localEcho={options.localEcho ?? true}
         autoFocus={options.autoFocus ?? false}
         autoResize={options.autoResize ?? false}
+        renderer={rendererFactory}
         onData={(data) => {
           onDataEvents.push({
             text: TEXT_DECODER.decode(data),

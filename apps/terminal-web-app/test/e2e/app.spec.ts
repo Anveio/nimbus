@@ -6,7 +6,6 @@ import {
 } from '@mana-ssh/vt'
 import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
-import { WELCOME_BANNER } from './fixtures/welcomeBanner'
 
 // Scenario structure follows the guidance in docs/e2e-test-harness.md (Global harness handle)
 
@@ -139,34 +138,6 @@ const normaliseDeviceAttributes = (codes: number[]): string => {
 }
 
 test.describe('terminal e2e harness', () => {
-  test('renders the welcome banner', async ({ page }) => {
-    await page.goto('/')
-
-    const terminal = page.getByRole('textbox', { name: 'Interactive terminal' })
-    await expect(terminal).toBeVisible()
-    await terminal.focus()
-
-    await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
-    await page.evaluate((banner) => {
-      window.__manaTerminalTestHandle__?.write(banner)
-    }, WELCOME_BANNER)
-
-    const canvas = page.locator('canvas').first()
-    await expect(canvas).toBeVisible()
-
-    await expect(canvas).toHaveScreenshot('welcome-banner.png', {
-      animations: 'disabled',
-      caret: 'hide',
-      maxDiffPixelRatio: 0.01,
-      scale: 'device',
-    })
-
-    const snapshot = await page.evaluate(() =>
-      window.__manaTerminalTestHandle__?.getSnapshot(),
-    )
-    expect(snapshot).toBeTruthy()
-  })
-
   test('renders the welcome banner with the WebGL renderer', async ({
     page,
   }) => {
@@ -1053,74 +1024,5 @@ test.describe('terminal e2e harness', () => {
       .toEqual(['A', 'B', 'X', 'Y', 'Z'])
 
     expect((await getRowChars()).join('').trimEnd()).toBe('ABXYZ')
-  })
-})
-
-test.describe('webgl dirty rendering', () => {
-  test('scroll uploads only the newly exposed row', async ({ page }) => {
-    test.setTimeout(6_000)
-    const supportsWebgl = await canInitialiseWebgl(page)
-    test.skip(!supportsWebgl, 'WebGL not supported in this environment')
-
-    await page.goto('/?renderer=webgl')
-    await page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))
-
-    const backend = await page.evaluate(
-      () => window.__manaTerminalTestHandle__?.getRendererBackend() ?? null,
-    )
-    test.skip(
-      backend !== 'gpu-webgl',
-      `GPU backend not active (${backend ?? 'none'})`,
-    )
-
-    const snapshot = await page.evaluate(() =>
-      window.__manaTerminalTestHandle__?.getSnapshot(),
-    )
-    expect(snapshot).toBeTruthy()
-    const rows = snapshot!.rows
-    const columns = snapshot!.columns
-    expect(rows).toBeGreaterThan(1)
-    expect(columns).toBeGreaterThan(0)
-
-    await page.evaluate((count) => {
-      const handle = window.__manaTerminalTestHandle__
-      if (!handle) {
-        return
-      }
-      for (let index = 0; index < count; index += 1) {
-        handle.write(`row-${index}\n`)
-      }
-    }, rows - 1)
-
-    const before = await page.evaluate(
-      () => window.__manaTerminalTestHandle__?.getDiagnostics() ?? null,
-    )
-
-    await page.evaluate(() => {
-      window.__manaTerminalTestHandle__?.write('final-line\n')
-    })
-
-    await page.waitForTimeout(50)
-
-    const after = await page.evaluate(
-      () => window.__manaTerminalTestHandle__?.getDiagnostics() ?? null,
-    )
-
-    if (!after || after.gpuCellsProcessed == null) {
-      test.skip(true, 'GPU diagnostics unavailable')
-      return
-    }
-
-    expect(after.gpuCellsProcessed).toBe(columns)
-    if (after.gpuDirtyRegionCoverage !== null) {
-      expect(after.gpuDirtyRegionCoverage).toBeCloseTo(1 / rows, 5)
-    }
-    if (
-      before?.gpuBytesUploaded !== null &&
-      after.gpuBytesUploaded !== null &&
-      before?.gpuBytesUploaded !== undefined
-    ) {
-      expect(after.gpuBytesUploaded).toBeLessThan(before.gpuBytesUploaded + 1)
-    }
   })
 })

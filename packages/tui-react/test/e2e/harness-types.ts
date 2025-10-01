@@ -9,6 +9,7 @@ export interface TerminalHarnessMountOptions {
   readonly localEcho?: boolean
   readonly autoFocus?: boolean
   readonly autoResize?: boolean
+  readonly rendererBackend?: 'cpu-2d' | 'gpu-webgl'
 }
 
 export interface TerminalHarnessOnDataEvent {

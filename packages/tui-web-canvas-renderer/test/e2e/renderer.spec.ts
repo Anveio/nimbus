@@ -262,6 +262,7 @@ test.describe('createCanvasRenderer (browser)', () => {
   test.beforeAll(async () => {
     await warmHarnessBundle()
   })
+
   test('paints the initial snapshot using the theme background', async ({
     page,
   }) => {

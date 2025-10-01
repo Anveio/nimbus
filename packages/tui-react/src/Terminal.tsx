@@ -1233,7 +1233,7 @@ const handlePaste = useCallback(
             event.type === 'print-screen'
               ? { ...event, lines: [...event.lines] }
               : event.type === 'write'
-                ? { ...event, data: event.data.slice() }
+                ? { ...event, data: Array.from(event.data) }
                 : { ...event },
           ),
         getDiagnostics: () => rendererHandle.diagnostics,
