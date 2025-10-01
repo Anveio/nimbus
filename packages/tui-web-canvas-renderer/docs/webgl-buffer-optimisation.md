@@ -2,18 +2,18 @@
 
 **Owner:** `@mana-ssh/tui-web-canvas-renderer`
 
-**Last updated:** 2025-10-07
+**Last updated:** 2025-10-09
 
 ## 1. Context
 
-The WebGL backend currently mirrors the CPU renderer by rebuilding full-frame
-geometry on every repaint. Each call to `renderSnapshot()` walks the complete
-terminal buffer, appends vertex data into fresh arrays, and uploads them via
-`gl.bufferData` with `DYNAMIC_DRAW` hints (`packages/tui-web-canvas-renderer/src/backends/gpu-webgl.ts:862`).
-While this keeps the implementation simple, it defeats the purpose of using the
-GPU: CPU-side allocations dominate frame time, and we cannot amortise the cost of
-dirty-region rendering. There is no instrumentation to tell whether a frame was
-CPU-bound or GPU-bound, making regression detection difficult.
+Historically the WebGL backend mirrored the CPU renderer by rebuilding
+full-frame geometry on every repaint. That path kept the implementation simple
+but defeated the point of the GPU: CPU-side allocations dominated frame time and
+we could not amortise dirty-region rendering. We have now landed persistent
+buffers with row-level slices, so only the rows that changed rewrite geometry and
+issue `gl.bufferSubData` uploads. The notes below capture the original plan for
+future readers and highlight the remaining follow-up work (atlas reuse,
+heuristics, telemetry polish).
 
 ## 2. Goals
 
@@ -152,12 +152,16 @@ benefit of persistent buffers.
 
 ## 5. Rollout Plan
 
-1. Land persistent buffer support with full-frame rebuilds (no diff tracker yet)
-   to validate buffer management and diagnostics counters.
-2. Introduce the dirty-region tracker + partial rebuild logic guarded by a
-   feature flag (`enableGpuDiffRendering`). Default to `false`, enable in
-   internal builds after confidence grows.
-3. Remove the feature flag once pixel and performance coverage stabilise.
+1. ✅ **Persistent buffers** *(Oct 2025)* — full-frame rebuild path now writes
+   into reusable typed arrays and GPU buffers, wiring diagnostics for bytes
+   uploaded / cells processed.
+2. ✅ **Dirty-row partial uploads** *(Oct 2025)* — the dirty-region tracker drives
+   row-level rebuilds and we only issue `bufferSubData` updates for touched
+   slices. Behaviourally we fall back to a full rebuild when geometry span sizes
+   change (e.g. blank → glyph) so the in-place offsets stay valid.
+3. 🟡 **Heuristics & perf telemetry** — tune scroll heuristics, add lightweight
+   perf counters, and exercise the new metrics in CI once WebGL coverage
+   stabilises.
 
 ## 6. Open Questions
 

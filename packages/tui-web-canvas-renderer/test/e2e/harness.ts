@@ -1,14 +1,14 @@
-import {
-  createCanvasRenderer,
-  type CanvasRenderer,
-  type RendererMetrics,
-  type RendererTheme,
-} from '../../src/index'
 import type {
   TerminalSelection,
   TerminalState,
   TerminalUpdate,
 } from '@mana-ssh/vt'
+import {
+  type CanvasRenderer,
+  createCanvasRenderer,
+  type RendererMetrics,
+  type RendererTheme,
+} from '../../src/index'
 
 interface RendererStore {
   renderer: CanvasRenderer | null
@@ -56,6 +56,7 @@ declare global {
       getSelectionEvents: () => Array<TerminalSelection | null>
       getOverlayEvents: () => Array<{ selection: TerminalSelection | null }>
       setSelectionListener: () => void
+      getBackend: () => string | null
       dispose: () => void
     }
   }
@@ -101,8 +102,14 @@ window.__manaRendererTest__ = {
     store.overlayEvents = []
 
     const canvas = document.createElement('canvas')
-    canvas.width = Math.max(1, options.metrics.cell.width * options.snapshot.columns)
-    canvas.height = Math.max(1, options.metrics.cell.height * options.snapshot.rows)
+    canvas.width = Math.max(
+      1,
+      options.metrics.cell.width * options.snapshot.columns,
+    )
+    canvas.height = Math.max(
+      1,
+      options.metrics.cell.height * options.snapshot.rows,
+    )
     canvas.dataset.testid = 'renderer-canvas'
 
     document.body.innerHTML = ''
@@ -177,7 +184,8 @@ window.__manaRendererTest__ = {
     if (!snapshot.buffer[row]) {
       snapshot.buffer[row] = []
     }
-    snapshot.buffer[row]![column] = cell as TerminalState['buffer'][number][number]
+    snapshot.buffer[row]![column] =
+      cell as TerminalState['buffer'][number][number]
   },
 
   setSelection(selection) {
@@ -222,6 +230,12 @@ window.__manaRendererTest__ = {
     renderer.onSelectionChange = (selection) => {
       store.selectionEvents.push(selection)
     }
+  },
+
+  getBackend() {
+    const renderer = ensureRenderer()
+    const canvas = renderer.canvas as HTMLCanvasElement
+    return canvas.dataset?.manaRendererBackend ?? null
   },
 
   dispose() {

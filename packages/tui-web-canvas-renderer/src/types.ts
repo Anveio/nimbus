@@ -190,6 +190,14 @@ export interface CanvasRendererDiagnostics {
   readonly gpuFrameDurationMs?: number | null
   /** GPU draw call count when applicable. */
   readonly gpuDrawCallCount?: number | null
+  /** Number of terminal cells processed while preparing the last GPU frame. */
+  readonly gpuCellsProcessed?: number | null
+  /** Total bytes uploaded to GPU buffers for the last frame. */
+  readonly gpuBytesUploaded?: number | null
+  /** Portion (0-1) of the viewport touched by GPU geometry updates. */
+  readonly gpuDirtyRegionCoverage?: number | null
+  /** Bytes uploaded for cursor/selection overlay textures in the last frame. */
+  readonly gpuOverlayBytesUploaded?: number | null
   /** Most recent OSC payload observed, if any. */
   readonly lastOsc: {
     readonly identifier: string

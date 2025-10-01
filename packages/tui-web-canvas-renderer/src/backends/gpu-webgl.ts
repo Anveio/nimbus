@@ -12,6 +12,7 @@ import {
   resolveCellColors,
   resolvePaletteOverrideColor,
 } from '../internal/colors'
+import { DirtyRegionTracker } from '../internal/dirty-region-tracker'
 import type { GlyphInfo } from '../internal/glyph-atlas'
 import { GlyphAtlas } from '../internal/glyph-atlas'
 import { ensureCanvasDimensions, setCanvasStyleSize } from '../internal/layout'
@@ -279,6 +280,33 @@ interface BuildGeometryParams {
   readonly includeCursor: boolean
 }
 
+interface RowGeometry {
+  readonly backgroundPositions: Float32Array
+  readonly backgroundColors: Float32Array
+  readonly glyphPositions: Float32Array
+  readonly glyphTexCoords: Float32Array
+  readonly glyphColors: Float32Array
+  readonly backgroundVertexCount: number
+  readonly glyphVertexCount: number
+  readonly glyphCount: number
+}
+
+interface RowSliceEntry {
+  readonly offset: number
+  readonly length: number
+}
+
+interface RowSlice {
+  readonly backgroundPositions: RowSliceEntry
+  readonly backgroundColors: RowSliceEntry
+  readonly glyphPositions: RowSliceEntry
+  readonly glyphTexCoords: RowSliceEntry
+  readonly glyphColors: RowSliceEntry
+  backgroundVertexCount: number
+  glyphVertexCount: number
+  glyphCount: number
+}
+
 class DynamicFloat32Array {
   private storage: Float32Array
   length: number
@@ -350,8 +378,17 @@ const resetGeometryBuffers = (buffers: GeometryBuffers): void => {
   buffers.glyphColors.reset()
 }
 
-const buildFrameGeometry = (
-  {
+const buildRowGeometry = (
+  context: BuildGeometryParams,
+  options: {
+    readonly row: number
+    readonly toClipX: (value: number) => number
+    readonly toClipY: (value: number) => number
+    readonly selectionSegment: SelectionRowSegment | null
+    readonly selectionTheme: RendererTheme['selection'] | undefined
+  },
+): RowGeometry => {
+  const {
     snapshot,
     metrics,
     theme,
@@ -361,22 +398,22 @@ const buildFrameGeometry = (
     fallbackForeground,
     fallbackBackground,
     includeCursor,
-  }: BuildGeometryParams,
-  buffers: GeometryBuffers,
-): FrameGeometry => {
+  } = context
+  const { row, toClipX, toClipY, selectionSegment, selectionTheme } = options
+
   const cellWidth = metrics.cell.width
   const cellHeight = metrics.cell.height
-  const logicalWidth = Math.max(1, snapshot.columns * cellWidth)
-  const logicalHeight = Math.max(1, snapshot.rows * cellHeight)
-
-  const toClipX = (value: number): number => (value / logicalWidth) * 2 - 1
-  const toClipY = (value: number): number => 1 - (value / logicalHeight) * 2
-
-  resetGeometryBuffers(buffers)
+  const rowY = row * cellHeight
 
   let backgroundVertexCount = 0
   let glyphVertexCount = 0
   let glyphCount = 0
+
+  const backgroundPositions: number[] = []
+  const backgroundColors: number[] = []
+  const glyphPositions: number[] = []
+  const glyphTexCoords: number[] = []
+  const glyphColors: number[] = []
 
   const pushBackgroundQuad = (
     x: number,
@@ -397,28 +434,23 @@ const buildFrameGeometry = (
     const y1 = toClipY(y + height)
     const y2 = toClipY(y)
 
-    const positionOffset = buffers.backgroundPositions.extend(12)
-    const positions = buffers.backgroundPositions.data
-    positions[positionOffset + 0] = x1
-    positions[positionOffset + 1] = y1
-    positions[positionOffset + 2] = x2
-    positions[positionOffset + 3] = y1
-    positions[positionOffset + 4] = x1
-    positions[positionOffset + 5] = y2
-    positions[positionOffset + 6] = x1
-    positions[positionOffset + 7] = y2
-    positions[positionOffset + 8] = x2
-    positions[positionOffset + 9] = y1
-    positions[positionOffset + 10] = x2
-    positions[positionOffset + 11] = y2
+    backgroundPositions.push(
+      x1,
+      y1,
+      x2,
+      y1,
+      x1,
+      y2,
+      x1,
+      y2,
+      x2,
+      y1,
+      x2,
+      y2,
+    )
 
-    const colorOffset = buffers.backgroundColors.extend(24)
-    const colors = buffers.backgroundColors.data
-    for (let index = 0; index < 24; index += 4) {
-      colors[colorOffset + index + 0] = r
-      colors[colorOffset + index + 1] = g
-      colors[colorOffset + index + 2] = b
-      colors[colorOffset + index + 3] = alpha
+    for (let index = 0; index < 6; index += 1) {
+      backgroundColors.push(r, g, b, alpha)
     }
 
     backgroundVertexCount += 6
@@ -442,138 +474,107 @@ const buildFrameGeometry = (
     const y1 = toClipY(y + glyph.height)
     const y2 = toClipY(y)
 
-    const positionOffset = buffers.glyphPositions.extend(12)
-    const positions = buffers.glyphPositions.data
-    positions[positionOffset + 0] = x1
-    positions[positionOffset + 1] = y1
-    positions[positionOffset + 2] = x2
-    positions[positionOffset + 3] = y1
-    positions[positionOffset + 4] = x1
-    positions[positionOffset + 5] = y2
-    positions[positionOffset + 6] = x1
-    positions[positionOffset + 7] = y2
-    positions[positionOffset + 8] = x2
-    positions[positionOffset + 9] = y1
-    positions[positionOffset + 10] = x2
-    positions[positionOffset + 11] = y2
+    glyphPositions.push(
+      x1,
+      y1,
+      x2,
+      y1,
+      x1,
+      y2,
+      x1,
+      y2,
+      x2,
+      y1,
+      x2,
+      y2,
+    )
 
-    const texCoordOffset = buffers.glyphTexCoords.extend(12)
-    const texCoords = buffers.glyphTexCoords.data
-    texCoords[texCoordOffset + 0] = glyph.u1
-    texCoords[texCoordOffset + 1] = glyph.v1
-    texCoords[texCoordOffset + 2] = glyph.u2
-    texCoords[texCoordOffset + 3] = glyph.v1
-    texCoords[texCoordOffset + 4] = glyph.u1
-    texCoords[texCoordOffset + 5] = glyph.v2
-    texCoords[texCoordOffset + 6] = glyph.u1
-    texCoords[texCoordOffset + 7] = glyph.v2
-    texCoords[texCoordOffset + 8] = glyph.u2
-    texCoords[texCoordOffset + 9] = glyph.v1
-    texCoords[texCoordOffset + 10] = glyph.u2
-    texCoords[texCoordOffset + 11] = glyph.v2
+    glyphTexCoords.push(
+      glyph.u1,
+      glyph.v1,
+      glyph.u2,
+      glyph.v1,
+      glyph.u1,
+      glyph.v2,
+      glyph.u1,
+      glyph.v2,
+      glyph.u2,
+      glyph.v1,
+      glyph.u2,
+      glyph.v2,
+    )
 
-    const colorOffset = buffers.glyphColors.extend(24)
-    const colors = buffers.glyphColors.data
-    for (let index = 0; index < 24; index += 4) {
-      colors[colorOffset + index + 0] = r
-      colors[colorOffset + index + 1] = g
-      colors[colorOffset + index + 2] = b
-      colors[colorOffset + index + 3] = alpha
+    for (let index = 0; index < 6; index += 1) {
+      glyphColors.push(r, g, b, alpha)
     }
 
     glyphVertexCount += 6
     glyphCount += 1
   }
 
-  const selection = snapshot.selection ?? null
-  const selectionTheme = theme.selection
-  const selectionSegments = selection
-    ? getSelectionRowSegments(selection, snapshot.columns)
-    : []
-  const selectionByRow = new Map<number, SelectionRowSegment>()
-  for (const segment of selectionSegments) {
-    selectionByRow.set(segment.row, segment)
-    if (selectionTheme?.background) {
-      const highlightX = segment.startColumn * cellWidth
-      const highlightWidth =
-        (segment.endColumn - segment.startColumn + 1) * cellWidth
-      pushBackgroundQuad(
-        highlightX,
-        segment.row * cellHeight,
-        highlightWidth,
-        cellHeight,
-        selectionTheme.background,
-      )
-    }
+  if (selectionSegment && selectionTheme?.background) {
+    const highlightX = selectionSegment.startColumn * cellWidth
+    const highlightWidth =
+      (selectionSegment.endColumn - selectionSegment.startColumn + 1) *
+      cellWidth
+    pushBackgroundQuad(
+      highlightX,
+      rowY,
+      highlightWidth,
+      cellHeight,
+      selectionTheme.background,
+    )
   }
 
-  for (let row = 0; row < snapshot.rows; row += 1) {
-    const bufferRow = snapshot.buffer[row]
-    const selectionSegment = selectionByRow.get(row) ?? null
+  const bufferRow = snapshot.buffer[row]
 
-    for (let column = 0; column < snapshot.columns; column += 1) {
-      const cell = bufferRow?.[column] ?? DEFAULT_CELL
-      const x = column * cellWidth
-      const y = row * cellHeight
+  for (let column = 0; column < snapshot.columns; column += 1) {
+    const cell = bufferRow?.[column] ?? DEFAULT_CELL
+    const x = column * cellWidth
+    const isSelected =
+      selectionSegment !== null &&
+      column >= selectionSegment.startColumn &&
+      column <= selectionSegment.endColumn
 
-      const isSelected =
-        selectionSegment !== null &&
-        column >= selectionSegment.startColumn &&
-        column <= selectionSegment.endColumn
+    const { foreground, background } = resolveCellColors(
+      cell.attr,
+      theme,
+      paletteOverrides,
+      fallbackForeground,
+      fallbackBackground,
+    )
 
-      const { foreground, background } = resolveCellColors(
-        cell.attr,
-        theme,
-        paletteOverrides,
-        fallbackForeground,
-        fallbackBackground,
-      )
+    let effectiveForeground = foreground
+    let effectiveBackground = background
 
-      let effectiveForeground = foreground
-      let effectiveBackground = background
-
-      if (isSelected) {
-        if (selectionTheme?.foreground) {
-          effectiveForeground = selectionTheme.foreground
-        }
-        effectiveBackground = null
+    if (isSelected) {
+      if (selectionTheme?.foreground) {
+        effectiveForeground = selectionTheme.foreground
       }
+      effectiveBackground = null
+    }
 
-      if (effectiveBackground) {
-        pushBackgroundQuad(x, y, cellWidth, cellHeight, effectiveBackground)
-      }
+    if (effectiveBackground) {
+      pushBackgroundQuad(x, rowY, cellWidth, cellHeight, effectiveBackground)
+    }
 
-      if (effectiveForeground) {
-        if (cell.attr.underline !== 'none') {
-          const thickness = Math.max(1, Math.round(cellHeight * 0.08))
-          const baseY = y + cellHeight - thickness
+    if (effectiveForeground) {
+      if (cell.attr.underline !== 'none') {
+        const thickness = Math.max(1, Math.round(cellHeight * 0.08))
+        const baseY = rowY + cellHeight - thickness
+        pushBackgroundQuad(
+          x,
+          baseY,
+          cellWidth,
+          thickness,
+          effectiveForeground,
+        )
+        if (cell.attr.underline === 'double') {
+          const gap = thickness + 2
+          const secondY = Math.max(rowY, baseY - gap)
           pushBackgroundQuad(
             x,
-            baseY,
-            cellWidth,
-            thickness,
-            effectiveForeground,
-          )
-          if (cell.attr.underline === 'double') {
-            const gap = thickness + 2
-            const secondY = Math.max(y, baseY - gap)
-            pushBackgroundQuad(
-              x,
-              secondY,
-              cellWidth,
-              thickness,
-              effectiveForeground,
-            )
-          }
-        }
-
-        if (cell.attr.strikethrough) {
-          const thickness = Math.max(1, Math.round(cellHeight * 0.08))
-          const strikeY =
-            y + Math.round(cellHeight / 2) - Math.floor(thickness / 2)
-          pushBackgroundQuad(
-            x,
-            strikeY,
+            secondY,
             cellWidth,
             thickness,
             effectiveForeground,
@@ -581,37 +582,52 @@ const buildFrameGeometry = (
         }
       }
 
-      const char = cell.char
-      const shouldDrawGlyph = Boolean(
-        effectiveForeground && char && char !== ' ',
-      )
-
-      if (shouldDrawGlyph && effectiveForeground) {
-        const glyph = glyphAtlas.getGlyph(char!, {
-          bold: Boolean(cell.attr.bold),
-          italic: Boolean(cell.attr.italic),
-        })
-        const alphaMultiplier = cell.attr.faint ? 0.6 : 1
-        pushGlyphQuad(x, y, glyph, effectiveForeground, alphaMultiplier)
+      if (cell.attr.strikethrough) {
+        const thickness = Math.max(1, Math.round(cellHeight * 0.08))
+        const strikeY = rowY + Math.round(cellHeight / 2) - Math.floor(thickness / 2)
+        pushBackgroundQuad(
+          x,
+          strikeY,
+          cellWidth,
+          thickness,
+          effectiveForeground,
+        )
       }
+    }
+
+    const char = cell.char
+    const shouldDrawGlyph = Boolean(
+      effectiveForeground && char && char !== ' ',
+    )
+
+    if (shouldDrawGlyph && effectiveForeground) {
+      const glyph = glyphAtlas.getGlyph(char!, {
+        bold: Boolean(cell.attr.bold),
+        italic: Boolean(cell.attr.italic),
+      })
+      const alphaMultiplier = cell.attr.faint ? 0.6 : 1
+      pushGlyphQuad(x, rowY, glyph, effectiveForeground, alphaMultiplier)
     }
   }
 
-  if (includeCursor && snapshot.cursorVisible) {
+  if (
+    includeCursor &&
+    snapshot.cursorVisible &&
+    snapshot.cursor.row === row
+  ) {
     const cursor = snapshot.cursor
     const cursorTheme = theme.cursor
     const cursorShape = cursorTheme.shape ?? 'block'
     const cursorOpacity = cursorTheme.opacity ?? 1
     const cursorColor = cursorTheme.color
     const x = cursor.column * cellWidth
-    const y = cursor.row * cellHeight
 
     switch (cursorShape) {
       case 'underline': {
         const height = Math.max(1, Math.round(cellHeight * 0.2))
         pushBackgroundQuad(
           x,
-          y + cellHeight - height,
+          rowY + cellHeight - height,
           cellWidth,
           height,
           cursorColor,
@@ -621,14 +637,21 @@ const buildFrameGeometry = (
       }
       case 'bar': {
         const width = Math.max(1, Math.round(cellWidth * 0.2))
-        pushBackgroundQuad(x, y, width, cellHeight, cursorColor, cursorOpacity)
+        pushBackgroundQuad(
+          x,
+          rowY,
+          width,
+          cellHeight,
+          cursorColor,
+          cursorOpacity,
+        )
         break
       }
       case 'block':
       default: {
         pushBackgroundQuad(
           x,
-          y,
+          rowY,
           cellWidth,
           cellHeight,
           cursorColor,
@@ -639,12 +662,22 @@ const buildFrameGeometry = (
     }
   }
 
+  const toFloat32 = (values: number[]): Float32Array =>
+    values.length > 0 ? new Float32Array(values) : new Float32Array(0)
+
   return {
+    backgroundPositions: toFloat32(backgroundPositions),
+    backgroundColors: toFloat32(backgroundColors),
+    glyphPositions: toFloat32(glyphPositions),
+    glyphTexCoords: toFloat32(glyphTexCoords),
+    glyphColors: toFloat32(glyphColors),
     backgroundVertexCount,
     glyphVertexCount,
     glyphCount,
   }
 }
+
+export const __buildRowGeometryForTests = buildRowGeometry
 
 export interface WebglSupportOptions {
   readonly canvas?: CanvasLike
@@ -778,16 +811,28 @@ const createWebglContext = (
   ) as WebGLRenderingContext | null
 }
 
+interface GpuFrameMetrics {
+  readonly frameDuration: number
+  readonly drawCalls: number
+  readonly cellsProcessed: number | null
+  readonly bytesUploaded: number | null
+  readonly dirtyRegionCoverage: number | null
+  readonly overlayBytesUploaded: number | null
+}
+
 const updateDiagnostics = (
   diagnostics: CanvasRendererDiagnostics,
-  frameDuration: number,
-  drawCalls: number,
+  metrics: GpuFrameMetrics,
 ): CanvasRendererDiagnostics => ({
   ...diagnostics,
-  lastFrameDurationMs: frameDuration,
-  lastDrawCallCount: drawCalls,
-  gpuFrameDurationMs: frameDuration,
-  gpuDrawCallCount: drawCalls,
+  lastFrameDurationMs: metrics.frameDuration,
+  lastDrawCallCount: metrics.drawCalls,
+  gpuFrameDurationMs: metrics.frameDuration,
+  gpuDrawCallCount: metrics.drawCalls,
+  gpuCellsProcessed: metrics.cellsProcessed,
+  gpuBytesUploaded: metrics.bytesUploaded,
+  gpuDirtyRegionCoverage: metrics.dirtyRegionCoverage,
+  gpuOverlayBytesUploaded: metrics.overlayBytesUploaded,
 })
 
 interface GlBufferState {
@@ -916,6 +961,14 @@ const createWebglRenderer = (
   const glyphPositionBufferState = createGlBufferState()
   const glyphTexCoordBufferState = createGlBufferState()
   const glyphColorBufferState = createGlBufferState()
+  const dirtyTracker = new DirtyRegionTracker()
+  const rowGeometries: Array<RowGeometry | null> = []
+  const rowSlices: Array<RowSlice | null> = []
+
+  let totalBackgroundVertexCount = 0
+  let totalGlyphVertexCount = 0
+  let totalGlyphCount = 0
+  let buffersInitialized = false
 
   let disposed = false
   let metrics = options.metrics
@@ -929,6 +982,10 @@ const createWebglRenderer = (
     lastDrawCallCount: null,
     gpuFrameDurationMs: null,
     gpuDrawCallCount: null,
+    gpuCellsProcessed: null,
+    gpuBytesUploaded: null,
+    gpuDirtyRegionCoverage: null,
+    gpuOverlayBytesUploaded: null,
     lastOsc: null,
     lastSosPmApc: null,
     lastDcs: null,
@@ -947,6 +1004,156 @@ const createWebglRenderer = (
   }
 
   updateBackendAttribute(canvas, 'gpu-webgl')
+  dirtyTracker.markFull()
+
+  const trimRowStorage = (rowCount: number): void => {
+    if (rowGeometries.length > rowCount) {
+      rowGeometries.length = rowCount
+    }
+    if (rowSlices.length > rowCount) {
+      rowSlices.length = rowCount
+    }
+  }
+
+  const ensureRowStorage = (rowCount: number): void => {
+    while (rowGeometries.length < rowCount) {
+      rowGeometries.push(null)
+    }
+    while (rowSlices.length < rowCount) {
+      rowSlices.push(null)
+    }
+  }
+
+  const performFullRebuild = (
+    geometryContext: BuildGeometryParams,
+    selectionByRow: Map<number, SelectionRowSegment>,
+    selectionTheme: RendererTheme['selection'] | undefined,
+    toClipX: (value: number) => number,
+    toClipY: (value: number) => number,
+  ) => {
+    const { snapshot } = geometryContext
+    trimRowStorage(snapshot.rows)
+    ensureRowStorage(snapshot.rows)
+
+    resetGeometryBuffers(geometryBuffers)
+
+    totalBackgroundVertexCount = 0
+    totalGlyphVertexCount = 0
+    totalGlyphCount = 0
+
+    for (let row = 0; row < snapshot.rows; row += 1) {
+      const selectionSegment = selectionByRow.get(row) ?? null
+      const rowGeometry = buildRowGeometry(geometryContext, {
+        row,
+        toClipX,
+        toClipY,
+        selectionSegment,
+        selectionTheme,
+      })
+
+      rowGeometries[row] = rowGeometry
+
+      const backgroundLength = rowGeometry.backgroundPositions.length
+      const backgroundColorLength = rowGeometry.backgroundColors.length
+      const glyphPositionLength = rowGeometry.glyphPositions.length
+      const glyphTexCoordLength = rowGeometry.glyphTexCoords.length
+      const glyphColorLength = rowGeometry.glyphColors.length
+
+      let backgroundOffset = 0
+      if (backgroundLength > 0) {
+        backgroundOffset = geometryBuffers.backgroundPositions.extend(
+          backgroundLength,
+        )
+        geometryBuffers.backgroundPositions.data.set(
+          rowGeometry.backgroundPositions,
+          backgroundOffset,
+        )
+      }
+
+      let backgroundColorOffset = 0
+      if (backgroundColorLength > 0) {
+        backgroundColorOffset = geometryBuffers.backgroundColors.extend(
+          backgroundColorLength,
+        )
+        geometryBuffers.backgroundColors.data.set(
+          rowGeometry.backgroundColors,
+          backgroundColorOffset,
+        )
+      }
+
+      let glyphPositionOffset = 0
+      if (glyphPositionLength > 0) {
+        glyphPositionOffset = geometryBuffers.glyphPositions.extend(
+          glyphPositionLength,
+        )
+        geometryBuffers.glyphPositions.data.set(
+          rowGeometry.glyphPositions,
+          glyphPositionOffset,
+        )
+      }
+
+      let glyphTexCoordOffset = 0
+      if (glyphTexCoordLength > 0) {
+        glyphTexCoordOffset = geometryBuffers.glyphTexCoords.extend(
+          glyphTexCoordLength,
+        )
+        geometryBuffers.glyphTexCoords.data.set(
+          rowGeometry.glyphTexCoords,
+          glyphTexCoordOffset,
+        )
+      }
+
+      let glyphColorOffset = 0
+      if (glyphColorLength > 0) {
+        glyphColorOffset = geometryBuffers.glyphColors.extend(glyphColorLength)
+        geometryBuffers.glyphColors.data.set(
+          rowGeometry.glyphColors,
+          glyphColorOffset,
+        )
+      }
+
+      rowSlices[row] = {
+        backgroundPositions: { offset: backgroundOffset, length: backgroundLength },
+        backgroundColors: {
+          offset: backgroundColorOffset,
+          length: backgroundColorLength,
+        },
+        glyphPositions: { offset: glyphPositionOffset, length: glyphPositionLength },
+        glyphTexCoords: {
+          offset: glyphTexCoordOffset,
+          length: glyphTexCoordLength,
+        },
+        glyphColors: { offset: glyphColorOffset, length: glyphColorLength },
+        backgroundVertexCount: rowGeometry.backgroundVertexCount,
+        glyphVertexCount: rowGeometry.glyphVertexCount,
+        glyphCount: rowGeometry.glyphCount,
+      }
+
+      totalBackgroundVertexCount += rowGeometry.backgroundVertexCount
+      totalGlyphVertexCount += rowGeometry.glyphVertexCount
+      totalGlyphCount += rowGeometry.glyphCount
+    }
+
+    const geometry: FrameGeometry = {
+      backgroundVertexCount: totalBackgroundVertexCount,
+      glyphVertexCount: totalGlyphVertexCount,
+      glyphCount: totalGlyphCount,
+    }
+
+    return {
+      geometry,
+      backgroundPositionsView:
+        geometryBuffers.backgroundPositions.view() as Float32Array<ArrayBufferLike>,
+      backgroundColorsView:
+        geometryBuffers.backgroundColors.view() as Float32Array<ArrayBufferLike>,
+      glyphPositionsView:
+        geometryBuffers.glyphPositions.view() as Float32Array<ArrayBufferLike>,
+      glyphTexCoordsView:
+        geometryBuffers.glyphTexCoords.view() as Float32Array<ArrayBufferLike>,
+      glyphColorsView:
+        geometryBuffers.glyphColors.view() as Float32Array<ArrayBufferLike>,
+    }
+  }
 
   const renderSnapshot = (snapshot: TerminalState): void => {
     const layout = ensureCanvasDimensions(canvas, snapshot, metrics)
@@ -960,26 +1167,222 @@ const createWebglRenderer = (
       ? theme.foreground
       : theme.background
 
-    const geometry = buildFrameGeometry(
-      {
-        snapshot,
-        metrics,
-        theme,
-        paletteOverrides,
-        glyphAtlas,
-        colorCache,
-        fallbackForeground,
-        fallbackBackground,
-        includeCursor: !customCursorOverlay,
-      },
-      geometryBuffers,
+    const cellWidth = metrics.cell.width
+    const cellHeight = metrics.cell.height
+    const logicalWidth = Math.max(1, snapshot.columns * cellWidth)
+    const logicalHeight = Math.max(1, snapshot.rows * cellHeight)
+    const toClipX = (value: number): number => (value / logicalWidth) * 2 - 1
+    const toClipY = (value: number): number => 1 - (value / logicalHeight) * 2
+
+    const selection = snapshot.selection ?? null
+    const selectionTheme = theme.selection
+    const selectionSegments = selection
+      ? getSelectionRowSegments(selection, snapshot.columns)
+      : []
+    const selectionByRow = new Map<number, SelectionRowSegment>()
+    for (const segment of selectionSegments) {
+      selectionByRow.set(segment.row, segment)
+    }
+
+    trimRowStorage(snapshot.rows)
+    ensureRowStorage(snapshot.rows)
+
+    const geometryContext: BuildGeometryParams = {
+      snapshot,
+      metrics,
+      theme,
+      paletteOverrides,
+      glyphAtlas,
+      colorCache,
+      fallbackForeground,
+      fallbackBackground,
+      includeCursor: !customCursorOverlay,
+    }
+
+    const dirtyResult = dirtyTracker.consume(snapshot.rows, snapshot.columns)
+    const rebuildAll = dirtyResult.mode === 'full'
+    const rowsToRebuild = new Set<number>()
+    if (rebuildAll) {
+      for (let row = 0; row < snapshot.rows; row += 1) {
+        rowsToRebuild.add(row)
+      }
+    } else if (dirtyResult.mode === 'partial') {
+      for (const row of dirtyResult.rows.keys()) {
+        rowsToRebuild.add(row)
+      }
+    }
+
+    for (let row = 0; row < snapshot.rows; row += 1) {
+      if (rowSlices[row] === null) {
+        rowsToRebuild.add(row)
+      }
+    }
+
+    const rowsToRebuildArray = Array.from(rowsToRebuild.values()).sort(
+      (a, b) => a - b,
     )
 
-    const backgroundPositionsView = geometryBuffers.backgroundPositions.view()
-    const backgroundColorsView = geometryBuffers.backgroundColors.view()
-    const glyphPositionsView = geometryBuffers.glyphPositions.view()
-    const glyphTexCoordsView = geometryBuffers.glyphTexCoords.view()
-    const glyphColorsView = geometryBuffers.glyphColors.view()
+    let geometry: FrameGeometry
+    let backgroundPositionsView: Float32Array<ArrayBufferLike> =
+      new Float32Array(0)
+    let backgroundColorsView: Float32Array<ArrayBufferLike> =
+      new Float32Array(0)
+    let glyphPositionsView: Float32Array<ArrayBufferLike> =
+      new Float32Array(0)
+    let glyphTexCoordsView: Float32Array<ArrayBufferLike> =
+      new Float32Array(0)
+    let glyphColorsView: Float32Array<ArrayBufferLike> = new Float32Array(0)
+    let fullRebuildPerformed = false
+
+    const pendingRowGeometry = new Map<number, RowGeometry>()
+    let requiresFullRebuild = rebuildAll
+
+    if (!requiresFullRebuild) {
+      for (const row of rowsToRebuildArray) {
+        const rowGeometry = buildRowGeometry(geometryContext, {
+          row,
+          toClipX,
+          toClipY,
+          selectionSegment: selectionByRow.get(row) ?? null,
+          selectionTheme,
+        })
+        pendingRowGeometry.set(row, rowGeometry)
+        const slice = rowSlices[row]
+        if (!slice) {
+          requiresFullRebuild = true
+          break
+        }
+        if (
+          rowGeometry.backgroundPositions.length !==
+            slice.backgroundPositions.length ||
+          rowGeometry.backgroundColors.length !==
+            slice.backgroundColors.length ||
+          rowGeometry.glyphPositions.length !== slice.glyphPositions.length ||
+          rowGeometry.glyphTexCoords.length !== slice.glyphTexCoords.length ||
+          rowGeometry.glyphColors.length !== slice.glyphColors.length
+        ) {
+          requiresFullRebuild = true
+          break
+        }
+      }
+    }
+
+    const backgroundPositionUpdates: Array<{
+      offset: number
+      data: Float32Array<ArrayBufferLike>
+    }> = []
+    const backgroundColorUpdates: Array<{
+      offset: number
+      data: Float32Array<ArrayBufferLike>
+    }> = []
+    const glyphPositionUpdates: Array<{
+      offset: number
+      data: Float32Array<ArrayBufferLike>
+    }> = []
+    const glyphTexCoordUpdates: Array<{
+      offset: number
+      data: Float32Array<ArrayBufferLike>
+    }> = []
+    const glyphColorUpdates: Array<{
+      offset: number
+      data: Float32Array<ArrayBufferLike>
+    }> = []
+
+    if (requiresFullRebuild) {
+      const rebuildResult = performFullRebuild(
+        geometryContext,
+        selectionByRow,
+        selectionTheme,
+        toClipX,
+        toClipY,
+      )
+      geometry = rebuildResult.geometry
+      backgroundPositionsView = rebuildResult.backgroundPositionsView
+      backgroundColorsView = rebuildResult.backgroundColorsView
+      glyphPositionsView = rebuildResult.glyphPositionsView
+      glyphTexCoordsView = rebuildResult.glyphTexCoordsView
+      glyphColorsView = rebuildResult.glyphColorsView
+      fullRebuildPerformed = true
+    } else {
+      for (const row of rowsToRebuildArray) {
+        const rowGeometry = pendingRowGeometry.get(row)!
+        rowGeometries[row] = rowGeometry
+        const slice = rowSlices[row]
+        if (!slice) {
+          continue
+        }
+
+        if (rowGeometry.backgroundPositions.length > 0) {
+          geometryBuffers.backgroundPositions.data.set(
+            rowGeometry.backgroundPositions,
+            slice.backgroundPositions.offset,
+          )
+          backgroundPositionUpdates.push({
+            offset: slice.backgroundPositions.offset,
+            data: rowGeometry.backgroundPositions,
+          })
+        }
+        if (rowGeometry.backgroundColors.length > 0) {
+          geometryBuffers.backgroundColors.data.set(
+            rowGeometry.backgroundColors,
+            slice.backgroundColors.offset,
+          )
+          backgroundColorUpdates.push({
+            offset: slice.backgroundColors.offset,
+            data: rowGeometry.backgroundColors,
+          })
+        }
+        if (rowGeometry.glyphPositions.length > 0) {
+          geometryBuffers.glyphPositions.data.set(
+            rowGeometry.glyphPositions,
+            slice.glyphPositions.offset,
+          )
+          glyphPositionUpdates.push({
+            offset: slice.glyphPositions.offset,
+            data: rowGeometry.glyphPositions,
+          })
+        }
+        if (rowGeometry.glyphTexCoords.length > 0) {
+          geometryBuffers.glyphTexCoords.data.set(
+            rowGeometry.glyphTexCoords,
+            slice.glyphTexCoords.offset,
+          )
+          glyphTexCoordUpdates.push({
+            offset: slice.glyphTexCoords.offset,
+            data: rowGeometry.glyphTexCoords,
+          })
+        }
+        if (rowGeometry.glyphColors.length > 0) {
+          geometryBuffers.glyphColors.data.set(
+            rowGeometry.glyphColors,
+            slice.glyphColors.offset,
+          )
+          glyphColorUpdates.push({
+            offset: slice.glyphColors.offset,
+            data: rowGeometry.glyphColors,
+          })
+        }
+
+        totalBackgroundVertexCount +=
+          rowGeometry.backgroundVertexCount - slice.backgroundVertexCount
+        totalGlyphVertexCount +=
+          rowGeometry.glyphVertexCount - slice.glyphVertexCount
+        totalGlyphCount += rowGeometry.glyphCount - slice.glyphCount
+
+        rowSlices[row] = {
+          ...slice,
+          backgroundVertexCount: rowGeometry.backgroundVertexCount,
+          glyphVertexCount: rowGeometry.glyphVertexCount,
+          glyphCount: rowGeometry.glyphCount,
+        }
+      }
+
+      geometry = {
+        backgroundVertexCount: totalBackgroundVertexCount,
+        glyphVertexCount: totalGlyphVertexCount,
+        glyphCount: totalGlyphCount,
+      }
+    }
 
     const glyphCanvas = glyphAtlas.getCanvas()
     const glyphDirty = glyphAtlas.consumeDirtyFlag()
@@ -996,18 +1399,49 @@ const createWebglRenderer = (
 
     let drawCalls = 0
     const start = now()
+    const totalCells = snapshot.rows * snapshot.columns
+    const rebuiltRowCount = fullRebuildPerformed
+      ? snapshot.rows
+      : rowsToRebuild.size
+    const cellsProcessed =
+      totalCells > 0
+        ? Math.min(totalCells, rebuiltRowCount * snapshot.columns)
+        : 0
+    const dirtyRegionCoverage =
+      totalCells > 0
+        ? fullRebuildPerformed
+          ? 1
+          : cellsProcessed / totalCells
+        : null
+    let bytesUploaded = 0
+    let overlayBytesUploaded: number | null = null
 
     if (geometry.backgroundVertexCount > 0) {
       gl.useProgram(backgroundProgram)
       gl.bindBuffer(gl.ARRAY_BUFFER, backgroundPositionBuffer)
-      ensureArrayBufferCapacity(
-        gl,
-        gl.ARRAY_BUFFER,
-        backgroundPositionBufferState,
-        geometryBuffers.backgroundPositions.capacityBytes,
-      )
-      if (backgroundPositionsView.length > 0) {
-        gl.bufferSubData(gl.ARRAY_BUFFER, 0, backgroundPositionsView)
+      if (fullRebuildPerformed || !buffersInitialized) {
+        ensureArrayBufferCapacity(
+          gl,
+          gl.ARRAY_BUFFER,
+          backgroundPositionBufferState,
+          geometryBuffers.backgroundPositions.capacityBytes,
+        )
+        if (backgroundPositionsView.length > 0) {
+          gl.bufferSubData(gl.ARRAY_BUFFER, 0, backgroundPositionsView)
+          bytesUploaded += backgroundPositionsView.byteLength
+        }
+      } else {
+        for (const update of backgroundPositionUpdates) {
+          if (update.data.length === 0) {
+            continue
+          }
+          gl.bufferSubData(
+            gl.ARRAY_BUFFER,
+            update.offset * Float32Array.BYTES_PER_ELEMENT,
+            update.data,
+          )
+          bytesUploaded += update.data.byteLength
+        }
       }
       gl.enableVertexAttribArray(backgroundPositionLocation)
       gl.vertexAttribPointer(
@@ -1020,14 +1454,29 @@ const createWebglRenderer = (
       )
 
       gl.bindBuffer(gl.ARRAY_BUFFER, backgroundColorBuffer)
-      ensureArrayBufferCapacity(
-        gl,
-        gl.ARRAY_BUFFER,
-        backgroundColorBufferState,
-        geometryBuffers.backgroundColors.capacityBytes,
-      )
-      if (backgroundColorsView.length > 0) {
-        gl.bufferSubData(gl.ARRAY_BUFFER, 0, backgroundColorsView)
+      if (fullRebuildPerformed || !buffersInitialized) {
+        ensureArrayBufferCapacity(
+          gl,
+          gl.ARRAY_BUFFER,
+          backgroundColorBufferState,
+          geometryBuffers.backgroundColors.capacityBytes,
+        )
+        if (backgroundColorsView.length > 0) {
+          gl.bufferSubData(gl.ARRAY_BUFFER, 0, backgroundColorsView)
+          bytesUploaded += backgroundColorsView.byteLength
+        }
+      } else {
+        for (const update of backgroundColorUpdates) {
+          if (update.data.length === 0) {
+            continue
+          }
+          gl.bufferSubData(
+            gl.ARRAY_BUFFER,
+            update.offset * Float32Array.BYTES_PER_ELEMENT,
+            update.data,
+          )
+          bytesUploaded += update.data.byteLength
+        }
       }
       gl.enableVertexAttribArray(backgroundColorLocation)
       gl.vertexAttribPointer(backgroundColorLocation, 4, gl.FLOAT, false, 0, 0)
@@ -1039,40 +1488,85 @@ const createWebglRenderer = (
     if (geometry.glyphVertexCount > 0) {
       gl.useProgram(glyphProgram)
       gl.bindBuffer(gl.ARRAY_BUFFER, glyphPositionBuffer)
-      ensureArrayBufferCapacity(
-        gl,
-        gl.ARRAY_BUFFER,
-        glyphPositionBufferState,
-        geometryBuffers.glyphPositions.capacityBytes,
-      )
-      if (glyphPositionsView.length > 0) {
-        gl.bufferSubData(gl.ARRAY_BUFFER, 0, glyphPositionsView)
+      if (fullRebuildPerformed || !buffersInitialized) {
+        ensureArrayBufferCapacity(
+          gl,
+          gl.ARRAY_BUFFER,
+          glyphPositionBufferState,
+          geometryBuffers.glyphPositions.capacityBytes,
+        )
+        if (glyphPositionsView.length > 0) {
+          gl.bufferSubData(gl.ARRAY_BUFFER, 0, glyphPositionsView)
+          bytesUploaded += glyphPositionsView.byteLength
+        }
+      } else {
+        for (const update of glyphPositionUpdates) {
+          if (update.data.length === 0) {
+            continue
+          }
+          gl.bufferSubData(
+            gl.ARRAY_BUFFER,
+            update.offset * Float32Array.BYTES_PER_ELEMENT,
+            update.data,
+          )
+          bytesUploaded += update.data.byteLength
+        }
       }
       gl.enableVertexAttribArray(glyphPositionLocation)
       gl.vertexAttribPointer(glyphPositionLocation, 2, gl.FLOAT, false, 0, 0)
 
       gl.bindBuffer(gl.ARRAY_BUFFER, glyphTexCoordBuffer)
-      ensureArrayBufferCapacity(
-        gl,
-        gl.ARRAY_BUFFER,
-        glyphTexCoordBufferState,
-        geometryBuffers.glyphTexCoords.capacityBytes,
-      )
-      if (glyphTexCoordsView.length > 0) {
-        gl.bufferSubData(gl.ARRAY_BUFFER, 0, glyphTexCoordsView)
+      if (fullRebuildPerformed || !buffersInitialized) {
+        ensureArrayBufferCapacity(
+          gl,
+          gl.ARRAY_BUFFER,
+          glyphTexCoordBufferState,
+          geometryBuffers.glyphTexCoords.capacityBytes,
+        )
+        if (glyphTexCoordsView.length > 0) {
+          gl.bufferSubData(gl.ARRAY_BUFFER, 0, glyphTexCoordsView)
+          bytesUploaded += glyphTexCoordsView.byteLength
+        }
+      } else {
+        for (const update of glyphTexCoordUpdates) {
+          if (update.data.length === 0) {
+            continue
+          }
+          gl.bufferSubData(
+            gl.ARRAY_BUFFER,
+            update.offset * Float32Array.BYTES_PER_ELEMENT,
+            update.data,
+          )
+          bytesUploaded += update.data.byteLength
+        }
       }
       gl.enableVertexAttribArray(glyphTexCoordLocation)
       gl.vertexAttribPointer(glyphTexCoordLocation, 2, gl.FLOAT, false, 0, 0)
 
       gl.bindBuffer(gl.ARRAY_BUFFER, glyphColorBuffer)
-      ensureArrayBufferCapacity(
-        gl,
-        gl.ARRAY_BUFFER,
-        glyphColorBufferState,
-        geometryBuffers.glyphColors.capacityBytes,
-      )
-      if (glyphColorsView.length > 0) {
-        gl.bufferSubData(gl.ARRAY_BUFFER, 0, glyphColorsView)
+      if (fullRebuildPerformed || !buffersInitialized) {
+        ensureArrayBufferCapacity(
+          gl,
+          gl.ARRAY_BUFFER,
+          glyphColorBufferState,
+          geometryBuffers.glyphColors.capacityBytes,
+        )
+        if (glyphColorsView.length > 0) {
+          gl.bufferSubData(gl.ARRAY_BUFFER, 0, glyphColorsView)
+          bytesUploaded += glyphColorsView.byteLength
+        }
+      } else {
+        for (const update of glyphColorUpdates) {
+          if (update.data.length === 0) {
+            continue
+          }
+          gl.bufferSubData(
+            gl.ARRAY_BUFFER,
+            update.offset * Float32Array.BYTES_PER_ELEMENT,
+            update.data,
+          )
+          bytesUploaded += update.data.byteLength
+        }
       }
       gl.enableVertexAttribArray(glyphColorLocation)
       gl.vertexAttribPointer(glyphColorLocation, 4, gl.FLOAT, false, 0, 0)
@@ -1084,6 +1578,8 @@ const createWebglRenderer = (
       gl.drawArrays(gl.TRIANGLES, 0, geometry.glyphVertexCount)
       drawCalls += 1
     }
+
+    buffersInitialized = true
 
     if (
       customCursorOverlay &&
@@ -1110,6 +1606,8 @@ const createWebglRenderer = (
         selection: snapshot.selection ?? null,
       })
       uploadOverlayTexture(overlayCanvas, true)
+      overlayBytesUploaded = overlayCanvas.width * overlayCanvas.height * 4
+      bytesUploaded += overlayBytesUploaded
 
       gl.useProgram(overlayProgram)
       gl.bindBuffer(gl.ARRAY_BUFFER, overlayPositionBuffer)
@@ -1129,7 +1627,14 @@ const createWebglRenderer = (
     }
 
     const duration = now() - start
-    diagnostics = updateDiagnostics(diagnostics, duration, drawCalls)
+    diagnostics = updateDiagnostics(diagnostics, {
+      frameDuration: duration,
+      drawCalls,
+      cellsProcessed,
+      bytesUploaded,
+      dirtyRegionCoverage,
+      overlayBytesUploaded,
+    })
   }
 
   const renderer: CanvasRenderer = {
@@ -1138,21 +1643,70 @@ const createWebglRenderer = (
       if (disposed) {
         throw new Error('CanvasRenderer instance has been disposed')
       }
+      const previousSnapshot = currentSnapshot
       currentSnapshot = snapshot
 
       let requiresRepaint = false
       let selectionChanged = false
+      let trackedCursor = previousSnapshot.cursor
+      let trackedSelection = currentSelection
 
       for (const update of updates) {
         switch (update.type) {
           case 'cells':
+            for (const cell of update.cells) {
+              dirtyTracker.markCell(cell.row, cell.column)
+            }
+            requiresRepaint = true
+            break
           case 'clear':
+            switch (update.scope) {
+              case 'display':
+              case 'display-after-cursor':
+                dirtyTracker.markFull()
+                break
+              case 'line':
+                dirtyTracker.markRow(snapshot.cursor.row)
+                break
+              case 'line-after-cursor':
+                dirtyTracker.markRange(
+                  snapshot.cursor.row,
+                  snapshot.cursor.column,
+                  Number.POSITIVE_INFINITY,
+                )
+                break
+              default:
+                dirtyTracker.markFull()
+                break
+            }
+            requiresRepaint = true
+            break
           case 'cursor':
+            dirtyTracker.markCell(trackedCursor.row, trackedCursor.column)
+            trackedCursor = update.position
+            dirtyTracker.markCell(trackedCursor.row, trackedCursor.column)
+            requiresRepaint = true
+            break
           case 'scroll':
+            dirtyTracker.markFull()
+            requiresRepaint = true
+            break
+          case 'bell':
+            break
           case 'attributes':
+            dirtyTracker.markFull()
+            requiresRepaint = true
+            break
           case 'scroll-region':
+            dirtyTracker.markFull()
+            requiresRepaint = true
+            break
           case 'mode':
+            dirtyTracker.markFull()
+            requiresRepaint = true
+            break
           case 'cursor-visibility':
+            dirtyTracker.markCell(trackedCursor.row, trackedCursor.column)
             requiresRepaint = true
             break
           case 'response':
@@ -1169,6 +1723,7 @@ const createWebglRenderer = (
             } else {
               paletteOverrides.set(update.index, nextColor)
             }
+            dirtyTracker.markFull()
             requiresRepaint = true
             break
           }
@@ -1222,18 +1777,34 @@ const createWebglRenderer = (
           }
           case 'selection-set':
           case 'selection-update':
+            dirtyTracker.markSelection(
+              trackedSelection,
+              snapshot.columns,
+            )
+            trackedSelection = update.selection
+            dirtyTracker.markSelection(trackedSelection, snapshot.columns)
             currentSelection = update.selection
             selectionChanged = true
             requiresRepaint = true
             break
           case 'selection-clear':
             if (currentSelection !== null) {
+              dirtyTracker.markSelection(
+                trackedSelection,
+                snapshot.columns,
+              )
+              trackedSelection = null
               currentSelection = null
               selectionChanged = true
               requiresRepaint = true
             }
             break
+          case 'clipboard':
+          case 'title':
+          case 'c1-transmission':
+            break
           default:
+            dirtyTracker.markFull()
             requiresRepaint = true
             break
         }
@@ -1256,6 +1827,7 @@ const createWebglRenderer = (
       colorCache.clear()
       currentSnapshot = snapshot
       currentSelection = snapshot.selection ?? null
+      dirtyTracker.markFull()
       renderSnapshot(currentSnapshot)
       consumeSelectionChange(currentSelection)
     },
@@ -1265,6 +1837,7 @@ const createWebglRenderer = (
       }
       theme = nextTheme
       colorCache.clear()
+      dirtyTracker.markFull()
       renderSnapshot(currentSnapshot)
     },
     sync(snapshot) {
@@ -1273,6 +1846,7 @@ const createWebglRenderer = (
       }
       currentSnapshot = snapshot
       currentSelection = snapshot.selection ?? null
+      dirtyTracker.markFull()
       renderSnapshot(snapshot)
       consumeSelectionChange(currentSelection)
     },

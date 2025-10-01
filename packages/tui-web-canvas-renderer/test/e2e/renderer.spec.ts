@@ -1,9 +1,3 @@
-import path from 'node:path'
-import {
-  expect,
-  test,
-  type Page,
-} from '@playwright/test'
 import type {
   TerminalAttributes,
   TerminalCell,
@@ -11,15 +5,9 @@ import type {
   TerminalState,
   TerminalUpdate,
 } from '@mana-ssh/vt'
-import type {
-  RendererMetrics,
-  RendererTheme,
-} from '../../src/types'
-
-const HARNESS_BUNDLE = path.resolve(
-  __dirname,
-  'dist/harness.js',
-)
+import { expect, type Page, test } from '@playwright/test'
+import type { RendererMetrics, RendererTheme } from '../../src/types'
+import { disposeHarness, prepareHarness, warmHarnessBundle } from './harness-loader'
 
 const hexToRgba = (hex: string): [number, number, number, number] => {
   const normalized = hex.replace('#', '')
@@ -162,18 +150,19 @@ const createSnapshot = (rows: number, columns: number): TerminalState => ({
 })
 
 const withHarness = async (page: Page, fn: () => Promise<void>) => {
+  await prepareHarness(page)
   try {
     await fn()
   } finally {
-    await page.evaluate(() => {
-      window.__manaRendererTest__?.dispose()
-    })
+    await disposeHarness(page)
   }
 }
 
 const initRenderer = async (
   page: Page,
-  options: Parameters<NonNullable<typeof window.__manaRendererTest__>['initRenderer']>[0],
+  options: Parameters<
+    NonNullable<typeof window.__manaRendererTest__>['initRenderer']
+  >[0],
 ) => {
   await page.evaluate((opts) => {
     window.__manaRendererTest__?.initRenderer(opts)
@@ -182,7 +171,9 @@ const initRenderer = async (
 
 const applyUpdates = async (
   page: Page,
-  options: Parameters<NonNullable<typeof window.__manaRendererTest__>['applyUpdates']>[0],
+  options: Parameters<
+    NonNullable<typeof window.__manaRendererTest__>['applyUpdates']
+  >[0],
 ) => {
   await page.evaluate((opts) => {
     window.__manaRendererTest__?.applyUpdates(opts)
@@ -191,7 +182,9 @@ const applyUpdates = async (
 
 const resizeRenderer = async (
   page: Page,
-  options: Parameters<NonNullable<typeof window.__manaRendererTest__>['resize']>[0],
+  options: Parameters<
+    NonNullable<typeof window.__manaRendererTest__>['resize']
+  >[0],
 ) => {
   await page.evaluate((opts) => {
     window.__manaRendererTest__?.resize(opts)
@@ -221,6 +214,21 @@ const getDiagnostics = async (page: Page) => {
   return page.evaluate(() => window.__manaRendererTest__?.getDiagnostics())
 }
 
+const getRendererBackend = async (page: Page) => {
+  return page.evaluate(() => window.__manaRendererTest__?.getBackend() ?? null)
+}
+
+const isWebglSupported = async (page: Page) => {
+  return page.evaluate(() => {
+    const canvas = document.createElement('canvas')
+    return Boolean(
+      canvas.getContext('webgl2') ||
+      canvas.getContext('webgl') ||
+      canvas.getContext('experimental-webgl'),
+    )
+  })
+}
+
 const getSelectionEvents = async (page: Page) => {
   return page.evaluate(() => window.__manaRendererTest__?.getSelectionEvents())
 }
@@ -229,14 +237,10 @@ const getOverlayEvents = async (page: Page) => {
   return page.evaluate(() => window.__manaRendererTest__?.getOverlayEvents())
 }
 
-test.beforeEach(async ({ page }) => {
-  await page.addInitScript({ path: HARNESS_BUNDLE })
-  await page.goto('about:blank')
-  await page.setContent('<!DOCTYPE html><html><body></body></html>')
-  await page.waitForFunction(() => Boolean(window.__manaRendererTest__))
-})
-
 test.describe('createCanvasRenderer (browser)', () => {
+  test.beforeAll(async () => {
+    await warmHarnessBundle()
+  })
   test('paints the initial snapshot using the theme background', async ({
     page,
   }) => {
@@ -288,11 +292,7 @@ test.describe('createCanvasRenderer (browser)', () => {
 
       await applyUpdates(page, { snapshot, updates })
 
-      const pixel = await getPixel(
-        page,
-        0,
-        0,
-      )
+      const pixel = await getPixel(page, 0, 0)
       const expected = hexToRgba(theme.palette.ansi[1]!)
       expect(pixel[0]).toBe(expected[0])
       expect(pixel[1]).toBe(expected[1])
@@ -326,34 +326,37 @@ test.describe('createCanvasRenderer (browser)', () => {
       ]
 
       await applyUpdates(page, { snapshot, updates })
-      const { max } = await page.evaluate(({ cellWidth, cellHeight }) => {
-        const canvas = document.querySelector('canvas')
-        if (!canvas) {
-          throw new Error('Canvas not present')
-        }
-        const ctx = canvas.getContext('2d')
-        if (!ctx) {
-          throw new Error('Unable to access 2D context')
-        }
-        const data = ctx.getImageData(0, 0, cellWidth, cellHeight).data
-        let maxR = 0
-        let maxG = 0
-        let maxB = 0
-        for (let index = 0; index < data.length; index += 4) {
-          const r = data[index]!
-          const g = data[index + 1]!
-          const b = data[index + 2]!
-          if (r + g + b > maxR + maxG + maxB) {
-            maxR = r
-            maxG = g
-            maxB = b
+      const { max } = await page.evaluate(
+        ({ cellWidth, cellHeight }) => {
+          const canvas = document.querySelector('canvas')
+          if (!canvas) {
+            throw new Error('Canvas not present')
           }
-        }
-        return { max: [maxR, maxG, maxB] as [number, number, number] }
-      }, {
-        cellWidth: baseMetrics.cell.width,
-        cellHeight: baseMetrics.cell.height,
-      })
+          const ctx = canvas.getContext('2d')
+          if (!ctx) {
+            throw new Error('Unable to access 2D context')
+          }
+          const data = ctx.getImageData(0, 0, cellWidth, cellHeight).data
+          let maxR = 0
+          let maxG = 0
+          let maxB = 0
+          for (let index = 0; index < data.length; index += 4) {
+            const r = data[index]!
+            const g = data[index + 1]!
+            const b = data[index + 2]!
+            if (r + g + b > maxR + maxG + maxB) {
+              maxR = r
+              maxG = g
+              maxB = b
+            }
+          }
+          return { max: [maxR, maxG, maxB] as [number, number, number] }
+        },
+        {
+          cellWidth: baseMetrics.cell.width,
+          cellHeight: baseMetrics.cell.height,
+        },
+      )
       const expected = hexToRgba(theme.palette.ansi[4]!)
       expect(max[0]).toBeGreaterThanOrEqual(expected[0] - 5)
       expect(max[1]).toBeGreaterThanOrEqual(expected[1] - 5)
@@ -535,9 +538,7 @@ test.describe('createCanvasRenderer (browser)', () => {
       snapshot.selection = nextSelection
       await applyUpdates(page, {
         snapshot,
-        updates: [
-          { type: 'selection-update', selection: nextSelection },
-        ],
+        updates: [{ type: 'selection-update', selection: nextSelection }],
       })
 
       const events = await getSelectionEvents(page)
@@ -625,6 +626,67 @@ test.describe('createCanvasRenderer (browser)', () => {
           window.__manaRendererTest__?.sync(null as unknown as TerminalState)
         }),
       ).rejects.toThrow()
+    })
+  })
+
+  test('reports GPU dirty-region metrics for partial updates', async ({ page }) => {
+    const supportsWebgl = await isWebglSupported(page)
+    test.skip(!supportsWebgl, 'WebGL not supported in this environment')
+
+    await withHarness(page, async () => {
+      const theme = createTheme()
+      const snapshot = createSnapshot(3, 4)
+      try {
+        await initRenderer(page, {
+          snapshot,
+          theme,
+          metrics: baseMetrics,
+          backend: 'webgl',
+        })
+      } catch (error) {
+        test.skip(
+          true,
+          `GPU renderer failed to initialise: ${(error as Error).message}`,
+        )
+      }
+
+      const backend = await getRendererBackend(page)
+      test.skip(backend !== 'gpu-webgl', `GPU backend not active (${backend ?? 'none'})`)
+
+      const initialDiagnostics = await getDiagnostics(page)
+      expect(initialDiagnostics).toBeTruthy()
+      expect(initialDiagnostics?.gpuCellsProcessed).toBe(
+        snapshot.rows * snapshot.columns,
+      )
+      expect(initialDiagnostics?.gpuDirtyRegionCoverage).toBe(1)
+      expect(initialDiagnostics?.gpuBytesUploaded).toBeGreaterThan(0)
+
+      const updatedCell: TerminalCell = {
+        char: 'Z',
+        attr: createAttributes(),
+        protected: false,
+      }
+      snapshot.buffer[1]![0] = updatedCell
+      const updates: TerminalUpdate[] = [
+        {
+          type: 'cells',
+          cells: [
+            {
+              row: 1,
+              column: 0,
+              cell: updatedCell,
+            },
+          ],
+        },
+      ]
+
+      await applyUpdates(page, { snapshot, updates })
+
+      const after = await getDiagnostics(page)
+      expect(after).toBeTruthy()
+      expect(after?.gpuCellsProcessed).toBe(snapshot.columns)
+      expect(after?.gpuDirtyRegionCoverage).toBeCloseTo(1 / snapshot.rows)
+      expect(after?.gpuBytesUploaded).toBeGreaterThan(0)
     })
   })
 })
