@@ -70,6 +70,14 @@ export class BinaryReader {
     }
   }
 
+  readNameList(): string[] {
+    const raw = this.readString()
+    if (raw.length === 0) {
+      return []
+    }
+    return raw.split(',').filter((name) => name.length > 0)
+  }
+
   skip(length: number): void {
     if (length < 0) {
       throw new SshDecodeError(`Cannot skip negative length (${length})`)

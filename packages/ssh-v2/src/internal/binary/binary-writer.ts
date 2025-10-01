@@ -46,6 +46,11 @@ export class BinaryWriter {
     this.writeBytes(encoded)
   }
 
+  writeNameList(names: ReadonlyArray<string>): void {
+    const value = names.join(',')
+    this.writeString(value)
+  }
+
   toUint8Array(): Uint8Array {
     const result = new Uint8Array(this.#length)
     let offset = 0

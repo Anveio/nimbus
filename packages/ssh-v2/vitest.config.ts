@@ -3,6 +3,7 @@ import { defineConfig } from 'vitest/config'
 const verbose = process.env.VITEST_VERBOSE === 'true'
 
 export default defineConfig({
+  root: __dirname,
   test: {
     globals: true,
     include: ['test/**/*.test.ts'],
