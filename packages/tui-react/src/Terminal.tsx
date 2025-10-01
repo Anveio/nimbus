@@ -1110,8 +1110,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       [interpreter, localEcho, replaceSelectionWithText],
     )
 
-
-        const handleKeyDown = useCallback(
+    const handleKeyDown = useCallback(
       (event: ReactKeyboardEvent<HTMLDivElement>) => {
         if (
           event.nativeEvent.isComposing ||
@@ -1170,7 +1169,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       ],
     )
 
-const handlePaste = useCallback(
+    const handlePaste = useCallback(
       (event: ReactClipboardEvent<HTMLDivElement>) => {
         const text = event.clipboardData.getData('text')
         if (!text) {
@@ -1233,7 +1232,7 @@ const handlePaste = useCallback(
             event.type === 'print-screen'
               ? { ...event, lines: [...event.lines] }
               : event.type === 'write'
-                ? { ...event, data: Array.from(event.data) }
+                ? { ...event, data: event.data.slice() }
                 : { ...event },
           ),
         getDiagnostics: () => rendererHandle.diagnostics,
