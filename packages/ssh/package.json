@@ -1,8 +1,8 @@
 {
-  "name": "@mana/ssh-v2",
+  "name": "@mana/ssh",
   "version": "0.0.1",
   "private": true,
-  "description": "The core, transport-agnostic SSHv2 protocol implementation for ManaSSHWeb.",
+  "description": "The core, transport-agnostic SSH protocol implementation for Mana.",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {

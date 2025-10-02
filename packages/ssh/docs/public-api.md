@@ -1,8 +1,8 @@
-# `@mana/ssh-v2` Public API & Implementation Strategy
+# `@mana/ssh` Public API & Implementation Strategy
 
 > Drafted: 2025-10-01
 
-This document captures the proposed API surface, behavioural contract, and build-out plan for the `@mana/ssh-v2` package. The goal is to deliver a spec-faithful SSHv2 engine that higher-layer transports (browser WebSockets, proxy servers, desktop apps) can consume without inheriting protocol complexity.
+This document captures the proposed API surface, behavioural contract, and build-out plan for the `@mana/ssh` package. The goal is to deliver a spec-faithful SSHv2 engine that higher-layer transports (browser WebSockets, proxy servers, desktop apps) can consume without inheriting protocol complexity.
 
 ## Goals
 - **Spec compliance first**: Implement RFC 4250–4256 and mandatory updates (RFC 4344, 4419, 5647, 5656, 6668, 7478, 8308, 8332, 8709, 9142, etc.) exactly. Document any intentional divergence.
@@ -15,7 +15,7 @@ This document captures the proposed API surface, behavioural contract, and build
 ## Top-Level Entry Point
 
 ```ts
-import { createClientSession } from '@mana/ssh-v2';
+import { createClientSession } from '@mana/ssh';
 
 const session = createClientSession(config);
 ```
@@ -176,4 +176,3 @@ Commands that produce outbound packets enqueue them, generating matching `outbou
 4. What telemetry schema should diagnostics follow to integrate cleanly with AWS CloudWatch/OpenTelemetry conventions?
 
 Addressing these questions will shape future revisions of this document.
-

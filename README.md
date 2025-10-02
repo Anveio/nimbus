@@ -6,7 +6,7 @@ Mana is a zero-dependency, standards-compliant, universally embeddable, high per
 - Parser and interpreter: `@mana/vt`
 - Renderer backends: `@mana/tui-web-canvas-renderer` today, SVG/WebGL/native next
 - React bindings: `@mana/tui-react`
-- SSHv2 protocol core + targets: `@mana/ssh-v2` with `client/web`, `client/node`, and `server/node`
+- SSH protocol core + targets: `@mana/ssh` with `client/web`, `client/node`, and `server/node`
 - Browser transport primitives: `@mana/websocket`
 - Batteries-included browser SDK: `@mana/web`
 - Demo and infra: `apps/terminal-web-app`, `apps/proxy-server`, `apps/simulated-instance`
@@ -61,7 +61,7 @@ Status legend: Delivered = in main, In progress = active work, Planned = design/
 ## SSH protocol and transport
 | Capability | Status | Notes |
 | --- | --- | --- |
-| SSHv2 key exchange and cipher suite | In progress | `@mana/ssh-v2` scaffolding state machine and crypto plumbing.
+| SSH key exchange and cipher suite | In progress | `@mana/ssh` scaffolding state machine and crypto plumbing.
 | Channel and window management | Planned | Scheduled after key exchange milestone.
 | Browser WebSocket transport | Planned | `@mana/websocket` package stub pending protocol milestone.
 | Web host SDK (`@mana/web`) | Planned | Will compose transport, renderer, telemetry, and lifecycle policies.

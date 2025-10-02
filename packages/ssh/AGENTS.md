@@ -1,19 +1,19 @@
-# @mana/ssh-v2 Agent Charter
+# @mana/ssh Agent Charter
 
 This brief governs the SSH protocol core. Update it whenever RFC scope, security posture, or vendor expectations shift.
 
 ## Mandate
-- Ship a transport-agnostic SSHv2 engine that consumes raw octets and emits deterministic protocol intents/events.
+- Ship a transport-agnostic SSH engine that consumes raw octets and emits deterministic protocol intents/events.
 - Track RFC 4250–4256 plus required extensions (RFC 4344, 4419, 5656, 6668, 7478, 8308, 8332, 8709, 9142, etc.) exactly; document any divergence.
 - Keep the package standalone and vendable: no implicit browser, DOM, or runtime globals.
 
 ## Scope & Boundaries
-- Lives entirely within `packages/ssh-v2`; everything else integrates via typed adapters (transport, crypto, storage, telemetry).
+- Lives entirely within `packages/ssh`; everything else integrates via typed adapters (transport, crypto, storage, telemetry).
 - Randomness, monotonic clocks, and crypto primitives are injected — default wiring may use WebCrypto, but the engine never calls it directly.
 - No direct socket ownership. Higher layers (`@mana/web`, `@mana/websocket`, proxy server) are responsible for IO and policy UX.
 
 ## Specification Library
-- Canonical texts (RFCs, Internet-Drafts, OpenSSH protocol notes) live under `packages/ssh-v2/context/*.txt`.
+- Canonical texts (RFCs, Internet-Drafts, OpenSSH protocol notes) live under `packages/ssh/context/*.txt`.
 - Treat the directory as read-only source material; cite filenames + section numbers in code/comments when implementing a requirement.
 - Missing or unavailable drafts (e.g., `draft-miller-ssh-curve25519-sha256-04`) are tracked as placeholders with guidance on alternate references.
 
@@ -68,4 +68,3 @@ Initial mandate, design pillars, and testing cadence captured.
 Clarified that the core package emits outbound data as events while transport wrappers live in separate packages, keeping the engine strictly spec-focused.
 
 Curated raw spec corpus under `context/`, agreed to focus interoperability on OpenSSH/libssh first, Dropbear second, and expose extension hooks for additional vendors. Defined client-session API direction and phased roadmap.
-

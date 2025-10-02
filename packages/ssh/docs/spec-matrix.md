@@ -1,4 +1,4 @@
-# Specification Matrix — `@mana/ssh-v2`
+# Specification Matrix — `@mana/ssh`
 
 | Feature | Primary Spec | Supplemental Notes | Status |
 | --- | --- | --- | --- |
@@ -21,4 +21,3 @@
 *Draft unavailable in full; see placeholder notes in `context/draft-miller-ssh-curve25519-sha256-04.md`.
 
 Status legend: **Planned** (covered in current roadmap), **In Progress**, **Complete**, **Deferred**.
-

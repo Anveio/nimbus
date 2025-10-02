@@ -60,8 +60,8 @@
         "vitest": "^3.2.4",
       },
     },
-    "packages/ssh-v2": {
-      "name": "@mana/ssh-v2",
+    "packages/ssh": {
+      "name": "@mana/ssh",
       "version": "0.0.1",
       "devDependencies": {
         "@types/node": "^24.6.1",
@@ -87,7 +87,7 @@
         "@testing-library/react": "^16.3.0",
         "@types/react": "^19.1.14",
         "@types/react-dom": "^19.1.9",
-        "@vitejs/plugin-react": "^5.0.0",
+        "@vitejs/plugin-react": "^5.0.4",
         "axe-core": "^4.10.3",
         "jsdom": "^27.0.0",
         "react": "^19.1.1",
@@ -122,6 +122,14 @@
         "typescript": "^5.9.2",
         "vitest": "^3.2.4",
       },
+    },
+    "packages/web": {
+      "name": "@mana/web",
+      "version": "0.0.0",
+    },
+    "packages/websocket": {
+      "name": "@mana/websocket",
+      "version": "0.0.0",
     },
   },
   "packages": {
@@ -287,7 +295,7 @@
 
     "@mana/simulated-instance": ["@mana/simulated-instance@workspace:apps/simulated-instance"],
 
-    "@mana/ssh-v2": ["@mana/ssh-v2@workspace:packages/ssh-v2"],
+    "@mana/ssh": ["@mana/ssh@workspace:packages/ssh"],
 
     "@mana/terminal-web-app": ["@mana/terminal-web-app@workspace:apps/terminal-web-app"],
 
@@ -298,6 +306,10 @@
     "@mana/tui-web-canvas-renderer": ["@mana/tui-web-canvas-renderer@workspace:packages/tui-web-canvas-renderer"],
 
     "@mana/vt": ["@mana/vt@workspace:packages/vt"],
+
+    "@mana/web": ["@mana/web@workspace:packages/web"],
+
+    "@mana/websocket": ["@mana/websocket@workspace:packages/websocket"],
 
     "@manypkg/cli": ["@manypkg/cli@0.25.1", "", { "dependencies": { "@manypkg/get-packages": "^3.1.0", "detect-indent": "^7.0.1", "normalize-path": "^3.0.0", "p-limit": "^6.2.0", "package-json": "^10.0.1", "parse-github-url": "^1.0.3", "picocolors": "^1.1.1", "sembear": "^0.7.0", "semver": "^7.7.1", "tinyexec": "^1.0.1", "validate-npm-package-name": "^6.0.0" }, "bin": { "manypkg": "bin.js" } }, "sha512-lag906FyiNxzZjsRErkUD5/to174I2JzPk5bZubuJp6loMKKJn73zrtqeU7nHlVkHBg3tgXDTJj22HxUDxLRXw=="],
 

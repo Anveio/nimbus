@@ -1,0 +1,13 @@
+{
+  "extends": "../tsconfig/workspace-package-config.json",
+  "compilerOptions": {
+    "paths": {
+      "@mana/ssh": ["./src/index.ts"],
+      "@mana/ssh/client/web": ["./src/client/web/index.ts"],
+      "@mana/ssh/client/node": ["./src/client/node/index.ts"],
+      "@mana/ssh/server/node": ["./src/server/node/index.ts"]
+    }
+  },
+  "include": ["src", "test", "vitest.config.ts"],
+  "exclude": ["dist", "build", "node_modules"]
+}

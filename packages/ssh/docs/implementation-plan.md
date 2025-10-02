@@ -1,4 +1,4 @@
-# `mana-ssh/ssh-v2` Implementation Plan
+# `mana-ssh/ssh` Implementation Plan
 
 > Drafted: 2025-10-01
 
@@ -93,4 +93,3 @@ This plan sequences the work required to ship the SSHv2 protocol core as describ
 - GSS-API mechanisms beyond scaffolding (Kerberos requires additional dependencies).
 - Full SFTP subsystem implementation (initial release will focus on terminal use case).
 - Hardware-backed authentication (FIDO/U2F) integration, tracked separately with WebAuthn dependencies.
-
