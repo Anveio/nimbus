@@ -390,22 +390,22 @@ export const useTerminalAccessibilityAdapter = (
 
   const selectionIndex = useMemo(
     () => createSelectionIndex(snapshot.selection ?? null, snapshot.columns),
-    [snapshot.selection, snapshot.columns],
+    [snapshotRevision, snapshot.selection, snapshot.columns],
   )
 
   const transcriptRows = useMemo(
     () => createTranscriptRows(snapshot, transcriptId, selectionIndex),
-    [snapshot, transcriptId, selectionIndex],
+    [snapshotRevision, snapshot, transcriptId, selectionIndex],
   )
 
   const activeDescendantId = useMemo(
     () => resolveActiveCellId(snapshot, transcriptId),
-    [snapshot, transcriptId],
+    [snapshotRevision, snapshot, transcriptId],
   )
 
   const caretStatusText = useMemo(
     () => createCaretStatusText(snapshot, selectionIndex.cells.size > 0),
-    [snapshot, selectionIndex],
+    [snapshotRevision, snapshot, selectionIndex],
   )
 
   const [status, setStatus] = useState<

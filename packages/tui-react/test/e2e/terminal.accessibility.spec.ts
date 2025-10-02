@@ -198,7 +198,10 @@ test.describe('tui-react terminal accessibility contract', () => {
     await page.keyboard.press('ArrowLeft')
 
     const statusRegion = page.locator(CARET_STATUS_SELECTOR)
-    await expect(statusRegion).toHaveAttribute('role', 'status')
+    const caretTagName = await statusRegion.evaluate((element) =>
+      element.tagName.toLowerCase(),
+    )
+    expect(caretTagName).toBe('output')
     await expect(statusRegion).toHaveAttribute('aria-live', 'polite')
     await expect(statusRegion).toContainText(/row\s+\d+/i)
     await expect(statusRegion).toContainText(/column\s+\d+/i)
@@ -225,7 +228,10 @@ test.describe('tui-react terminal accessibility contract', () => {
     })
 
     const statusRegion = page.locator(STATUS_REGION_SELECTOR)
-    await expect(statusRegion).toHaveAttribute('role', 'status')
+    const statusTagName = await statusRegion.evaluate((element) =>
+      element.tagName.toLowerCase(),
+    )
+    expect(statusTagName).toBe('output')
     await expect(statusRegion).toHaveAttribute('aria-live', 'assertive')
     await expect(statusRegion).toContainText(/connection lost/i)
 
