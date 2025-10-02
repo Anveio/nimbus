@@ -1,86 +1,21 @@
 import { describe, expect, it } from 'vitest'
 
-import type { AlgorithmCatalog, AlgorithmName, SshClientConfig, SshEvent } from '../src/api'
+import type { SshEvent } from '../src/api'
 import { createClientSession } from '../src/api'
 import { SshProtocolError } from '../src/errors'
-import { BinaryWriter } from '../src/internal/binary/binary-writer'
+import {
+  TEST_ALGORITHMS,
+  buildServerKexInitPacket,
+  createTestClientConfig,
+  drainSessionEvents,
+  encodeIdentificationLine,
+} from './helpers/session-fixtures'
 
 const encoder = new TextEncoder()
 
-const zeroBytes = (length: number): Uint8Array => new Uint8Array(length)
-
-const asAlgo = (value: string): AlgorithmName => value as AlgorithmName
-
-const defaultAlgorithms: AlgorithmCatalog = {
-  keyExchange: [
-    asAlgo('curve25519-sha256@libssh.org'),
-    asAlgo('diffie-hellman-group14-sha256'),
-  ],
-  ciphers: [asAlgo('chacha20-poly1305@openssh.com'), asAlgo('aes128-gcm@openssh.com')],
-  macs: [asAlgo('hmac-sha2-256'), asAlgo('hmac-sha2-512')],
-  hostKeys: [asAlgo('ssh-ed25519'), asAlgo('rsa-sha2-256')],
-  compression: [asAlgo('none')],
-  extensions: [asAlgo('ext-info-c')],
-}
-
-function createConfig(overrides: Partial<SshClientConfig> = {}): SshClientConfig {
-  return {
-    clock: () => 0,
-    randomBytes: zeroBytes,
-    identification: {
-      clientId: 'SSH-2.0-mana-ssh-web_0.1',
-    },
-    algorithms: defaultAlgorithms,
-    hostKeys: {
-      async evaluate() {
-        return { outcome: 'unknown' as const }
-      },
-    },
-    ...overrides,
-  }
-}
-
-function drainEvents(sessionEvents: () => SshEvent | undefined): SshEvent[] {
-  const events: SshEvent[] = []
-  let evt: SshEvent | undefined
-  // eslint-disable-next-line no-cond-assign
-  while ((evt = sessionEvents())) {
-    events.push(evt)
-  }
-  return events
-}
-
-function buildServerKexInitPacket(): Uint8Array {
-  const writer = new BinaryWriter()
-  writer.writeUint8(20)
-  writer.writeBytes(zeroBytes(16))
-  writer.writeNameList(['curve25519-sha256@libssh.org'])
-  writer.writeNameList(['ssh-ed25519'])
-  writer.writeNameList(['chacha20-poly1305@openssh.com'])
-  writer.writeNameList(['chacha20-poly1305@openssh.com'])
-  writer.writeNameList(['hmac-sha2-256'])
-  writer.writeNameList(['hmac-sha2-256'])
-  writer.writeNameList(['none'])
-  writer.writeNameList(['none'])
-  writer.writeNameList([])
-  writer.writeNameList([])
-  writer.writeBoolean(false)
-  writer.writeUint32(0)
-  const payload = writer.toUint8Array()
-
-  const paddingLength = 4
-  const packetLength = payload.length + paddingLength + 1
-  const outer = new BinaryWriter()
-  outer.writeUint32(packetLength)
-  outer.writeUint8(paddingLength)
-  outer.writeBytes(payload)
-  outer.writeBytes(Uint8Array.from({ length: paddingLength }, (_, i) => i + 1))
-  return outer.toUint8Array()
-}
-
 describe('ClientSessionImpl Phase 1 handshake', () => {
   it('emits identification and outbound data immediately on creation', () => {
-    const session = createClientSession(createConfig())
+    const session = createClientSession(createTestClientConfig())
 
     const first = session.nextEvent()
     expect(first).toEqual({
@@ -102,13 +37,13 @@ describe('ClientSessionImpl Phase 1 handshake', () => {
   })
 
   it('processes server identification lines, sends KEXINIT, and parses server KEXINIT', () => {
-    const session = createClientSession(createConfig())
+    const session = createClientSession(createTestClientConfig())
     // drain initial events
     session.nextEvent()
     session.nextEvent()
     session.flushOutbound()
 
-    const serverIdentification = encoder.encode('SSH-2.0-OpenSSH_9.6\r\n')
+    const serverIdentification = encodeIdentificationLine('SSH-2.0-OpenSSH_9.6')
     const packet = buildServerKexInitPacket()
     const combined = new Uint8Array(serverIdentification.length + packet.length)
     combined.set(serverIdentification, 0)
@@ -116,7 +51,7 @@ describe('ClientSessionImpl Phase 1 handshake', () => {
 
     session.receive(combined)
 
-    const events = drainEvents(() => session.nextEvent())
+    const events = drainSessionEvents(session)
     expect(events.map((evt) => evt.type)).toEqual([
       'identification-received',
       'kex-init-sent',
@@ -131,11 +66,11 @@ describe('ClientSessionImpl Phase 1 handshake', () => {
     expect(identificationEvent.serverId).toBe('SSH-2.0-OpenSSH_9.6')
 
     const kexSent = events[1] as Extract<SshEvent, { type: 'kex-init-sent' }>
-    expect(kexSent.summary.client).toEqual([
-      'curve25519-sha256@libssh.org',
-      'diffie-hellman-group14-sha256',
-      'ext-info-c',
-    ])
+    const expectedClientAlgorithms = [
+      ...TEST_ALGORITHMS.keyExchange,
+      ...(TEST_ALGORITHMS.extensions ?? []),
+    ]
+    expect(kexSent.summary.client).toEqual(expectedClientAlgorithms)
 
     const kexReceived = events[3] as Extract<SshEvent, { type: 'kex-init-received' }>
     expect(kexReceived.summary.server).toEqual(['curve25519-sha256@libssh.org'])
@@ -144,7 +79,7 @@ describe('ClientSessionImpl Phase 1 handshake', () => {
   })
 
   it('rejects server identification strings longer than 255 characters', () => {
-    const session = createClientSession(createConfig())
+    const session = createClientSession(createTestClientConfig())
     session.nextEvent()
     session.nextEvent()
     session.flushOutbound()
@@ -155,4 +90,3 @@ describe('ClientSessionImpl Phase 1 handshake', () => {
     expect(() => session.receive(bytes)).toThrowError(SshProtocolError)
   })
 })
-

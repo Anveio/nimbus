@@ -1,4 +1,5 @@
 import { SshDecodeError } from '../../errors'
+import { decodeMpint } from './mpint'
 
 const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true })
 
@@ -78,6 +79,12 @@ export class BinaryReader {
     return raw.split(',').filter((name) => name.length > 0)
   }
 
+  readMpint(): bigint {
+    const length = this.readUint32()
+    const bytes = this.readBytes(length)
+    return decodeMpint(bytes)
+  }
+
   skip(length: number): void {
     if (length < 0) {
       throw new SshDecodeError(`Cannot skip negative length (${length})`)
@@ -113,4 +120,3 @@ export class BinaryReader {
     }
   }
 }
-

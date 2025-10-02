@@ -6,6 +6,8 @@ import {
 import { AsyncEventQueue } from './internal/async-event-queue'
 import { BinaryReader } from './internal/binary/binary-reader'
 import { BinaryWriter } from './internal/binary/binary-writer'
+import { encodeMpint } from './internal/binary/mpint'
+import { clampScalar, scalarMult, scalarMultBase } from './internal/crypto/x25519'
 
 export type AlgorithmName = string & { readonly __brand: 'AlgorithmName' }
 
@@ -44,6 +46,11 @@ export interface EngineGuards {
   readonly allowSha1Signatures?: boolean
   readonly enableDropbearCompat?: boolean
   readonly maxPayloadBytes?: number
+}
+
+export interface HostIdentity {
+  readonly host: string
+  readonly port: number
 }
 
 export interface HostKeyCandidate {
@@ -138,6 +145,8 @@ export interface SshClientConfig {
   readonly channels?: ChannelPolicy
   readonly diagnostics?: DiagnosticsSink
   readonly guards?: EngineGuards
+  readonly hostIdentity?: HostIdentity
+  readonly crypto?: Crypto
 }
 
 export interface NegotiationSummary {
@@ -324,14 +333,44 @@ export interface SshSession {
   inspect(): SshSessionSnapshot
   close(reason?: DisconnectOptions): void
   dispose(): void
+  waitForIdle(): Promise<void>
 }
 
 const ASCII_ENCODER = new TextEncoder()
 const ASCII_DECODER = new TextDecoder('utf-8', { fatal: false })
 const SSH_MSG_KEXINIT = 20
+const SSH_MSG_NEWKEYS = 21
+const SSH_MSG_KEXDH_INIT = 30
+const SSH_MSG_KEXDH_REPLY = 31
 const MIN_PADDING_LENGTH = 4
 const SSH_PACKET_BLOCK_SIZE = 8
 const MAX_IDENTIFICATION_LENGTH = 255
+
+const DH_GROUP14_PRIME = BigInt(
+  '0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1' +
+    '29024E088A67CC74020BBEA63B139B22514A08798E3404DD' +
+    'EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245' +
+    'E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED' +
+    'EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D' +
+    'C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F' +
+    '83655D23DCA3AD961C62F356208552BB9ED529077096966D' +
+    '670C354E4ABC9804F1746C08CA237327FFFFFFFFFFFFFFFF',
+)
+const DH_GROUP14_GENERATOR = 2n
+
+type Curve25519State = {
+  readonly type: 'curve25519'
+  readonly privateScalar: Uint8Array
+  readonly clientPublic: Uint8Array
+}
+
+type Group14State = {
+  readonly type: 'group14'
+  readonly exponent: bigint
+  readonly clientPublic: bigint
+}
+
+type KexState = Curve25519State | Group14State
 
 function concatUint8Arrays(a: Uint8Array, b: Uint8Array): Uint8Array {
   if (a.length === 0) return b
@@ -342,15 +381,125 @@ function concatUint8Arrays(a: Uint8Array, b: Uint8Array): Uint8Array {
   return result
 }
 
+function concatBytes(...parts: ReadonlyArray<Uint8Array>): Uint8Array {
+  const total = parts.reduce((sum, part) => sum + part.length, 0)
+  const result = new Uint8Array(total)
+  let offset = 0
+  for (const part of parts) {
+    result.set(part, offset)
+    offset += part.length
+  }
+  return result
+}
+
+function encodeStringField(data: Uint8Array): Uint8Array {
+  const writer = new BinaryWriter()
+  writer.writeUint32(data.length)
+  writer.writeBytes(data)
+  return writer.toUint8Array()
+}
+
+function encodeMpintField(value: bigint): Uint8Array {
+  const writer = new BinaryWriter()
+  writer.writeMpint(value)
+  return writer.toUint8Array()
+}
+
+function toHex(bytes: Uint8Array): string {
+  let out = ''
+  for (const byte of bytes) {
+    out += byte.toString(16).padStart(2, '0')
+  }
+  return out
+}
+
+function littleEndianToBigInt(bytes: Uint8Array): bigint {
+  let result = 0n
+  for (let i = bytes.length - 1; i >= 0; i -= 1) {
+    result = (result << 8n) + BigInt(bytes[i] ?? 0)
+  }
+  return result
+}
+
+function bigIntToUint8Array(value: bigint): Uint8Array {
+  if (value === 0n) {
+    return new Uint8Array(0)
+  }
+  let hex = value.toString(16)
+  if (hex.length % 2 !== 0) {
+    hex = `0${hex}`
+  }
+  const bytes = new Uint8Array(hex.length / 2)
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16)
+  }
+  return bytes
+}
+
+function stripLineEnding(line: string): string {
+  if (line.endsWith('\r\n')) {
+    return line.slice(0, -2)
+  }
+  if (line.endsWith('\n') || line.endsWith('\r')) {
+    return line.slice(0, -1)
+  }
+  return line
+}
+
+function bigEndianToBigInt(bytes: Uint8Array): bigint {
+  let result = 0n
+  for (const byte of bytes) {
+    result = (result << 8n) + BigInt(byte)
+  }
+  return result
+}
+
+function modPow(base: bigint, exponent: bigint, modulus: bigint): bigint {
+  if (modulus === 1n) {
+    return 0n
+  }
+  let result = 1n
+  let b = base % modulus
+  let e = exponent
+  while (e > 0n) {
+    if (e & 1n) {
+      result = (result * b) % modulus
+    }
+    e >>= 1n
+    b = (b * b) % modulus
+  }
+  return result
+}
+
+function toBufferSource(view: Uint8Array): ArrayBuffer {
+  const { buffer, byteOffset, byteLength } = view
+  const arrayBuffer = buffer as ArrayBuffer
+  if (byteOffset === 0 && byteLength === arrayBuffer.byteLength) {
+    return arrayBuffer
+  }
+  return arrayBuffer.slice(byteOffset, byteOffset + byteLength)
+}
+
 class ClientSessionImpl implements SshSession {
   readonly events: AsyncIterable<SshEvent>
 
   #config: SshClientConfig
+  #crypto: Crypto
+  #taskQueue: Promise<void> = Promise.resolve()
   #phase: SessionPhase = 'initial'
   #eventQueue = new AsyncEventQueue<SshEvent>()
   #syncEvents: SshEvent[] = []
   #outboundPackets: Uint8Array[] = []
   #closed = false
+
+  #clientIdentificationLine: string
+  #hostIdentity: HostIdentity
+  #clientKexPayload: Uint8Array | null = null
+  #serverKexPayload: Uint8Array | null = null
+  #sessionId: Uint8Array | null = null
+  #kexState: KexState | null = null
+  #awaitingServerNewKeys = false
+  #sharedSecret: Uint8Array | null = null
 
   #prefaceBuffer: Uint8Array = new Uint8Array(0)
   #binaryBuffer: Uint8Array = new Uint8Array(0)
@@ -362,6 +511,13 @@ class ClientSessionImpl implements SshSession {
   constructor(config: SshClientConfig) {
     this.#config = config
     this.events = this.#eventQueue
+    const cryptoProvider = config.crypto ?? globalThis.crypto
+    if (!cryptoProvider) {
+      throw new SshInvariantViolation('WebCrypto API is not available in this environment')
+    }
+    this.#crypto = cryptoProvider
+    this.#hostIdentity = config.hostIdentity ?? { host: 'unknown', port: 0 }
+    this.#clientIdentificationLine = stripLineEnding(config.identification.clientId)
     this.#sendIdentification()
   }
 
@@ -397,6 +553,10 @@ class ClientSessionImpl implements SshSession {
     return packets
   }
 
+  async waitForIdle(): Promise<void> {
+    await this.#taskQueue
+  }
+
   inspect(): SshSessionSnapshot {
     return {
       phase: this.#phase,
@@ -418,20 +578,22 @@ class ClientSessionImpl implements SshSession {
   }
 
   #sendIdentification(): void {
-    const { clientId } = this.#config.identification
+    const clientId = this.#config.identification.clientId
     if (!clientId.startsWith('SSH-')) {
       throw new SshInvariantViolation('Client identification string must begin with "SSH-"')
     }
     if (clientId.length > MAX_IDENTIFICATION_LENGTH) {
       throw new SshInvariantViolation('Client identification string exceeds 255 characters')
     }
-    const line = clientId.endsWith('\n')
+    const normalized = stripLineEnding(clientId)
+    this.#clientIdentificationLine = normalized
+    const sendLine = clientId.endsWith('\n')
       ? clientId
       : `${clientId}${clientId.endsWith('\r') ? '\n' : '\r\n'}`
-    const payload = ASCII_ENCODER.encode(line)
+    const payload = ASCII_ENCODER.encode(sendLine)
 
     this.#phase = 'identification'
-    this.#emit({ type: 'identification-sent', clientId })
+    this.#emit({ type: 'identification-sent', clientId: normalized })
     this.#enqueueOutbound(payload, 'initial')
   }
 
@@ -527,15 +689,24 @@ class ClientSessionImpl implements SshSession {
   #handlePayload(payload: Uint8Array): void {
     const reader = new BinaryReader(payload)
     const messageId = reader.readUint8()
-    if (messageId === SSH_MSG_KEXINIT) {
-      this.#handleServerKexInit(reader)
-      return
+    switch (messageId) {
+      case SSH_MSG_KEXINIT:
+        this.#handleServerKexInit(payload)
+        return
+      case SSH_MSG_NEWKEYS:
+        this.#handleNewKeys()
+        return
+      case SSH_MSG_KEXDH_REPLY:
+        this.#handleKeyExchangeReply(reader)
+        return
+      default:
+        this.#emitWarning('unsupported-message', `Received unsupported SSH message ${messageId}`)
     }
-
-    this.#emitWarning('unsupported-message', `Received unsupported SSH message ${messageId}`)
   }
 
-  #handleServerKexInit(reader: BinaryReader): void {
+  #handleServerKexInit(payload: Uint8Array): void {
+    this.#serverKexPayload = payload
+    const reader = new BinaryReader(payload.subarray(1))
     reader.readBytes(16) // cookie (unused)
     const serverKex = reader.readNameList()
     const serverHostKeys = reader.readNameList()
@@ -578,8 +749,22 @@ class ClientSessionImpl implements SshSession {
       languagesS2c,
     })
 
+    const negotiated = this.#negotiateAlgorithms({
+      serverKex,
+      serverHostKeys,
+      encC2s,
+      encS2c,
+      macC2s,
+      macS2c,
+      compC2s,
+      compS2c,
+    })
+    this.#negotiatedAlgorithms = negotiated
+    this.#recordDiagnostic('info', 'algorithms-negotiated', 'Negotiated algorithm suite', negotiated)
+
     this.#kexInitReceived = true
     this.#phase = 'kex'
+    this.#queueTask(() => this.#beginNegotiatedKeyExchange())
   }
 
   #ensureKexInitSent(): void {
@@ -619,7 +804,9 @@ class ClientSessionImpl implements SshSession {
     writer.writeBoolean(false)
     writer.writeUint32(0)
 
-    return writer.toUint8Array()
+    const payload = writer.toUint8Array()
+    this.#clientKexPayload = payload
+    return payload
   }
 
   #wrapPacket(payload: Uint8Array): Uint8Array {
@@ -649,9 +836,454 @@ class ClientSessionImpl implements SshSession {
     return list
   }
 
+  #negotiateAlgorithms(params: {
+    serverKex: ReadonlyArray<string>
+    serverHostKeys: ReadonlyArray<string>
+    encC2s: ReadonlyArray<string>
+    encS2c: ReadonlyArray<string>
+    macC2s: ReadonlyArray<string>
+    macS2c: ReadonlyArray<string>
+    compC2s: ReadonlyArray<string>
+    compS2c: ReadonlyArray<string>
+  }): NegotiatedAlgorithms {
+    const { algorithms } = this.#config
+    const clientKex = this.#clientKexAlgorithms()
+
+    const kex = this.#selectMutualAlgorithm(
+      'key exchange',
+      clientKex,
+      params.serverKex,
+    )
+    const hostKey = this.#selectMutualAlgorithm(
+      'server host key',
+      algorithms.hostKeys,
+      params.serverHostKeys,
+    )
+    const cipherC2s = this.#selectMutualAlgorithm(
+      'cipher (client-to-server)',
+      algorithms.ciphers,
+      params.encC2s,
+    )
+    const cipherS2c = this.#selectMutualAlgorithm(
+      'cipher (server-to-client)',
+      algorithms.ciphers,
+      params.encS2c,
+    )
+    const macC2s = this.#selectMutualAlgorithm(
+      'MAC (client-to-server)',
+      algorithms.macs,
+      params.macC2s,
+    )
+    const macS2c = this.#selectMutualAlgorithm(
+      'MAC (server-to-client)',
+      algorithms.macs,
+      params.macS2c,
+    )
+    const compressionC2s = this.#selectMutualAlgorithm(
+      'compression (client-to-server)',
+      algorithms.compression,
+      params.compC2s,
+    )
+    const compressionS2c = this.#selectMutualAlgorithm(
+      'compression (server-to-client)',
+      algorithms.compression,
+      params.compS2c,
+    )
+
+    return {
+      kex,
+      hostKey,
+      cipherC2s,
+      cipherS2c,
+      macC2s,
+      macS2c,
+      compressionC2s,
+      compressionS2c,
+    }
+  }
+
+  #selectMutualAlgorithm(
+    category: string,
+    client: ReadonlyArray<string>,
+    server: ReadonlyArray<string>,
+  ): string {
+    for (const candidate of client) {
+      if (server.includes(candidate)) {
+        return candidate
+      }
+    }
+
+    const message = `No mutual ${category} algorithm found (client: ${client.join(', ')}, server: ${server.join(', ')})`
+    this.#recordDiagnostic('error', 'algorithm-mismatch', message, {
+      category,
+      client,
+      server,
+    })
+    throw new SshProtocolError(message)
+  }
+
+  #beginNegotiatedKeyExchange(): void {
+    const negotiated = this.#negotiatedAlgorithms
+    if (!negotiated) {
+      return
+    }
+    switch (negotiated.kex) {
+      case 'curve25519-sha256@libssh.org':
+      case 'curve25519-sha256':
+        this.#startCurve25519Exchange()
+        break
+      case 'diffie-hellman-group14-sha256':
+        this.#startGroup14Exchange()
+        break
+      default:
+        throw new SshNotImplementedError(
+          `Key exchange algorithm ${negotiated.kex} is not supported yet`,
+        )
+    }
+  }
+
+  #startCurve25519Exchange(): void {
+    const seed = this.#config.randomBytes(32)
+    if (seed.length !== 32) {
+      throw new SshInvariantViolation('curve25519 requires 32 bytes of entropy')
+    }
+    const privateScalar = clampScalar(seed)
+    const clientPublic = scalarMultBase(privateScalar)
+    this.#kexState = {
+      type: 'curve25519',
+      privateScalar,
+      clientPublic,
+    }
+
+    const writer = new BinaryWriter()
+    writer.writeUint8(SSH_MSG_KEXDH_INIT)
+    writer.writeUint32(clientPublic.length)
+    writer.writeBytes(clientPublic)
+    const packet = this.#wrapPacket(writer.toUint8Array())
+    this.#recordDiagnostic('info', 'kex-ecdh-init', 'Sent SSH_MSG_KEX_ECDH_INIT')
+    this.#enqueueOutbound(packet, 'initial')
+  }
+
+  #startGroup14Exchange(): void {
+    const entropy = this.#config.randomBytes(32)
+    if (entropy.length === 0) {
+      throw new SshInvariantViolation('diffie-hellman-group14 requires entropy bytes')
+    }
+    const exponent = this.#normalizeDhExponent(entropy)
+    const clientPublic = modPow(DH_GROUP14_GENERATOR, exponent, DH_GROUP14_PRIME)
+    this.#kexState = {
+      type: 'group14',
+      exponent,
+      clientPublic,
+    }
+
+    const writer = new BinaryWriter()
+    writer.writeUint8(SSH_MSG_KEXDH_INIT)
+    writer.writeMpint(clientPublic)
+    const packet = this.#wrapPacket(writer.toUint8Array())
+    this.#recordDiagnostic('info', 'kex-dh-init', 'Sent SSH_MSG_KEXDH_INIT')
+    this.#enqueueOutbound(packet, 'initial')
+  }
+
+  #normalizeDhExponent(entropy: Uint8Array): bigint {
+    const modulus = DH_GROUP14_PRIME - 2n
+    const value = bigEndianToBigInt(entropy)
+    const exponent = (value % modulus) + 2n
+    return exponent
+  }
+
+  #handleKeyExchangeReply(reader: BinaryReader): void {
+    const state = this.#kexState
+    if (!state) {
+      this.#emitWarning('unexpected-kex-reply', 'Received KEX reply without active exchange')
+      return
+    }
+
+    const hostKeyLength = reader.readUint32()
+    const hostKey = reader.readBytes(hostKeyLength)
+
+    if (state.type === 'curve25519') {
+      const serverPublicLength = reader.readUint32()
+      const serverPublic = reader.readBytes(serverPublicLength)
+      const signatureLength = reader.readUint32()
+      const signature = reader.readBytes(signatureLength)
+      this.#queueTask(() =>
+        this.#finalizeCurve25519Exchange({
+          hostKey,
+          serverPublic,
+          signature,
+          state,
+        }),
+      )
+    } else {
+      const serverPublic = reader.readMpint()
+      const signatureLength = reader.readUint32()
+      const signature = reader.readBytes(signatureLength)
+      this.#queueTask(() =>
+        this.#finalizeGroup14Exchange({
+          hostKey,
+          serverPublic,
+          signature,
+          state,
+        }),
+      )
+    }
+  }
+
+  async #finalizeCurve25519Exchange(params: {
+    hostKey: Uint8Array
+    serverPublic: Uint8Array
+    signature: Uint8Array
+    state: Curve25519State
+  }): Promise<void> {
+    if (params.serverPublic.length !== 32) {
+      throw new SshProtocolError('Invalid curve25519 server public key length')
+    }
+    const sharedSecretBytes = scalarMult(params.state.privateScalar, params.serverPublic)
+    await this.#finalizeKeyExchange({
+      hostKey: params.hostKey,
+      signature: params.signature,
+      clientExchange: { type: 'string', data: params.state.clientPublic },
+      serverExchange: { type: 'string', data: params.serverPublic },
+      sharedSecret: { bytes: sharedSecretBytes, littleEndian: true },
+    })
+  }
+
+  async #finalizeGroup14Exchange(params: {
+    hostKey: Uint8Array
+    serverPublic: bigint
+    signature: Uint8Array
+    state: Group14State
+  }): Promise<void> {
+    if (params.serverPublic <= 1n || params.serverPublic >= DH_GROUP14_PRIME - 1n) {
+      throw new SshProtocolError('Server supplied invalid Diffie-Hellman public key')
+    }
+    const sharedSecret = modPow(params.serverPublic, params.state.exponent, DH_GROUP14_PRIME)
+    const sharedSecretBytes = bigIntToUint8Array(sharedSecret)
+    await this.#finalizeKeyExchange({
+      hostKey: params.hostKey,
+      signature: params.signature,
+      clientExchange: { type: 'mpint', value: params.state.clientPublic },
+      serverExchange: { type: 'mpint', value: params.serverPublic },
+      sharedSecret: { bytes: sharedSecretBytes, littleEndian: false },
+    })
+  }
+
+  async #finalizeKeyExchange(params: {
+    hostKey: Uint8Array
+    signature: Uint8Array
+    clientExchange: { type: 'string'; data: Uint8Array } | { type: 'mpint'; value: bigint }
+    serverExchange: { type: 'string'; data: Uint8Array } | { type: 'mpint'; value: bigint }
+    sharedSecret: { bytes: Uint8Array; littleEndian: boolean }
+  }): Promise<void> {
+    const negotiated = this.#negotiatedAlgorithms
+    if (!negotiated) {
+      throw new SshInvariantViolation('Negotiated algorithms missing during key finalization')
+    }
+    if (!this.#clientKexPayload || !this.#serverKexPayload) {
+      throw new SshInvariantViolation('Missing KEXINIT payloads for exchange hash computation')
+    }
+    if (!this.#serverIdentification) {
+      throw new SshInvariantViolation('Server identification missing before key finalization')
+    }
+
+    const parsedHostKey = this.#parseHostKey(params.hostKey)
+    if (parsedHostKey.algorithm !== negotiated.hostKey) {
+      throw new SshProtocolError(
+        `Server host key algorithm ${parsedHostKey.algorithm} does not match negotiated ${negotiated.hostKey}`,
+      )
+    }
+
+    const parsedSignature = this.#parseSignature(params.signature)
+    if (parsedSignature.algorithm !== negotiated.hostKey) {
+      throw new SshProtocolError(
+        `Server signature algorithm ${parsedSignature.algorithm} does not match negotiated host key ${negotiated.hostKey}`,
+      )
+    }
+
+    const sharedSecretBigInt = params.sharedSecret.littleEndian
+      ? littleEndianToBigInt(params.sharedSecret.bytes)
+      : bigEndianToBigInt(params.sharedSecret.bytes)
+    const clientField =
+      params.clientExchange.type === 'string'
+        ? encodeStringField(params.clientExchange.data)
+        : encodeMpintField(params.clientExchange.value)
+    const serverField =
+      params.serverExchange.type === 'string'
+        ? encodeStringField(params.serverExchange.data)
+        : encodeMpintField(params.serverExchange.value)
+    const sharedSecretField = encodeMpintField(sharedSecretBigInt)
+
+    const hashInput = concatBytes(
+      ASCII_ENCODER.encode(this.#clientIdentificationLine),
+      ASCII_ENCODER.encode(stripLineEnding(this.#serverIdentification)),
+      this.#clientKexPayload,
+      this.#serverKexPayload,
+      encodeStringField(params.hostKey),
+      clientField,
+      serverField,
+      sharedSecretField,
+    )
+    const exchangeHashBuffer = await this.#crypto.subtle.digest(
+      'SHA-256',
+      toBufferSource(hashInput),
+    )
+    const exchangeHash = new Uint8Array(exchangeHashBuffer)
+    if (this.#sessionId === null) {
+      this.#sessionId = exchangeHash
+    }
+
+    const hostKeyDecision = await this.#evaluateHostKey(parsedHostKey.algorithm, params.hostKey)
+    if (hostKeyDecision.outcome === 'mismatch' && hostKeyDecision.severity === 'fatal') {
+      throw new SshProtocolError('Host key mismatch reported by policy')
+    }
+    if (hostKeyDecision.outcome === 'mismatch') {
+      this.#emitWarning('host-key-mismatch', 'Host key mismatch reported by policy', hostKeyDecision)
+    }
+
+    const signatureValid = await this.#verifyHostKeySignature(
+      parsedHostKey.algorithm,
+      parsedHostKey.publicKey,
+      parsedSignature.signature,
+      exchangeHash,
+    )
+    if (!signatureValid) {
+      throw new SshProtocolError('Host key signature verification failed')
+    }
+
+    this.#sharedSecret = new Uint8Array(params.sharedSecret.bytes)
+    this.#kexState = null
+    this.#recordDiagnostic('info', 'keys-established', 'Key exchange completed successfully', {
+      algorithm: negotiated.kex,
+      hostKey: negotiated.hostKey,
+    })
+    this.#emit({ type: 'keys-established', algorithms: negotiated })
+
+    const newKeysPacket = this.#buildNewKeysPacket()
+    this.#awaitingServerNewKeys = true
+    this.#enqueueOutbound(newKeysPacket, 'initial')
+  }
+
+  async #verifyHostKeySignature(
+    algorithm: string,
+    publicKey: Uint8Array,
+    signature: Uint8Array,
+    data: Uint8Array,
+  ): Promise<boolean> {
+    switch (algorithm) {
+      case 'ssh-ed25519': {
+        const key = await this.#crypto.subtle.importKey(
+          'raw',
+          toBufferSource(publicKey),
+          { name: 'Ed25519' },
+          false,
+          ['verify'],
+        )
+        return this.#crypto.subtle.verify(
+          'Ed25519',
+          key,
+          toBufferSource(signature),
+          toBufferSource(data),
+        )
+      }
+      default:
+        throw new SshNotImplementedError(`Host key verification not implemented for ${algorithm}`)
+    }
+  }
+
+  async #evaluateHostKey(algorithm: string, rawBlob: Uint8Array): Promise<HostKeyDecision> {
+    const fingerprintBytes = new Uint8Array(
+      await this.#crypto.subtle.digest('SHA-256', toBufferSource(rawBlob)),
+    )
+    const candidate: HostKeyCandidate = {
+      host: this.#hostIdentity.host,
+      port: this.#hostIdentity.port,
+      keyType: algorithm,
+      fingerprint: toHex(fingerprintBytes),
+      raw: rawBlob,
+    }
+    const decision = await this.#config.hostKeys.evaluate(candidate)
+    if (decision.outcome === 'trusted' && this.#config.hostKeys.remember) {
+      await this.#config.hostKeys.remember(candidate, decision)
+    }
+    return decision
+  }
+
+  #buildNewKeysPacket(): Uint8Array {
+    const writer = new BinaryWriter()
+    writer.writeUint8(SSH_MSG_NEWKEYS)
+    return this.#wrapPacket(writer.toUint8Array())
+  }
+
+  #handleNewKeys(): void {
+    if (!this.#awaitingServerNewKeys) {
+      this.#emitWarning('unexpected-newkeys', 'Received unexpected SSH_MSG_NEWKEYS from server')
+    }
+    this.#awaitingServerNewKeys = false
+    if (!this.#closed && this.#phase !== 'failed') {
+      this.#phase = 'authenticated'
+    }
+    this.#recordDiagnostic('info', 'newkeys-received', 'Server confirmed key transition')
+  }
+
+  #parseHostKey(hostKey: Uint8Array): { algorithm: string; publicKey: Uint8Array } {
+    const reader = new BinaryReader(hostKey)
+    const algorithm = reader.readString()
+    const length = reader.readUint32()
+    const publicKey = reader.readBytes(length)
+    if (reader.remaining > 0) {
+      this.#emitWarning('host-key-extra-bytes', 'Host key blob contained trailing data')
+    }
+    return { algorithm, publicKey }
+  }
+
+  #parseSignature(signature: Uint8Array): { algorithm: string; signature: Uint8Array } {
+    const reader = new BinaryReader(signature)
+    const algorithm = reader.readString()
+    const length = reader.readUint32()
+    const rawSignature = reader.readBytes(length)
+    if (reader.remaining > 0) {
+      this.#emitWarning('signature-extra-bytes', 'Signature blob contained trailing data')
+    }
+    return { algorithm, signature: rawSignature }
+  }
+
   #enqueueOutbound(packet: Uint8Array, encryption: CipherStateLabel): void {
     this.#outboundPackets.push(packet)
     this.#emit({ type: 'outbound-data', payload: packet, encryption })
+  }
+
+  #queueTask(task: () => Promise<void> | void): void {
+    this.#taskQueue = this.#taskQueue
+      .then(async () => {
+        if (this.#closed) {
+          return
+        }
+        await task()
+      })
+      .catch((error) => {
+        this.#handleAsyncError(error)
+      })
+  }
+
+  #handleAsyncError(error: unknown): void {
+    if (this.#closed) {
+      return
+    }
+    this.#phase = 'failed'
+    this.#recordDiagnostic('error', 'async-failure', 'Asynchronous SSH task failed', {
+      error,
+    })
+    this.#emit({
+      type: 'warning',
+      code: 'async-failure',
+      message: 'SSH session aborted due to internal error',
+      detail: error instanceof Error ? error.message : error,
+    })
+    this.close({
+      code: 2,
+      description: 'Protocol failure',
+    })
   }
 
   #emit(event: SshEvent): void {

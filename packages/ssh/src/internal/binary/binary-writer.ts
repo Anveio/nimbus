@@ -1,3 +1,5 @@
+import { encodeMpint } from './mpint'
+
 const UTF8_ENCODER = new TextEncoder()
 
 /**
@@ -51,6 +53,12 @@ export class BinaryWriter {
     this.writeString(value)
   }
 
+  writeMpint(value: bigint): void {
+    const encoded = encodeMpint(value)
+    this.writeUint32(encoded.length)
+    this.writeBytes(encoded)
+  }
+
   toUint8Array(): Uint8Array {
     const result = new Uint8Array(this.#length)
     let offset = 0
@@ -73,4 +81,3 @@ export class BinaryWriter {
     this.#length += copy.length
   }
 }
-
