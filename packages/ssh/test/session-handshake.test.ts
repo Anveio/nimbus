@@ -36,7 +36,7 @@ describe('ClientSessionImpl Phase 1 handshake', () => {
     expect(outbound[0]).toEqual(second.payload)
   })
 
-  it('processes server identification lines, sends KEXINIT, and parses server KEXINIT', () => {
+  it('processes server identification lines, sends KEXINIT, and parses server KEXINIT', async () => {
     const session = createClientSession(createTestClientConfig())
     // drain initial events
     session.nextEvent()
@@ -50,17 +50,20 @@ describe('ClientSessionImpl Phase 1 handshake', () => {
     combined.set(packet, serverIdentification.length)
 
     session.receive(combined)
+    await session.waitForIdle()
+    await session.waitForIdle()
 
     const events = drainSessionEvents(session)
     expect(events.map((evt) => evt.type)).toEqual([
       'identification-received',
       'kex-init-sent',
-      'outbound-data',
       'kex-init-received',
+      'outbound-data',
+      'outbound-data',
     ])
 
     const flushAfterKex = session.flushOutbound()
-    expect(flushAfterKex).toHaveLength(1)
+    expect(flushAfterKex).toHaveLength(2)
 
     const identificationEvent = events[0] as Extract<SshEvent, { type: 'identification-received' }>
     expect(identificationEvent.serverId).toBe('SSH-2.0-OpenSSH_9.6')
@@ -72,7 +75,7 @@ describe('ClientSessionImpl Phase 1 handshake', () => {
     ]
     expect(kexSent.summary.client).toEqual(expectedClientAlgorithms)
 
-    const kexReceived = events[3] as Extract<SshEvent, { type: 'kex-init-received' }>
+    const kexReceived = events[2] as Extract<SshEvent, { type: 'kex-init-received' }>
     expect(kexReceived.summary.server).toEqual(['curve25519-sha256@libssh.org'])
 
     expect(session.inspect().phase).toBe('kex')

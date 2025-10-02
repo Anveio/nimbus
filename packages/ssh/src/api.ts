@@ -6,8 +6,20 @@ import {
 import { AsyncEventQueue } from './internal/async-event-queue'
 import { BinaryReader } from './internal/binary/binary-reader'
 import { BinaryWriter } from './internal/binary/binary-writer'
-import { encodeMpint } from './internal/binary/mpint'
-import { clampScalar, scalarMult, scalarMultBase } from './internal/crypto/x25519'
+import {
+  type AesGcmDirectionState,
+  decryptAesGcm,
+  encryptAesGcm,
+  GCM_TAG_LENGTH_BYTES,
+  importAesGcmKey,
+  splitInitialIv,
+} from './internal/crypto/aes-gcm'
+import { deriveKeyMaterial, type HashAlgorithm } from './internal/crypto/kdf'
+import {
+  clampScalar,
+  scalarMult,
+  scalarMultBase,
+} from './internal/crypto/x25519'
 
 export type AlgorithmName = string & { readonly __brand: 'AlgorithmName' }
 
@@ -76,7 +88,10 @@ export type HostKeyDecision =
 
 export interface HostKeyStore {
   evaluate(candidate: HostKeyCandidate): Promise<HostKeyDecision>
-  remember?(candidate: HostKeyCandidate, decision: HostKeyDecision): Promise<void> | void
+  remember?(
+    candidate: HostKeyCandidate,
+    decision: HostKeyDecision,
+  ): Promise<void> | void
 }
 
 export interface ChannelPolicy {
@@ -132,7 +147,10 @@ export interface AuthenticationToolkit {
 }
 
 export interface AuthenticationStrategy {
-  onEvent(event: AuthenticationEvent, toolkit: AuthenticationToolkit): void | Promise<void>
+  onEvent(
+    event: AuthenticationEvent,
+    toolkit: AuthenticationToolkit,
+  ): void | Promise<void>
 }
 
 export interface SshClientConfig {
@@ -372,6 +390,12 @@ type Group14State = {
 
 type KexState = Curve25519State | Group14State
 
+type PlainCipherState = { type: 'none'; sequenceNumber: number }
+
+type CipherDirectionState =
+  | PlainCipherState
+  | { type: 'aes128-gcm@openssh.com'; state: AesGcmDirectionState }
+
 function concatUint8Arrays(a: Uint8Array, b: Uint8Array): Uint8Array {
   if (a.length === 0) return b
   if (b.length === 0) return a
@@ -390,6 +414,10 @@ function concatBytes(...parts: ReadonlyArray<Uint8Array>): Uint8Array {
     offset += part.length
   }
   return result
+}
+
+function createPlainCipherState(): PlainCipherState {
+  return { type: 'none', sequenceNumber: 0 }
 }
 
 function encodeStringField(data: Uint8Array): Uint8Array {
@@ -492,6 +520,11 @@ class ClientSessionImpl implements SshSession {
   #outboundPackets: Uint8Array[] = []
   #closed = false
 
+  #cipherClientToServer: CipherDirectionState
+  #cipherServerToClient: CipherDirectionState
+  #pendingClientCipher: CipherDirectionState | null = null
+  #pendingServerCipher: CipherDirectionState | null = null
+
   #clientIdentificationLine: string
   #hostIdentity: HostIdentity
   #clientKexPayload: Uint8Array | null = null
@@ -513,11 +546,17 @@ class ClientSessionImpl implements SshSession {
     this.events = this.#eventQueue
     const cryptoProvider = config.crypto ?? globalThis.crypto
     if (!cryptoProvider) {
-      throw new SshInvariantViolation('WebCrypto API is not available in this environment')
+      throw new SshInvariantViolation(
+        'WebCrypto API is not available in this environment',
+      )
     }
     this.#crypto = cryptoProvider
     this.#hostIdentity = config.hostIdentity ?? { host: 'unknown', port: 0 }
-    this.#clientIdentificationLine = stripLineEnding(config.identification.clientId)
+    this.#clientIdentificationLine = stripLineEnding(
+      config.identification.clientId,
+    )
+    this.#cipherClientToServer = createPlainCipherState()
+    this.#cipherServerToClient = createPlainCipherState()
     this.#sendIdentification()
   }
 
@@ -537,7 +576,9 @@ class ClientSessionImpl implements SshSession {
 
   command(_intent: ClientIntent): void {
     this.#assertActive()
-    throw new SshNotImplementedError('command() will be implemented in a later phase')
+    throw new SshNotImplementedError(
+      'command() will be implemented in a later phase',
+    )
   }
 
   nextEvent(): SshEvent | undefined {
@@ -580,10 +621,14 @@ class ClientSessionImpl implements SshSession {
   #sendIdentification(): void {
     const clientId = this.#config.identification.clientId
     if (!clientId.startsWith('SSH-')) {
-      throw new SshInvariantViolation('Client identification string must begin with "SSH-"')
+      throw new SshInvariantViolation(
+        'Client identification string must begin with "SSH-"',
+      )
     }
     if (clientId.length > MAX_IDENTIFICATION_LENGTH) {
-      throw new SshInvariantViolation('Client identification string exceeds 255 characters')
+      throw new SshInvariantViolation(
+        'Client identification string exceeds 255 characters',
+      )
     }
     const normalized = stripLineEnding(clientId)
     this.#clientIdentificationLine = normalized
@@ -594,7 +639,7 @@ class ClientSessionImpl implements SshSession {
 
     this.#phase = 'identification'
     this.#emit({ type: 'identification-sent', clientId: normalized })
-    this.#enqueueOutbound(payload, 'initial')
+    this.#enqueueOutbound(payload, this.#currentCipherLabel())
   }
 
   #processIdentificationBuffer(): void {
@@ -615,11 +660,18 @@ class ClientSessionImpl implements SshSession {
         continue
       }
       if (!line.startsWith('SSH-')) {
-        this.#recordDiagnostic('debug', 'preface-line', 'Ignored server preface line', { line })
+        this.#recordDiagnostic(
+          'debug',
+          'preface-line',
+          'Ignored server preface line',
+          { line },
+        )
         continue
       }
       if (line.length > MAX_IDENTIFICATION_LENGTH) {
-        throw new SshProtocolError('Server identification string exceeds 255 characters')
+        throw new SshProtocolError(
+          'Server identification string exceeds 255 characters',
+        )
       }
 
       this.#serverIdentification = line
@@ -645,7 +697,7 @@ class ClientSessionImpl implements SshSession {
   }
 
   #processBinaryPackets(): void {
-    while (this.#binaryBuffer.length >= 5) {
+    while (this.#binaryBuffer.length >= 4) {
       const view = new DataView(
         this.#binaryBuffer.buffer,
         this.#binaryBuffer.byteOffset,
@@ -658,32 +710,221 @@ class ClientSessionImpl implements SshSession {
           `Inbound packet length ${packetLength} exceeds guard limit ${guard}`,
         )
       }
-      const totalLength = 4 + packetLength
+
+      const cipher = this.#cipherServerToClient
+      const tagLength =
+        cipher.type === 'aes128-gcm@openssh.com' ? GCM_TAG_LENGTH_BYTES : 0
+      const totalLength = 4 + packetLength + tagLength
       if (this.#binaryBuffer.length < totalLength) {
         return
       }
-      const paddingLengthByte = this.#binaryBuffer[4]
-      if (paddingLengthByte === undefined) {
-        throw new SshProtocolError('SSH packet missing padding length byte')
-      }
-      const paddingLength = paddingLengthByte
-      if (paddingLength < MIN_PADDING_LENGTH) {
-        throw new SshProtocolError(
-          `SSH packet padding length ${paddingLength} violates minimum ${MIN_PADDING_LENGTH}`,
-        )
-      }
-      const payloadLength = packetLength - paddingLength - 1
-      if (payloadLength < 0) {
-        throw new SshProtocolError('SSH packet payload length underflow detected')
-      }
 
-      const payloadStart = 5
-      const payloadEnd = payloadStart + payloadLength
-      const payload = this.#binaryBuffer.slice(payloadStart, payloadEnd)
+      const packet = this.#binaryBuffer.slice(0, totalLength)
       this.#binaryBuffer = this.#binaryBuffer.slice(totalLength)
+      const additionalData = packet.slice(0, 4)
+      const encrypted = packet.slice(4)
 
-      this.#handlePayload(payload)
+      if (cipher.type === 'none') {
+        const plaintext = encrypted
+        const payload = this.#extractPayload(packetLength, plaintext)
+        this.#handlePayload(payload)
+        continue
+      }
+
+      if (cipher.type === 'aes128-gcm@openssh.com') {
+        const state = cipher.state
+        this.#queueTask(async () => {
+          const plaintext = await decryptAesGcm({
+            crypto: this.#crypto,
+            state,
+            packetLength,
+            encrypted,
+            additionalData,
+          })
+          const payload = this.#extractPayload(packetLength, plaintext)
+          this.#handlePayload(payload)
+        })
+        continue
+      }
+
+      throw new SshNotImplementedError('Inbound cipher is not supported yet')
     }
+  }
+
+  #extractPayload(packetLength: number, plaintext: Uint8Array): Uint8Array {
+    if (plaintext.length !== packetLength) {
+      throw new SshProtocolError(
+        'Decrypted payload length does not match packet length',
+      )
+    }
+    const paddingLength = plaintext[0]
+    if (paddingLength === undefined) {
+      throw new SshProtocolError('SSH packet missing padding length byte')
+    }
+    if (paddingLength < MIN_PADDING_LENGTH) {
+      throw new SshProtocolError(
+        `SSH packet padding length ${paddingLength} violates minimum ${MIN_PADDING_LENGTH}`,
+      )
+    }
+    if (paddingLength >= packetLength) {
+      throw new SshProtocolError(
+        'SSH packet padding length consumes entire packet',
+      )
+    }
+    const payloadLength = packetLength - paddingLength - 1
+    if (payloadLength < 0) {
+      throw new SshProtocolError('SSH packet payload length underflow detected')
+    }
+    return plaintext.slice(1, 1 + payloadLength)
+  }
+
+  #resolveHashAlgorithm(kex: string): HashAlgorithm {
+    switch (kex) {
+      case 'curve25519-sha256@libssh.org':
+      case 'curve25519-sha256':
+      case 'diffie-hellman-group14-sha256':
+        return 'SHA-256'
+      default:
+        throw new SshNotImplementedError(
+          `Hash algorithm for key exchange ${kex} is not implemented yet`,
+        )
+    }
+  }
+
+  async #prepareCipherSuites(params: {
+    negotiated: NegotiatedAlgorithms
+    sharedSecret: Uint8Array
+    exchangeHash: Uint8Array
+    sessionId: Uint8Array
+    hashAlgorithm: HashAlgorithm
+  }): Promise<void> {
+    const { negotiated, sharedSecret, exchangeHash, sessionId, hashAlgorithm } =
+      params
+    if (
+      negotiated.cipherC2s !== 'aes128-gcm@openssh.com' ||
+      negotiated.cipherS2c !== 'aes128-gcm@openssh.com'
+    ) {
+      throw new SshNotImplementedError(
+        `Cipher suites ${negotiated.cipherC2s}/${negotiated.cipherS2c} are not implemented yet`,
+      )
+    }
+
+    const c2sIv = await deriveKeyMaterial({
+      crypto: this.#crypto,
+      hashAlgorithm,
+      sharedSecret,
+      exchangeHash,
+      sessionId,
+      letter: 'A'.charCodeAt(0),
+      length: 12,
+    })
+    const s2cIv = await deriveKeyMaterial({
+      crypto: this.#crypto,
+      hashAlgorithm,
+      sharedSecret,
+      exchangeHash,
+      sessionId,
+      letter: 'B'.charCodeAt(0),
+      length: 12,
+    })
+    const c2sKeyBytes = await deriveKeyMaterial({
+      crypto: this.#crypto,
+      hashAlgorithm,
+      sharedSecret,
+      exchangeHash,
+      sessionId,
+      letter: 'C'.charCodeAt(0),
+      length: 16,
+    })
+    const s2cKeyBytes = await deriveKeyMaterial({
+      crypto: this.#crypto,
+      hashAlgorithm,
+      sharedSecret,
+      exchangeHash,
+      sessionId,
+      letter: 'D'.charCodeAt(0),
+      length: 16,
+    })
+
+    const { fixed: c2sFixed, invocation: c2sInvocation } = splitInitialIv(c2sIv)
+    const { fixed: s2cFixed, invocation: s2cInvocation } = splitInitialIv(s2cIv)
+    const c2sKey = await importAesGcmKey(this.#crypto, c2sKeyBytes)
+    const s2cKey = await importAesGcmKey(this.#crypto, s2cKeyBytes)
+
+    this.#pendingClientCipher = {
+      type: 'aes128-gcm@openssh.com',
+      state: {
+        algorithm: 'aes128-gcm@openssh.com',
+        key: c2sKey,
+        fixedIv: c2sFixed,
+        invocationCounter: c2sInvocation,
+        sequenceNumber: 0,
+      },
+    }
+    this.#pendingServerCipher = {
+      type: 'aes128-gcm@openssh.com',
+      state: {
+        algorithm: 'aes128-gcm@openssh.com',
+        key: s2cKey,
+        fixedIv: s2cFixed,
+        invocationCounter: s2cInvocation,
+        sequenceNumber: 0,
+      },
+    }
+
+    this.#recordDiagnostic(
+      'info',
+      'cipher-prepared',
+      'Prepared AES-GCM key material',
+      {
+        cipherC2s: negotiated.cipherC2s,
+        cipherS2c: negotiated.cipherS2c,
+      },
+    )
+  }
+
+  #activatePendingClientCipher(): void {
+    if (!this.#pendingClientCipher) {
+      return
+    }
+    this.#cipherClientToServer = this.#pendingClientCipher
+    this.#pendingClientCipher = null
+    const algorithm =
+      this.#cipherClientToServer.type === 'none'
+        ? 'none'
+        : this.#cipherClientToServer.state.algorithm
+    this.#recordDiagnostic(
+      'info',
+      'cipher-activated-c2s',
+      'Activated client-to-server cipher',
+      {
+        algorithm,
+      },
+    )
+  }
+
+  #activatePendingServerCipher(): void {
+    if (!this.#pendingServerCipher) {
+      return
+    }
+    this.#cipherServerToClient = this.#pendingServerCipher
+    this.#pendingServerCipher = null
+    const algorithm =
+      this.#cipherServerToClient.type === 'none'
+        ? 'none'
+        : this.#cipherServerToClient.state.algorithm
+    this.#recordDiagnostic(
+      'info',
+      'cipher-activated-s2c',
+      'Activated server-to-client cipher',
+      {
+        algorithm,
+      },
+    )
+  }
+
+  #currentCipherLabel(): CipherStateLabel {
+    return this.#cipherClientToServer.type === 'none' ? 'initial' : 'rekey'
   }
 
   #handlePayload(payload: Uint8Array): void {
@@ -700,7 +941,10 @@ class ClientSessionImpl implements SshSession {
         this.#handleKeyExchangeReply(reader)
         return
       default:
-        this.#emitWarning('unsupported-message', `Received unsupported SSH message ${messageId}`)
+        this.#emitWarning(
+          'unsupported-message',
+          `Received unsupported SSH message ${messageId}`,
+        )
     }
   }
 
@@ -722,10 +966,17 @@ class ClientSessionImpl implements SshSession {
     const reserved = reader.readUint32()
 
     if (firstKexPacketFollows) {
-      this.#emitWarning('first-kex-packet-follows', 'Server sent first_kex_packet_follows=true')
+      this.#emitWarning(
+        'first-kex-packet-follows',
+        'Server sent first_kex_packet_follows=true',
+      )
     }
     if (reserved !== 0) {
-      this.#emitWarning('nonzero-reserved', 'Server set non-zero reserved value in KEXINIT', reserved)
+      this.#emitWarning(
+        'nonzero-reserved',
+        'Server set non-zero reserved value in KEXINIT',
+        reserved,
+      )
     }
     if (!this.#kexInitSent) {
       this.#ensureKexInitSent()
@@ -736,18 +987,23 @@ class ClientSessionImpl implements SshSession {
       server: serverKex,
     }
     this.#emit({ type: 'kex-init-received', summary })
-    this.#recordDiagnostic('info', 'kex-init-received', 'Received SSH_MSG_KEXINIT', {
-      serverKex,
-      serverHostKeys,
-      encC2s,
-      encS2c,
-      macC2s,
-      macS2c,
-      compC2s,
-      compS2c,
-      languagesC2s,
-      languagesS2c,
-    })
+    this.#recordDiagnostic(
+      'info',
+      'kex-init-received',
+      'Received SSH_MSG_KEXINIT',
+      {
+        serverKex,
+        serverHostKeys,
+        encC2s,
+        encS2c,
+        macC2s,
+        macS2c,
+        compC2s,
+        compS2c,
+        languagesC2s,
+        languagesS2c,
+      },
+    )
 
     const negotiated = this.#negotiateAlgorithms({
       serverKex,
@@ -760,7 +1016,12 @@ class ClientSessionImpl implements SshSession {
       compS2c,
     })
     this.#negotiatedAlgorithms = negotiated
-    this.#recordDiagnostic('info', 'algorithms-negotiated', 'Negotiated algorithm suite', negotiated)
+    this.#recordDiagnostic(
+      'info',
+      'algorithms-negotiated',
+      'Negotiated algorithm suite',
+      negotiated,
+    )
 
     this.#kexInitReceived = true
     this.#phase = 'kex'
@@ -773,15 +1034,22 @@ class ClientSessionImpl implements SshSession {
     }
 
     const payload = this.#buildClientKexInitPayload()
-    const packet = this.#wrapPacket(payload)
     const summary: NegotiationSummary = {
       client: this.#clientKexAlgorithms(),
     }
 
     this.#kexInitSent = true
     this.#emit({ type: 'kex-init-sent', summary })
-    this.#recordDiagnostic('info', 'kex-init-sent', 'Sent SSH_MSG_KEXINIT', summary)
-    this.#enqueueOutbound(packet, 'initial')
+    this.#recordDiagnostic(
+      'info',
+      'kex-init-sent',
+      'Sent SSH_MSG_KEXINIT',
+      summary,
+    )
+    this.#queueTask(async () => {
+      const packet = await this.#wrapPacket(payload)
+      this.#enqueueOutbound(packet, this.#currentCipherLabel())
+    })
   }
 
   #buildClientKexInitPayload(): Uint8Array {
@@ -809,13 +1077,27 @@ class ClientSessionImpl implements SshSession {
     return payload
   }
 
-  #wrapPacket(payload: Uint8Array): Uint8Array {
+  async #wrapPacket(payload: Uint8Array): Promise<Uint8Array> {
+    const cipher = this.#cipherClientToServer
+    switch (cipher.type) {
+      case 'none':
+        return this.#wrapPlainPacket(payload)
+      case 'aes128-gcm@openssh.com':
+        return this.#wrapAesGcmPacket(cipher.state, payload)
+      default:
+        throw new SshNotImplementedError('Outbound cipher is not supported yet')
+    }
+  }
+
+  #wrapPlainPacket(payload: Uint8Array): Uint8Array {
     let paddingLength = MIN_PADDING_LENGTH
     while ((payload.length + paddingLength + 1) % SSH_PACKET_BLOCK_SIZE !== 0) {
       paddingLength += 1
     }
     if (paddingLength > 255) {
-      throw new SshInvariantViolation('Computed SSH padding length exceeds 255 bytes')
+      throw new SshInvariantViolation(
+        'Computed SSH padding length exceeds 255 bytes',
+      )
     }
 
     const packetLength = payload.length + paddingLength + 1
@@ -825,6 +1107,51 @@ class ClientSessionImpl implements SshSession {
     writer.writeBytes(payload)
     writer.writeBytes(this.#config.randomBytes(paddingLength))
     return writer.toUint8Array()
+  }
+
+  async #wrapAesGcmPacket(
+    state: AesGcmDirectionState,
+    payload: Uint8Array,
+  ): Promise<Uint8Array> {
+    const blockSize = 16
+    let paddingLength = MIN_PADDING_LENGTH
+    const baseLength = payload.length + 1
+    while ((baseLength + paddingLength) % blockSize !== 0) {
+      paddingLength += 1
+    }
+    if (paddingLength > 255) {
+      throw new SshInvariantViolation(
+        'Computed SSH padding length exceeds 255 bytes',
+      )
+    }
+    const padding = this.#config.randomBytes(paddingLength)
+    if (padding.length !== paddingLength) {
+      throw new SshInvariantViolation(
+        'randomBytes did not return requested padding length',
+      )
+    }
+
+    const packetLength = baseLength + paddingLength
+    const plaintext = new Uint8Array(packetLength)
+    plaintext[0] = paddingLength
+    plaintext.set(payload, 1)
+    plaintext.set(padding, 1 + payload.length)
+
+    const additionalData = new Uint8Array(4)
+    const view = new DataView(additionalData.buffer)
+    view.setUint32(0, packetLength, false)
+
+    const { ciphertext } = await encryptAesGcm({
+      crypto: this.#crypto,
+      state,
+      plaintext,
+      additionalData,
+    })
+
+    const packet = new Uint8Array(4 + ciphertext.length)
+    packet.set(additionalData, 0)
+    packet.set(ciphertext, 4)
+    return packet
   }
 
   #clientKexAlgorithms(): ReadonlyArray<string> {
@@ -959,18 +1286,31 @@ class ClientSessionImpl implements SshSession {
     writer.writeUint8(SSH_MSG_KEXDH_INIT)
     writer.writeUint32(clientPublic.length)
     writer.writeBytes(clientPublic)
-    const packet = this.#wrapPacket(writer.toUint8Array())
-    this.#recordDiagnostic('info', 'kex-ecdh-init', 'Sent SSH_MSG_KEX_ECDH_INIT')
-    this.#enqueueOutbound(packet, 'initial')
+    const payload = writer.toUint8Array()
+    this.#recordDiagnostic(
+      'info',
+      'kex-ecdh-init',
+      'Sent SSH_MSG_KEX_ECDH_INIT',
+    )
+    this.#queueTask(async () => {
+      const packet = await this.#wrapPacket(payload)
+      this.#enqueueOutbound(packet, this.#currentCipherLabel())
+    })
   }
 
   #startGroup14Exchange(): void {
     const entropy = this.#config.randomBytes(32)
     if (entropy.length === 0) {
-      throw new SshInvariantViolation('diffie-hellman-group14 requires entropy bytes')
+      throw new SshInvariantViolation(
+        'diffie-hellman-group14 requires entropy bytes',
+      )
     }
     const exponent = this.#normalizeDhExponent(entropy)
-    const clientPublic = modPow(DH_GROUP14_GENERATOR, exponent, DH_GROUP14_PRIME)
+    const clientPublic = modPow(
+      DH_GROUP14_GENERATOR,
+      exponent,
+      DH_GROUP14_PRIME,
+    )
     this.#kexState = {
       type: 'group14',
       exponent,
@@ -980,9 +1320,12 @@ class ClientSessionImpl implements SshSession {
     const writer = new BinaryWriter()
     writer.writeUint8(SSH_MSG_KEXDH_INIT)
     writer.writeMpint(clientPublic)
-    const packet = this.#wrapPacket(writer.toUint8Array())
+    const payload = writer.toUint8Array()
     this.#recordDiagnostic('info', 'kex-dh-init', 'Sent SSH_MSG_KEXDH_INIT')
-    this.#enqueueOutbound(packet, 'initial')
+    this.#queueTask(async () => {
+      const packet = await this.#wrapPacket(payload)
+      this.#enqueueOutbound(packet, this.#currentCipherLabel())
+    })
   }
 
   #normalizeDhExponent(entropy: Uint8Array): bigint {
@@ -995,7 +1338,10 @@ class ClientSessionImpl implements SshSession {
   #handleKeyExchangeReply(reader: BinaryReader): void {
     const state = this.#kexState
     if (!state) {
-      this.#emitWarning('unexpected-kex-reply', 'Received KEX reply without active exchange')
+      this.#emitWarning(
+        'unexpected-kex-reply',
+        'Received KEX reply without active exchange',
+      )
       return
     }
 
@@ -1039,7 +1385,10 @@ class ClientSessionImpl implements SshSession {
     if (params.serverPublic.length !== 32) {
       throw new SshProtocolError('Invalid curve25519 server public key length')
     }
-    const sharedSecretBytes = scalarMult(params.state.privateScalar, params.serverPublic)
+    const sharedSecretBytes = scalarMult(
+      params.state.privateScalar,
+      params.serverPublic,
+    )
     await this.#finalizeKeyExchange({
       hostKey: params.hostKey,
       signature: params.signature,
@@ -1055,10 +1404,19 @@ class ClientSessionImpl implements SshSession {
     signature: Uint8Array
     state: Group14State
   }): Promise<void> {
-    if (params.serverPublic <= 1n || params.serverPublic >= DH_GROUP14_PRIME - 1n) {
-      throw new SshProtocolError('Server supplied invalid Diffie-Hellman public key')
+    if (
+      params.serverPublic <= 1n ||
+      params.serverPublic >= DH_GROUP14_PRIME - 1n
+    ) {
+      throw new SshProtocolError(
+        'Server supplied invalid Diffie-Hellman public key',
+      )
     }
-    const sharedSecret = modPow(params.serverPublic, params.state.exponent, DH_GROUP14_PRIME)
+    const sharedSecret = modPow(
+      params.serverPublic,
+      params.state.exponent,
+      DH_GROUP14_PRIME,
+    )
     const sharedSecretBytes = bigIntToUint8Array(sharedSecret)
     await this.#finalizeKeyExchange({
       hostKey: params.hostKey,
@@ -1072,19 +1430,29 @@ class ClientSessionImpl implements SshSession {
   async #finalizeKeyExchange(params: {
     hostKey: Uint8Array
     signature: Uint8Array
-    clientExchange: { type: 'string'; data: Uint8Array } | { type: 'mpint'; value: bigint }
-    serverExchange: { type: 'string'; data: Uint8Array } | { type: 'mpint'; value: bigint }
+    clientExchange:
+      | { type: 'string'; data: Uint8Array }
+      | { type: 'mpint'; value: bigint }
+    serverExchange:
+      | { type: 'string'; data: Uint8Array }
+      | { type: 'mpint'; value: bigint }
     sharedSecret: { bytes: Uint8Array; littleEndian: boolean }
   }): Promise<void> {
     const negotiated = this.#negotiatedAlgorithms
     if (!negotiated) {
-      throw new SshInvariantViolation('Negotiated algorithms missing during key finalization')
+      throw new SshInvariantViolation(
+        'Negotiated algorithms missing during key finalization',
+      )
     }
     if (!this.#clientKexPayload || !this.#serverKexPayload) {
-      throw new SshInvariantViolation('Missing KEXINIT payloads for exchange hash computation')
+      throw new SshInvariantViolation(
+        'Missing KEXINIT payloads for exchange hash computation',
+      )
     }
     if (!this.#serverIdentification) {
-      throw new SshInvariantViolation('Server identification missing before key finalization')
+      throw new SshInvariantViolation(
+        'Server identification missing before key finalization',
+      )
     }
 
     const parsedHostKey = this.#parseHostKey(params.hostKey)
@@ -1100,6 +1468,8 @@ class ClientSessionImpl implements SshSession {
         `Server signature algorithm ${parsedSignature.algorithm} does not match negotiated host key ${negotiated.hostKey}`,
       )
     }
+
+    const hashAlgorithm = this.#resolveHashAlgorithm(negotiated.kex)
 
     const sharedSecretBigInt = params.sharedSecret.littleEndian
       ? littleEndianToBigInt(params.sharedSecret.bytes)
@@ -1125,20 +1495,36 @@ class ClientSessionImpl implements SshSession {
       sharedSecretField,
     )
     const exchangeHashBuffer = await this.#crypto.subtle.digest(
-      'SHA-256',
+      hashAlgorithm,
       toBufferSource(hashInput),
     )
     const exchangeHash = new Uint8Array(exchangeHashBuffer)
     if (this.#sessionId === null) {
       this.#sessionId = exchangeHash
     }
+    const sessionId = this.#sessionId
+    if (!sessionId) {
+      throw new SshInvariantViolation(
+        'Session identifier is missing after key exchange',
+      )
+    }
 
-    const hostKeyDecision = await this.#evaluateHostKey(parsedHostKey.algorithm, params.hostKey)
-    if (hostKeyDecision.outcome === 'mismatch' && hostKeyDecision.severity === 'fatal') {
+    const hostKeyDecision = await this.#evaluateHostKey(
+      parsedHostKey.algorithm,
+      params.hostKey,
+    )
+    if (
+      hostKeyDecision.outcome === 'mismatch' &&
+      hostKeyDecision.severity === 'fatal'
+    ) {
       throw new SshProtocolError('Host key mismatch reported by policy')
     }
     if (hostKeyDecision.outcome === 'mismatch') {
-      this.#emitWarning('host-key-mismatch', 'Host key mismatch reported by policy', hostKeyDecision)
+      this.#emitWarning(
+        'host-key-mismatch',
+        'Host key mismatch reported by policy',
+        hostKeyDecision,
+      )
     }
 
     const signatureValid = await this.#verifyHostKeySignature(
@@ -1151,17 +1537,33 @@ class ClientSessionImpl implements SshSession {
       throw new SshProtocolError('Host key signature verification failed')
     }
 
+    await this.#prepareCipherSuites({
+      negotiated,
+      sharedSecret: sharedSecretField,
+      exchangeHash,
+      sessionId,
+      hashAlgorithm,
+    })
+
     this.#sharedSecret = new Uint8Array(params.sharedSecret.bytes)
     this.#kexState = null
-    this.#recordDiagnostic('info', 'keys-established', 'Key exchange completed successfully', {
-      algorithm: negotiated.kex,
-      hostKey: negotiated.hostKey,
-    })
+    this.#recordDiagnostic(
+      'info',
+      'keys-established',
+      'Key exchange completed successfully',
+      {
+        algorithm: negotiated.kex,
+        hostKey: negotiated.hostKey,
+      },
+    )
     this.#emit({ type: 'keys-established', algorithms: negotiated })
 
-    const newKeysPacket = this.#buildNewKeysPacket()
     this.#awaitingServerNewKeys = true
-    this.#enqueueOutbound(newKeysPacket, 'initial')
+    this.#queueTask(async () => {
+      const packet = await this.#buildNewKeysPacket()
+      this.#enqueueOutbound(packet, this.#currentCipherLabel())
+      this.#activatePendingClientCipher()
+    })
   }
 
   async #verifyHostKeySignature(
@@ -1187,11 +1589,16 @@ class ClientSessionImpl implements SshSession {
         )
       }
       default:
-        throw new SshNotImplementedError(`Host key verification not implemented for ${algorithm}`)
+        throw new SshNotImplementedError(
+          `Host key verification not implemented for ${algorithm}`,
+        )
     }
   }
 
-  async #evaluateHostKey(algorithm: string, rawBlob: Uint8Array): Promise<HostKeyDecision> {
+  async #evaluateHostKey(
+    algorithm: string,
+    rawBlob: Uint8Array,
+  ): Promise<HostKeyDecision> {
     const fingerprintBytes = new Uint8Array(
       await this.#crypto.subtle.digest('SHA-256', toBufferSource(rawBlob)),
     )
@@ -1209,7 +1616,7 @@ class ClientSessionImpl implements SshSession {
     return decision
   }
 
-  #buildNewKeysPacket(): Uint8Array {
+  async #buildNewKeysPacket(): Promise<Uint8Array> {
     const writer = new BinaryWriter()
     writer.writeUint8(SSH_MSG_NEWKEYS)
     return this.#wrapPacket(writer.toUint8Array())
@@ -1217,33 +1624,53 @@ class ClientSessionImpl implements SshSession {
 
   #handleNewKeys(): void {
     if (!this.#awaitingServerNewKeys) {
-      this.#emitWarning('unexpected-newkeys', 'Received unexpected SSH_MSG_NEWKEYS from server')
+      this.#emitWarning(
+        'unexpected-newkeys',
+        'Received unexpected SSH_MSG_NEWKEYS from server',
+      )
     }
     this.#awaitingServerNewKeys = false
+    this.#activatePendingServerCipher()
     if (!this.#closed && this.#phase !== 'failed') {
       this.#phase = 'authenticated'
     }
-    this.#recordDiagnostic('info', 'newkeys-received', 'Server confirmed key transition')
+    this.#recordDiagnostic(
+      'info',
+      'newkeys-received',
+      'Server confirmed key transition',
+    )
   }
 
-  #parseHostKey(hostKey: Uint8Array): { algorithm: string; publicKey: Uint8Array } {
+  #parseHostKey(hostKey: Uint8Array): {
+    algorithm: string
+    publicKey: Uint8Array
+  } {
     const reader = new BinaryReader(hostKey)
     const algorithm = reader.readString()
     const length = reader.readUint32()
     const publicKey = reader.readBytes(length)
     if (reader.remaining > 0) {
-      this.#emitWarning('host-key-extra-bytes', 'Host key blob contained trailing data')
+      this.#emitWarning(
+        'host-key-extra-bytes',
+        'Host key blob contained trailing data',
+      )
     }
     return { algorithm, publicKey }
   }
 
-  #parseSignature(signature: Uint8Array): { algorithm: string; signature: Uint8Array } {
+  #parseSignature(signature: Uint8Array): {
+    algorithm: string
+    signature: Uint8Array
+  } {
     const reader = new BinaryReader(signature)
     const algorithm = reader.readString()
     const length = reader.readUint32()
     const rawSignature = reader.readBytes(length)
     if (reader.remaining > 0) {
-      this.#emitWarning('signature-extra-bytes', 'Signature blob contained trailing data')
+      this.#emitWarning(
+        'signature-extra-bytes',
+        'Signature blob contained trailing data',
+      )
     }
     return { algorithm, signature: rawSignature }
   }
@@ -1271,9 +1698,14 @@ class ClientSessionImpl implements SshSession {
       return
     }
     this.#phase = 'failed'
-    this.#recordDiagnostic('error', 'async-failure', 'Asynchronous SSH task failed', {
-      error,
-    })
+    this.#recordDiagnostic(
+      'error',
+      'async-failure',
+      'Asynchronous SSH task failed',
+      {
+        error,
+      },
+    )
     this.#emit({
       type: 'warning',
       code: 'async-failure',

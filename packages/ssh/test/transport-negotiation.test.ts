@@ -22,12 +22,12 @@ describe('RFC 4253 §7 algorithm negotiation', () => {
         asAlgorithmName('rsa-sha2-256'),
       ],
       ciphers: [
-        asAlgorithmName('chacha20-poly1305@openssh.com'),
         asAlgorithmName('aes128-gcm@openssh.com'),
+        asAlgorithmName('chacha20-poly1305@openssh.com'),
       ],
       macs: [
+        asAlgorithmName('AEAD_AES_128_GCM'),
         asAlgorithmName('hmac-sha2-256'),
-        asAlgorithmName('hmac-sha2-512'),
       ],
       compression: [
         asAlgorithmName('none'),
@@ -55,12 +55,12 @@ describe('RFC 4253 §7 algorithm negotiation', () => {
       ],
       hostKeys: ['rsa-sha2-256', 'ssh-ed25519'],
       encryptionClientToServer: [
-        'aes128-gcm@openssh.com',
         'chacha20-poly1305@openssh.com',
+        'aes128-gcm@openssh.com',
       ],
       encryptionServerToClient: ['aes128-gcm@openssh.com'],
-      macClientToServer: ['hmac-sha2-512', 'hmac-sha2-256'],
-      macServerToClient: ['hmac-sha2-512'],
+      macClientToServer: ['AEAD_AES_128_GCM', 'hmac-sha2-256'],
+      macServerToClient: ['AEAD_AES_128_GCM'],
       compressionClientToServer: ['zlib@openssh.com', 'none'],
       compressionServerToClient: ['zlib@openssh.com'],
     })
@@ -82,10 +82,10 @@ describe('RFC 4253 §7 algorithm negotiation', () => {
     expect(snapshot.negotiatedAlgorithms).toEqual({
       kex: 'curve25519-sha256@libssh.org',
       hostKey: 'ssh-ed25519',
-      cipherC2s: 'chacha20-poly1305@openssh.com',
+      cipherC2s: 'aes128-gcm@openssh.com',
       cipherS2c: 'aes128-gcm@openssh.com',
-      macC2s: 'hmac-sha2-256',
-      macS2c: 'hmac-sha2-512',
+      macC2s: 'AEAD_AES_128_GCM',
+      macS2c: 'AEAD_AES_128_GCM',
       compressionC2s: 'none',
       compressionS2c: 'zlib@openssh.com',
     })

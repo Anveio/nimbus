@@ -5,6 +5,7 @@ import { createClientSession } from '../src/api'
 import {
   asAlgorithmName,
   RecordingHostKeyStore,
+  buildClientKexInitPayload,
   buildEd25519HostKeyBlob,
   buildEd25519Signature,
   buildServerKexInitPacket,
@@ -138,8 +139,8 @@ describe('RFC 4419 §3 diffie-hellman-group14-sha256 key exchange', () => {
         asAlgorithmName('diffie-hellman-group14-sha256'),
       ],
       hostKeys: [asAlgorithmName('ssh-ed25519')],
-      ciphers: [asAlgorithmName('chacha20-poly1305@openssh.com')],
-      macs: [asAlgorithmName('hmac-sha2-256')],
+      ciphers: [asAlgorithmName('aes128-gcm@openssh.com')],
+      macs: [asAlgorithmName('AEAD_AES_128_GCM')],
       compression: [asAlgorithmName('none')],
       extensions: [],
     } satisfies AlgorithmCatalog
@@ -162,10 +163,10 @@ describe('RFC 4419 §3 diffie-hellman-group14-sha256 key exchange', () => {
     const serverKex = buildServerKexInitPacket({
       kexAlgorithms: ['diffie-hellman-group14-sha256'],
       hostKeys: ['ssh-ed25519'],
-      encryptionClientToServer: ['chacha20-poly1305@openssh.com'],
-      encryptionServerToClient: ['chacha20-poly1305@openssh.com'],
-      macClientToServer: ['hmac-sha2-256'],
-      macServerToClient: ['hmac-sha2-256'],
+      encryptionClientToServer: ['aes128-gcm@openssh.com'],
+      encryptionServerToClient: ['aes128-gcm@openssh.com'],
+      macClientToServer: ['AEAD_AES_128_GCM'],
+      macServerToClient: ['AEAD_AES_128_GCM'],
       compressionClientToServer: ['none'],
       compressionServerToClient: ['none'],
     })
@@ -176,19 +177,23 @@ describe('RFC 4419 §3 diffie-hellman-group14-sha256 key exchange', () => {
 
     session.receive(combined)
     await session.waitForIdle()
+    await session.waitForIdle()
 
     const negotiationEvents = drainSessionEvents(session)
     expectEventTypes(negotiationEvents, [
       'identification-received',
       'kex-init-sent',
-      'outbound-data',
       'kex-init-received',
+      'outbound-data',
       'outbound-data',
     ])
 
     const outboundPackets = session.flushOutbound()
     expect(outboundPackets).toHaveLength(2)
-    const [, dhInitPacket] = outboundPackets
+    const [clientKexPacket, dhInitPacket] = outboundPackets
+    const expectedClientKexPayload = buildClientKexInitPayload(algorithms, randomBytes)
+    const clientPayload = unwrapPayload(clientKexPacket!)
+    expect(clientPayload).toEqual(expectedClientKexPayload)
     const dhInitPayload = unwrapPayload(dhInitPacket!)
     expect(dhInitPayload[0]).toBe(SSH_MSG_KEXDH_INIT)
     const reader = new BinaryReader(dhInitPayload)
@@ -197,6 +202,7 @@ describe('RFC 4419 §3 diffie-hellman-group14-sha256 key exchange', () => {
     expect(eValue).toBe(CLIENT_PUBLIC)
 
     session.receive(buildDhReplyPacket())
+    await session.waitForIdle()
     await session.waitForIdle()
     const eventsAfterReply = drainSessionEvents(session)
     expectEventTypes(eventsAfterReply, ['keys-established', 'outbound-data'])

@@ -68,3 +68,8 @@ Initial mandate, design pillars, and testing cadence captured.
 Clarified that the core package emits outbound data as events while transport wrappers live in separate packages, keeping the engine strictly spec-focused.
 
 Curated raw spec corpus under `context/`, agreed to focus interoperability on OpenSSH/libssh first, Dropbear second, and expose extension hooks for additional vendors. Defined client-session API direction and phased roadmap.
+
+### 2025-10-02 — Transport phase follow-up
+- Finalize AEAD activation by parsing post-NEWKEYS ciphertext into structured SSH messages (channel/global).
+- Implement outbound AES-GCM framing with sequence rollover checks and padding guards.
+- Flesh out command reducers for `channel-open`, window adjust, and `channel-data` events so we can replay full interactive transcripts from OpenSSH.

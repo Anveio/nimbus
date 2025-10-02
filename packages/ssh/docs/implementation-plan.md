@@ -23,16 +23,15 @@ This plan sequences the work required to ship the SSHv2 protocol core as describ
 - Tests: type-level assertions (tsd/vitest) ensuring `command` rejects malformed intents; snapshot tests verifying event queue behaviour for noop stubs.
 
 ## Phase 2 — Identification & Algorithm Negotiation (RFC 4253 §4–§7)
-- Parse client/server identification strings; emit `identification-*` events; validate length/character constraints.
-- Implement `SSH_MSG_KEXINIT` encoding/decoding, algorithm negotiation per preferences.
-- Introduce algorithm catalog registry with validation against RFC 4250 naming rules; ship default ordering (curve25519, aes-gcm, chacha20, hmac-sha2, none compression).
+- ✅ Parse client/server identification strings; emit `identification-*` events; validate length/character constraints.
+- ✅ Implement `SSH_MSG_KEXINIT` encoding/decoding, algorithm negotiation per preferences.
+- ✅ Introduce algorithm catalog registry with validation against RFC 4250 naming rules; ship default ordering (curve25519, aes-gcm, chacha20, hmac-sha2, none compression).
 - Tests: replay handshake transcripts from OpenSSH/libssh; property tests for negotiation (commutative preference resolution, tie-breaking).
 
 ## Phase 3 — Key Exchange & Cipher Activation
-- Implement curve25519-sha256@libssh.org and diffie-hellman-group14-sha256 key exchange flows.
-- Hook in AEAD (aes128-gcm@openssh.com, chacha20-poly1305@openssh.com) and MAC-based cipher suites with deterministic IV/key derivation.
-- Emit `kex-init-*`, `keys-established`, and `outbound-data` events when new cipher state activates.
-- Introduce rekey counters (packets, bytes) initialized but not yet enforced.
+- ✅ Implement curve25519-sha256@libssh.org and diffie-hellman-group14-sha256 key exchange flows (handshake + NEWKEYS) with host key verification.
+- ⚙️ Next: hook in AEAD (aes128-gcm@openssh.com, chacha20-poly1305@openssh.com) and MAC-based cipher suites with deterministic IV/key derivation.
+- ⚙️ Next: introduce rekey counters (packets, bytes) initialized but not yet enforced.
 - Crypto dependencies: abstract over WebCrypto + Node `crypto` adapters; provide synchronous fallback for tests via deterministic mocks.
 - Tests: known-answer tests using RFC 7748/8032 vectors; cross-check against captured OpenSSH packets.
 

@@ -19,6 +19,7 @@ import { encodeMpint as encodeMpintInternal } from '../../src/internal/binary/mp
 const ASCII_ENCODER = new TextEncoder()
 const MIN_PADDING_LENGTH = 4
 const SSH_PACKET_BLOCK_SIZE = 8
+const SSH_MSG_KEXINIT = 20
 
 export const asAlgorithmName = (value: string): AlgorithmName =>
   value as AlgorithmName
@@ -29,10 +30,9 @@ export const TEST_ALGORITHMS: AlgorithmCatalog = {
     asAlgorithmName('diffie-hellman-group14-sha256'),
   ],
   ciphers: [
-    asAlgorithmName('chacha20-poly1305@openssh.com'),
     asAlgorithmName('aes128-gcm@openssh.com'),
   ],
-  macs: [asAlgorithmName('hmac-sha2-256'), asAlgorithmName('hmac-sha2-512')],
+  macs: [asAlgorithmName('AEAD_AES_128_GCM'), asAlgorithmName('hmac-sha2-256')],
   hostKeys: [asAlgorithmName('ssh-ed25519'), asAlgorithmName('rsa-sha2-256')],
   compression: [asAlgorithmName('none')],
   extensions: [asAlgorithmName('ext-info-c')],
@@ -163,10 +163,10 @@ const DEFAULT_SERVER_KEX_OPTIONS: Required<
 } = {
   kexAlgorithms: ['curve25519-sha256@libssh.org'],
   hostKeys: ['ssh-ed25519'],
-  encryptionClientToServer: ['chacha20-poly1305@openssh.com'],
-  encryptionServerToClient: ['chacha20-poly1305@openssh.com'],
-  macClientToServer: ['hmac-sha2-256'],
-  macServerToClient: ['hmac-sha2-256'],
+  encryptionClientToServer: ['aes128-gcm@openssh.com'],
+  encryptionServerToClient: ['aes128-gcm@openssh.com'],
+  macClientToServer: ['AEAD_AES_128_GCM'],
+  macServerToClient: ['AEAD_AES_128_GCM'],
   compressionClientToServer: ['none'],
   compressionServerToClient: ['none'],
   languagesClientToServer: [],
@@ -213,6 +213,32 @@ export function buildServerKexInitPacket(
   )
   outer.writeBytes(padding)
   return outer.toUint8Array()
+}
+
+export function buildClientKexInitPayload(
+  algorithms: AlgorithmCatalog,
+  randomBytes: (length: number) => Uint8Array,
+): Uint8Array {
+  const writer = new BinaryWriter()
+  writer.writeUint8(SSH_MSG_KEXINIT)
+  writer.writeBytes(randomBytes(16))
+  const kexAlgorithms = [
+    ...algorithms.keyExchange.map((value) => value as string),
+    ...(algorithms.extensions?.map((value) => value as string) ?? []),
+  ]
+  writer.writeNameList(kexAlgorithms)
+  writer.writeNameList(algorithms.hostKeys.map((value) => value as string))
+  writer.writeNameList(algorithms.ciphers.map((value) => value as string))
+  writer.writeNameList(algorithms.ciphers.map((value) => value as string))
+  writer.writeNameList(algorithms.macs.map((value) => value as string))
+  writer.writeNameList(algorithms.macs.map((value) => value as string))
+  writer.writeNameList(algorithms.compression.map((value) => value as string))
+  writer.writeNameList(algorithms.compression.map((value) => value as string))
+  writer.writeNameList([])
+  writer.writeNameList([])
+  writer.writeBoolean(false)
+  writer.writeUint32(0)
+  return writer.toUint8Array()
 }
 
 export function drainSessionEvents(session: SshSession): SshEvent[] {
@@ -267,6 +293,8 @@ export function createBypassSignatureCrypto(): Crypto {
   const stubbedSubtle = {
     digest: subtle.digest.bind(subtle),
     importKey: subtle.importKey.bind(subtle),
+    encrypt: subtle.encrypt.bind(subtle),
+    decrypt: subtle.decrypt.bind(subtle),
     verify: async () => true,
   } as unknown as SubtleCrypto
   const getRandomValues = <T extends ArrayBufferView>(array: T): T =>
