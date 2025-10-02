@@ -4,30 +4,25 @@ import type {
   TerminalCell,
   TerminalSelection,
   TerminalState,
-  TerminalUpdate,
 } from '@mana/vt'
 import { getSelectionRowSegments } from '@mana/vt'
-import type {
-  CanvasLike,
-  CanvasRenderer,
-  CanvasRendererDiagnostics,
-  CanvasRendererOptions,
-  CanvasRendererResizeOptions,
-  CanvasRendererUpdateOptions,
-  CursorOverlayStrategy,
-  RendererColor,
-  RendererCursorTheme,
-  RendererFontMetrics,
-  RendererMetrics,
-  RendererTheme,
-} from '../types'
-import { ensureCanvasDimensions, setCanvasStyleSize } from '../internal/layout'
 import {
   type PaletteOverrides,
   resolveCellColors,
   resolvePaletteOverrideColor,
 } from '../internal/colors'
 import { fontString } from '../internal/fonts'
+import { ensureCanvasDimensions, setCanvasStyleSize } from '../internal/layout'
+import type {
+  CanvasLike,
+  CanvasRenderer,
+  CanvasRendererDiagnostics,
+  CanvasRendererOptions,
+  CursorOverlayStrategy,
+  RendererCursorTheme,
+  RendererMetrics,
+  RendererTheme,
+} from '../types'
 
 const createDefaultAttributes = (): TerminalAttributes => ({
   bold: false,
@@ -106,7 +101,6 @@ const defaultCursorOverlay: CursorOverlayStrategy = ({
       ctx.fillRect(x, y, barWidth, height)
       break
     }
-    case 'block':
     default: {
       ctx.fillRect(x, y, width, height)
       break

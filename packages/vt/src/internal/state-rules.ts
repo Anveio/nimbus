@@ -182,9 +182,6 @@ const createGroundSpec = (runtime: StateRuleRuntime): StateRuleSpec => {
 }
 
 const createEscapeSpec = (runtime: StateRuleRuntime): StateRuleSpec => {
-  const { INTERMEDIATE_START, INTERMEDIATE_END, PARAM_START, FINAL_END } =
-    BYTE_LIMITS
-
   const dropToGround: ByteHandler = () => {
     runtime.setState(ParserState.Ground)
   }
@@ -228,9 +225,6 @@ const createEscapeSpec = (runtime: StateRuleRuntime): StateRuleSpec => {
 const createEscapeIntermediateSpec = (
   runtime: StateRuleRuntime,
 ): StateRuleSpec => {
-  const { INTERMEDIATE_START, INTERMEDIATE_END, PARAM_START, FINAL_END } =
-    BYTE_LIMITS
-
   const toGround: ByteHandler = () => {
     runtime.setState(ParserState.Ground)
   }
@@ -257,16 +251,7 @@ const createEscapeIntermediateSpec = (
 
 const createCsiEntrySpec = (runtime: StateRuleRuntime): StateRuleSpec => {
   const { ESC, CAN, SUB } = CONTROL_BYTES
-  const {
-    INTERMEDIATE_START,
-    INTERMEDIATE_END,
-    DIGIT_START,
-    DIGIT_END,
-    FINAL_START,
-    FINAL_END,
-    COLON,
-    SEMICOLON,
-  } = BYTE_LIMITS
+  const { COLON, SEMICOLON } = BYTE_LIMITS
 
   const cancel: ByteHandler = () => {
     runtime.cancelCsi()
@@ -332,16 +317,7 @@ const createCsiEntrySpec = (runtime: StateRuleRuntime): StateRuleSpec => {
 
 const createCsiParamSpec = (runtime: StateRuleRuntime): StateRuleSpec => {
   const { ESC, CAN, SUB } = CONTROL_BYTES
-  const {
-    INTERMEDIATE_START,
-    INTERMEDIATE_END,
-    DIGIT_START,
-    DIGIT_END,
-    FINAL_START,
-    FINAL_END,
-    COLON,
-    SEMICOLON,
-  } = BYTE_LIMITS
+  const { COLON, SEMICOLON } = BYTE_LIMITS
 
   const ignore: ByteHandler = () => {
     runtime.enterCsiIgnore()
@@ -398,8 +374,6 @@ const createCsiIntermediateSpec = (
   runtime: StateRuleRuntime,
 ): StateRuleSpec => {
   const { ESC, CAN, SUB } = CONTROL_BYTES
-  const { INTERMEDIATE_START, INTERMEDIATE_END, FINAL_START, FINAL_END } =
-    BYTE_LIMITS
 
   const ignoreHandler: ByteHandler = () => {
     runtime.enterCsiIgnore()
@@ -438,7 +412,6 @@ const createCsiIntermediateSpec = (
 
 const createCsiIgnoreSpec = (runtime: StateRuleRuntime): StateRuleSpec => {
   const { ESC, CAN, SUB } = CONTROL_BYTES
-  const { FINAL_START, FINAL_END } = BYTE_LIMITS
 
   const stay: ByteHandler = () => {}
 
@@ -467,15 +440,6 @@ const createOscSpec = (runtime: StateRuleRuntime): StateRuleSpec => ({
 
 const createDcsEntrySpec = (runtime: StateRuleRuntime): StateRuleSpec => {
   const { ESC, CAN, SUB } = CONTROL_BYTES
-  const {
-    INTERMEDIATE_START,
-    INTERMEDIATE_END,
-    FINAL_START,
-    FINAL_END,
-    PARAM_START,
-    SEMICOLON,
-  } = BYTE_LIMITS
-
   const toIgnore: ByteHandler = () => {
     runtime.enterDcsIgnore()
   }
@@ -529,16 +493,7 @@ const createDcsEntrySpec = (runtime: StateRuleRuntime): StateRuleSpec => {
 
 const createDcsParamSpec = (runtime: StateRuleRuntime): StateRuleSpec => {
   const { ESC, CAN, SUB } = CONTROL_BYTES
-  const {
-    INTERMEDIATE_START,
-    INTERMEDIATE_END,
-    DIGIT_START,
-    DIGIT_END,
-    FINAL_START,
-    FINAL_END,
-    COLON,
-    SEMICOLON,
-  } = BYTE_LIMITS
+  const { COLON } = BYTE_LIMITS
 
   const toIgnore: ByteHandler = () => {
     runtime.enterDcsIgnore()
@@ -590,8 +545,6 @@ const createDcsIntermediateSpec = (
   runtime: StateRuleRuntime,
 ): StateRuleSpec => {
   const { ESC, CAN, SUB } = CONTROL_BYTES
-  const { INTERMEDIATE_START, INTERMEDIATE_END, FINAL_START, FINAL_END } =
-    BYTE_LIMITS
 
   const toIgnore: ByteHandler = () => {
     runtime.enterDcsIgnore()
@@ -630,7 +583,6 @@ const createDcsIntermediateSpec = (
 
 const createDcsIgnoreSpec = (runtime: StateRuleRuntime): StateRuleSpec => {
   const { ESC, CAN, SUB } = CONTROL_BYTES
-  const { FINAL_START, FINAL_END } = BYTE_LIMITS
 
   const stay: ByteHandler = () => {}
 

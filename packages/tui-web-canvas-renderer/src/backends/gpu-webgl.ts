@@ -24,9 +24,9 @@ import type {
   RendererBackendProvider,
   RendererColor,
   RendererMetrics,
+  RendererRowMetadataDiagnostics,
   RendererTheme,
   WebglBackendConfig,
-  RendererRowMetadataDiagnostics,
 } from '../types'
 
 const WEBGL1_REQUIRED_EXTENSIONS = [
@@ -781,7 +781,6 @@ const buildRowGeometry = (
         )
         break
       }
-      case 'block':
       default: {
         cursorSegment(
           pushBackgroundQuad(
@@ -795,17 +794,6 @@ const buildRowGeometry = (
         )
         break
       }
-    }
-  }
-
-  if (!supportsColumnOffsets && columnEntries.length > 0) {
-    if (
-      typeof process !== 'undefined' &&
-      process.env.NODE_ENV !== 'production'
-    ) {
-      throw new Error(
-        'Row column metadata disabled but column segments were still recorded',
-      )
     }
   }
 
