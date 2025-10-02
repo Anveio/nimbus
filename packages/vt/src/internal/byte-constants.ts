@@ -1,0 +1,175 @@
+/**
+ * Central definitions for byte codes and ranges used by the VT parser and interpreter.
+ *
+ * The ECMA-48 and ISO 2022 specifications describe control functions in terms of
+ * their numeric byte codes. Housing every literal here keeps intent explicit and
+ * prevents anonymous magic numbers from leaking across the codebase.
+ */
+export const C0_CONTROL_BYTES = {
+  NUL: 0x00,
+  ENQ: 0x05,
+  BEL: 0x07,
+  BACKSPACE: 0x08,
+  HORIZONTAL_TAB: 0x09,
+  LINE_FEED: 0x0a,
+  VERTICAL_TAB: 0x0b,
+  FORM_FEED: 0x0c,
+  CARRIAGE_RETURN: 0x0d,
+  SHIFT_OUT: 0x0e,
+  SHIFT_IN: 0x0f,
+  CANCEL: 0x18,
+  SUBSTITUTE: 0x1a,
+  ESCAPE: 0x1b,
+} as const
+
+export const ASCII_CODES = {
+  SPACE: 0x20,
+  INTERMEDIATE_END: 0x2f,
+  DIGIT_ZERO: 0x30,
+  DIGIT_NINE: 0x39,
+  COLON: 0x3a,
+  SEMICOLON: 0x3b,
+  LESS_THAN: 0x3c,
+  EQUALS: 0x3d,
+  GREATER_THAN: 0x3e,
+  QUESTION_MARK: 0x3f,
+  COMMERCIAL_AT: 0x40,
+  UPPERCASE_D: 0x44,
+  UPPERCASE_E: 0x45,
+  UPPERCASE_F: 0x46,
+  UPPERCASE_G: 0x47,
+  UPPERCASE_H: 0x48,
+  UPPERCASE_I: 0x49,
+  UPPERCASE_J: 0x4a,
+  UPPERCASE_K: 0x4b,
+  UPPERCASE_L: 0x4c,
+  UPPERCASE_M: 0x4d,
+  UPPERCASE_N: 0x4e,
+  UPPERCASE_O: 0x4f,
+  UPPERCASE_P: 0x50,
+  UPPERCASE_Q: 0x51,
+  UPPERCASE_R: 0x52,
+  UPPERCASE_S: 0x53,
+  UPPERCASE_T: 0x54,
+  UPPERCASE_U: 0x55,
+  UPPERCASE_V: 0x56,
+  UPPERCASE_W: 0x57,
+  UPPERCASE_X: 0x58,
+  LEFT_SQUARE_BRACKET: 0x5b,
+  REVERSE_SOLIDUS: 0x5c,
+  RIGHT_SQUARE_BRACKET: 0x5d,
+  CIRCUMFLEX: 0x5e,
+  LOW_LINE: 0x5f,
+  TILDE: 0x7e,
+  DELETE: 0x7f,
+} as const
+
+export const ASCII_RANGE = {
+  C0_MAX: 0x1f,
+  PRINTABLE_MIN: ASCII_CODES.SPACE,
+  PRINTABLE_MAX: ASCII_CODES.TILDE,
+  INTERMEDIATE_END: ASCII_CODES.INTERMEDIATE_END,
+} as const
+
+export const C1_CONTROL_RANGE = {
+  START: 0x80,
+  END: 0x9f,
+} as const
+
+export const C1_CONTROL_BYTES = {
+  IND: 0x84,
+  NEL: 0x85,
+  SSA: 0x86,
+  ESA: 0x87,
+  HTS: 0x88,
+  HTJ: 0x89,
+  VTS: 0x8a,
+  PLD: 0x8b,
+  PLU: 0x8c,
+  RI: 0x8d,
+  SS2: 0x8e,
+  SS3: 0x8f,
+  DCS: 0x90,
+  PU1: 0x91,
+  PU2: 0x92,
+  STS: 0x93,
+  CCH: 0x94,
+  MW: 0x95,
+  SPA: 0x96,
+  EPA: 0x97,
+  SOS: 0x98,
+  CSI: 0x9b,
+  STRING_TERMINATOR: 0x9c,
+  OSC: 0x9d,
+  PM: 0x9e,
+  APC: 0x9f,
+} as const
+
+export const EXTENDED_ASCII = {
+  NO_BREAK_SPACE: 0xa0,
+  BYTE_MAX: 0xff,
+} as const
+
+export const BYTE_LIMITS = {
+  INTERMEDIATE_START: ASCII_CODES.SPACE,
+  INTERMEDIATE_END: ASCII_CODES.INTERMEDIATE_END,
+  PARAM_START: ASCII_CODES.DIGIT_ZERO,
+  PARAM_END: ASCII_CODES.QUESTION_MARK,
+  DIGIT_START: ASCII_CODES.DIGIT_ZERO,
+  DIGIT_END: ASCII_CODES.DIGIT_NINE,
+  FINAL_START: ASCII_CODES.COMMERCIAL_AT,
+  FINAL_END: ASCII_CODES.TILDE,
+  DELETE: ASCII_CODES.DELETE,
+  COLON: ASCII_CODES.COLON,
+  SEMICOLON: ASCII_CODES.SEMICOLON,
+} as const
+
+export const PRIVATE_PREFIX_RANGE = {
+  START: ASCII_CODES.LESS_THAN,
+  END: ASCII_CODES.QUESTION_MARK,
+} as const
+
+export const ESC_FINAL_RANGE = {
+  MIN: ASCII_CODES.COMMERCIAL_AT,
+  MAX: ASCII_CODES.TILDE,
+} as const
+
+export const C1_ESC_FINAL_RANGE = {
+  MIN: ESC_FINAL_RANGE.MIN,
+  MAX: ASCII_CODES.LOW_LINE,
+} as const
+
+export const C1_TO_ESC_FINAL_OFFSET = 0x40
+
+export const UTF8_BOUNDARIES = {
+  ASCII_LIMIT: C1_CONTROL_RANGE.START,
+  TWO_BYTE_MIN: 0xc2,
+  TWO_BYTE_MAX: 0xdf,
+  THREE_BYTE_MIN: 0xe0,
+  THREE_BYTE_MAX: 0xef,
+  FOUR_BYTE_MIN: 0xf0,
+  FOUR_BYTE_MAX: 0xf4,
+} as const
+
+export const UTF8_CONTINUATION = {
+  MASK: 0b11000000,
+  VALUE: 0b10000000,
+} as const
+
+export const UTF8_REPLACEMENT_BYTES = [0xef, 0xbf, 0xbd] as const
+
+export const BIT_MASKS = {
+  SEVEN_BIT: 0x7f,
+} as const
+
+export const CONTROL_BYTES = {
+  ESC: C0_CONTROL_BYTES.ESCAPE,
+  CAN: C0_CONTROL_BYTES.CANCEL,
+  SUB: C0_CONTROL_BYTES.SUBSTITUTE,
+  BEL: C0_CONTROL_BYTES.BEL,
+} as const
+
+export const STRING_TERMINATOR_BYTES = {
+  BEL: CONTROL_BYTES.BEL,
+  ST: C1_CONTROL_BYTES.STRING_TERMINATOR,
+} as const

@@ -39,8 +39,17 @@ import {
   type TerminalState,
 } from './state'
 import { resolveCharset, translateGlyph } from './charsets'
+import {
+  ASCII_CODES,
+  ASCII_RANGE,
+  BIT_MASKS,
+  C0_CONTROL_BYTES,
+  C1_CONTROL_BYTES,
+  C1_CONTROL_RANGE,
+  EXTENDED_ASCII,
+} from '../internal/byte-constants'
 
-const QUESTION_MARK = '?'.charCodeAt(0)
+const QUESTION_MARK = ASCII_CODES.QUESTION_MARK
 
 const cloneSelection = (selection: TerminalSelection): TerminalSelection => ({
   anchor: {
@@ -704,7 +713,7 @@ export class TerminalInterpreter {
   } {
     const charsets = this.state.charsets
 
-    if (codePoint > 0xff) {
+    if (codePoint > EXTENDED_ASCII.BYTE_MAX) {
       if (charsets.singleShift) {
         this.state.charsets = { ...charsets, singleShift: null }
       }
@@ -714,7 +723,7 @@ export class TerminalInterpreter {
       }
     }
 
-    if (codePoint >= 0x80) {
+    if (codePoint >= C1_CONTROL_RANGE.START) {
       if (charsets.singleShift) {
         this.state.charsets = { ...charsets, singleShift: null }
       }
@@ -730,12 +739,18 @@ export class TerminalInterpreter {
     if (charsets.singleShift) {
       selector = charsets.singleShift
       this.state.charsets = { ...charsets, singleShift: null }
-      baseCode = codePoint & 0x7f
-    } else if (codePoint >= 0x20 && codePoint <= 0x7f) {
+      baseCode = codePoint & BIT_MASKS.SEVEN_BIT
+    } else if (
+      codePoint >= ASCII_RANGE.PRINTABLE_MIN &&
+      codePoint <= ASCII_CODES.DELETE
+    ) {
       selector = charsets.gl
-    } else if (codePoint >= 0xa0 && codePoint <= 0xff) {
+    } else if (
+      codePoint >= EXTENDED_ASCII.NO_BREAK_SPACE &&
+      codePoint <= EXTENDED_ASCII.BYTE_MAX
+    ) {
       selector = charsets.gr
-      baseCode = codePoint & 0x7f || 0x20
+      baseCode = codePoint & BIT_MASKS.SEVEN_BIT || ASCII_CODES.SPACE
     }
 
     const charsetId = charsets[selector]
@@ -748,7 +763,10 @@ export class TerminalInterpreter {
       return char
     }
     const codePoint = char.codePointAt(0) ?? char.charCodeAt(0)
-    if (codePoint > 0xff || codePoint >= 0x80) {
+    if (
+      codePoint > EXTENDED_ASCII.BYTE_MAX ||
+      codePoint >= C1_CONTROL_RANGE.START
+    ) {
       if (this.state.charsets.singleShift) {
         this.state.charsets = { ...this.state.charsets, singleShift: null }
       }
@@ -767,7 +785,10 @@ export class TerminalInterpreter {
     if (this.state.c1Transmission !== '8-bit') {
       return sequence
     }
-    return sequence.replaceAll('\u001B[', String.fromCharCode(0x9b))
+    return sequence.replaceAll(
+      '\u001B[',
+      String.fromCharCode(C1_CONTROL_BYTES.CSI),
+    )
   }
 
   private setC1Transmission(mode: C1TransmissionMode): TerminalUpdate[] {
@@ -785,7 +806,7 @@ export class TerminalInterpreter {
     const bytes: number[] = []
     for (let index = 0; index < sequence.length; index += 1) {
       const code = sequence.charCodeAt(index)
-      if (code <= 0xff) {
+      if (code <= EXTENDED_ASCII.BYTE_MAX) {
         bytes.push(code)
       } else {
         bytes.push(QUESTION_MARK)
@@ -798,7 +819,10 @@ export class TerminalInterpreter {
     const filtered = Array.from(message)
       .filter((char) => {
         const code = char.charCodeAt(0)
-        return code >= 0x20 && code <= 0x7e
+        return (
+          code >= ASCII_RANGE.PRINTABLE_MIN &&
+          code <= ASCII_RANGE.PRINTABLE_MAX
+        )
       })
       .join('')
     this.state.answerback = filtered.slice(0, 30)
@@ -938,24 +962,24 @@ export class TerminalInterpreter {
 
   private handleExecute(codePoint: number): TerminalUpdate[] {
     switch (codePoint) {
-      case 0x05:
+      case C0_CONTROL_BYTES.ENQ:
         return this.emitResponse(this.state.answerback)
-      case 0x07:
+      case C0_CONTROL_BYTES.BEL:
         return [{ type: 'bell' }]
-      case 0x08:
+      case C0_CONTROL_BYTES.BACKSPACE:
         return this.backspace()
-      case 0x09:
+      case C0_CONTROL_BYTES.HORIZONTAL_TAB:
         return this.horizontalTab()
-      case 0x0a:
-      case 0x0b:
-      case 0x0c:
+      case C0_CONTROL_BYTES.LINE_FEED:
+      case C0_CONTROL_BYTES.VERTICAL_TAB:
+      case C0_CONTROL_BYTES.FORM_FEED:
         return this.lineFeed(true)
-      case 0x0d:
+      case C0_CONTROL_BYTES.CARRIAGE_RETURN:
         return this.carriageReturn()
-      case 0x0e: // SO -> invoke G1 into GL
+      case C0_CONTROL_BYTES.SHIFT_OUT: // SO -> invoke G1 into GL
         this.setGlSelector('g1')
         return []
-      case 0x0f: // SI -> invoke G0 into GL
+      case C0_CONTROL_BYTES.SHIFT_IN: // SI -> invoke G0 into GL
         this.setGlSelector('g0')
         return []
       default:

@@ -4,29 +4,16 @@ import {
   ParserState,
   type SosPmApcKind,
 } from '../types'
+import {
+  ASCII_CODES,
+  BYTE_LIMITS,
+  CONTROL_BYTES,
+  PRIVATE_PREFIX_RANGE,
+} from './byte-constants'
+
+export { CONTROL_BYTES, BYTE_LIMITS } from './byte-constants'
 
 export const BYTE_TABLE_SIZE = 256
-
-export const CONTROL_BYTES = {
-  ESC: 0x1b,
-  CAN: 0x18,
-  SUB: 0x1a,
-  BEL: 0x07,
-}
-
-export const BYTE_LIMITS = {
-  INTERMEDIATE_START: 0x20,
-  INTERMEDIATE_END: 0x2f,
-  PARAM_START: 0x30,
-  PARAM_END: 0x3f,
-  DIGIT_START: 0x30,
-  DIGIT_END: 0x39,
-  FINAL_START: 0x40,
-  FINAL_END: 0x7e,
-  DELETE: 0x7f,
-  COLON: 0x3a,
-  SEMICOLON: 0x3b,
-}
 
 export type ByteHandler = (byte: number, sink: ParserEventSink) => void
 export type ByteRulePredicate = (byte: number, flags: ByteFlag) => boolean
@@ -103,7 +90,7 @@ export const matchDigits: ByteRulePredicate = (byte) =>
   byte >= BYTE_LIMITS.DIGIT_START && byte <= BYTE_LIMITS.DIGIT_END
 
 export const matchPrivatePrefixes: ByteRulePredicate = (byte) =>
-  byte >= 0x3c && byte <= 0x3f
+  byte >= PRIVATE_PREFIX_RANGE.START && byte <= PRIVATE_PREFIX_RANGE.END
 
 export const matchParamSeparators: ByteRulePredicate = matchBytes(
   BYTE_LIMITS.COLON,
@@ -113,10 +100,10 @@ export const matchParamSeparators: ByteRulePredicate = matchBytes(
 export const matchParamDigitsOrSeparators: ByteRulePredicate = (byte) =>
   byte >= BYTE_LIMITS.DIGIT_START &&
   byte <= BYTE_LIMITS.SEMICOLON &&
-  byte !== 0x3c &&
-  byte !== 0x3d &&
-  byte !== 0x3e &&
-  byte !== 0x3f
+  byte !== ASCII_CODES.LESS_THAN &&
+  byte !== ASCII_CODES.EQUALS &&
+  byte !== ASCII_CODES.GREATER_THAN &&
+  byte !== ASCII_CODES.QUESTION_MARK
 
 export const createStateRuleSpecs = (
   runtime: StateRuleRuntime,
@@ -197,16 +184,28 @@ const createEscapeSpec = (runtime: StateRuleRuntime): StateRuleSpec => {
   }
 
   const rules: ByteRule[] = [
-    { predicate: matchBytes(0x5b), handler: runtime.enterCsiEntry },
-    { predicate: matchBytes(0x5d), handler: runtime.enterOscString },
-    { predicate: matchBytes(0x50), handler: runtime.enterDcsEntry },
     {
-      predicate: matchBytes(0x58),
+      predicate: matchBytes(ASCII_CODES.LEFT_SQUARE_BRACKET),
+      handler: runtime.enterCsiEntry,
+    },
+    {
+      predicate: matchBytes(ASCII_CODES.RIGHT_SQUARE_BRACKET),
+      handler: runtime.enterOscString,
+    },
+    {
+      predicate: matchBytes(ASCII_CODES.UPPERCASE_P),
+      handler: runtime.enterDcsEntry,
+    },
+    {
+      predicate: matchBytes(ASCII_CODES.UPPERCASE_X),
       handler: () => runtime.enterSosPmApc('SOS'),
     },
-    { predicate: matchBytes(0x5e), handler: () => runtime.enterSosPmApc('PM') },
     {
-      predicate: matchBytes(0x5f),
+      predicate: matchBytes(ASCII_CODES.CIRCUMFLEX),
+      handler: () => runtime.enterSosPmApc('PM'),
+    },
+    {
+      predicate: matchBytes(ASCII_CODES.LOW_LINE),
       handler: () => runtime.enterSosPmApc('APC'),
     },
     {

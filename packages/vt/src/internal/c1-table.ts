@@ -1,4 +1,5 @@
 import type { SosPmApcKind } from '../types'
+import { ASCII_CODES, C1_CONTROL_BYTES } from './byte-constants'
 
 export type C1Action =
   | { readonly type: 'enterCsi' }
@@ -10,30 +11,30 @@ export type C1Action =
   | { readonly type: 'ignore' }
 
 export const BYTE_TO_C1_ACTION: ReadonlyMap<number, C1Action> = new Map([
-  [0x90, { type: 'enterDcs' }],
-  [0x84, { type: 'dispatchEscape', final: 0x44 }], // IND => ESC D
-  [0x85, { type: 'dispatchEscape', final: 0x45 }], // NEL => ESC E
-  [0x86, { type: 'dispatchEscape', final: 0x46 }], // SSA => ESC F
-  [0x87, { type: 'dispatchEscape', final: 0x47 }], // ESA => ESC G
-  [0x88, { type: 'dispatchEscape', final: 0x48 }], // HTS => ESC H
-  [0x89, { type: 'dispatchEscape', final: 0x49 }], // HTJ => ESC I
-  [0x8a, { type: 'dispatchEscape', final: 0x4a }], // VTS => ESC J
-  [0x8b, { type: 'dispatchEscape', final: 0x4b }], // PLD => ESC K
-  [0x8c, { type: 'dispatchEscape', final: 0x4c }], // PLU => ESC L
-  [0x8d, { type: 'dispatchEscape', final: 0x4d }], // RI => ESC M
-  [0x8e, { type: 'dispatchEscape', final: 0x4e }], // SS2 => ESC N
-  [0x8f, { type: 'dispatchEscape', final: 0x4f }], // SS3 => ESC O
-  [0x91, { type: 'dispatchEscape', final: 0x51 }], // PU1 => ESC Q
-  [0x92, { type: 'dispatchEscape', final: 0x52 }], // PU2 => ESC R
-  [0x93, { type: 'dispatchEscape', final: 0x53 }], // STS => ESC S
-  [0x94, { type: 'dispatchEscape', final: 0x54 }], // CCH => ESC T
-  [0x95, { type: 'dispatchEscape', final: 0x55 }], // MW => ESC U
-  [0x96, { type: 'dispatchEscape', final: 0x56 }], // SPA => ESC V
-  [0x97, { type: 'dispatchEscape', final: 0x57 }], // EPA => ESC W
-  [0x98, { type: 'enterSosPmApc', kind: 'SOS' }],
-  [0x9b, { type: 'enterCsi' }],
-  [0x9c, { type: 'ignore' }],
-  [0x9d, { type: 'enterOsc' }],
-  [0x9e, { type: 'enterSosPmApc', kind: 'PM' }],
-  [0x9f, { type: 'enterSosPmApc', kind: 'APC' }],
+  [C1_CONTROL_BYTES.DCS, { type: 'enterDcs' }],
+  [C1_CONTROL_BYTES.IND, { type: 'dispatchEscape', final: ASCII_CODES.UPPERCASE_D }],
+  [C1_CONTROL_BYTES.NEL, { type: 'dispatchEscape', final: ASCII_CODES.UPPERCASE_E }],
+  [C1_CONTROL_BYTES.SSA, { type: 'dispatchEscape', final: ASCII_CODES.UPPERCASE_F }],
+  [C1_CONTROL_BYTES.ESA, { type: 'dispatchEscape', final: ASCII_CODES.UPPERCASE_G }],
+  [C1_CONTROL_BYTES.HTS, { type: 'dispatchEscape', final: ASCII_CODES.UPPERCASE_H }],
+  [C1_CONTROL_BYTES.HTJ, { type: 'dispatchEscape', final: ASCII_CODES.UPPERCASE_I }],
+  [C1_CONTROL_BYTES.VTS, { type: 'dispatchEscape', final: ASCII_CODES.UPPERCASE_J }],
+  [C1_CONTROL_BYTES.PLD, { type: 'dispatchEscape', final: ASCII_CODES.UPPERCASE_K }],
+  [C1_CONTROL_BYTES.PLU, { type: 'dispatchEscape', final: ASCII_CODES.UPPERCASE_L }],
+  [C1_CONTROL_BYTES.RI, { type: 'dispatchEscape', final: ASCII_CODES.UPPERCASE_M }],
+  [C1_CONTROL_BYTES.SS2, { type: 'dispatchEscape', final: ASCII_CODES.UPPERCASE_N }],
+  [C1_CONTROL_BYTES.SS3, { type: 'dispatchEscape', final: ASCII_CODES.UPPERCASE_O }],
+  [C1_CONTROL_BYTES.PU1, { type: 'dispatchEscape', final: ASCII_CODES.UPPERCASE_Q }],
+  [C1_CONTROL_BYTES.PU2, { type: 'dispatchEscape', final: ASCII_CODES.UPPERCASE_R }],
+  [C1_CONTROL_BYTES.STS, { type: 'dispatchEscape', final: ASCII_CODES.UPPERCASE_S }],
+  [C1_CONTROL_BYTES.CCH, { type: 'dispatchEscape', final: ASCII_CODES.UPPERCASE_T }],
+  [C1_CONTROL_BYTES.MW, { type: 'dispatchEscape', final: ASCII_CODES.UPPERCASE_U }],
+  [C1_CONTROL_BYTES.SPA, { type: 'dispatchEscape', final: ASCII_CODES.UPPERCASE_V }],
+  [C1_CONTROL_BYTES.EPA, { type: 'dispatchEscape', final: ASCII_CODES.UPPERCASE_W }],
+  [C1_CONTROL_BYTES.SOS, { type: 'enterSosPmApc', kind: 'SOS' }],
+  [C1_CONTROL_BYTES.CSI, { type: 'enterCsi' }],
+  [C1_CONTROL_BYTES.STRING_TERMINATOR, { type: 'ignore' }],
+  [C1_CONTROL_BYTES.OSC, { type: 'enterOsc' }],
+  [C1_CONTROL_BYTES.PM, { type: 'enterSosPmApc', kind: 'PM' }],
+  [C1_CONTROL_BYTES.APC, { type: 'enterSosPmApc', kind: 'APC' }],
 ])

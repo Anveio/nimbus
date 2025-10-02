@@ -12,6 +12,15 @@ import {
   type StateRuleSpec,
 } from './internal/state-rules'
 import {
+  ASCII_CODES,
+  C1_ESC_FINAL_RANGE,
+  C1_TO_ESC_FINAL_OFFSET,
+  STRING_TERMINATOR_BYTES,
+  UTF8_BOUNDARIES,
+  UTF8_CONTINUATION,
+  UTF8_REPLACEMENT_BYTES,
+} from './internal/byte-constants'
+import {
   type C1HandlingMode,
   type C1TransmissionMode,
   type Mutable,
@@ -25,7 +34,6 @@ import {
   type SosPmApcKind,
 } from './types'
 
-const ST_8BIT = 0x9c
 const MAX_CSI_PARAMS = 16
 const MAX_CSI_INTERMEDIATES = 4
 const MAX_CSI_PARAM_VALUE = 65535
@@ -37,11 +45,12 @@ const DEFAULT_STRING_LIMITS = {
 } as const
 
 const DCS_CHUNK_SIZE = 1024
-const UTF8_REPLACEMENT_BYTES = [0xef, 0xbf, 0xbd] as const
 
 const { ESC, CAN, SUB, BEL } = CONTROL_BYTES
 const { DIGIT_START, DIGIT_END, FINAL_START, FINAL_END, COLON, SEMICOLON } =
   BYTE_LIMITS
+const { ST: STRING_TERMINATOR_8BIT } = STRING_TERMINATOR_BYTES
+const { REVERSE_SOLIDUS } = ASCII_CODES
 
 class ParserImpl implements Parser {
   private context = createInitialContext()
@@ -274,8 +283,8 @@ class ParserImpl implements Parser {
   }
 
   private handleC1Escaped(byte: number, sink: ParserEventSink): void {
-    const final = byte - 0x40
-    if (final < 0x40 || final > 0x5f) {
+    const final = byte - C1_TO_ESC_FINAL_OFFSET
+    if (final < C1_ESC_FINAL_RANGE.MIN || final > C1_ESC_FINAL_RANGE.MAX) {
       this.flushPrint(sink)
       this.emitExecute(byte, sink)
       return
@@ -297,7 +306,7 @@ class ParserImpl implements Parser {
   private handleOscString(byte: number, sink: ParserEventSink): void {
     if (this.context.oscEscPending) {
       this.context.oscEscPending = false
-      if (byte === 0x5c) {
+      if (byte === REVERSE_SOLIDUS) {
         this.emitOscDispatch(sink)
         return
       }
@@ -316,7 +325,7 @@ class ParserImpl implements Parser {
       return
     }
 
-    if (byte === BEL || byte === ST_8BIT) {
+    if (byte === BEL || byte === STRING_TERMINATOR_8BIT) {
       this.emitOscDispatch(sink)
       return
     }
@@ -332,7 +341,7 @@ class ParserImpl implements Parser {
   private handleSosPmApcString(byte: number, sink: ParserEventSink): void {
     if (this.context.sosPmApcEscPending) {
       this.context.sosPmApcEscPending = false
-      if (byte === 0x5c) {
+      if (byte === REVERSE_SOLIDUS) {
         this.emitSosPmApcDispatch(sink)
         return
       }
@@ -351,7 +360,7 @@ class ParserImpl implements Parser {
       return
     }
 
-    if (byte === BEL || byte === ST_8BIT) {
+    if (byte === BEL || byte === STRING_TERMINATOR_8BIT) {
       this.emitSosPmApcDispatch(sink)
       return
     }
@@ -474,7 +483,7 @@ class ParserImpl implements Parser {
   }
 
   private handleCsiParamDigit(byte: number): void {
-    const digit = byte - 0x30
+    const digit = byte - DIGIT_START
     this.context.currentParam = (this.context.currentParam ?? 0) * 10 + digit
 
     if ((this.context.currentParam ?? 0) > MAX_CSI_PARAM_VALUE) {
@@ -588,7 +597,7 @@ class ParserImpl implements Parser {
   private handleDcsPassthrough(byte: number, sink: ParserEventSink): void {
     if (this.context.dcsEscPending) {
       this.context.dcsEscPending = false
-      if (byte === 0x5c) {
+      if (byte === REVERSE_SOLIDUS) {
         this.flushDcsBuffer(sink)
         this.emitDcsUnhook(sink)
         return
@@ -609,7 +618,7 @@ class ParserImpl implements Parser {
       return
     }
 
-    if (byte === ST_8BIT || byte === BEL) {
+    if (byte === STRING_TERMINATOR_8BIT || byte === BEL) {
       this.flushDcsBuffer(sink)
       this.emitDcsUnhook(sink)
       return
@@ -737,7 +746,7 @@ class ParserImpl implements Parser {
         return
       }
 
-      if (current >= 0x80) {
+      if (current >= UTF8_BOUNDARIES.ASCII_LIMIT) {
         this.appendReplacementCharacter()
         return
       }
@@ -795,17 +804,17 @@ class ParserImpl implements Parser {
 export const createParser = (options: ParserOptions = {}): Parser =>
   new ParserImpl(resolveParserOptions(options))
 const getUtf8ContinuationCount = (byte: number): number => {
-  if (byte >= 0xf0 && byte <= 0xf4) {
+  if (byte >= UTF8_BOUNDARIES.FOUR_BYTE_MIN && byte <= UTF8_BOUNDARIES.FOUR_BYTE_MAX) {
     return 3
   }
-  if (byte >= 0xe0 && byte <= 0xef) {
+  if (byte >= UTF8_BOUNDARIES.THREE_BYTE_MIN && byte <= UTF8_BOUNDARIES.THREE_BYTE_MAX) {
     return 2
   }
-  if (byte >= 0xc2 && byte <= 0xdf) {
+  if (byte >= UTF8_BOUNDARIES.TWO_BYTE_MIN && byte <= UTF8_BOUNDARIES.TWO_BYTE_MAX) {
     return 1
   }
   return 0
 }
 
 const isUtf8ContinuationByte = (byte: number): boolean =>
-  (byte & 0b11000000) === 0b10000000
+  (byte & UTF8_CONTINUATION.MASK) === UTF8_CONTINUATION.VALUE
