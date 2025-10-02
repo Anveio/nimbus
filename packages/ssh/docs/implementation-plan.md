@@ -29,8 +29,8 @@ This plan sequences the work required to ship the SSHv2 protocol core as describ
 - Tests: replay handshake transcripts from OpenSSH/libssh; property tests for negotiation (commutative preference resolution, tie-breaking).
 
 ## Phase 3 — Key Exchange & Cipher Activation
-- ✅ Implement curve25519-sha256@libssh.org and diffie-hellman-group14-sha256 key exchange flows (handshake + NEWKEYS) with host key verification.
-- ⚙️ Next: hook in AEAD (aes128-gcm@openssh.com, chacha20-poly1305@openssh.com) and MAC-based cipher suites with deterministic IV/key derivation.
+- ✅ Implement curve25519-sha256@libssh.org and diffie-hellman-group14-sha256 key exchange flows (handshake + NEWKEYS) with host key verification and AES128-GCM activation.
+- ⚙️ Next: wire remaining cipher/MAC suites (ChaCha20-Poly1305, HMAC-SHA2 variants) with deterministic IV/key derivation.
 - ⚙️ Next: introduce rekey counters (packets, bytes) initialized but not yet enforced.
 - Crypto dependencies: abstract over WebCrypto + Node `crypto` adapters; provide synchronous fallback for tests via deterministic mocks.
 - Tests: known-answer tests using RFC 7748/8032 vectors; cross-check against captured OpenSSH packets.
@@ -45,10 +45,10 @@ This plan sequences the work required to ship the SSHv2 protocol core as describ
 - Tests: replay successful and failing flows from OpenSSH/Dropbear; ensure ext-info `server-sig-algs` updates signature policy mid-handshake.
 
 ## Phase 5 — Connection Protocol (RFC 4254)
-- Implement channel lifecycle (open, confirmation, failure) and maintain internal channel map with window counts.
-- Support channel requests: `pty-req`, `shell`, `exec`, `subsystem`, `env`, `window-change`, `signal`, `exit-status`.
-- Global requests: `tcpip-forward`, `cancel-tcpip-forward`, `keepalive@openssh.com`, `no-more-sessions@openssh.com`.
-- Enforce flow control: throttle `send-channel-data` intents when window exhausted; emit `warning` events when host misbehaves.
+- ✅ Establish basic session channel lifecycle (open confirmation, window adjust, data, EOF, close) with channel descriptors exposed via events and snapshots.
+- ⚙️ Next: Support channel requests: `pty-req`, `shell`, `exec`, `subsystem`, `env`, `window-change`, `signal`, `exit-status` responses.
+- ⚙️ Next: Expand global request handling (`tcpip-forward`, `cancel-tcpip-forward`, `keepalive@openssh.com`, `no-more-sessions@openssh.com`) with reply semantics.
+- ⚙️ Next: Enforce flow control for outbound data and surface headroom diagnostics.
 - Tests: synthetic transcripts covering session shell, exec commands, SFTP subsystem handshake, forwarding scenarios. Property tests for window maths.
 
 ## Phase 6 — Rekeying & Session Maintenance (RFC 4253 §9)

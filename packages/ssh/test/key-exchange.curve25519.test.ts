@@ -29,6 +29,12 @@ import { clampScalar, scalarMult, scalarMultBase } from '../src/internal/crypto/
 const SSH_MSG_KEX_ECDH_INIT = 30
 const SSH_MSG_KEX_ECDH_REPLY = 31
 const SSH_MSG_NEWKEYS = 21
+const SSH_MSG_CHANNEL_OPEN = 90
+const SSH_MSG_CHANNEL_OPEN_CONFIRMATION = 91
+const SSH_MSG_CHANNEL_DATA = 94
+const SSH_MSG_CHANNEL_REQUEST = 98
+const SSH_MSG_CHANNEL_EOF = 96
+const SSH_MSG_CHANNEL_CLOSE = 97
 
 function buildNewKeysPacket(): Uint8Array {
   const writer = new BinaryWriter()
@@ -170,7 +176,10 @@ describe('RFC 5656 §4.1 curve25519 key exchange', () => {
     const outboundAfterNegotiation = session.flushOutbound()
     expect(outboundAfterNegotiation).toHaveLength(2)
 
-    const [clientKexPacket, ecdhInitPacket] = outboundAfterNegotiation
+    const [clientKexPacket, ecdhInitPacket] = outboundAfterNegotiation as [
+      Uint8Array,
+      Uint8Array,
+    ]
     const clientKexPayload = unwrapPayload(clientKexPacket!)
     const ecdhInitPayload = unwrapPayload(ecdhInitPacket!)
     expect(clientKexPayload).toEqual(expectedClientKexPayload)
@@ -200,7 +209,7 @@ describe('RFC 5656 §4.1 curve25519 key exchange', () => {
     expect(session.inspect().phase).toBe('authenticated')
   })
 
-  test('decrypts AES-GCM server payload after NEWKEYS', async () => {
+  test('handles channel lifecycle over AES-GCM after NEWKEYS', async () => {
     const hostKeys = new RecordingHostKeyStore({ outcome: 'trusted', source: 'known-hosts' })
 
     const randomBytes = vi.fn((length: number) => {
@@ -236,11 +245,20 @@ describe('RFC 5656 §4.1 curve25519 key exchange', () => {
     await session.waitForIdle()
 
     const negotiationEvents = drainSessionEvents(session)
+    expectEventTypes(negotiationEvents, [
+      'identification-received',
+      'kex-init-sent',
+      'kex-init-received',
+      'outbound-data',
+      'outbound-data',
+    ])
     const expectedClientKexPayload = buildClientKexInitPayload(TEST_ALGORITHMS, randomBytes)
     const outboundPackets = session.flushOutbound()
     expect(outboundPackets).toHaveLength(2)
-    const [clientKexPacket, ecdhInitPacket] = outboundPackets
-
+    const [clientKexPacket, ecdhInitPacket] = outboundPackets as [
+      Uint8Array,
+      Uint8Array,
+    ]
     const clientKexPayload = unwrapPayload(clientKexPacket!)
     expect(clientKexPayload).toEqual(expectedClientKexPayload)
     const serverKexPayload = unwrapPayload(serverKexInitPacket)
@@ -253,8 +271,9 @@ describe('RFC 5656 §4.1 curve25519 key exchange', () => {
 
     const postKexEvents = drainSessionEvents(session)
     expectEventTypes(postKexEvents, ['keys-established', 'outbound-data'])
-    const newKeysPacket = (postKexEvents[1] as Extract<SshEvent, { type: 'outbound-data' }>).payload
-    const newKeysPayload = unwrapPayload(newKeysPacket)
+    const outboundAfterReply = session.flushOutbound()
+    expect(outboundAfterReply).toHaveLength(1)
+    const newKeysPayload = unwrapPayload(outboundAfterReply[0]!)
     expect(newKeysPayload[0]).toBe(SSH_MSG_NEWKEYS)
 
     session.receive(buildNewKeysPacket())
@@ -327,41 +346,115 @@ describe('RFC 5656 §4.1 curve25519 key exchange', () => {
       sequenceNumber: 0,
     }
 
-    const messagePayload = new Uint8Array([0x2f]) // SSH message number 47 (SSH_MSG_USERAUTH_BANNER placeholder)
-    const blockSize = 16
-    let paddingLength = AES_MIN_PADDING
-    const baseLength = messagePayload.length + 1
-    while ((baseLength + paddingLength) % blockSize !== 0) {
-      paddingLength += 1
+    const encryptServerPacket = async (payload: Uint8Array) => {
+      let paddingLength = AES_MIN_PADDING
+      const baseLength = payload.length + 1
+      while ((baseLength + paddingLength) % 16 !== 0) {
+        paddingLength += 1
+      }
+      const padding = Uint8Array.from({ length: paddingLength }, (_value, index) => index)
+      const packetLength = baseLength + paddingLength
+      const plaintext = new Uint8Array(packetLength)
+      plaintext[0] = paddingLength
+      plaintext.set(payload, 1)
+      plaintext.set(padding, 1 + payload.length)
+      const additionalData = new Uint8Array(4)
+      new DataView(additionalData.buffer).setUint32(0, packetLength, false)
+      const { ciphertext } = await encryptAesGcm({
+        crypto: globalThis.crypto!,
+        state: serverCipherState,
+        plaintext,
+        additionalData,
+      })
+      const packet = new Uint8Array(4 + ciphertext.length)
+      packet.set(additionalData, 0)
+      packet.set(ciphertext, 4)
+      return packet
     }
-    const padding = Uint8Array.from({ length: paddingLength }, (_value, index) => index)
-    const packetLength = baseLength + paddingLength
-    const plaintext = new Uint8Array(packetLength)
-    plaintext[0] = paddingLength
-    plaintext.set(messagePayload, 1)
-    plaintext.set(padding, 1 + messagePayload.length)
-    const additionalData = new Uint8Array(4)
-    new DataView(additionalData.buffer).setUint32(0, packetLength, false)
 
-    const { ciphertext } = await encryptAesGcm({
-      crypto: globalThis.crypto!,
-      state: serverCipherState,
-      plaintext,
-      additionalData,
-    })
-
-    const aesPacket = new Uint8Array(4 + ciphertext.length)
-    aesPacket.set(additionalData, 0)
-    aesPacket.set(ciphertext, 4)
-
-    session.receive(aesPacket)
+    session.command({ type: 'open-channel', request: { type: 'session' } })
     await session.waitForIdle()
-    const finalEvents = drainSessionEvents(session)
-    expect(finalEvents.some((event) => event.type === 'warning')).toBe(true)
-    const warning = finalEvents.find((event) => event.type === 'warning')
-    expect(warning).toBeDefined()
-    if (warning?.type === 'warning') {
-      expect(warning.code, JSON.stringify(warning.detail)).toBe('unsupported-message')
-    }
+
+    const outboundAfterCommand = drainSessionEvents(session)
+    expectEventTypes(outboundAfterCommand, ['outbound-data'])
+    const channelOpenPackets = session.flushOutbound()
+    expect(channelOpenPackets).toHaveLength(1)
+
+    const channelsAfterCommand = session.inspect().openChannels
+    expect(channelsAfterCommand).toHaveLength(1)
+    const openingSnapshot = channelsAfterCommand[0]!
+    expect(openingSnapshot.status).toBe('opening')
+    const localChannelId = openingSnapshot.localId
+
+    const confirmationWriter = new BinaryWriter()
+    confirmationWriter.writeUint8(SSH_MSG_CHANNEL_OPEN_CONFIRMATION)
+    confirmationWriter.writeUint32(Number(localChannelId))
+    const remoteChannelId = 42
+    confirmationWriter.writeUint32(remoteChannelId)
+    const remoteWindow = 65536
+    const remoteMaxPacket = 32768
+    confirmationWriter.writeUint32(remoteWindow)
+    confirmationWriter.writeUint32(remoteMaxPacket)
+    const confirmationPacket = await encryptServerPacket(
+      confirmationWriter.toUint8Array(),
+    )
+    session.receive(confirmationPacket)
+    await session.waitForIdle()
+    const confirmationEvents = drainSessionEvents(session)
+    expectEventTypes(confirmationEvents, ['channel-open'])
+
+    const dataWriter = new BinaryWriter()
+    dataWriter.writeUint8(SSH_MSG_CHANNEL_DATA)
+    dataWriter.writeUint32(Number(localChannelId))
+    const payloadBytes = new TextEncoder().encode('hello')
+    dataWriter.writeUint32(payloadBytes.length)
+    dataWriter.writeBytes(payloadBytes)
+    const dataPacket = await encryptServerPacket(dataWriter.toUint8Array())
+    session.receive(dataPacket)
+    await session.waitForIdle()
+    const dataEvents = drainSessionEvents(session)
+    expectEventTypes(dataEvents, ['channel-data'])
+    const channelDataEvent = dataEvents[0] as Extract<SshEvent, { type: 'channel-data' }>
+    expect(new TextDecoder().decode(channelDataEvent.data)).toBe('hello')
+
+    const exitRequestWriter = new BinaryWriter()
+    exitRequestWriter.writeUint8(SSH_MSG_CHANNEL_REQUEST)
+    exitRequestWriter.writeUint32(Number(localChannelId))
+    exitRequestWriter.writeString('exit-status')
+    exitRequestWriter.writeBoolean(false)
+    exitRequestWriter.writeUint32(0)
+    const exitPacket = await encryptServerPacket(exitRequestWriter.toUint8Array())
+    session.receive(exitPacket)
+    await session.waitForIdle()
+    drainSessionEvents(session)
+
+    const eofWriter = new BinaryWriter()
+    eofWriter.writeUint8(SSH_MSG_CHANNEL_EOF)
+    eofWriter.writeUint32(Number(localChannelId))
+    const eofPacket = await encryptServerPacket(eofWriter.toUint8Array())
+    session.receive(eofPacket)
+    await session.waitForIdle()
+    const eofEvents = drainSessionEvents(session)
+    expectEventTypes(eofEvents, ['channel-eof'])
+
+    const closeWriter = new BinaryWriter()
+    closeWriter.writeUint8(SSH_MSG_CHANNEL_CLOSE)
+    closeWriter.writeUint32(Number(localChannelId))
+    const closePacket = await encryptServerPacket(closeWriter.toUint8Array())
+    session.receive(closePacket)
+    await session.waitForIdle()
+    const closeEvents = drainSessionEvents(session)
+    expectEventTypes(closeEvents, ['channel-close'])
+    const closeEvent = closeEvents[0] as Extract<SshEvent, { type: 'channel-close' }>
+    expect(closeEvent.exitStatus).toBe(0)
+
+    const finalChannels = session.inspect().openChannels
+    expect(finalChannels).toHaveLength(1)
+    const finalSnapshot = finalChannels[0]!
+    expect(finalSnapshot.status).toBe('closed')
+    expect(finalSnapshot.remoteId).toBe(remoteChannelId)
+    expect(finalSnapshot.windowSize).toBe(remoteWindow)
+    expect(finalSnapshot.maxPacketSize).toBe(remoteMaxPacket)
+    expect(session.inspect().phase).toBe('connected')
   })
 })

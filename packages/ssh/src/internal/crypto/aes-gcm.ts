@@ -82,6 +82,12 @@ export async function encryptAesGcm(params: {
   plaintext: Uint8Array
   additionalData: Uint8Array
 }): Promise<{ ciphertext: Uint8Array; tagLength: number }> {
+  if (params.state.sequenceNumber === 0xffff_ffff) {
+    throw new RangeError('SSH packet sequence number exhausted for AES-GCM cipher')
+  }
+  if (params.state.invocationCounter === INVOCATION_COUNTER_MAX) {
+    throw new RangeError('AES-GCM invocation counter exhausted for SSH cipher')
+  }
   const nonce = buildNonce(params.state.fixedIv, params.state.invocationCounter)
   const encrypted = await params.crypto.subtle.encrypt(
     {
@@ -105,6 +111,12 @@ export async function decryptAesGcm(params: {
   encrypted: Uint8Array
   additionalData: Uint8Array
 }): Promise<Uint8Array> {
+  if (params.state.sequenceNumber === 0xffff_ffff) {
+    throw new RangeError('SSH packet sequence number exhausted for AES-GCM cipher')
+  }
+  if (params.state.invocationCounter === INVOCATION_COUNTER_MAX) {
+    throw new RangeError('AES-GCM invocation counter exhausted for SSH cipher')
+  }
   const nonce = buildNonce(params.state.fixedIv, params.state.invocationCounter)
   const plaintext = await params.crypto.subtle.decrypt(
     {

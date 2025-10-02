@@ -13,7 +13,7 @@ This strict separation of concerns allows for maximum testability, flexibility, 
 - ✅ RFC 4253 §4–§7 identification exchange and algorithm negotiation, including ext-info handling
 - ✅ Key exchange reducers for `curve25519-sha256@libssh.org` (RFC 5656 §4.1 / RFC 7748 §5.2) and `diffie-hellman-group14-sha256` (RFC 4419 §3)
 - ✅ Host key verification pipeline (Ed25519) with fingerprint evaluation hooks and NEWKEYS sequencing
-- ⚙️ Follow-up: derive/enforce negotiated cipher+MAC suites, channel lifecycle, rekey counters, and additional host key algorithms
+- ⚙️ Follow-up: extend channel request support, enforce flow-control/rekey policies, and widen cipher/MAC coverage (ChaCha20, HMAC-SHA2)
 
 See `packages/ssh/test` for the RFC-backed fixtures that exercise the handshake surface area.
 
