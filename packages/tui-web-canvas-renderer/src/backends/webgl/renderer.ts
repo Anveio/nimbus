@@ -29,6 +29,10 @@ import {
 import { BackgroundTexture } from './internal/background-texture'
 import { TILE_HEIGHT_CELLS, TILE_WIDTH_CELLS } from './internal/constants'
 import { DamageTracker } from './internal/damage-tracker'
+import {
+  computeGlyphRenderMetadata,
+  deriveSelectionTint,
+} from './internal/glyph-metadata'
 import { hashFrameBytes } from './internal/frame-hash'
 import {
   bindFramebufferTexture,
@@ -56,6 +60,8 @@ interface TileResources {
   floatView: Float32Array
   byteView: Uint8Array
   scissor: { x: number; y: number; width: number; height: number }
+  instanceCapacity: number
+  instanceCount: number
 }
 
 interface RenderContext {
@@ -614,6 +620,8 @@ export class WebglCanvasRenderer implements CanvasRenderer {
           floatView,
           byteView,
           scissor,
+          instanceCount: definition.instanceCount,
+          instanceCapacity: definition.instanceCount,
         }
         continue
       }
@@ -622,9 +630,21 @@ export class WebglCanvasRenderer implements CanvasRenderer {
         resources.arrayBuffer = new ArrayBuffer(requiredBytes)
         resources.floatView = new Float32Array(resources.arrayBuffer)
         resources.byteView = new Uint8Array(resources.arrayBuffer)
+        resources.instanceCapacity = definition.instanceCount
+        this.gl.bindVertexArray(resources.vao)
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, resources.buffer)
+        this.gl.bufferData(
+          this.gl.ARRAY_BUFFER,
+          resources.arrayBuffer,
+          this.gl.DYNAMIC_DRAW,
+        )
+        this.gl.bindVertexArray(null)
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null)
       }
       resources.definition = definition
       resources.scissor = scissor
+      resources.instanceCapacity = definition.instanceCount
+      resources.instanceCount = definition.instanceCount
       this.tileResources[i] = resources
     }
   }
@@ -811,7 +831,7 @@ export class WebglCanvasRenderer implements CanvasRenderer {
       gpuFrameDurationMs: duration,
       gpuDrawCallCount: tilesToRender.length * 2 + 1,
       gpuCellsProcessed: tilesToRender.reduce(
-        (sum, tile) => sum + tile.definition.instanceCount,
+        (sum, tile) => sum + tile.instanceCount,
         0,
       ),
     }
@@ -1024,6 +1044,9 @@ export class WebglCanvasRenderer implements CanvasRenderer {
         const absoluteRow = row0 + row
         const absoluteColumn = col0 + column
         const cell = this.getCell(absoluteRow, absoluteColumn)
+        const glyph = this.glyphAtlas.ensureGlyph(cell)
+        const metadata = computeGlyphRenderMetadata(cell, this.theme)
+
         const colors = resolveCellColorBytes(
           cell.attr,
           this.theme,
@@ -1031,6 +1054,11 @@ export class WebglCanvasRenderer implements CanvasRenderer {
           context.fallbackForegroundColor,
           context.fallbackBackgroundColor,
         )
+
+        const isSelected =
+          selectionSegment !== null &&
+          absoluteColumn >= selectionSegment.startColumn &&
+          absoluteColumn <= selectionSegment.endColumn
 
         let foreground = (
           colors.foreground
@@ -1042,23 +1070,14 @@ export class WebglCanvasRenderer implements CanvasRenderer {
                 0,
               ]
         ) as [number, number, number, number]
-        if (
-          selectionSegment &&
-          absoluteColumn >= selectionSegment.startColumn &&
-          absoluteColumn <= selectionSegment.endColumn
-        ) {
-          foreground = context.selectionForeground
-            ? ([
-                context.selectionForeground[0],
-                context.selectionForeground[1],
-                context.selectionForeground[2],
-                context.selectionForeground[3],
-              ] as [number, number, number, number])
-            : foreground
+
+        if (isSelected) {
+          const tint = metadata.selectionTint ?? context.selectionForeground
+          if (tint) {
+            foreground = [...tint] as [number, number, number, number]
+          }
           foreground[3] = 255
         }
-
-        const glyph = this.glyphAtlas.ensureGlyph(cell)
 
         const instanceBase = instanceIndex * INSTANCE_FLOAT_COUNT
         const cellOriginX = absoluteColumn * this.cellWidthPx
@@ -1066,7 +1085,7 @@ export class WebglCanvasRenderer implements CanvasRenderer {
 
         floatView[instanceBase] = cellOriginX
         floatView[instanceBase + 1] = cellOriginY
-        floatView[instanceBase + 2] = this.cellWidthPx
+        floatView[instanceBase + 2] = this.cellWidthPx * metadata.advanceCells
         floatView[instanceBase + 3] = this.cellHeightPx
         floatView[instanceBase + 4] = glyph.u0
         floatView[instanceBase + 5] = glyph.v0
@@ -1082,6 +1101,7 @@ export class WebglCanvasRenderer implements CanvasRenderer {
         byteView[colorOffset + 3] = foreground[3]
 
         instanceIndex += 1
+        column += metadata.skipTrailingColumns
       }
     }
 
@@ -1092,6 +1112,7 @@ export class WebglCanvasRenderer implements CanvasRenderer {
       this.gl.DYNAMIC_DRAW,
     )
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null)
+    tile.instanceCount = instanceIndex
   }
 
   private getCell(row: number, column: number): TerminalCell {
@@ -1217,7 +1238,7 @@ export class WebglCanvasRenderer implements CanvasRenderer {
         this.gl.TRIANGLES,
         0,
         VERTICES_PER_GLYPH,
-        tile.definition.instanceCount,
+        tile.instanceCount,
       )
     }
 

@@ -13,6 +13,7 @@ export interface TileResources {
   vao: WebGLVertexArrayObject | null
   instanceBuffer: WebGLBuffer | null
   instanceCapacity: number
+  instanceCount: number
   dprRectPx: { x: number; y: number; width: number; height: number }
 }
 
