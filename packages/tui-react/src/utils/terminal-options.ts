@@ -15,8 +15,6 @@ import type { CSSProperties, ReactNode } from 'react'
 import type { ShortcutGuideConfig } from '../accessibility/accessibility-layer'
 import type { TerminalRendererGraphicsOptions } from '../renderer'
 
-export type TerminalGraphicsBackend = 'cpu' | 'webgl' | 'webgpu'
-
 export interface TerminalAccessibilityOptions {
   readonly ariaLabel?: string
   readonly instructions?: ReactNode
@@ -41,14 +39,53 @@ export interface TerminalStylingOptions {
   }
 }
 
-export interface TerminalGraphicsOptions {
-  readonly backend?: TerminalGraphicsBackend
-  readonly fallback?: RendererBackendFallback
-  readonly webgl?: Omit<WebglBackendConfig, 'type'>
-  readonly webgpu?: Omit<WebgpuBackendConfig, 'type'>
-  readonly cursorOverlayStrategy?: CursorOverlayStrategy
+export interface BaseGraphicsOptions {
   readonly captureDiagnosticsFrame?: boolean
+  readonly cursorOverlayStrategy?: CursorOverlayStrategy
 }
+
+export interface AutoGraphicsOptions extends BaseGraphicsOptions {
+  readonly type: 'auto'
+  readonly fallback?: RendererBackendFallback
+}
+
+export interface CanvasCpuGraphicsFeatureFlags {
+  readonly webWorkers?: boolean
+}
+
+export interface CanvasCpuGraphicsOptions extends BaseGraphicsOptions {
+  readonly type: 'canvas-cpu'
+  readonly featureFlags?: CanvasCpuGraphicsFeatureFlags
+}
+
+export interface WebglGraphicsFeatureFlags {
+  readonly avoidFullScreenRepaint?: boolean
+}
+
+export interface WebglGraphicsOptions extends BaseGraphicsOptions {
+  readonly type: 'webgl'
+  readonly fallback?: RendererBackendFallback
+  readonly contextAttributes?: WebglBackendConfig['contextAttributes']
+  readonly featureFlags?: WebglGraphicsFeatureFlags
+}
+
+export interface WebgpuGraphicsFeatureFlags {
+  readonly preferSoftwareAdapter?: boolean
+}
+
+export interface WebgpuGraphicsOptions extends BaseGraphicsOptions {
+  readonly type: 'webgpu'
+  readonly fallback?: RendererBackendFallback
+  readonly deviceDescriptor?: WebgpuBackendConfig['deviceDescriptor']
+  readonly canvasConfiguration?: WebgpuBackendConfig['canvasConfiguration']
+  readonly featureFlags?: WebgpuGraphicsFeatureFlags
+}
+
+export type TerminalGraphicsOptions =
+  | AutoGraphicsOptions
+  | CanvasCpuGraphicsOptions
+  | WebglGraphicsOptions
+  | WebgpuGraphicsOptions
 
 const DEFAULT_THEME: RendererTheme = {
   background: '#0d1117',
@@ -228,16 +265,53 @@ export interface ResolvedGraphicsOptions {
 
 export const resolveGraphicsOptions = (
   options: TerminalGraphicsOptions | null | undefined,
-): ResolvedGraphicsOptions => ({
-  renderer: {
-    backend: options?.backend ?? 'auto',
-    fallback: options?.fallback,
-    webgl: options?.webgl,
-    webgpu: options?.webgpu,
-    captureDiagnosticsFrame: options?.captureDiagnosticsFrame,
-  },
-  cursorOverlayStrategy: options?.cursorOverlayStrategy,
-})
+): ResolvedGraphicsOptions => {
+  const config: TerminalGraphicsOptions =
+    options ?? ({ type: 'auto' } as AutoGraphicsOptions)
+
+  const renderer: TerminalRendererGraphicsOptions = (() => {
+    switch (config.type) {
+      case 'canvas-cpu':
+        return {
+          backend: 'cpu',
+          captureDiagnosticsFrame: config.captureDiagnosticsFrame,
+        }
+      case 'webgl':
+        return {
+          backend: 'webgl',
+          fallback: config.fallback,
+          webgl: {
+            fallback: config.fallback,
+            contextAttributes: config.contextAttributes,
+          },
+          captureDiagnosticsFrame: config.captureDiagnosticsFrame,
+        }
+      case 'webgpu':
+        return {
+          backend: 'webgpu',
+          fallback: config.fallback,
+          webgpu: {
+            fallback: config.fallback,
+            deviceDescriptor: config.deviceDescriptor,
+            canvasConfiguration: config.canvasConfiguration,
+          },
+          captureDiagnosticsFrame: config.captureDiagnosticsFrame,
+        }
+      case 'auto':
+      default:
+        return {
+          backend: 'auto',
+          fallback: config.fallback,
+          captureDiagnosticsFrame: config.captureDiagnosticsFrame,
+        }
+    }
+  })()
+
+  return {
+    renderer,
+    cursorOverlayStrategy: config.cursorOverlayStrategy,
+  }
+}
 
 export {
   DEFAULT_THEME,

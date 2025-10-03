@@ -595,7 +595,7 @@ describe('Terminal', () => {
     render(
       <Terminal
         styling={BASE_STYLING}
-        graphics={{ cursorOverlayStrategy }}
+        graphics={{ type: 'canvas-cpu', cursorOverlayStrategy }}
       />,
     )
     const options = lastRendererOptions()

@@ -33,7 +33,6 @@ import {
   resolveGraphicsOptions,
   resolveStylingOptions,
   type TerminalAccessibilityOptions,
-  type TerminalGraphicsBackend,
   type TerminalGraphicsOptions,
   type TerminalStylingOptions,
 } from './utils/terminal-options'
@@ -137,28 +136,12 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
 
     const resolvedStyling = useMemo(
       () => resolveStylingOptions(stylingProp),
-      [
-        stylingProp?.rows,
-        stylingProp?.columns,
-        stylingProp?.autoResize,
-        stylingProp?.localEcho,
-        stylingProp?.theme,
-        stylingProp?.metrics,
-        stylingProp?.canvas?.className,
-        stylingProp?.canvas?.style,
-      ],
+      [stylingProp],
     )
 
     const resolvedGraphics = useMemo(
       () => resolveGraphicsOptions(graphicsProp),
-      [
-        graphicsProp?.backend,
-        graphicsProp?.fallback,
-        graphicsProp?.webgl,
-        graphicsProp?.webgpu,
-        graphicsProp?.captureDiagnosticsFrame,
-        graphicsProp?.cursorOverlayStrategy,
-      ],
+      [graphicsProp],
     )
 
     const {
@@ -530,7 +513,6 @@ export type {
 export type { PrinterEvent } from './printer'
 export type {
   TerminalAccessibilityOptions,
-  TerminalGraphicsBackend,
   TerminalGraphicsOptions,
   TerminalStylingOptions,
 } from './utils/terminal-options'

@@ -1,11 +1,6 @@
+import type { TerminalGraphicsOptions } from '@mana/tui-react'
 import { Terminal, type TerminalHandle } from '@mana/tui-react'
-import {
-  type CanvasRendererOptions,
-  type CreateCanvasRenderer,
-  createCanvasRenderer,
-  type RendererBackendConfig,
-} from '@mana/tui-web-canvas-renderer'
-import { type JSX, useEffect, useMemo, useRef, useState } from 'react'
+import { type JSX, useEffect, useRef, useState } from 'react'
 import styles from './App.module.css'
 
 const isE2EMode = import.meta.env?.VITE_E2E === '1'
@@ -27,33 +22,25 @@ declare global {
 function App(): JSX.Element {
   const terminalRef = useRef<TerminalHandle>(null)
   const responsesRef = useRef<Uint8Array[]>([])
-  const diagnosticsRef = useRef<ReturnType<TerminalHandle['getDiagnostics']>>(null)
-  const [backendConfig] = useState<RendererBackendConfig | undefined>(() => {
-    if (typeof window === 'undefined') {
-      return undefined
-    }
-    const params = new URLSearchParams(window.location.search)
-    const rendererParam = params.get('renderer')?.toLowerCase()
-    switch (rendererParam) {
-      case 'webgl':
-        return { type: 'gpu-webgl', fallback: 'prefer-gpu' }
-      case 'cpu':
-        return { type: 'cpu-2d' }
-      default:
+  const diagnosticsRef =
+    useRef<ReturnType<TerminalHandle['getDiagnostics']>>(null)
+  const [graphicsOptions] = useState<TerminalGraphicsOptions | undefined>(
+    () => {
+      if (typeof window === 'undefined') {
         return undefined
-    }
-  })
-
-  const rendererFactory = useMemo<CreateCanvasRenderer | undefined>(() => {
-    if (!backendConfig) {
-      return undefined
-    }
-    return (options: CanvasRendererOptions) =>
-      createCanvasRenderer({
-        ...options,
-        backend: backendConfig,
-      })
-  }, [backendConfig])
+      }
+      const params = new URLSearchParams(window.location.search)
+      const rendererParam = params.get('renderer')?.toLowerCase()
+      switch (rendererParam) {
+        case 'webgl':
+          return { type: 'webgl' as const }
+        case 'cpu':
+          return { type: 'canvas-cpu' as const }
+        default:
+          return undefined
+      }
+    },
+  )
 
   useEffect(() => {
     terminalRef.current?.focus()
@@ -91,8 +78,7 @@ function App(): JSX.Element {
         getResponses: () => responsesRef.current.map((entry) => entry.slice()),
         getPrinterEvents: () => resolveHandle().getPrinterEvents(),
         getDiagnostics: () => diagnosticsRef.current,
-        getRendererBackend: () =>
-          document.querySelector('canvas')?.dataset?.manaRendererBackend ?? null,
+        getRendererBackend: () => resolveHandle().getRendererBackend() ?? null,
       }
 
       window.__manaTerminalTestHandle__ = testHandle
@@ -114,16 +100,18 @@ function App(): JSX.Element {
     <main className={styles.container}>
       <h1 className={styles.heading}>Mana Web Terminal</h1>
       <div className={styles.terminalWrapper}>
-       <Terminal
-         ref={terminalRef}
-         className={styles.terminalSurface}
-         ariaLabel="Interactive terminal"
-         renderer={rendererFactory}
-         onData={(data) => {
-            responsesRef.current.push(data.slice())
-          }}
-          onDiagnostics={(diagnostics) => {
-            diagnosticsRef.current = diagnostics
+        <Terminal
+          ref={terminalRef}
+          className={styles.terminalSurface}
+          accessibility={{ ariaLabel: 'Interactive terminal' }}
+          graphics={graphicsOptions}
+          instrumentation={{
+            onData: (data) => {
+              responsesRef.current.push(data.slice())
+            },
+            onDiagnostics: (diagnostics) => {
+              diagnosticsRef.current = diagnostics
+            },
           }}
         />
       </div>

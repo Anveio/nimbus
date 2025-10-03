@@ -63,10 +63,10 @@ const createHarness = (): TerminalHarnessExports => {
     document.documentElement.lang = 'en'
     document.title = 'tui-react harness'
 
-    const graphicsBackend =
+    const graphicsOptions =
       options.rendererBackend === 'gpu-webgl'
-        ? 'webgl'
-        : 'cpu'
+        ? { type: 'webgl' as const }
+        : { type: 'canvas-cpu' as const }
 
     root = createRoot(container)
 
@@ -83,7 +83,7 @@ const createHarness = (): TerminalHarnessExports => {
           localEcho: options.localEcho ?? true,
           autoResize: options.autoResize ?? false,
         }}
-        graphics={graphicsBackend ? { backend: graphicsBackend } : undefined}
+        graphics={graphicsOptions}
         instrumentation={{
           onData: (data) => {
             onDataEvents.push({
