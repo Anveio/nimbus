@@ -184,6 +184,26 @@ void main() {
 }
 `,
 }
+const SCROLL_SHADER: ShaderSources = {
+  vertex: BACKGROUND_SHADER.vertex,
+  fragment: `#version 300 es
+precision mediump float;
+
+uniform sampler2D uSource;
+uniform float uOffset;
+
+in vec2 vUv;
+
+out vec4 outColor;
+
+void main() {
+  vec2 uv = vec2(vUv.x, vUv.y - uOffset);
+  uv = clamp(uv, vec2(0.0), vec2(1.0));
+  outColor = texture(uSource, uv);
+}
+`,
+}
+
 
 const createProgramPair = (
   gl: WebGL2RenderingContext,
@@ -241,6 +261,7 @@ export class WebglCanvasRenderer implements CanvasRenderer {
   private backgroundProgram: WebGLProgram
   private tileProgram: WebGLProgram
   private presentProgram: WebGLProgram
+  private scrollProgram: WebGLProgram
   private quadVao: WebGLVertexArrayObject | null
   private quadVbo: WebGLBuffer | null
 
@@ -259,6 +280,10 @@ export class WebglCanvasRenderer implements CanvasRenderer {
     }
     present: {
       sampler: WebGLUniformLocation | null
+    }
+    scroll: {
+      sampler: WebGLUniformLocation | null
+      offset: WebGLUniformLocation | null
     }
   }
 
@@ -286,6 +311,7 @@ export class WebglCanvasRenderer implements CanvasRenderer {
     this.backgroundProgram = createProgramPair(this.gl, BACKGROUND_SHADER)
     this.tileProgram = createProgramPair(this.gl, TILE_VERTEX_SHADER)
     this.presentProgram = createProgramPair(this.gl, PRESENT_SHADER)
+    this.scrollProgram = createProgramPair(this.gl, SCROLL_SHADER)
 
     this.uniforms = {
       tile: {
@@ -301,6 +327,10 @@ export class WebglCanvasRenderer implements CanvasRenderer {
       },
       present: {
         sampler: this.gl.getUniformLocation(this.presentProgram, 'uContent'),
+      },
+      scroll: {
+        sampler: this.gl.getUniformLocation(this.scrollProgram, 'uSource'),
+        offset: this.gl.getUniformLocation(this.scrollProgram, 'uOffset'),
       },
     }
 
@@ -393,6 +423,7 @@ export class WebglCanvasRenderer implements CanvasRenderer {
     disposeProgram(this.gl, this.backgroundProgram)
     disposeProgram(this.gl, this.tileProgram)
     disposeProgram(this.gl, this.presentProgram)
+    disposeProgram(this.gl, this.scrollProgram)
     disposeVertexArray(this.gl, this.quadVao)
     disposeBuffer(this.gl, this.quadVbo)
 
@@ -640,11 +671,58 @@ export class WebglCanvasRenderer implements CanvasRenderer {
     if (!this.damageTracker.hasWork()) {
       return
     }
+
+    const scrollLines = this.damageTracker.scrollLines
+    let performedScroll = false
+    if (scrollLines !== 0) {
+      performedScroll = this.performScrollBitblt(scrollLines)
+      this.damageTracker.scrollLines = 0
+      if (!performedScroll) {
+        this.damageTracker.clear()
+        this.renderFullFrame()
+        return
+      }
+    }
+
+    const exposedRows = this.damageTracker.consumeExposedRows()
+    if (exposedRows.length > 0) {
+      const uniqueRows = Array.from(new Set(exposedRows))
+      const selectionSegments = this.snapshot.selection
+        ? new Map(
+            getSelectionRowSegments(
+              this.snapshot.selection,
+              this.snapshot.columns,
+            ).map((segment) => [segment.row, segment] as const),
+          )
+        : null
+      this.backgroundTexture.updateRows(
+        this.snapshot,
+        this.theme,
+        uniqueRows,
+        selectionSegments,
+      )
+      for (const row of uniqueRows) {
+        for (const tileIndex of this.tileIndicesForRow(row)) {
+          this.damageTracker.markTileDirty(tileIndex)
+        }
+      }
+    }
+
     const dirtyTilesIndices = this.damageTracker.consumeDirtyTiles()
     if (dirtyTilesIndices.length === 0) {
-      this.damageTracker.clear()
+      if (performedScroll) {
+        this.gl.viewport(0, 0, this.scaledWidth, this.scaledHeight)
+        this.drawPresent()
+        this.drawCursorOverlay()
+        this.updateDiagnosticsFrameHash()
+        this.damageTracker.clear()
+        this.lastCursorPosition = { ...this.snapshot.cursor }
+      } else {
+        this.damageTracker.clear()
+      }
       return
     }
+
     if (dirtyTilesIndices.length >= this.tileResources.length) {
       this.damageTracker.clear()
       this.renderFullFrame()
@@ -663,7 +741,16 @@ export class WebglCanvasRenderer implements CanvasRenderer {
     }
 
     if (tilesToRender.length === 0) {
-      this.damageTracker.clear()
+      if (performedScroll) {
+        this.gl.viewport(0, 0, this.scaledWidth, this.scaledHeight)
+        this.drawPresent()
+        this.drawCursorOverlay()
+        this.updateDiagnosticsFrameHash()
+        this.damageTracker.clear()
+        this.lastCursorPosition = { ...this.snapshot.cursor }
+      } else {
+        this.damageTracker.clear()
+      }
       return
     }
 
@@ -803,7 +890,24 @@ export class WebglCanvasRenderer implements CanvasRenderer {
           }
           break
         }
-        case 'scroll':
+        case 'scroll': {
+          const amount = update.amount
+          if (amount !== 0) {
+            this.damageTracker.scrollLines += amount
+            if (amount > 0) {
+              const startRow = Math.max(0, this.rows - amount)
+              for (let row = startRow; row < this.rows; row += 1) {
+                this.damageTracker.markRowExposed(row)
+              }
+            } else {
+              const count = Math.min(this.rows, -amount)
+              for (let row = 0; row < count; row += 1) {
+                this.damageTracker.markRowExposed(row)
+              }
+            }
+          }
+          break
+        }
         case 'clear':
         case 'mode':
         case 'attributes':
@@ -982,6 +1086,55 @@ export class WebglCanvasRenderer implements CanvasRenderer {
       Math.max(this.tileRows - 1, 0),
     )
     return tileRow * Math.max(this.tileColumns, 1) + tileColumn
+  }
+
+  private tileIndicesForRow(row: number): number[] {
+    if (this.tileColumns === 0 || row < 0 || row >= this.rows) {
+      return []
+    }
+    const tileRow = Math.min(
+      Math.max(Math.floor(row / TILE_HEIGHT_CELLS), 0),
+      Math.max(this.tileRows - 1, 0),
+    )
+    const indices: number[] = []
+    for (let tileColumn = 0; tileColumn < this.tileColumns; tileColumn += 1) {
+      indices.push(tileRow * this.tileColumns + tileColumn)
+    }
+    return indices
+  }
+
+  private performScrollBitblt(scrollLines: number): boolean {
+    const sourceIndex = this.activeTextureIndex
+    const targetIndex = 1 - sourceIndex
+    const sourceTexture = this.contentTextures[sourceIndex]
+    const targetTexture = this.contentTextures[targetIndex]
+    if (!this.framebuffer || !sourceTexture || !targetTexture) {
+      return false
+    }
+
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.framebuffer)
+    bindFramebufferTexture(this.gl, this.framebuffer, targetTexture)
+    this.gl.viewport(0, 0, this.scaledWidth, this.scaledHeight)
+
+    this.gl.useProgram(this.scrollProgram)
+    this.gl.bindVertexArray(this.quadVao)
+    this.gl.activeTexture(this.gl.TEXTURE0)
+    this.gl.bindTexture(this.gl.TEXTURE_2D, sourceTexture)
+    if (this.uniforms.scroll.sampler) {
+      this.gl.uniform1i(this.uniforms.scroll.sampler, 0)
+    }
+    if (this.uniforms.scroll.offset) {
+      const offset =
+        (scrollLines * this.cellHeightPx) / Math.max(this.scaledHeight, 1)
+      this.gl.uniform1f(this.uniforms.scroll.offset, offset)
+    }
+    this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4)
+    this.gl.bindVertexArray(null)
+    this.gl.bindTexture(this.gl.TEXTURE_2D, null)
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null)
+
+    this.activeTextureIndex = targetIndex
+    return true
   }
 
   private drawBackground(): void {

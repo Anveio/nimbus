@@ -180,6 +180,55 @@ export class BackgroundTexture {
     this.dirty = true
   }
 
+  updateRows(
+    snapshot: TerminalState,
+    theme: RendererTheme,
+    rows: ReadonlyArray<number>,
+    selectionSegments: Map<number, SelectionRowSegment> | null,
+  ): void {
+    if (rows.length === 0) {
+      return
+    }
+    const reverseVideo = Boolean(snapshot.reverseVideo)
+    const fallbackFg = reverseVideo ? theme.background : this.fallbackForeground
+    const fallbackBg = reverseVideo ? theme.foreground : this.fallbackBackground
+    const overrides = this.paletteOverrides
+
+    for (const row of rows) {
+      if (row < 0 || row >= this.height) {
+        continue
+      }
+      const bufferRow = snapshot.buffer[row]
+      const selectionSegment = selectionSegments?.get(row) ?? null
+      for (let column = 0; column < snapshot.columns; column += 1) {
+        const cell: TerminalCell | undefined = bufferRow?.[column]
+        const colors = resolveCellColorBytes(
+          cell?.attr ?? snapshot.attributes,
+          theme,
+          overrides,
+          fallbackFg,
+          fallbackBg,
+        )
+        let rgba = colors.background ?? rendererColorToRgba(fallbackBg)
+        if (selectionSegment) {
+          const inSelection =
+            column >= selectionSegment.startColumn &&
+            column <= selectionSegment.endColumn
+          if (inSelection && theme.selection?.background) {
+            rgba = rendererColorToRgba(theme.selection.background)
+          }
+        }
+        const index = (row * this.width + column) * 4
+        this.data[index] = rgba[0]
+        this.data[index + 1] = rgba[1]
+        this.data[index + 2] = rgba[2]
+        this.data[index + 3] = rgba[3]
+      }
+    }
+
+    this.dirty = true
+  }
+
   uploadIfDirty(): void {
     if (!this.dirty || !this.texture) {
       return
