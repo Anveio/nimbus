@@ -6,11 +6,150 @@ import {
   type CreateCanvasRenderer,
   type CursorOverlayStrategy,
   createCanvasRenderer as createDefaultCanvasRenderer,
+  detectPreferredBackend,
+  type RendererBackendConfig,
+  type RendererBackendFallback,
+  type RendererBackendKind,
   type RendererMetrics,
   type RendererTheme,
+  type WebglBackendConfig,
+  type WebgpuBackendConfig,
 } from '@mana/tui-web-canvas-renderer'
 import type { TerminalSelection, TerminalState } from '@mana/vt'
 import { type RefObject, useCallback, useEffect, useMemo, useRef } from 'react'
+
+export type TerminalRendererBackendChoice = 'auto' | 'cpu' | 'webgl' | 'webgpu'
+
+export type TerminalRendererBackendResolved =
+  | 'custom'
+  | 'cpu'
+  | 'webgl'
+  | 'webgpu'
+
+export interface TerminalRendererGraphicsOptions {
+  readonly backend?: TerminalRendererBackendChoice
+  readonly fallback?: RendererBackendFallback
+  readonly webgl?: Omit<WebglBackendConfig, 'type'>
+  readonly webgpu?: Omit<WebgpuBackendConfig, 'type'>
+  readonly customFactory?: CreateCanvasRenderer
+  readonly captureDiagnosticsFrame?: boolean
+}
+
+export type TerminalRendererFrameReason =
+  | 'initial-sync'
+  | 'apply-updates'
+  | 'resize'
+  | 'sync'
+  | 'theme-change'
+
+export interface TerminalRendererFrameEvent {
+  readonly reason: TerminalRendererFrameReason
+  readonly diagnostics: CanvasRenderer['diagnostics']
+  readonly timestamp: number
+  readonly backend: TerminalRendererBackendResolved | null
+}
+
+const mapRendererBackendKind = (
+  backend: RendererBackendKind,
+): TerminalRendererBackendResolved => {
+  switch (backend) {
+    case 'cpu-2d':
+      return 'cpu'
+    case 'gpu-webgl':
+      return 'webgl'
+    case 'gpu-webgpu':
+      return 'webgpu'
+    default:
+      return 'custom'
+  }
+}
+
+const resolveTimestamp = (): number => {
+  if (
+    typeof performance !== 'undefined' &&
+    typeof performance.now === 'function'
+  ) {
+    return performance.now()
+  }
+  return Date.now()
+}
+
+const setCanvasBackendDataset = (
+  canvas: CanvasRenderer['canvas'],
+  backend: TerminalRendererBackendResolved | null,
+): void => {
+  if (!canvas) {
+    return
+  }
+  const element = canvas as HTMLCanvasElement
+  if (!element || typeof element !== 'object') {
+    return
+  }
+  if ('dataset' in element && element.dataset) {
+    if (backend) {
+      element.dataset.manaRendererBackend = backend
+    } else {
+      delete element.dataset.manaRendererBackend
+    }
+  }
+}
+
+type ResolvedRendererFactory =
+  | { kind: 'custom'; factory: CreateCanvasRenderer }
+  | { kind: RendererBackendKind; config: RendererBackendConfig }
+
+const resolveRendererFactory = (
+  canvas: HTMLCanvasElement,
+  graphics: TerminalRendererGraphicsOptions,
+): ResolvedRendererFactory => {
+  if (graphics.customFactory) {
+    return { kind: 'custom', factory: graphics.customFactory }
+  }
+
+  const fallback = graphics.fallback ?? 'prefer-gpu'
+  const backend = graphics.backend ?? 'auto'
+
+  switch (backend) {
+    case 'cpu':
+      return {
+        kind: 'cpu-2d',
+        config: { type: 'cpu-2d' } satisfies RendererBackendConfig,
+      }
+    case 'webgl': {
+      const config: RendererBackendConfig = {
+        type: 'gpu-webgl',
+        fallback: graphics.webgl?.fallback ?? fallback,
+        contextAttributes: graphics.webgl?.contextAttributes,
+      }
+      return { kind: 'gpu-webgl', config }
+    }
+    case 'webgpu': {
+      const config: RendererBackendConfig = {
+        type: 'gpu-webgpu',
+        fallback: graphics.webgpu?.fallback ?? fallback,
+        deviceDescriptor: graphics.webgpu?.deviceDescriptor,
+        canvasConfiguration: graphics.webgpu?.canvasConfiguration,
+      }
+      return { kind: 'gpu-webgpu', config }
+    }
+    default: {
+      const detected = detectPreferredBackend({
+        canvas,
+        fallback,
+        webgl: graphics.webgl
+          ? { contextAttributes: graphics.webgl.contextAttributes }
+          : undefined,
+        webgpu: graphics.webgpu
+          ? {
+              deviceDescriptor: graphics.webgpu.deviceDescriptor,
+              canvasConfiguration: graphics.webgpu.canvasConfiguration,
+            }
+          : undefined,
+      })
+      return { kind: detected.type, config: detected }
+    }
+  }
+}
 
 /**
  * Options accepted by {@link useTerminalCanvasRenderer}. Consumers provide the
@@ -18,13 +157,14 @@ import { type RefObject, useCallback, useEffect, useMemo, useRef } from 'react'
  * for custom backends or tests).
  */
 export interface UseTerminalRendererOptions {
-  readonly renderer?: CreateCanvasRenderer
+  readonly graphics: TerminalRendererGraphicsOptions
   readonly theme: RendererTheme
   readonly metrics: RendererMetrics
   readonly snapshot: TerminalState
   readonly onDiagnostics?: (diagnostics: CanvasRenderer['diagnostics']) => void
   readonly onSelectionChange?: (selection: TerminalSelection | null) => void
   readonly cursorOverlayStrategy?: CursorOverlayStrategy
+  readonly onFrame?: (event: TerminalRendererFrameEvent) => void
 }
 
 /**
@@ -40,6 +180,7 @@ export interface TerminalRendererHandle {
   readonly dispose: () => void
   readonly diagnostics: CanvasRenderer['diagnostics'] | null
   readonly getCurrentSelection: () => TerminalSelection | null
+  readonly backend: TerminalRendererBackendResolved | null
 }
 
 /**
@@ -51,21 +192,24 @@ export const useTerminalCanvasRenderer = (
   options: UseTerminalRendererOptions,
 ): TerminalRendererHandle => {
   const {
-    renderer,
+    graphics,
     metrics,
     theme,
     snapshot,
     onDiagnostics,
     onSelectionChange,
     cursorOverlayStrategy,
+    onFrame,
   } = options
+
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rendererRef = useRef<CanvasRenderer | null>(null)
   const diagnosticsRef = useRef<CanvasRenderer['diagnostics'] | null>(null)
   const selectionRef = useRef<TerminalSelection | null>(
     snapshot.selection ?? null,
   )
-  const rendererFactoryRef = useRef<CreateCanvasRenderer | undefined>(renderer)
+  const backendRef = useRef<TerminalRendererBackendResolved | null>(null)
+  const graphicsRef = useRef<TerminalRendererGraphicsOptions>(graphics)
   const latestOptionsRef = useRef({
     metrics,
     theme,
@@ -74,15 +218,21 @@ export const useTerminalCanvasRenderer = (
   })
   const selectionCallbackRef =
     useRef<typeof onSelectionChange>(onSelectionChange)
+  const diagnosticsCallbackRef = useRef<typeof onDiagnostics>(onDiagnostics)
+  const frameCallbackRef = useRef<typeof onFrame>(onFrame)
 
   useEffect(() => {
-    rendererFactoryRef.current = renderer
+    graphicsRef.current = graphics
     if (rendererRef.current) {
       rendererRef.current.dispose()
       rendererRef.current = null
       diagnosticsRef.current = null
+      backendRef.current = null
+      if (canvasRef.current) {
+        setCanvasBackendDataset(canvasRef.current, null)
+      }
     }
-  }, [renderer])
+  }, [graphics])
 
   useEffect(() => {
     latestOptionsRef.current = {
@@ -100,6 +250,31 @@ export const useTerminalCanvasRenderer = (
     }
   }, [onSelectionChange])
 
+  useEffect(() => {
+    diagnosticsCallbackRef.current = onDiagnostics
+    if (onDiagnostics && diagnosticsRef.current) {
+      onDiagnostics(diagnosticsRef.current)
+    }
+  }, [onDiagnostics])
+
+  useEffect(() => {
+    frameCallbackRef.current = onFrame
+  }, [onFrame])
+
+  const emitFrame = useCallback((reason: TerminalRendererFrameReason) => {
+    const callback = frameCallbackRef.current
+    const instance = rendererRef.current
+    if (!callback || !instance) {
+      return
+    }
+    callback({
+      reason,
+      diagnostics: instance.diagnostics,
+      timestamp: resolveTimestamp(),
+      backend: backendRef.current,
+    })
+  }, [])
+
   const ensureRenderer = useCallback(() => {
     if (rendererRef.current) {
       return rendererRef.current
@@ -110,7 +285,6 @@ export const useTerminalCanvasRenderer = (
       throw new Error('Canvas element is not mounted')
     }
 
-    const factory = rendererFactoryRef.current ?? createDefaultCanvasRenderer
     const {
       metrics: currentMetrics,
       theme: currentTheme,
@@ -118,25 +292,46 @@ export const useTerminalCanvasRenderer = (
       cursorOverlayStrategy: currentCursorOverlayStrategy,
     } = latestOptionsRef.current
 
-    const instance = factory({
-      canvas,
-      metrics: currentMetrics,
-      theme: currentTheme,
-      snapshot: currentSnapshot,
-      cursorOverlayStrategy: currentCursorOverlayStrategy,
-      onSelectionChange: (selection) => {
-        selectionRef.current = selection
-        selectionCallbackRef.current?.(selection)
-      },
-    } satisfies CanvasRendererOptions)
+    const graphicsOptions = graphicsRef.current
+    const resolved = resolveRendererFactory(canvas, graphicsOptions)
+
+    const instance = (() => {
+      const baseOptions: CanvasRendererOptions = {
+        canvas,
+        metrics: currentMetrics,
+        theme: currentTheme,
+        snapshot: currentSnapshot,
+        cursorOverlayStrategy: currentCursorOverlayStrategy,
+        captureDiagnosticsFrame: graphicsOptions.captureDiagnosticsFrame,
+        onSelectionChange: (selection) => {
+          selectionRef.current = selection
+          selectionCallbackRef.current?.(selection)
+        },
+      }
+
+      if (resolved.kind === 'custom') {
+        backendRef.current = 'custom'
+        return resolved.factory(baseOptions)
+      }
+
+      const renderer = createDefaultCanvasRenderer({
+        ...baseOptions,
+        backend: resolved.config,
+      })
+      backendRef.current = mapRendererBackendKind(resolved.kind)
+      return renderer
+    })()
+
+    setCanvasBackendDataset(canvas, backendRef.current)
 
     rendererRef.current = instance
     diagnosticsRef.current = instance.diagnostics
     selectionRef.current = instance.currentSelection
     selectionCallbackRef.current?.(instance.currentSelection)
-    onDiagnostics?.(instance.diagnostics)
+    diagnosticsCallbackRef.current?.(instance.diagnostics)
+    emitFrame('initial-sync')
     return instance
-  }, [onDiagnostics])
+  }, [emitFrame])
 
   useEffect(() => {
     const rendererInstance = ensureRenderer()
@@ -144,6 +339,11 @@ export const useTerminalCanvasRenderer = (
       rendererInstance.dispose()
       rendererRef.current = null
       diagnosticsRef.current = null
+      selectionRef.current = null
+      backendRef.current = null
+      if (canvasRef.current) {
+        setCanvasBackendDataset(canvasRef.current, null)
+      }
     }
   }, [ensureRenderer])
 
@@ -151,16 +351,18 @@ export const useTerminalCanvasRenderer = (
     const rendererInstance = ensureRenderer()
     rendererInstance.setTheme(theme)
     diagnosticsRef.current = rendererInstance.diagnostics
-    onDiagnostics?.(rendererInstance.diagnostics)
-  }, [ensureRenderer, theme, onDiagnostics])
+    diagnosticsCallbackRef.current?.(rendererInstance.diagnostics)
+    emitFrame('theme-change')
+  }, [ensureRenderer, theme, emitFrame])
 
   useEffect(() => {
     const rendererInstance = ensureRenderer()
     rendererInstance.resize({ metrics, snapshot })
     rendererInstance.sync(snapshot)
     diagnosticsRef.current = rendererInstance.diagnostics
-    onDiagnostics?.(rendererInstance.diagnostics)
-  }, [ensureRenderer, metrics, snapshot, onDiagnostics])
+    diagnosticsCallbackRef.current?.(rendererInstance.diagnostics)
+    emitFrame('resize')
+  }, [ensureRenderer, metrics, snapshot, emitFrame])
 
   const applyUpdates = useCallback(
     (updateOptions: CanvasRendererUpdateOptions) => {
@@ -168,9 +370,10 @@ export const useTerminalCanvasRenderer = (
       rendererInstance.applyUpdates(updateOptions)
       diagnosticsRef.current = rendererInstance.diagnostics
       selectionRef.current = rendererInstance.currentSelection
-      onDiagnostics?.(rendererInstance.diagnostics)
+      diagnosticsCallbackRef.current?.(rendererInstance.diagnostics)
+      emitFrame('apply-updates')
     },
-    [ensureRenderer, onDiagnostics],
+    [ensureRenderer, emitFrame],
   )
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: renderer disposal must react to strategy even though refs carry state
@@ -182,14 +385,16 @@ export const useTerminalCanvasRenderer = (
     rendererRef.current = null
     diagnosticsRef.current = null
     selectionRef.current = null
+    backendRef.current = null
 
     if (canvasRef.current) {
       const rendererInstance = ensureRenderer()
       diagnosticsRef.current = rendererInstance.diagnostics
       selectionRef.current = rendererInstance.currentSelection
-      onDiagnostics?.(rendererInstance.diagnostics)
+      diagnosticsCallbackRef.current?.(rendererInstance.diagnostics)
+      emitFrame('initial-sync')
     }
-  }, [cursorOverlayStrategy, ensureRenderer, onDiagnostics])
+  }, [cursorOverlayStrategy, ensureRenderer, emitFrame])
 
   const resize = useCallback(
     (resizeOptions: CanvasRendererResizeOptions) => {
@@ -197,9 +402,10 @@ export const useTerminalCanvasRenderer = (
       rendererInstance.resize(resizeOptions)
       diagnosticsRef.current = rendererInstance.diagnostics
       selectionRef.current = rendererInstance.currentSelection
-      onDiagnostics?.(rendererInstance.diagnostics)
+      diagnosticsCallbackRef.current?.(rendererInstance.diagnostics)
+      emitFrame('resize')
     },
-    [ensureRenderer, onDiagnostics],
+    [ensureRenderer, emitFrame],
   )
 
   const setTheme = useCallback(
@@ -208,9 +414,10 @@ export const useTerminalCanvasRenderer = (
       rendererInstance.setTheme(nextTheme)
       diagnosticsRef.current = rendererInstance.diagnostics
       selectionRef.current = rendererInstance.currentSelection
-      onDiagnostics?.(rendererInstance.diagnostics)
+      diagnosticsCallbackRef.current?.(rendererInstance.diagnostics)
+      emitFrame('theme-change')
     },
-    [ensureRenderer, onDiagnostics],
+    [ensureRenderer, emitFrame],
   )
 
   const sync = useCallback(
@@ -219,16 +426,23 @@ export const useTerminalCanvasRenderer = (
       rendererInstance.sync(nextSnapshot)
       diagnosticsRef.current = rendererInstance.diagnostics
       selectionRef.current = rendererInstance.currentSelection
-      onDiagnostics?.(rendererInstance.diagnostics)
+      diagnosticsCallbackRef.current?.(rendererInstance.diagnostics)
+      emitFrame('sync')
     },
-    [ensureRenderer, onDiagnostics],
+    [ensureRenderer, emitFrame],
   )
 
   const dispose = useCallback(() => {
-    rendererRef.current?.dispose()
+    if (rendererRef.current) {
+      rendererRef.current.dispose()
+    }
     rendererRef.current = null
     diagnosticsRef.current = null
     selectionRef.current = null
+    backendRef.current = null
+    if (canvasRef.current) {
+      setCanvasBackendDataset(canvasRef.current, null)
+    }
   }, [])
 
   return useMemo(
@@ -241,6 +455,7 @@ export const useTerminalCanvasRenderer = (
       dispose,
       diagnostics: diagnosticsRef.current,
       getCurrentSelection: () => selectionRef.current,
+      backend: backendRef.current,
     }),
     [applyUpdates, dispose, resize, setTheme, sync],
   )

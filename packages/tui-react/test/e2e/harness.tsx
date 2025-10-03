@@ -1,5 +1,3 @@
-import { createCanvasRenderer, type CreateCanvasRenderer } from '@mana/tui-web-canvas-renderer'
-import type { RendererBackendConfig } from '@mana/tui-web-canvas-renderer'
 import { type CSSProperties, createRef } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { Terminal, type TerminalHandle } from '../../src/Terminal'
@@ -65,38 +63,34 @@ const createHarness = (): TerminalHarnessExports => {
     document.documentElement.lang = 'en'
     document.title = 'tui-react harness'
 
-    const backendConfig: RendererBackendConfig | undefined =
+    const graphicsBackend =
       options.rendererBackend === 'gpu-webgl'
-        ? { type: 'gpu-webgl', fallback: 'prefer-gpu' }
-        : options.rendererBackend === 'cpu-2d'
-          ? { type: 'cpu-2d' }
-          : undefined
-
-    const rendererFactory: CreateCanvasRenderer | undefined = backendConfig
-      ? (rendererOptions) =>
-          createCanvasRenderer({
-            ...rendererOptions,
-            backend: backendConfig,
-          })
-      : undefined
+        ? 'webgl'
+        : 'cpu'
 
     root = createRoot(container)
 
     root.render(
       <Terminal
         ref={terminalRef}
-        ariaLabel={options.ariaLabel ?? 'Harness Terminal'}
-        rows={options.rows}
-        columns={options.columns}
-        localEcho={options.localEcho ?? true}
-        autoFocus={options.autoFocus ?? false}
-        autoResize={options.autoResize ?? false}
-        renderer={rendererFactory}
-        onData={(data) => {
-          onDataEvents.push({
-            text: TEXT_DECODER.decode(data),
-            bytes: Array.from(data),
-          })
+        accessibility={{
+          ariaLabel: options.ariaLabel ?? 'Harness Terminal',
+          autoFocus: options.autoFocus ?? false,
+        }}
+        styling={{
+          rows: options.rows,
+          columns: options.columns,
+          localEcho: options.localEcho ?? true,
+          autoResize: options.autoResize ?? false,
+        }}
+        graphics={graphicsBackend ? { backend: graphicsBackend } : undefined}
+        instrumentation={{
+          onData: (data) => {
+            onDataEvents.push({
+              text: TEXT_DECODER.decode(data),
+              bytes: Array.from(data),
+            })
+          },
         }}
         style={DEFAULT_STYLE}
         data-testid="terminal-root"

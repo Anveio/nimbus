@@ -1,8 +1,9 @@
 import type { TerminalSelection, TerminalState } from '@mana/vt'
 import { getSelectionRowSegments } from '@mana/vt'
-import type { JSX, ReactNode } from 'react'
+import type { HTMLAttributes, JSX, ReactNode } from 'react'
 import {
   Fragment,
+  forwardRef,
   useCallback,
   useEffect,
   useId,
@@ -10,7 +11,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import type { ShortcutGuideReason } from './hotkeys'
+import type { ShortcutGuideReason } from '../hotkeys'
 export type TerminalStatusLevel = 'info' | 'warning' | 'error'
 
 export interface TerminalStatusMessage {
@@ -97,6 +98,24 @@ const SHORTCUT_CLOSE_BUTTON_STYLE = {
   cursor: 'pointer',
   fontWeight: 600,
 }
+
+export const DEFAULT_ARIA_SHORTCUTS = [
+  'Enter',
+  'Shift+ArrowLeft',
+  'Shift+ArrowRight',
+  'Shift+ArrowUp',
+  'Shift+ArrowDown',
+  'Meta+ArrowLeft',
+  'Meta+ArrowRight',
+  'Alt+ArrowLeft',
+  'Alt+ArrowRight',
+  'Control+ArrowLeft',
+  'Control+ArrowRight',
+  'Meta+C',
+  'Meta+V',
+  'Control+Shift+C',
+  'Control+Shift+V',
+]
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value))
@@ -529,15 +548,99 @@ export const useTerminalAccessibilityAdapter = (
   }
 }
 
-export interface TerminalAccessibilityLayerProps {
+export interface TerminalAccessibilityContainerProps {
+  readonly role: string
+  readonly tabIndex: number
+  readonly 'aria-label': string
+  readonly 'aria-multiline': 'true'
+  readonly 'aria-roledescription': string
+  readonly 'aria-keyshortcuts'?: string
+  readonly 'aria-describedby'?: string
+  readonly 'aria-activedescendant'?: string
+}
+
+export interface UseTerminalAccessibilityOptions
+  extends AccessibilityAdapterOptions {
+  readonly ariaLabel: string
+  readonly focusTerminal: () => void
+}
+
+export interface UseTerminalAccessibilityResult {
+  readonly adapter: TerminalAccessibilityAdapter
+  readonly containerProps: TerminalAccessibilityContainerProps
+}
+
+export const useTerminalAccessibility = (
+  options: UseTerminalAccessibilityOptions,
+): UseTerminalAccessibilityResult => {
+  const {
+    ariaLabel,
+    focusTerminal,
+    shortcutGuide,
+    onShortcutGuideToggle,
+    ...adapterOptions
+  } = options
+
+  const adapter = useTerminalAccessibilityAdapter({
+    ...adapterOptions,
+    shortcutGuide,
+    onShortcutGuideToggle,
+  })
+
+  const describedByValue =
+    adapter.describedByIds.length > 0
+      ? adapter.describedByIds.join(' ')
+      : undefined
+
+  const ariaKeyShortcuts = useMemo(() => {
+    const keys = adapter.shortcuts.flatMap((shortcut) =>
+      shortcut.ariaKeys ? [...shortcut.ariaKeys] : [...shortcut.keys],
+    )
+    if (keys.length === 0) {
+      return undefined
+    }
+    const unique = Array.from(new Set(keys))
+    const matchesDefault =
+      unique.length === DEFAULT_ARIA_SHORTCUTS.length &&
+      DEFAULT_ARIA_SHORTCUTS.every((combo) => unique.includes(combo))
+    return matchesDefault ? DEFAULT_ARIA_SHORTCUTS.join(' ') : unique.join(' ')
+  }, [adapter.shortcuts])
+
+  const containerProps = useMemo<TerminalAccessibilityContainerProps>(
+    () => ({
+      role: 'textbox',
+      tabIndex: 0,
+      'aria-label': ariaLabel,
+      'aria-multiline': 'true',
+      'aria-roledescription': 'Terminal',
+      'aria-keyshortcuts': ariaKeyShortcuts,
+      'aria-describedby': describedByValue,
+      'aria-activedescendant': adapter.activeDescendantId ?? undefined,
+    }),
+    [adapter.activeDescendantId, ariaKeyShortcuts, ariaLabel, describedByValue],
+  )
+
+  const previousGuideVisibleRef = useRef(adapter.shortcutGuide.visible)
+  useEffect(() => {
+    if (previousGuideVisibleRef.current && !adapter.shortcutGuide.visible) {
+      focusTerminal()
+    }
+    previousGuideVisibleRef.current = adapter.shortcutGuide.visible
+  }, [adapter.shortcutGuide.visible, focusTerminal])
+
+  return { adapter, containerProps }
+}
+
+export interface TerminalAccessibilityLayerProps
+  extends HTMLAttributes<HTMLDivElement> {
   readonly adapter: TerminalAccessibilityAdapter
   readonly instructionsContent?: ReactNode
 }
 
-export const TerminalAccessibilityLayer = ({
-  adapter,
-  instructionsContent,
-}: TerminalAccessibilityLayerProps): JSX.Element => {
+export const TerminalAccessibilityLayer = forwardRef<
+  HTMLDivElement,
+  TerminalAccessibilityLayerProps
+>(({ adapter, instructionsContent, children, ...containerProps }, ref) => {
   const instructions =
     instructionsContent ?? adapter.instructionsContent ?? DEFAULT_INSTRUCTIONS
   const instructionsNode = instructions ? (
@@ -623,15 +726,18 @@ export const TerminalAccessibilityLayer = ({
     ) : null
 
   return (
-    <>
+    <div ref={ref} {...containerProps}>
       {instructionsNode}
       {transcriptNode}
       {caretStatusNode}
       {statusRegionNode}
       {overlayNode}
-    </>
+      {children}
+    </div>
   )
-}
+})
+
+TerminalAccessibilityLayer.displayName = 'TerminalAccessibilityLayer'
 
 interface ShortcutGuideOverlayProps {
   readonly controller: ShortcutGuideController
@@ -710,4 +816,4 @@ const ShortcutGuideOverlay = ({
   )
 }
 
-export type { ShortcutGuideReason } from './hotkeys'
+export type { ShortcutGuideReason } from '../hotkeys'

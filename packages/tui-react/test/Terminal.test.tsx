@@ -7,11 +7,56 @@ import { Terminal, type TerminalHandle } from '../src/Terminal'
 import {
   createCanvasRenderer,
   type CanvasRendererOptions,
+  type CanvasRendererDiagnostics,
 } from '@mana/tui-web-canvas-renderer'
+
+vi.mock('@mana/tui-web-canvas-renderer', () => {
+  const createCanvasRenderer = vi.fn((options: CanvasRendererOptions) => {
+    const renderer: CanvasRendererMock = {
+      canvas: options.canvas,
+      applyUpdates: vi.fn((updateOptions) => {
+        renderer.currentSelection = updateOptions.snapshot.selection ?? null
+        renderer.onSelectionChange?.(renderer.currentSelection)
+      }),
+      resize: vi.fn(),
+      setTheme: vi.fn(),
+      sync: vi.fn((snapshot) => {
+        renderer.currentSelection = snapshot.selection ?? null
+        renderer.onSelectionChange?.(renderer.currentSelection)
+      }),
+      dispose: vi.fn(),
+      diagnostics: {
+        lastFrameDurationMs: 0,
+        lastDrawCallCount: 0,
+        gpuFrameDurationMs: null,
+        gpuDrawCallCount: null,
+        gpuCellsProcessed: null,
+        gpuBytesUploaded: null,
+        gpuDirtyRegionCoverage: null,
+        gpuOverlayBytesUploaded: null,
+        gpuRowMetadata: null,
+        lastOsc: null,
+        lastSosPmApc: null,
+        lastDcs: null,
+      } satisfies CanvasRendererDiagnostics,
+      currentSelection: options.snapshot.selection ?? null,
+      onSelectionChange: options.onSelectionChange,
+    }
+
+    return renderer
+  })
+
+  return {
+    createCanvasRenderer,
+    detectPreferredBackend: vi.fn(() => ({ type: 'cpu-2d' as const })),
+  }
+})
 import type { TerminalSelection } from '@mana/vt'
 import { getSelectionRowSegments } from '@mana/vt'
 
 const encoder = new TextEncoder()
+
+const BASE_STYLING = { rows: 24, columns: 80 } as const
 
 const extractRowText = (
   snapshot: ReturnType<TerminalHandle['getSnapshot']>,
@@ -107,7 +152,12 @@ const installResizeObserverMock = () => {
 
 describe('Terminal', () => {
   test('renders focusable terminal container with canvas', async () => {
-    render(<Terminal ariaLabel="Demo terminal" rows={24} columns={80} />)
+    render(
+      <Terminal
+        accessibility={{ ariaLabel: 'Demo terminal' }}
+        styling={{ rows: 24, columns: 80 }}
+      />,
+    )
 
     const region = screen.getByRole('textbox', { name: 'Demo terminal' })
     expect(region).toHaveAttribute('tabindex', '0')
@@ -120,7 +170,12 @@ describe('Terminal', () => {
   })
 
   test('does not focus itself by default', () => {
-    render(<Terminal ariaLabel="Focus opt-in" rows={24} columns={80} />)
+    render(
+      <Terminal
+        accessibility={{ ariaLabel: 'Focus opt-in' }}
+        styling={{ rows: 24, columns: 80 }}
+      />,
+    )
 
     const region = screen.getByRole('textbox', { name: 'Focus opt-in' })
     expect(region).not.toHaveFocus()
@@ -128,7 +183,12 @@ describe('Terminal', () => {
 
   test('forwards key input via onData and echoes locally by default', async () => {
     const onData = vi.fn()
-    render(<Terminal onData={onData} rows={24} columns={80} />)
+    render(
+      <Terminal
+        styling={{ rows: 24, columns: 80 }}
+        instrumentation={{ onData }}
+      />,
+    )
 
     const region = screen.getByRole('textbox')
     await userEvent.click(region)
@@ -146,9 +206,8 @@ describe('Terminal', () => {
     render(
       <Terminal
         ref={ref}
-        ariaLabel="Shortcut host"
-        rows={24}
-        columns={80}
+        accessibility={{ ariaLabel: 'Shortcut host' }}
+        styling={BASE_STYLING}
         onShortcutGuideToggle={onShortcutGuideToggle}
       />,
     )
@@ -183,10 +242,9 @@ describe('Terminal', () => {
 
     render(
       <Terminal
-        ariaLabel="Shortcut hotkey"
-        rows={24}
-        columns={80}
-        onData={onData}
+        accessibility={{ ariaLabel: 'Shortcut hotkey' }}
+        styling={BASE_STYLING}
+        instrumentation={{ onData }}
         onShortcutGuideToggle={onShortcutGuideToggle}
       />,
     )
@@ -215,7 +273,7 @@ describe('Terminal', () => {
   test('supports imperative write and reset APIs', async () => {
     const ref = createRef<TerminalHandle>()
 
-    render(<Terminal ref={ref} rows={24} columns={80} />)
+    render(<Terminal ref={ref} styling={BASE_STYLING} />)
 
     expect(ref.current).not.toBeNull()
 
@@ -235,7 +293,12 @@ describe('Terminal', () => {
 
   test('disables local echo when requested', async () => {
     const onData = vi.fn()
-    render(<Terminal onData={onData} localEcho={false} rows={24} columns={80} />)
+    render(
+      <Terminal
+        styling={{ ...BASE_STYLING, localEcho: false }}
+        instrumentation={{ onData }}
+      />,
+    )
     const region = screen.getByRole('textbox')
 
     const renderer = lastRenderer()
@@ -250,7 +313,7 @@ describe('Terminal', () => {
 
   test('extends selections with Shift + Arrow keys', async () => {
     const ref = createRef<TerminalHandle>()
-    render(<Terminal ref={ref} rows={24} columns={80} />)
+    render(<Terminal ref={ref} styling={BASE_STYLING} />)
 
     const region = screen.getByRole('textbox')
     await userEvent.click(region)
@@ -291,7 +354,13 @@ describe('Terminal', () => {
     const ref = createRef<TerminalHandle>()
     const onData = vi.fn()
 
-    render(<Terminal ref={ref} onData={onData} rows={24} columns={80} />)
+    render(
+      <Terminal
+        ref={ref}
+        styling={BASE_STYLING}
+        instrumentation={{ onData }}
+      />,
+    )
 
     const region = screen.getByRole('textbox')
     await userEvent.click(region)
@@ -318,7 +387,7 @@ describe('Terminal', () => {
 
   test('falls back to local newline when no onData handler is provided', async () => {
     const ref = createRef<TerminalHandle>()
-    render(<Terminal ref={ref} rows={24} columns={80} />)
+    render(<Terminal ref={ref} styling={BASE_STYLING} />)
     const region = screen.getByRole('textbox')
     const renderer = lastRenderer()
 
@@ -338,7 +407,7 @@ describe('Terminal', () => {
 
   test('exposes snapshot via imperative handle', async () => {
     const ref = createRef<TerminalHandle>()
-    render(<Terminal ref={ref} rows={24} columns={80} />)
+    render(<Terminal ref={ref} styling={BASE_STYLING} />)
 
     await act(async () => {
       ref.current!.write('hi')
@@ -358,7 +427,7 @@ describe('Terminal', () => {
       render(
         <Terminal
           ref={ref}
-          metrics={{ cell: { width: 5, height: 10 } }}
+          styling={{ metrics: { cell: { width: 5, height: 10 } } }}
         />,
       )
 
@@ -381,7 +450,12 @@ describe('Terminal', () => {
     const ref = createRef<TerminalHandle>()
 
     try {
-      render(<Terminal ref={ref} rows={30} columns={100} autoResize={false} />)
+      render(
+        <Terminal
+          ref={ref}
+          styling={{ rows: 30, columns: 100, autoResize: false }}
+        />,
+      )
 
       expect(ro.observe).not.toHaveBeenCalled()
 
@@ -401,9 +475,8 @@ describe('Terminal', () => {
     render(
       <Terminal
         ref={ref}
-        rows={24}
-        columns={80}
-        onCursorSelectionChange={onCursorSelectionChange}
+        styling={BASE_STYLING}
+        instrumentation={{ onCursorSelectionChange }}
       />,
     )
 
@@ -461,37 +534,37 @@ describe('Terminal', () => {
 
       const selection = ref.current?.getSelection()
       expect(selection).not.toBeNull()
-  if (selection) {
-    expect(selection.anchor.row).toBe(0)
-    expect(selection.focus.row).toBeGreaterThan(selection.anchor.row)
-  }
+      if (selection) {
+        expect(selection.anchor.row).toBe(0)
+        expect(selection.focus.row).toBeGreaterThan(selection.anchor.row)
+      }
 
-  await act(async () => {
-    fireEvent.pointerMove(canvas, {
-      pointerId: 1,
-      clientX: 25,
-      clientY: 25,
-    })
+      await act(async () => {
+        fireEvent.pointerMove(canvas, {
+          pointerId: 1,
+          clientX: 25,
+          clientY: 25,
+        })
+      })
+
+      await act(async () => {
+        fireEvent.pointerUp(canvas, {
+          pointerId: 1,
+          clientX: 25,
+          clientY: 25,
+        })
+      })
+
+      const callbackSelection = onCursorSelectionChange.mock.lastCall?.[0] ?? null
+      expect(callbackSelection).toEqual(ref.current?.getSelection())
+    } finally {
+      rectSpy.mockRestore()
+      vi.useRealTimers()
+    }
   })
-
-  await act(async () => {
-    fireEvent.pointerUp(canvas, {
-      pointerId: 1,
-      clientX: 25,
-      clientY: 25,
-    })
-  })
-
-  const callbackSelection = onCursorSelectionChange.mock.lastCall?.[0] ?? null
-  expect(callbackSelection).toEqual(ref.current?.getSelection())
-} finally {
-  rectSpy.mockRestore()
-  vi.useRealTimers()
-}
-})
 
   test('provides a default selection theme to the renderer', () => {
-    render(<Terminal rows={24} columns={80} />)
+    render(<Terminal styling={BASE_STYLING} />)
     const options = lastRendererOptions()
     expect(options.theme.selection).toEqual({
       background: '#264f78',
@@ -502,9 +575,12 @@ describe('Terminal', () => {
   test('allows overriding the selection theme via props', () => {
     render(
       <Terminal
-        rows={24}
-        columns={80}
-        theme={{ selection: { background: '#123456', foreground: '#fedcba' } }}
+        styling={{
+          ...BASE_STYLING,
+          theme: {
+            selection: { background: '#123456', foreground: '#fedcba' },
+          },
+        }}
       />,
     )
     const options = lastRendererOptions()
@@ -518,9 +594,8 @@ describe('Terminal', () => {
     const cursorOverlayStrategy = vi.fn()
     render(
       <Terminal
-        rows={24}
-        columns={80}
-        cursorOverlayStrategy={cursorOverlayStrategy}
+        styling={BASE_STYLING}
+        graphics={{ cursorOverlayStrategy }}
       />,
     )
     const options = lastRendererOptions()
@@ -529,7 +604,12 @@ describe('Terminal', () => {
 
   test('moves the cursor locally when pressing arrow keys', async () => {
     const ref = createRef<TerminalHandle>()
-    render(<Terminal ref={ref} rows={24} columns={80} localEcho={false} />)
+    render(
+      <Terminal
+        ref={ref}
+        styling={{ ...BASE_STYLING, localEcho: false }}
+      />,
+    )
 
     const region = screen.getByRole('textbox')
     await userEvent.click(region)
@@ -542,7 +622,12 @@ describe('Terminal', () => {
 
   test('extends selection with Shift + Arrow', async () => {
     const ref = createRef<TerminalHandle>()
-    render(<Terminal ref={ref} rows={24} columns={80} localEcho={false} />)
+    render(
+      <Terminal
+        ref={ref}
+        styling={{ ...BASE_STYLING, localEcho: false }}
+      />,
+    )
 
     const region = screen.getByRole('textbox')
     await userEvent.click(region)
@@ -559,7 +644,12 @@ describe('Terminal', () => {
 
   test('supports option/alt word jumps and meta line jumps', async () => {
     const ref = createRef<TerminalHandle>()
-    render(<Terminal ref={ref} rows={24} columns={80} localEcho={false} />)
+    render(
+      <Terminal
+        ref={ref}
+        styling={{ ...BASE_STYLING, localEcho: false }}
+      />,
+    )
 
     await act(async () => {
       ref.current?.write('one  two  three')
@@ -581,7 +671,11 @@ describe('Terminal', () => {
     const onData = vi.fn()
     const ref = createRef<TerminalHandle>()
     render(
-      <Terminal ref={ref} onData={onData} rows={24} columns={80} localEcho />,
+      <Terminal
+        ref={ref}
+        styling={{ ...BASE_STYLING, localEcho: true }}
+        instrumentation={{ onData }}
+      />,
     )
 
     const region = screen.getByRole('textbox')
@@ -600,7 +694,7 @@ describe('Terminal', () => {
 
   test('raw DEL input leaves the buffer untouched', async () => {
     const ref = createRef<TerminalHandle>()
-    render(<Terminal ref={ref} rows={24} columns={80} />)
+    render(<Terminal ref={ref} styling={BASE_STYLING} />)
 
     expect(ref.current).not.toBeNull()
 
@@ -620,7 +714,11 @@ describe('Terminal', () => {
     const onData = vi.fn()
     const ref = createRef<TerminalHandle>()
     render(
-      <Terminal ref={ref} onData={onData} rows={24} columns={80} localEcho />,
+      <Terminal
+        ref={ref}
+        styling={{ ...BASE_STYLING, localEcho: true }}
+        instrumentation={{ onData }}
+      />,
     )
 
     const region = screen.getByRole('textbox')
@@ -640,7 +738,13 @@ describe('Terminal', () => {
 
   test('announceStatus surfaces messages via live region', async () => {
     const ref = createRef<TerminalHandle>()
-    render(<Terminal ref={ref} rows={24} columns={80} autoFocus={false} />)
+    render(
+      <Terminal
+        ref={ref}
+        styling={BASE_STYLING}
+        accessibility={{ autoFocus: false }}
+      />,
+    )
 
     expect(ref.current).not.toBeNull()
 
@@ -661,7 +765,12 @@ describe('Terminal', () => {
 
   test('single click collapses selection and moves cursor', async () => {
     const ref = createRef<TerminalHandle>()
-    render(<Terminal ref={ref} rows={24} columns={80} localEcho={false} />)
+    render(
+      <Terminal
+        ref={ref}
+        styling={{ ...BASE_STYLING, localEcho: false }}
+      />,
+    )
 
     await act(async () => {
       ref.current?.write('hello')
@@ -712,4 +821,37 @@ describe('Terminal', () => {
       rectSpy.mockRestore()
     }
   })
+
+  test('emits frame diagnostics via instrumentation onFrame', async () => {
+    const onFrame = vi.fn()
+    const ref = createRef<TerminalHandle>()
+
+    render(
+      <Terminal
+        ref={ref}
+        accessibility={{ ariaLabel: 'Frame terminal' }}
+        styling={{ rows: 3, columns: 3 }}
+        instrumentation={{ onFrame }}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(onFrame).toHaveBeenCalledWith(
+        expect.objectContaining({ reason: 'initial-sync' }),
+      )
+    })
+
+    onFrame.mockClear()
+
+    act(() => {
+      ref.current?.write('hi')
+    })
+
+    await waitFor(() => {
+      expect(onFrame).toHaveBeenCalledWith(
+        expect.objectContaining({ reason: 'apply-updates' }),
+      )
+    })
+  })
+
 })

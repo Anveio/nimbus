@@ -1,37 +1,19 @@
-import type {
-  CreateCanvasRenderer,
-  CursorOverlayStrategy,
-  RendererCellMetrics,
-  RendererCursorTheme,
-  RendererFontMetrics,
-  RendererMetrics,
-  RendererPalette,
-  RendererSelectionTheme,
-  RendererTheme,
-} from '@mana/tui-web-canvas-renderer'
 import type { PrinterController, TerminalInterpreter } from '@mana/vt'
 import {
   createInterpreter,
   createParser,
-  getSelectionRowSegments,
-  isSelectionCollapsed,
   type ParserEvent,
   type ParserEventSink,
   resolveTerminalCapabilities,
-  type SelectionPoint,
   type TerminalSelection,
   type TerminalState,
   type TerminalUpdate,
 } from '@mana/vt'
 import {
-  type CSSProperties,
   type ForwardedRef,
   forwardRef,
   type HTMLAttributes,
-  type ClipboardEvent as ReactClipboardEvent,
-  type CompositionEvent as ReactCompositionEvent,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type ReactNode,
+  type RefObject,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -39,333 +21,39 @@ import {
   useRef,
   useState,
 } from 'react'
-import type { TerminalStatusMessage } from './accessibility'
+import type { TerminalStatusMessage } from './accessibility/accessibility'
+import type { ShortcutGuideReason } from './accessibility/accessibility-layer'
 import {
   type ShortcutGuideConfig,
   TerminalAccessibilityLayer,
-  useTerminalAccessibilityAdapter,
-} from './accessibility-layer'
-import type { ShortcutGuideReason } from './hotkeys'
-import { handleTerminalHotkey } from './hotkeys'
-
-type TerminalShortcutGuideOptions = ShortcutGuideConfig
-
+  useTerminalAccessibility,
+} from './accessibility/accessibility-layer'
+import {
+  resolveAccessibilityOptions,
+  resolveGraphicsOptions,
+  resolveStylingOptions,
+  type TerminalAccessibilityOptions,
+  type TerminalGraphicsBackend,
+  type TerminalGraphicsOptions,
+  type TerminalStylingOptions,
+} from './utils/terminal-options'
+import {
+  type TerminalFrameEvent,
+  type TerminalInstrumentationOptions,
+  useTerminalInstrumentation,
+} from './instrumentation/terminal-instrumentation'
+import type { PrinterEvent } from './printer'
+import { usePrinterController } from './printer/controller'
 import {
   type TerminalRendererHandle,
   useTerminalCanvasRenderer,
 } from './renderer'
-
-export type { TerminalStatusMessage } from './accessibility'
-export type {
-  ShortcutGuideConfig as TerminalShortcutGuideOptions,
-  ShortcutGuideReason,
-} from './accessibility-layer'
+import { useTerminalSelection } from './selection/terminal-selection'
+import { useTerminalUserEvents } from './user-events/terminal-user-events'
 
 const DEFAULT_ROWS = 24
 const DEFAULT_COLUMNS = 80
 const TEXT_ENCODER = new TextEncoder()
-
-const DEFAULT_THEME: RendererTheme = {
-  background: '#0d1117',
-  foreground: '#c9d1d9',
-  cursor: { color: '#58a6ff', opacity: 1, shape: 'block' },
-  selection: { background: '#264f78', foreground: '#ffffff' },
-  palette: {
-    ansi: [
-      '#000000',
-      '#ff5555',
-      '#50fa7b',
-      '#f1fa8c',
-      '#bd93f9',
-      '#ff79c6',
-      '#8be9fd',
-      '#bbbbbb',
-      '#44475a',
-      '#ff6e6e',
-      '#69ff94',
-      '#ffffa5',
-      '#d6acff',
-      '#ff92df',
-      '#a4ffff',
-      '#ffffff',
-    ],
-  },
-}
-
-const DEFAULT_FONT: RendererFontMetrics = {
-  family: `'Fira Code', Menlo, monospace`,
-  size: 14,
-  letterSpacing: 0,
-  lineHeight: 1.2,
-}
-
-const DEFAULT_CELL: RendererCellMetrics = {
-  width: 9,
-  height: 18,
-  baseline: 14,
-}
-
-const DEFAULT_METRICS: RendererMetrics = {
-  devicePixelRatio:
-    typeof window !== 'undefined' && window.devicePixelRatio
-      ? window.devicePixelRatio
-      : 1,
-  font: DEFAULT_FONT,
-  cell: DEFAULT_CELL,
-}
-
-const DEFAULT_ARIA_SHORTCUTS = [
-  'Enter',
-  'Shift+ArrowLeft',
-  'Shift+ArrowRight',
-  'Shift+ArrowUp',
-  'Shift+ArrowDown',
-  'Meta+ArrowLeft',
-  'Meta+ArrowRight',
-  'Alt+ArrowLeft',
-  'Alt+ArrowRight',
-  'Control+ArrowLeft',
-  'Control+ArrowRight',
-  'Meta+C',
-  'Meta+V',
-  'Control+Shift+C',
-  'Control+Shift+V',
-]
-
-export type PrinterEvent =
-  | { type: 'controller-mode'; enabled: boolean }
-  | { type: 'auto-print-mode'; enabled: boolean }
-  | { type: 'print-screen'; lines: string[] }
-  | { type: 'write'; data: Uint8Array }
-
-const extractSelectionText = (
-  state: TerminalState,
-  selection: TerminalSelection,
-): string => {
-  const segments = getSelectionRowSegments(selection, state.columns)
-  if (segments.length === 0) {
-    return ''
-  }
-
-  const lines: string[] = []
-  let currentRow = segments[0]!.row
-  let currentLine = ''
-
-  const flushLine = () => {
-    lines.push(currentLine)
-    currentLine = ''
-  }
-
-  for (const segment of segments) {
-    if (segment.row !== currentRow) {
-      flushLine()
-      currentRow = segment.row
-    }
-
-    const rowCells = state.buffer[segment.row] ?? []
-    for (
-      let column = segment.startColumn;
-      column <= segment.endColumn;
-      column += 1
-    ) {
-      const cell = rowCells[column]
-      currentLine += cell?.char ?? ' '
-    }
-  }
-
-  flushLine()
-  return lines.join('\n')
-}
-
-const mergeCursorTheme = (
-  base: RendererCursorTheme,
-  override?: Partial<RendererCursorTheme>,
-): RendererCursorTheme => ({
-  color: override?.color ?? base.color,
-  opacity: override?.opacity ?? base.opacity,
-  shape: override?.shape ?? base.shape,
-})
-
-const mergePalette = (
-  base: RendererPalette,
-  override?: Partial<RendererPalette>,
-): RendererPalette => ({
-  ansi: override?.ansi ?? base.ansi,
-  extended: override?.extended ?? base.extended,
-})
-
-const mergeSelectionTheme = (
-  base: RendererSelectionTheme | undefined,
-  override?: RendererSelectionTheme,
-): RendererSelectionTheme | undefined => {
-  if (!base && !override) {
-    return undefined
-  }
-  const resolvedBackground = override?.background ?? base?.background
-  const resolvedForeground =
-    override && Object.hasOwn(override, 'foreground')
-      ? override.foreground
-      : base?.foreground
-
-  if (!resolvedBackground) {
-    return undefined
-  }
-
-  if (resolvedForeground !== undefined) {
-    return {
-      background: resolvedBackground,
-      foreground: resolvedForeground,
-    }
-  }
-
-  return {
-    background: resolvedBackground,
-  }
-}
-
-const mergeTheme = (override?: Partial<RendererTheme>): RendererTheme => ({
-  background: override?.background ?? DEFAULT_THEME.background,
-  foreground: override?.foreground ?? DEFAULT_THEME.foreground,
-  cursor: mergeCursorTheme(DEFAULT_THEME.cursor, override?.cursor),
-  selection: mergeSelectionTheme(DEFAULT_THEME.selection, override?.selection),
-  palette: mergePalette(DEFAULT_THEME.palette, override?.palette),
-})
-
-const mergeFont = (
-  override?: Partial<RendererFontMetrics>,
-): RendererFontMetrics => ({
-  family: override?.family ?? DEFAULT_FONT.family,
-  size: override?.size ?? DEFAULT_FONT.size,
-  letterSpacing: override?.letterSpacing ?? DEFAULT_FONT.letterSpacing,
-  lineHeight: override?.lineHeight ?? DEFAULT_FONT.lineHeight,
-})
-
-const mergeCell = (
-  override?: Partial<RendererCellMetrics>,
-): RendererCellMetrics => ({
-  width: override?.width ?? DEFAULT_CELL.width,
-  height: override?.height ?? DEFAULT_CELL.height,
-  baseline: override?.baseline ?? DEFAULT_CELL.baseline,
-})
-
-const mergeMetrics = (override?: {
-  readonly devicePixelRatio?: number
-  readonly font?: Partial<RendererFontMetrics>
-  readonly cell?: Partial<RendererCellMetrics>
-}): RendererMetrics => ({
-  devicePixelRatio:
-    override?.devicePixelRatio ?? DEFAULT_METRICS.devicePixelRatio,
-  font: mergeFont(override?.font),
-  cell: mergeCell(override?.cell),
-})
-
-const findLastContentRow = (state: TerminalState): number => {
-  for (let row = state.rows - 1; row >= 0; row -= 1) {
-    const rowBuffer = state.buffer[row]
-    if (!rowBuffer) {
-      continue
-    }
-    for (let column = 0; column < state.columns; column += 1) {
-      const char = rowBuffer[column]?.char ?? ' '
-      if (char !== ' ') {
-        return Math.min(row, Math.max(0, state.rows - 1))
-      }
-    }
-  }
-  return 0
-}
-
-const clampRowToContent = (state: TerminalState, row: number): number => {
-  const maxRow = findLastContentRow(state)
-  if (maxRow <= 0) {
-    return 0
-  }
-  return Math.max(0, Math.min(row, maxRow))
-}
-
-const createLinearSelection = (
-  row: number,
-  startColumn: number,
-  endColumn: number,
-): TerminalSelection => {
-  const timestamp = Date.now()
-  return {
-    anchor: {
-      row,
-      column: startColumn,
-      timestamp,
-    },
-    focus: {
-      row,
-      column: endColumn,
-      timestamp: timestamp + 1,
-    },
-    kind: 'normal',
-    status: 'idle',
-  }
-}
-
-const encodeKeyEvent = (
-  event: React.KeyboardEvent<HTMLDivElement>,
-): Uint8Array | null => {
-  if (event.metaKey) {
-    return null
-  }
-
-  // Ctrl combinations (A-Z)
-  if (event.ctrlKey && event.key.length === 1) {
-    const upper = event.key.toUpperCase()
-    const code = upper.charCodeAt(0)
-    if (code >= 64 && code <= 95) {
-      return new Uint8Array([code - 64])
-    }
-  }
-
-  if (event.altKey && event.key.length === 1) {
-    const charBytes = TEXT_ENCODER.encode(event.key)
-    const buffer = new Uint8Array(charBytes.length + 1)
-    buffer[0] = 0x1b
-    buffer.set(charBytes, 1)
-    return buffer
-  }
-
-  switch (event.key) {
-    case 'Enter':
-      return TEXT_ENCODER.encode('\r')
-    case 'Backspace':
-      return new Uint8Array([0x7f])
-    case 'Delete':
-      return TEXT_ENCODER.encode('\u001b[3~')
-    case 'Tab':
-      return TEXT_ENCODER.encode('\t')
-    case 'ArrowUp':
-      return TEXT_ENCODER.encode('\u001b[A')
-    case 'ArrowDown':
-      return TEXT_ENCODER.encode('\u001b[B')
-    case 'ArrowRight':
-      return TEXT_ENCODER.encode('\u001b[C')
-    case 'ArrowLeft':
-      return TEXT_ENCODER.encode('\u001b[D')
-    case 'Home':
-      return TEXT_ENCODER.encode('\u001b[H')
-    case 'End':
-      return TEXT_ENCODER.encode('\u001b[F')
-    case 'PageUp':
-      return TEXT_ENCODER.encode('\u001b[5~')
-    case 'PageDown':
-      return TEXT_ENCODER.encode('\u001b[6~')
-    case 'Escape':
-      return new Uint8Array([0x1b])
-    default:
-      break
-  }
-
-  if (event.key.length === 1 && !event.ctrlKey) {
-    return TEXT_ENCODER.encode(event.key)
-  }
-
-  return null
-}
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value))
@@ -395,78 +83,101 @@ export interface TerminalHandle {
   getSelection(): TerminalSelection | null
   getPrinterEvents(): PrinterEvent[]
   getDiagnostics(): TerminalRendererHandle['diagnostics']
+  getRendererBackend(): TerminalRendererHandle['backend']
   announceStatus(message: TerminalStatusMessage): void
   openShortcutGuide(): void
   closeShortcutGuide(): void
   toggleShortcutGuide(): void
 }
 
-export interface TerminalProps extends HTMLAttributes<HTMLDivElement> {
-  readonly rows?: number
-  readonly columns?: number
-  readonly theme?: Partial<RendererTheme>
-  readonly metrics?: {
-    readonly devicePixelRatio?: number
-    readonly font?: Partial<RendererFontMetrics>
-    readonly cell?: Partial<RendererCellMetrics>
-  }
-  readonly renderer?: CreateCanvasRenderer
-  readonly cursorOverlayStrategy?: CursorOverlayStrategy
-  readonly onData?: (data: Uint8Array) => void
-  readonly onDiagnostics?: (
-    diagnostics: TerminalRendererHandle['diagnostics'],
-  ) => void
-  readonly onCursorSelectionChange?: (
-    selection: TerminalSelection | null,
-  ) => void
-  readonly localEcho?: boolean
-  readonly autoFocus?: boolean
-  readonly autoResize?: boolean
-  readonly ariaLabel?: string
-  readonly accessibilityInstructions?: ReactNode
-  readonly shortcutGuide?: TerminalShortcutGuideOptions | false
+export interface TerminalProps
+  extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
+  readonly accessibility?: TerminalAccessibilityOptions
+  readonly styling?: TerminalStylingOptions
+  readonly graphics?: TerminalGraphicsOptions
+  readonly instrumentation?: TerminalInstrumentationOptions
+  readonly onHandleReady?: (handle: TerminalHandle) => void
   readonly onShortcutGuideToggle?: (
     visible: boolean,
     reason: ShortcutGuideReason,
   ) => void
-  readonly canvasClassName?: string
-  readonly canvasStyle?: CSSProperties
 }
 
 export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
   (
     {
-      rows: rowsProp,
-      columns: columnsProp,
-      theme: themeOverride,
-      metrics: metricsOverride,
-      renderer,
-      cursorOverlayStrategy,
-      onData,
-      onDiagnostics,
-      onCursorSelectionChange,
-      localEcho = true,
-      autoFocus = false,
-      autoResize = true,
-      ariaLabel = 'Terminal',
-      accessibilityInstructions,
-      shortcutGuide: shortcutGuideProp = {},
+      accessibility: accessibilityProp,
+      styling: stylingProp,
+      graphics: graphicsProp,
+      instrumentation: instrumentationProp,
+      onHandleReady,
       onShortcutGuideToggle,
       className,
-      canvasClassName,
-      canvasStyle,
       style,
-      ...rest
+      ...domProps
     },
     ref: ForwardedRef<TerminalHandle>,
   ) => {
-    const theme = useMemo(() => mergeTheme(themeOverride), [themeOverride])
-    const metrics = useMemo(
-      () => mergeMetrics(metricsOverride),
-      [metricsOverride],
+    const instrumentation = useTerminalInstrumentation(instrumentationProp)
+    const {
+      controller: printerController,
+      getEventsSnapshot: getPrinterEventsSnapshot,
+      resetEvents: resetPrinterEvents,
+    } = usePrinterController()
+
+    const resolvedAccessibility = useMemo(
+      () => resolveAccessibilityOptions(accessibilityProp),
+      [
+        accessibilityProp?.ariaLabel,
+        accessibilityProp?.instructions,
+        accessibilityProp?.shortcutGuide,
+        accessibilityProp?.autoFocus,
+      ],
     )
 
+    const resolvedStyling = useMemo(
+      () => resolveStylingOptions(stylingProp),
+      [
+        stylingProp?.rows,
+        stylingProp?.columns,
+        stylingProp?.autoResize,
+        stylingProp?.localEcho,
+        stylingProp?.theme,
+        stylingProp?.metrics,
+        stylingProp?.canvas?.className,
+        stylingProp?.canvas?.style,
+      ],
+    )
+
+    const resolvedGraphics = useMemo(
+      () => resolveGraphicsOptions(graphicsProp),
+      [
+        graphicsProp?.backend,
+        graphicsProp?.fallback,
+        graphicsProp?.webgl,
+        graphicsProp?.webgpu,
+        graphicsProp?.captureDiagnosticsFrame,
+        graphicsProp?.cursorOverlayStrategy,
+      ],
+    )
+
+    const {
+      rows: rowsProp,
+      columns: columnsProp,
+      autoResize,
+      localEcho,
+      theme,
+      metrics,
+      canvasClassName,
+      canvasStyle,
+    } = resolvedStyling
+    const { renderer: rendererGraphicsOptions, cursorOverlayStrategy } = resolvedGraphics
+
     const containerRef = useRef<HTMLDivElement>(null)
+    const focus = useCallback(() => {
+      containerRef.current?.focus()
+    }, [])
+
     const [containerSize, setContainerSize] = useState<{
       width: number
       height: number
@@ -493,7 +204,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       })
       observer.observe(node)
       return () => observer.disconnect()
-    }, [autoResize, metrics.cell.width, metrics.cell.height])
+    }, [autoResize])
 
     const fallbackWidth = (columnsProp ?? DEFAULT_COLUMNS) * metrics.cell.width
     const fallbackHeight = (rowsProp ?? DEFAULT_ROWS) * metrics.cell.height
@@ -515,41 +226,23 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
 
     const interpreterRef = useRef<TerminalInterpreter | null>(null)
     const parserRef = useRef(createParser())
-    const printerEventsRef = useRef<PrinterEvent[]>([])
 
-    const printerController = useMemo<PrinterController>(
-      () => ({
-        setPrinterControllerMode: (enabled) => {
-          printerEventsRef.current.push({ type: 'controller-mode', enabled })
-        },
-        setAutoPrintMode: (enabled) => {
-          printerEventsRef.current.push({ type: 'auto-print-mode', enabled })
-        },
-        printScreen: (lines) => {
-          printerEventsRef.current.push({
-            type: 'print-screen',
-            lines: [...lines],
-          })
-        },
-        write: (data) => {
-          printerEventsRef.current.push({
-            type: 'write',
-            data: data.slice(),
-          })
-        },
-      }),
-      [],
+    const ensureInterpreter = useCallback(
+      (nextRows: number, nextColumns: number) => {
+        interpreterRef.current = createInterpreterInstance(
+          nextRows,
+          nextColumns,
+          printerController,
+        )
+      },
+      [printerController],
     )
 
     if (!interpreterRef.current) {
-      interpreterRef.current = createInterpreterInstance(
-        rows,
-        columns,
-        printerController,
-      )
+      ensureInterpreter(rows, columns)
     }
 
-    const interpreter = interpreterRef.current
+    const interpreter = interpreterRef.current!
 
     const [currentSelection, setCurrentSelection] =
       useState<TerminalSelection | null>(interpreter.snapshot.selection ?? null)
@@ -558,130 +251,62 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     const snapshot = useMemo(
       () => interpreter.snapshot,
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      [snapshotVersion],
+      [interpreter.snapshot],
     )
 
-    const accessibilityAdapter = useTerminalAccessibilityAdapter({
+    const accessibility = useTerminalAccessibility({
+      ariaLabel: resolvedAccessibility.ariaLabel,
+      focusTerminal: focus,
+      instructions: resolvedAccessibility.instructions ?? undefined,
+      shortcutGuide: resolvedAccessibility.shortcutGuide as
+        | ShortcutGuideConfig
+        | false,
       snapshot,
       snapshotRevision: snapshotVersion,
-      instructions: accessibilityInstructions,
-      shortcutGuide: shortcutGuideProp as ShortcutGuideConfig | false,
       onShortcutGuideToggle,
     })
-
-    const {
-      enabled: shortcutGuideEnabled,
-      visible: shortcutGuideVisible,
-      open: openShortcutGuide,
-      close: closeShortcutGuide,
-      toggle: toggleShortcutGuide,
-    } = accessibilityAdapter.shortcutGuide
-
-    const previousShortcutGuideVisibilityRef = useRef(shortcutGuideVisible)
-    useEffect(() => {
-      if (previousShortcutGuideVisibilityRef.current && !shortcutGuideVisible) {
-        containerRef.current?.focus()
-      }
-      previousShortcutGuideVisibilityRef.current = shortcutGuideVisible
-    }, [shortcutGuideVisible])
-
-    const describedByValue =
-      accessibilityAdapter.describedByIds.length > 0
-        ? accessibilityAdapter.describedByIds.join(' ')
-        : undefined
-
-    const ariaKeyShortcuts = useMemo(() => {
-      const keys = accessibilityAdapter.shortcuts.flatMap((shortcut) =>
-        shortcut.ariaKeys ? [...shortcut.ariaKeys] : [...shortcut.keys],
-      )
-      if (keys.length === 0) {
-        return undefined
-      }
-      const unique = Array.from(new Set(keys))
-      const matchesDefault =
-        unique.length === DEFAULT_ARIA_SHORTCUTS.length &&
-        DEFAULT_ARIA_SHORTCUTS.every((combo) => unique.includes(combo))
-      return matchesDefault
-        ? DEFAULT_ARIA_SHORTCUTS.join(' ')
-        : unique.join(' ')
-    }, [accessibilityAdapter.shortcuts])
 
     const handleSelectionChange = useCallback(
       (selection: TerminalSelection | null) => {
         setCurrentSelection(selection)
-        onCursorSelectionChange?.(selection)
+        instrumentation.emitSelectionChange(selection)
       },
-      [onCursorSelectionChange],
+      [instrumentation],
+    )
+
+    const handleDiagnostics = useCallback(
+      (diagnostics: TerminalRendererHandle['diagnostics']) => {
+        instrumentation.emitDiagnostics(diagnostics)
+      },
+      [instrumentation],
+    )
+
+    const handleFrame = useCallback(
+      (event: TerminalFrameEvent) => {
+        instrumentation.emitFrame(event)
+      },
+      [instrumentation],
     )
 
     const rendererHandle = useTerminalCanvasRenderer({
-      renderer,
+      graphics: rendererGraphicsOptions,
       metrics,
       theme,
       snapshot,
-      onDiagnostics,
+      onDiagnostics: handleDiagnostics,
       onSelectionChange: handleSelectionChange,
       cursorOverlayStrategy,
+      onFrame: handleFrame,
     })
-
-    const keyboardSelectionAnchorRef = useRef<SelectionPoint | null>(null)
-    const compositionStateRef = useRef<{ active: boolean; data: string }>({
-      active: false,
-      data: '',
-    })
-    const pointerSelectionRef = useRef<{
-      pointerId: number | null
-      anchor: TerminalSelection['anchor'] | null
-      lastSelection: TerminalSelection | null
-    }>({ pointerId: null, anchor: null, lastSelection: null })
-
-    const autoScrollRef = useRef<{
-      timer: number | null
-      direction: -1 | 0 | 1
-    }>({
-      timer: null,
-      direction: 0,
-    })
-
-    const stopAutoScroll = useCallback(() => {
-      const current = autoScrollRef.current
-      if (current.timer !== null) {
-        window.clearInterval(current.timer)
-      }
-      autoScrollRef.current = { timer: null, direction: 0 }
-    }, [])
-
-    const getPointerMetrics = useCallback(
-      (event: React.PointerEvent<HTMLCanvasElement>) => {
-        const rect = event.currentTarget.getBoundingClientRect()
-        const offsetX = event.clientX - rect.left
-        const offsetY = event.clientY - rect.top
-        const column = clamp(
-          Math.floor(offsetX / Math.max(metrics.cell.width, 1)),
-          0,
-          columns - 1,
-        )
-        const row = clamp(
-          Math.floor(offsetY / Math.max(metrics.cell.height, 1)),
-          0,
-          rows - 1,
-        )
-        return { row, column, offsetX, offsetY, rect }
-      },
-      [columns, metrics.cell.height, metrics.cell.width, rows],
-    )
 
     useEffect(() => {
       const current = interpreterRef.current
       if (!current) {
-        interpreterRef.current = createInterpreterInstance(
-          rows,
-          columns,
-          printerController,
-        )
-        rendererHandle.sync(interpreterRef.current.snapshot)
+        ensureInterpreter(rows, columns)
+        rendererHandle.sync(interpreterRef.current!.snapshot)
+        setCurrentSelection(interpreterRef.current!.snapshot.selection ?? null)
         setSnapshotVersion((value) => value + 1)
-        printerEventsRef.current = []
+        resetPrinterEvents()
         return
       }
 
@@ -690,16 +315,13 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         return
       }
 
-      interpreterRef.current = createInterpreterInstance(
-        rows,
-        columns,
-        printerController,
-      )
+      ensureInterpreter(rows, columns)
       parserRef.current = createParser()
-      rendererHandle.sync(interpreterRef.current.snapshot)
+      rendererHandle.sync(interpreterRef.current!.snapshot)
+      setCurrentSelection(interpreterRef.current!.snapshot.selection ?? null)
       setSnapshotVersion((value) => value + 1)
-      printerEventsRef.current = []
-    }, [rows, columns, printerController, rendererHandle])
+      resetPrinterEvents()
+    }, [ensureInterpreter, rendererHandle, resetPrinterEvents, rows, columns])
 
     const applyUpdates = useCallback(
       (updates: TerminalUpdate[]) => {
@@ -710,7 +332,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         for (const update of updates) {
           switch (update.type) {
             case 'response':
-              onData?.(update.data)
+              instrumentation.emitData(update.data)
               continue
             case 'c1-transmission':
               parserRef.current.setC1TransmissionMode(update.value)
@@ -729,14 +351,21 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         })
         setSnapshotVersion((value) => value + 1)
       },
-      [interpreter, onData, rendererHandle],
+      [interpreter, instrumentation, rendererHandle],
     )
 
-    const clearSelection = useCallback(() => {
-      const updates = interpreter.clearSelection()
-      applyUpdates(updates)
-      keyboardSelectionAnchorRef.current = null
-    }, [applyUpdates, interpreter])
+    const selectionApi = useTerminalSelection({
+      interpreter,
+      applyUpdates,
+      viewport: { rows, columns },
+      metrics: {
+        cellWidth: metrics.cell.width,
+        cellHeight: metrics.cell.height,
+      },
+      focusTerminal: focus,
+    })
+
+    const sinkRef = useRef<ParserEventSink>({ onEvent: () => {} })
 
     const handleEvent = useCallback(
       (event: ParserEvent) => {
@@ -746,7 +375,6 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       [applyUpdates, interpreter],
     )
 
-    const sinkRef = useRef<ParserEventSink>({ onEvent: handleEvent })
     sinkRef.current.onEvent = handleEvent
 
     const write = useCallback((input: Uint8Array | string) => {
@@ -756,519 +384,110 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       setSnapshotVersion((value) => value + 1)
     }, [])
 
-    const focus = useCallback(() => {
-      containerRef.current?.focus()
-    }, [])
-
-    const beginSelection = useCallback(
-      (
-        selection: TerminalSelection,
-        pointerId: number,
-        target: HTMLCanvasElement,
-      ) => {
-        stopAutoScroll()
-        const updates = interpreter.setSelection(selection)
-        applyUpdates(updates)
-        keyboardSelectionAnchorRef.current = null
-        pointerSelectionRef.current = {
-          pointerId,
-          anchor: selection.anchor,
-          lastSelection: interpreter.snapshot.selection,
-        }
-        if (typeof target.setPointerCapture === 'function') {
-          target.setPointerCapture(pointerId)
+    const emitData = useCallback(
+      (bytes: Uint8Array, options?: { skipLocalEcho?: boolean }) => {
+        instrumentation.emitData(bytes)
+        const hasExternalConsumer = instrumentation.hasExternalDataConsumer
+        const shouldLocalEcho =
+          !options?.skipLocalEcho && (!hasExternalConsumer || localEcho)
+        if (shouldLocalEcho) {
+          write(bytes)
         }
       },
-      [applyUpdates, interpreter, stopAutoScroll],
+      [instrumentation, localEcho, write],
     )
 
-    const updateSelectionFromPointer = useCallback(
-      (selection: TerminalSelection) => {
-        const updates = interpreter.updateSelection(selection)
-        applyUpdates(updates)
-        keyboardSelectionAnchorRef.current = null
-        pointerSelectionRef.current.lastSelection =
-          interpreter.snapshot.selection
+    const replaceSelectionWithText = selectionApi.replaceSelectionWithText
+    const clearSelection = selectionApi.clearSelection
+
+    const {
+      handleCompositionStart,
+      handleCompositionUpdate,
+      handleCompositionEnd,
+      handleKeyDown,
+      handlePaste,
+      handleCopy,
+    } = useTerminalUserEvents({
+      interpreter,
+      applyUpdates,
+      emitData,
+      write,
+      selection: {
+        keyboardSelectionAnchorRef: selectionApi.keyboardSelectionAnchorRef,
+        replaceSelectionWithText,
+        clearSelection,
       },
-      [applyUpdates, interpreter],
-    )
-
-    const startAutoScroll = useCallback(
-      (direction: -1 | 1) => {
-        if (
-          autoScrollRef.current.direction === direction &&
-          autoScrollRef.current.timer !== null
-        ) {
-          return
-        }
-        stopAutoScroll()
-        const timer = window.setInterval(() => {
-          const pointerState = pointerSelectionRef.current
-          if (pointerState.pointerId === null || !pointerState.anchor) {
-            stopAutoScroll()
-            return
-          }
-          const active =
-            interpreter.snapshot.selection ?? pointerState.lastSelection
-          if (!active) {
-            return
-          }
-          const nextRow = clamp(active.focus.row + direction, 0, rows - 1)
-          if (nextRow === active.focus.row) {
-            return
-          }
-          const selection: TerminalSelection = {
-            ...active,
-            focus: {
-              ...active.focus,
-              row: nextRow,
-              timestamp: Date.now(),
-            },
-            status: 'dragging',
-          }
-          updateSelectionFromPointer(selection)
-        }, 50)
-        autoScrollRef.current = { timer, direction }
+      localEcho,
+      shortcutGuide: {
+        enabled: accessibility.adapter.shortcutGuide.enabled,
+        toggleViaHotkey: () =>
+          accessibility.adapter.shortcutGuide.toggle('hotkey'),
       },
-      [interpreter, rows, stopAutoScroll, updateSelectionFromPointer],
-    )
-
-    const endPointerSelection = useCallback(
-      (
-        selection: TerminalSelection | null,
-        pointerId: number | null,
-        target: HTMLCanvasElement,
-      ) => {
-        stopAutoScroll()
-        keyboardSelectionAnchorRef.current = null
-        if (
-          pointerId !== null &&
-          typeof target.hasPointerCapture === 'function' &&
-          target.hasPointerCapture(pointerId)
-        ) {
-          if (typeof target.releasePointerCapture === 'function') {
-            target.releasePointerCapture(pointerId)
-          }
-        }
-        pointerSelectionRef.current.pointerId = null
-        pointerSelectionRef.current.anchor = null
-        pointerSelectionRef.current.lastSelection = selection
+      instrumentation: {
+        hasExternalDataConsumer: instrumentation.hasExternalDataConsumer,
+        onData: instrumentation.hasExternalDataConsumer
+          ? instrumentation.emitData
+          : undefined,
       },
-      [stopAutoScroll],
-    )
+    })
 
-    const handlePointerDown = useCallback(
-      (event: React.PointerEvent<HTMLCanvasElement>) => {
-        if (event.button !== 0) {
-          return
-        }
-        event.preventDefault()
+    useEffect(() => {
+      rendererHandle.sync(interpreter.snapshot)
+      if (resolvedAccessibility.autoFocus) {
         focus()
-        const { row, column } = getPointerMetrics(event)
-        const timestamp = Date.now()
-        const snapshot = interpreter.snapshot
-        const clampedRow = clampRowToContent(snapshot, row)
-        const clampedColumn = interpreter.clampCursorColumn(clampedRow, column)
-        const selection: TerminalSelection = {
-          anchor: { row: clampedRow, column: clampedColumn, timestamp },
-          focus: { row: clampedRow, column: clampedColumn, timestamp },
-          kind: event.shiftKey ? 'rectangular' : 'normal',
-          status: 'dragging',
-        }
-        beginSelection(selection, event.pointerId, event.currentTarget)
-      },
-      [beginSelection, focus, getPointerMetrics, interpreter],
-    )
-
-    const handlePointerMove = useCallback(
-      (event: React.PointerEvent<HTMLCanvasElement>) => {
-        const pointerState = pointerSelectionRef.current
-        if (
-          pointerState.pointerId !== event.pointerId ||
-          !pointerState.anchor
-        ) {
-          return
-        }
-        event.preventDefault()
-        const { row, column, offsetY, rect } = getPointerMetrics(event)
-        const direction: -1 | 0 | 1 =
-          offsetY < 0 ? -1 : offsetY > rect.height ? 1 : 0
-        if (direction === 0) {
-          stopAutoScroll()
-        } else {
-          startAutoScroll(direction)
-        }
-        const timestamp = Date.now()
-        const snapshot = interpreter.snapshot
-        const clampedRow = clampRowToContent(snapshot, row)
-        const clampedColumn = interpreter.clampCursorColumn(clampedRow, column)
-        const selection: TerminalSelection = {
-          anchor: pointerState.anchor,
-          focus: { row: clampedRow, column: clampedColumn, timestamp },
-          kind: pointerState.lastSelection?.kind ?? 'normal',
-          status: 'dragging',
-        }
-        updateSelectionFromPointer(selection)
-      },
-      [
-        getPointerMetrics,
-        interpreter,
-        startAutoScroll,
-        stopAutoScroll,
-        updateSelectionFromPointer,
-      ],
-    )
-
-    const finalizeSelection = useCallback(
-      (
-        event: React.PointerEvent<HTMLCanvasElement>,
-        status: TerminalSelection['status'],
-      ) => {
-        const pointerState = pointerSelectionRef.current
-        if (pointerState.pointerId !== event.pointerId) {
-          return
-        }
-        const activeSelection =
-          interpreter.snapshot.selection ?? pointerState.lastSelection
-        if (activeSelection) {
-          const finalized: TerminalSelection = {
-            ...activeSelection,
-            status,
-            focus: {
-              ...activeSelection.focus,
-              timestamp: Date.now(),
-            },
-          }
-          updateSelectionFromPointer(finalized)
-        }
-        endPointerSelection(
-          interpreter.snapshot.selection,
-          event.pointerId,
-          event.currentTarget,
-        )
-      },
-      [endPointerSelection, interpreter, updateSelectionFromPointer],
-    )
-
-    const handlePointerUp = useCallback(
-      (event: React.PointerEvent<HTMLCanvasElement>) => {
-        event.preventDefault()
-        finalizeSelection(event, 'idle')
-        const selection = interpreter.snapshot.selection
-        if (!selection || isSelectionCollapsed(selection)) {
-          const { row, column } = getPointerMetrics(event)
-          const snapshot = interpreter.snapshot
-          const clampedRow = clampRowToContent(snapshot, row)
-          const clampedColumn = interpreter.clampCursorColumn(
-            clampedRow,
-            column,
-          )
-          const updates = interpreter.moveCursorTo(
-            { row: clampedRow, column: clampedColumn },
-            {
-              extendSelection: false,
-              clampToLineEnd: true,
-              clampToContentRow: true,
-            },
-          )
-          applyUpdates(updates)
-        }
-      },
-      [applyUpdates, finalizeSelection, getPointerMetrics, interpreter],
-    )
-
-    const handlePointerCancel = useCallback(
-      (event: React.PointerEvent<HTMLCanvasElement>) => {
-        event.preventDefault()
-        stopAutoScroll()
-        const pointerState = pointerSelectionRef.current
-        if (pointerState.pointerId !== event.pointerId) {
-          return
-        }
-        endPointerSelection(
-          pointerState.lastSelection,
-          event.pointerId,
-          event.currentTarget,
-        )
-      },
-      [endPointerSelection, stopAutoScroll],
-    )
+      }
+    }, [focus, interpreter, rendererHandle, resolvedAccessibility.autoFocus])
 
     const reset = useCallback(() => {
       parserRef.current.reset()
       interpreter.reset()
       rendererHandle.sync(interpreter.snapshot)
       setSnapshotVersion((value) => value + 1)
-      printerEventsRef.current = []
-    }, [interpreter, rendererHandle])
+      resetPrinterEvents()
+      setCurrentSelection(interpreter.snapshot.selection ?? null)
+    }, [interpreter, rendererHandle, resetPrinterEvents])
 
-    const emitData = useCallback(
-      (bytes: Uint8Array, options?: { skipLocalEcho?: boolean }) => {
-        onData?.(bytes)
-        if (!options?.skipLocalEcho && (!onData || localEcho)) {
-          write(bytes)
-        }
-      },
-      [localEcho, onData, write],
-    )
-
-    const replaceSelectionWithText = useCallback(
-      (selection: TerminalSelection | null, replacement: string) => {
-        const updates = interpreter.editSelection({
-          selection: selection ?? undefined,
-          replacement,
-        })
-        if (updates.length === 0) {
-          return false
-        }
-        applyUpdates(updates)
-        return true
-      },
-      [applyUpdates, interpreter],
-    )
-
-    const flushComposition = useCallback(
-      (value: string | null | undefined) => {
-        keyboardSelectionAnchorRef.current = null
-        const text = value ?? ''
-        if (!text) {
-          return
-        }
-
-        const selection = interpreter.snapshot.selection ?? null
-        const replacementApplied = replaceSelectionWithText(selection, text)
-        const payload = TEXT_ENCODER.encode(text)
-        if (replacementApplied) {
-          onData?.(payload)
-        } else {
-          emitData(payload)
-        }
-      },
-      [emitData, interpreter, onData, replaceSelectionWithText],
-    )
-
-    const handleCompositionStart = useCallback(
-      (_event: ReactCompositionEvent<HTMLDivElement>) => {
-        compositionStateRef.current = { active: true, data: '' }
-      },
-      [],
-    )
-
-    const handleCompositionUpdate = useCallback(
-      (event: ReactCompositionEvent<HTMLDivElement>) => {
-        compositionStateRef.current = {
-          active: true,
-          data: event.data ?? '',
-        }
-      },
-      [],
-    )
-
-    const handleCompositionEnd = useCallback(
-      (event: ReactCompositionEvent<HTMLDivElement>) => {
-        const data = event.data ?? compositionStateRef.current.data
-        compositionStateRef.current = { active: false, data: '' }
-        flushComposition(data)
-      },
-      [flushComposition],
-    )
-
-    const performLocalErase = useCallback(
-      (direction: 'backspace' | 'delete'): boolean => {
-        if (!localEcho) {
-          return false
-        }
-
-        const snapshot = interpreter.snapshot
-        const activeSelection = snapshot.selection
-        if (activeSelection && !isSelectionCollapsed(activeSelection)) {
-          return replaceSelectionWithText(activeSelection, '')
-        }
-
-        const { row, column } = snapshot.cursor
-        if (direction === 'backspace') {
-          if (column <= 0) {
-            return false
-          }
-          const selection = createLinearSelection(row, column - 1, column)
-          return replaceSelectionWithText(selection, '')
-        }
-
-        if (column >= snapshot.columns) {
-          return false
-        }
-
-        const rowBuffer = snapshot.buffer[row] ?? []
-        const targetCell = rowBuffer[column]
-        if (!targetCell || targetCell.char === ' ') {
-          return false
-        }
-
-        const selection = createLinearSelection(row, column, column + 1)
-        return replaceSelectionWithText(selection, '')
-      },
-      [interpreter, localEcho, replaceSelectionWithText],
-    )
-
-    const handleKeyDown = useCallback(
-      (event: ReactKeyboardEvent<HTMLDivElement>) => {
-        if (
-          event.nativeEvent.isComposing ||
-          compositionStateRef.current.active
-        ) {
-          return
-        }
-
-        const result = handleTerminalHotkey(event, {
-          interpreter: {
-            moveCursorLeft: (options) => interpreter.moveCursorLeft(options),
-            moveCursorRight: (options) => interpreter.moveCursorRight(options),
-            moveCursorUp: (options) => interpreter.moveCursorUp(options),
-            moveCursorDown: (options) => interpreter.moveCursorDown(options),
-            moveCursorLineStart: (options) =>
-              interpreter.moveCursorLineStart(options),
-            moveCursorLineEnd: (options) =>
-              interpreter.moveCursorLineEnd(options),
-            moveCursorWordLeft: (options) =>
-              interpreter.moveCursorWordLeft(options),
-            moveCursorWordRight: (options) =>
-              interpreter.moveCursorWordRight(options),
-            getSnapshot: () => interpreter.snapshot,
-          },
-          performLocalErase,
-          applyUpdates,
-          encodeKeyEvent,
-          emitData,
-          clearSelection,
-          write,
-          onData,
-          toggleShortcutGuide,
-          shortcutGuideEnabled,
-          keyboardSelectionAnchorRef,
-          compositionStateRef,
-        })
-
-        if (!result.handled) {
-          return
-        }
-
-        if (result.preventDefault) {
-          event.preventDefault()
-        }
-      },
-      [
-        applyUpdates,
-        clearSelection,
-        emitData,
-        interpreter,
-        onData,
-        performLocalErase,
-        shortcutGuideEnabled,
-        toggleShortcutGuide,
-        write,
-      ],
-    )
-
-    const handlePaste = useCallback(
-      (event: ReactClipboardEvent<HTMLDivElement>) => {
-        const text = event.clipboardData.getData('text')
-        if (!text) {
-          return
-        }
-        event.preventDefault()
-        const selection = interpreter.snapshot.selection ?? null
-        const replacementApplied = replaceSelectionWithText(selection, text)
-
-        const payload = TEXT_ENCODER.encode(text)
-        if (replacementApplied) {
-          onData?.(payload)
-        } else {
-          emitData(payload)
-        }
-      },
-      [emitData, interpreter, onData, replaceSelectionWithText],
-    )
-
-    const handleCopy = useCallback(
-      (event: ReactClipboardEvent<HTMLDivElement>) => {
-        const selection = interpreter.snapshot.selection
-        if (!selection) {
-          return
-        }
-        const text = extractSelectionText(interpreter.snapshot, selection)
-        if (!text) {
-          return
-        }
-        event.preventDefault()
-        event.clipboardData?.setData('text/plain', text)
-      },
-      [interpreter],
-    )
-
-    useEffect(() => {
-      rendererHandle.sync(interpreter.snapshot)
-      if (autoFocus) {
-        focus()
-      }
-    }, [autoFocus, focus, interpreter, rendererHandle])
-
-    useEffect(
-      () => () => {
-        stopAutoScroll()
-      },
-      [stopAutoScroll],
-    )
-
-    useImperativeHandle(
-      ref,
+    const imperativeHandle = useMemo<TerminalHandle>(
       () => ({
         focus,
         write,
         reset,
         getSnapshot: () => interpreterRef.current!.snapshot,
         getSelection: () => currentSelection,
-        getPrinterEvents: () =>
-          printerEventsRef.current.map((event) =>
-            event.type === 'print-screen'
-              ? { ...event, lines: [...event.lines] }
-              : event.type === 'write'
-                ? { ...event, data: event.data.slice() }
-                : { ...event },
-          ),
+        getPrinterEvents: () => getPrinterEventsSnapshot(),
         getDiagnostics: () => rendererHandle.diagnostics,
-        announceStatus: accessibilityAdapter.announceStatus,
-        openShortcutGuide: () => openShortcutGuide('imperative'),
-        closeShortcutGuide: () => closeShortcutGuide('imperative'),
-        toggleShortcutGuide: () => toggleShortcutGuide('imperative'),
+        getRendererBackend: () => rendererHandle.backend,
+        announceStatus: (message) =>
+          accessibility.adapter.announceStatus(message),
+        openShortcutGuide: () =>
+          accessibility.adapter.shortcutGuide.open('imperative'),
+        closeShortcutGuide: () =>
+          accessibility.adapter.shortcutGuide.close('imperative'),
+        toggleShortcutGuide: () =>
+          accessibility.adapter.shortcutGuide.toggle('imperative'),
       }),
       [
-        accessibilityAdapter.announceStatus,
+        accessibility.adapter,
         currentSelection,
         focus,
-        closeShortcutGuide,
-        reset,
+        getPrinterEventsSnapshot,
         rendererHandle,
-        openShortcutGuide,
-        toggleShortcutGuide,
+        reset,
         write,
       ],
     )
 
+    useImperativeHandle(ref, () => imperativeHandle, [imperativeHandle])
+
+    useEffect(() => {
+      onHandleReady?.(imperativeHandle)
+    }, [imperativeHandle, onHandleReady])
+
     return (
-      // biome-ignore lint/a11y/useSemanticElements: WAI-ARIA compliance asserted in e2e tests
-      <div
-        {...rest}
+      <TerminalAccessibilityLayer
+        {...accessibility.containerProps}
+        {...domProps}
         ref={containerRef}
-        role="textbox"
-        tabIndex={0}
-        aria-label={ariaLabel}
-        aria-multiline="true"
-        aria-roledescription="Terminal"
-        aria-keyshortcuts={ariaKeyShortcuts}
-        aria-describedby={describedByValue}
-        aria-activedescendant={
-          accessibilityAdapter.activeDescendantId ?? undefined
-        }
         className={className}
         style={style}
         onClick={focus}
@@ -1278,23 +497,40 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
         onCopy={handleCopy}
+        adapter={accessibility.adapter}
+        instructionsContent={resolvedAccessibility.instructions ?? null}
       >
-        <TerminalAccessibilityLayer
-          adapter={accessibilityAdapter}
-          instructionsContent={accessibilityInstructions ?? null}
-        />
         <canvas
-          ref={rendererHandle.canvasRef as React.RefObject<HTMLCanvasElement>}
+          ref={rendererHandle.canvasRef as RefObject<HTMLCanvasElement>}
           className={canvasClassName}
           style={canvasStyle}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerCancel}
+          onPointerDown={selectionApi.pointerHandlers.onPointerDown}
+          onPointerMove={selectionApi.pointerHandlers.onPointerMove}
+          onPointerUp={selectionApi.pointerHandlers.onPointerUp}
+          onPointerCancel={selectionApi.pointerHandlers.onPointerCancel}
         />
-      </div>
+      </TerminalAccessibilityLayer>
     )
   },
 )
 
 Terminal.displayName = 'Terminal'
+
+export type { TerminalStatusMessage } from './accessibility/accessibility'
+export type {
+  ShortcutGuideConfig as TerminalShortcutGuideOptions,
+  ShortcutGuideReason,
+} from './accessibility/accessibility-layer'
+export type {
+  TerminalErrorEvent,
+  TerminalErrorSource,
+  TerminalFrameEvent,
+  TerminalInstrumentationOptions,
+} from './instrumentation/terminal-instrumentation'
+export type { PrinterEvent } from './printer'
+export type {
+  TerminalAccessibilityOptions,
+  TerminalGraphicsBackend,
+  TerminalGraphicsOptions,
+  TerminalStylingOptions,
+} from './utils/terminal-options'
