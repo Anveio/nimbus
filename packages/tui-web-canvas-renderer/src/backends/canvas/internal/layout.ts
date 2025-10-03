@@ -1,5 +1,5 @@
 import type { TerminalState } from '@mana/vt'
-import type { CanvasLike, RendererMetrics } from '../types'
+import type { CanvasLike, RendererMetrics } from '../../../types'
 
 export interface CanvasLayout {
   readonly logicalWidth: number

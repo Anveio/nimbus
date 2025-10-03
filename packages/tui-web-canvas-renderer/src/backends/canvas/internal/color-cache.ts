@@ -1,4 +1,4 @@
-import type { RendererColor } from '../types'
+import type { RendererColor } from '../../../types'
 
 export type ColorTuple = [number, number, number, number]
 

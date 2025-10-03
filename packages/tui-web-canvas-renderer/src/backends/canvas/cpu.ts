@@ -6,13 +6,6 @@ import type {
   TerminalState,
 } from '@mana/vt'
 import { getSelectionRowSegments } from '@mana/vt'
-import {
-  type PaletteOverrides,
-  resolveCellColors,
-  resolvePaletteOverrideColor,
-} from '../internal/colors'
-import { fontString } from '../internal/fonts'
-import { ensureCanvasDimensions, setCanvasStyleSize } from '../internal/layout'
 import type {
   CanvasLike,
   CanvasRenderer,
@@ -22,7 +15,14 @@ import type {
   RendererCursorTheme,
   RendererMetrics,
   RendererTheme,
-} from '../types'
+} from '../../types'
+import {
+  type PaletteOverrides,
+  resolveCellColors,
+  resolvePaletteOverrideColor,
+} from './internal/colors'
+import { fontString } from './internal/fonts'
+import { ensureCanvasDimensions, setCanvasStyleSize } from './internal/layout'
 
 const createDefaultAttributes = (): TerminalAttributes => ({
   bold: false,

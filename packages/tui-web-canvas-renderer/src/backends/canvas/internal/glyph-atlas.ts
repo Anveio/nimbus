@@ -1,4 +1,4 @@
-import type { CanvasLike, RendererMetrics } from '../types'
+import type { CanvasLike, RendererMetrics } from '../../../types'
 import { fontString } from './fonts'
 
 interface GlyphStyle {

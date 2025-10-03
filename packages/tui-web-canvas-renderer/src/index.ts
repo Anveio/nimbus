@@ -1,5 +1,7 @@
+import { createCpuCanvasRenderer } from './backends/canvas/cpu'
 import type {
   CanvasRenderer,
+  Cpu2dBackendConfig,
   CreateCanvasRenderer,
   DetectPreferredBackendOptions,
   RendererBackendConfig,
@@ -7,23 +9,11 @@ import type {
   RendererBackendProbeContext,
   RendererBackendProbeResult,
   RendererBackendProvider,
-  Cpu2dBackendConfig,
   WebglBackendConfig,
   WebgpuBackendConfig,
 } from './types'
-import { createCpuCanvasRenderer } from './backends/cpu'
-import {
-  createWebglBackendProvider,
-  detectWebglSupport as detectWebglSupportInternal,
-} from './backends/gpu-webgl'
 
 export * from './types'
-export { detectWebglSupportInternal as detectWebglSupport }
-export type {
-  WebglSupportOptions,
-  WebglSupportResult,
-  WebglInitOutcome,
-} from './backends/gpu-webgl'
 
 const DEFAULT_BACKEND: RendererBackendConfig = { type: 'cpu-2d' }
 
@@ -35,8 +25,6 @@ const cpuBackendProvider: RendererBackendProvider<Cpu2dBackendConfig> = {
   create: (options, _config, _probe) =>
     createCpuCanvasRenderer({ ...options, backend: { type: 'cpu-2d' } }),
 }
-
-const webglBackendProvider = createWebglBackendProvider()
 
 const resolveFallbackMode = (
   config: RendererBackendConfig,
@@ -98,34 +86,13 @@ export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
   const requestedConfig = options.backend ?? DEFAULT_BACKEND
   switch (requestedConfig.type) {
     case 'gpu-webgl': {
-      const normalizedConfig =
-        webglBackendProvider.normalizeConfig(requestedConfig)
-      const fallbackMode = resolveFallbackMode(normalizedConfig)
-
-      if (fallbackMode === 'cpu-only') {
-        return createWithProvider(options, cpuBackendProvider, {
-          type: 'cpu-2d',
-        })
-      }
-
-      try {
-        return createWithProvider(
-          options,
-          webglBackendProvider,
-          normalizedConfig,
-        )
-      } catch (error) {
-        if (fallbackMode === 'require-gpu') {
-          const reason = error instanceof Error ? error.message : String(error)
-          throw new Error(`GPU renderer initialisation failed: ${reason}`)
-        }
-      }
-
+      /** Todo implemnent actual WebGL backend */
       return createWithProvider(options, cpuBackendProvider, {
         type: 'cpu-2d',
       })
     }
     case 'gpu-webgpu': {
+      /** Todo implemnent actual WebGPU backend */
       const fallbackMode = resolveFallbackMode(requestedConfig)
       if (fallbackMode === 'require-gpu') {
         throw new Error('WebGPU backend is not available yet')
@@ -134,7 +101,6 @@ export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
         type: 'cpu-2d',
       })
     }
-    case 'cpu-2d':
     default: {
       const normalizedConfig =
         cpuBackendProvider.normalizeConfig(requestedConfig)
@@ -149,27 +115,6 @@ export const detectPreferredBackend = (
   const fallback = options?.fallback ?? 'prefer-gpu'
   if (fallback === 'cpu-only') {
     return { type: 'cpu-2d' }
-  }
-
-  const webglConfig = webglBackendProvider.normalizeConfig({
-    type: 'gpu-webgl',
-    fallback,
-    contextAttributes:
-      options?.webgl?.contextAttributes ?? options?.contextAttributes,
-  })
-
-  const probeContext: RendererBackendProbeContext = {
-    canvas: options?.canvas,
-    webgl: {
-      contextAttributes:
-        options?.webgl?.contextAttributes ?? webglConfig.contextAttributes,
-    },
-  }
-
-  const support = webglBackendProvider.probe(probeContext, webglConfig)
-
-  if (support.supported) {
-    return webglConfig
   }
 
   return { type: 'cpu-2d' }
