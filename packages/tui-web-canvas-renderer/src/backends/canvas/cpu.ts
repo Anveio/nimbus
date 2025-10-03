@@ -20,9 +20,9 @@ import {
   type PaletteOverrides,
   resolveCellColors,
   resolvePaletteOverrideColor,
-} from './internal/colors'
-import { hashFrameBytes } from '../../internal/frame-hash'
-import { fontString } from './internal/fonts'
+} from '../../util/colors'
+import { fontString } from '../../util/fonts'
+import { hashFrameBytes } from '../webgl/internal/frame-hash'
 import { ensureCanvasDimensions, setCanvasStyleSize } from './internal/layout'
 
 const createDefaultAttributes = (): TerminalAttributes => ({
@@ -365,10 +365,10 @@ export const createCpuCanvasRenderer = (
       diagnostics = { ...diagnostics, frameHash: undefined }
       return
     }
-   const width = canvas.width || 0
-   const height = canvas.height || 0
-   if (width === 0 || height === 0) {
-     diagnostics = {
+    const width = canvas.width || 0
+    const height = canvas.height || 0
+    if (width === 0 || height === 0) {
+      diagnostics = {
         ...diagnostics,
         frameHash: hashFrameBytes(new Uint8Array(0), width, height),
       }

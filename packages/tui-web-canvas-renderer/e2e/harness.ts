@@ -1,14 +1,10 @@
-import type {
-  TerminalSelection,
-  TerminalState,
-  TerminalUpdate,
-} from '@mana/vt'
+import type { TerminalSelection, TerminalState, TerminalUpdate } from '@mana/vt'
 import {
   type CanvasRenderer,
   createCanvasRenderer,
   type RendererMetrics,
   type RendererTheme,
-} from '../../src/index'
+} from '../src/index'
 
 interface RendererStore {
   renderer: CanvasRenderer | null
@@ -53,7 +49,11 @@ declare global {
       setCursorPosition: (row: number, column: number) => void
       getPixel: (x: number, y: number) => [number, number, number, number]
       getDiagnostics: () => CanvasRenderer['diagnostics'] | null
-      getFrameSnapshot: () => { hash: string | null; width: number; height: number }
+      getFrameSnapshot: () => {
+        hash: string | null
+        width: number
+        height: number
+      }
       getSelectionEvents: () => Array<TerminalSelection | null>
       getOverlayEvents: () => Array<{ selection: TerminalSelection | null }>
       setSelectionListener: () => void

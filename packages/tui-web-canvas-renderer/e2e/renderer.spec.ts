@@ -6,7 +6,7 @@ import type {
   TerminalUpdate,
 } from '@mana/vt'
 import { expect, type Page, test } from '@playwright/test'
-import type { RendererMetrics, RendererTheme } from '../../src/types'
+import type { RendererMetrics, RendererTheme } from '../src/types'
 import {
   disposeHarness,
   prepareHarness,
@@ -221,7 +221,9 @@ const getDiagnostics = async (page: Page) => {
 const getFrameSnapshot = async (
   page: Page,
 ): Promise<{ hash: string | null; width: number; height: number } | null> => {
-  return page.evaluate(() => window.__manaRendererTest__?.getFrameSnapshot() ?? null)
+  return page.evaluate(
+    () => window.__manaRendererTest__?.getFrameSnapshot() ?? null,
+  )
 }
 
 const getSelectionEvents = async (page: Page) => {
@@ -701,7 +703,7 @@ test.describe('createCanvasRenderer (webgl backend)', () => {
       const backend = await page.evaluate(() =>
         window.__manaRendererTest__?.getBackend(),
       )
-      expect(backend).toBe('gpu-webgl')
+      expect(backend).toBe('webgl')
 
       const pixel = await getPixel(page, 0, 0)
       const expected = hexToRgba(theme.background)
@@ -753,6 +755,68 @@ test.describe('createCanvasRenderer (webgl backend)', () => {
       const after = await getFrameSnapshot(page)
       expect(after?.hash).not.toBeNull()
       expect(after?.hash).not.toBe(before?.hash)
+    })
+  })
+
+  test('scroll updates redraw only exposed tiles', async ({ page }) => {
+    await withHarness(page, async () => {
+      const theme = createTheme()
+      const rows = 64
+      const columns = 64
+      const snapshot = createSnapshot(rows, columns)
+      for (let row = 0; row < rows; row += 1) {
+        for (let column = 0; column < columns; column += 1) {
+          snapshot.buffer[row]![column] = {
+            char: String.fromCharCode(65 + (row % 26)),
+            attr: createAttributes({
+              background: { type: 'ansi', index: (column % 8) + 8 },
+            }),
+            protected: false,
+          }
+        }
+      }
+
+      await initRenderer(page, {
+        snapshot,
+        theme,
+        metrics: {
+          ...baseMetrics,
+          cell: { ...baseMetrics.cell, width: 12, height: 24 },
+        },
+        backend: 'webgl',
+      })
+
+      const nextSnapshot = structuredClone(snapshot)
+      for (let row = 0; row < rows - 1; row += 1) {
+        nextSnapshot.buffer[row] = structuredClone(snapshot.buffer[row + 1]!)
+      }
+      const newBottomRow = Array.from({ length: columns }, (_, column) => ({
+        char: '#',
+        attr: createAttributes({
+          background: { type: 'ansi', index: column % 8 },
+        }),
+        protected: false,
+      }))
+      nextSnapshot.buffer[rows - 1] = newBottomRow
+
+      const updates: TerminalUpdate[] = [
+        { type: 'scroll', amount: 1 },
+        {
+          type: 'cells',
+          cells: newBottomRow.map((cell, column) => ({
+            row: rows - 1,
+            column,
+            cell,
+          })),
+        },
+      ]
+
+      await applyUpdates(page, { snapshot: nextSnapshot, updates })
+      const diagnostics = await getDiagnostics(page)
+      const frame = await getFrameSnapshot(page)
+      expect(diagnostics?.gpuDrawCallCount).toBe(5)
+      expect(diagnostics?.gpuCellsProcessed).toBe(2048)
+      expect(frame?.hash).not.toBeNull()
     })
   })
 })

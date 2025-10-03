@@ -1,4 +1,4 @@
-import type { RendererFontMetrics } from '../../../types'
+import type { RendererFontMetrics } from '../types'
 
 export const fontString = (
   font: RendererFontMetrics,

@@ -17,13 +17,19 @@ import type {
   RendererTheme,
   WebglBackendConfig,
 } from '../../types'
-import { ensureCanvasDimensions, setCanvasStyleSize } from '../canvas/internal/layout'
-import { resolvePaletteOverrideColor } from '../canvas/internal/colors'
 import {
   rendererColorToRgba,
   resolveCellColorBytes,
-} from './color-utils'
-import { BackgroundTexture } from './background-texture'
+  resolvePaletteOverrideColor,
+} from '../../util/colors'
+import {
+  ensureCanvasDimensions,
+  setCanvasStyleSize,
+} from '../canvas/internal/layout'
+import { BackgroundTexture } from './internal/background-texture'
+import { TILE_HEIGHT_CELLS, TILE_WIDTH_CELLS } from './internal/constants'
+import { DamageTracker } from './internal/damage-tracker'
+import { hashFrameBytes } from './internal/frame-hash'
 import {
   bindFramebufferTexture,
   createFramebufferTexture,
@@ -33,12 +39,9 @@ import {
   disposeProgram,
   disposeTexture,
   disposeVertexArray,
-} from './gl-utils'
-import { GlyphAtlas } from './glyph-atlas'
-import { TILE_HEIGHT_CELLS, TILE_WIDTH_CELLS } from './constants'
-import type { TileDefinition } from './types'
-import { DamageTracker } from './damage-tracker'
-import { hashFrameBytes } from '../../internal/frame-hash'
+} from './internal/gl-utils'
+import { GlyphAtlas } from './internal/glyph-atlas'
+import type { TileDefinition } from './renderer-types'
 
 const INSTANCE_FLOAT_COUNT = 9
 const INSTANCE_COLOR_OFFSET_BYTES = INSTANCE_FLOAT_COUNT * 4
@@ -68,12 +71,7 @@ interface ShaderSources {
   readonly fragment: string
 }
 
-const quadVertices = new Float32Array([
-  -1, -1,
-  1, -1,
-  -1, 1,
-  1, 1,
-])
+const quadVertices = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1])
 
 const TILE_VERTEX_SHADER: ShaderSources = {
   vertex: `#version 300 es
@@ -204,7 +202,6 @@ void main() {
 `,
 }
 
-
 const createProgramPair = (
   gl: WebGL2RenderingContext,
   sources: ShaderSources,
@@ -301,7 +298,9 @@ export class WebglCanvasRenderer implements CanvasRenderer {
     this.theme = options.theme
     this.snapshot = options.snapshot
     this.cursorOverlayStrategy = options.cursorOverlayStrategy
-    this.overlayContext = this.cursorOverlayStrategy ? createOverlayContext() : null
+    this.overlayContext = this.cursorOverlayStrategy
+      ? createOverlayContext()
+      : null
     this._currentSelection = options.snapshot.selection ?? null
     this.lastCursorPosition = { ...options.snapshot.cursor }
     this.onSelectionChange = options.onSelectionChange
@@ -319,7 +318,10 @@ export class WebglCanvasRenderer implements CanvasRenderer {
         viewportPx: this.gl.getUniformLocation(this.tileProgram, 'uViewportPx'),
       },
       background: {
-        sampler: this.gl.getUniformLocation(this.backgroundProgram, 'uBackground'),
+        sampler: this.gl.getUniformLocation(
+          this.backgroundProgram,
+          'uBackground',
+        ),
         textureSize: this.gl.getUniformLocation(
           this.backgroundProgram,
           'uTextureSize',
@@ -386,7 +388,10 @@ export class WebglCanvasRenderer implements CanvasRenderer {
     this.handleUpdates(updates)
     this._currentSelection = snapshot.selection ?? null
     this.onSelectionChange?.(this._currentSelection)
-    const { requireFull } = this.markDamageFromUpdates(updates, previousSnapshot)
+    const { requireFull } = this.markDamageFromUpdates(
+      updates,
+      previousSnapshot,
+    )
     if (requireFull) {
       this.renderFullFrame()
     } else {
@@ -504,7 +509,7 @@ export class WebglCanvasRenderer implements CanvasRenderer {
     }
     for (let i = 0; i < tiles.length; i += 1) {
       const definition = tiles[i]!
-      let resources = this.tileResources[i]
+      const resources = this.tileResources[i]
       const instanceCount = definition.instanceCount
       const requiredBytes = instanceCount * INSTANCE_STRIDE_BYTES
       const scissor = {
@@ -526,10 +531,21 @@ export class WebglCanvasRenderer implements CanvasRenderer {
         }
         this.gl.bindVertexArray(vao)
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer)
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, arrayBuffer, this.gl.DYNAMIC_DRAW)
+        this.gl.bufferData(
+          this.gl.ARRAY_BUFFER,
+          arrayBuffer,
+          this.gl.DYNAMIC_DRAW,
+        )
 
         this.gl.enableVertexAttribArray(0)
-        this.gl.vertexAttribPointer(0, 2, this.gl.FLOAT, false, INSTANCE_STRIDE_BYTES, 0)
+        this.gl.vertexAttribPointer(
+          0,
+          2,
+          this.gl.FLOAT,
+          false,
+          INSTANCE_STRIDE_BYTES,
+          0,
+        )
         this.gl.vertexAttribDivisor(0, 1)
 
         this.gl.enableVertexAttribArray(1)
@@ -620,12 +636,17 @@ export class WebglCanvasRenderer implements CanvasRenderer {
       if (existing) {
         this.gl.deleteTexture(existing)
       }
-      this.contentTextures[i] = createFramebufferTexture(this.gl, scaledWidth, scaledHeight, {
-        internalFormat: this.gl.RGBA8,
-        format: this.gl.RGBA,
-        type: this.gl.UNSIGNED_BYTE,
-        filter: this.gl.NEAREST,
-      })
+      this.contentTextures[i] = createFramebufferTexture(
+        this.gl,
+        scaledWidth,
+        scaledHeight,
+        {
+          internalFormat: this.gl.RGBA8,
+          format: this.gl.RGBA,
+          type: this.gl.UNSIGNED_BYTE,
+          filter: this.gl.NEAREST,
+        },
+      )
     }
   }
 
@@ -822,7 +843,6 @@ export class WebglCanvasRenderer implements CanvasRenderer {
     this.diagnosticsState = { ...this.diagnosticsState, frameHash }
   }
 
-
   private populateBackground(): void {
     const selectionSegments = this.snapshot.selection
       ? new Map(
@@ -869,7 +889,7 @@ export class WebglCanvasRenderer implements CanvasRenderer {
 
   private markDamageFromUpdates(
     updates: ReadonlyArray<TerminalUpdate>,
-    previousSnapshot: TerminalState,
+    _previousSnapshot: TerminalState,
   ): { requireFull: boolean } {
     let requireFull = false
     for (const update of updates) {
@@ -990,12 +1010,16 @@ export class WebglCanvasRenderer implements CanvasRenderer {
     }
   }
 
-  private populateTileInstances(tile: TileResources, context: RenderContext): void {
+  private populateTileInstances(
+    tile: TileResources,
+    context: RenderContext,
+  ): void {
     const { definition, floatView, byteView } = tile
     const { col0, row0, cols, rows } = definition
     let instanceIndex = 0
     for (let row = 0; row < rows; row += 1) {
-      const selectionSegment = context.selectionSegments?.get(row0 + row) ?? null
+      const selectionSegment =
+        context.selectionSegments?.get(row0 + row) ?? null
       for (let column = 0; column < cols; column += 1) {
         const absoluteRow = row0 + row
         const absoluteColumn = col0 + column
@@ -1008,14 +1032,16 @@ export class WebglCanvasRenderer implements CanvasRenderer {
           context.fallbackBackgroundColor,
         )
 
-        let foreground = (colors.foreground
-          ? [...colors.foreground]
-          : [
-              context.fallbackForeground[0],
-              context.fallbackForeground[1],
-              context.fallbackForeground[2],
-              0,
-            ]) as [number, number, number, number]
+        let foreground = (
+          colors.foreground
+            ? [...colors.foreground]
+            : [
+                context.fallbackForeground[0],
+                context.fallbackForeground[1],
+                context.fallbackForeground[2],
+                0,
+              ]
+        ) as [number, number, number, number]
         if (
           selectionSegment &&
           absoluteColumn >= selectionSegment.startColumn &&
@@ -1048,7 +1074,8 @@ export class WebglCanvasRenderer implements CanvasRenderer {
         floatView[instanceBase + 7] = glyph.v1
         floatView[instanceBase + 8] = glyph.isColor ? 1 : 0
 
-        const colorOffset = instanceIndex * INSTANCE_STRIDE_BYTES + INSTANCE_COLOR_OFFSET_BYTES
+        const colorOffset =
+          instanceIndex * INSTANCE_STRIDE_BYTES + INSTANCE_COLOR_OFFSET_BYTES
         byteView[colorOffset] = foreground[0]
         byteView[colorOffset + 1] = foreground[1]
         byteView[colorOffset + 2] = foreground[2]
@@ -1059,7 +1086,11 @@ export class WebglCanvasRenderer implements CanvasRenderer {
     }
 
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, tile.buffer)
-    this.gl.bufferData(this.gl.ARRAY_BUFFER, tile.arrayBuffer, this.gl.DYNAMIC_DRAW)
+    this.gl.bufferData(
+      this.gl.ARRAY_BUFFER,
+      tile.arrayBuffer,
+      this.gl.DYNAMIC_DRAW,
+    )
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null)
   }
 
@@ -1158,7 +1189,9 @@ export class WebglCanvasRenderer implements CanvasRenderer {
     this.gl.bindTexture(this.gl.TEXTURE_2D, null)
   }
 
-  private drawTiles(tiles: ReadonlyArray<TileResources> = this.tileResources): void {
+  private drawTiles(
+    tiles: ReadonlyArray<TileResources> = this.tileResources,
+  ): void {
     this.gl.useProgram(this.tileProgram)
     if (this.uniforms.tile.viewportPx) {
       this.gl.uniform2f(

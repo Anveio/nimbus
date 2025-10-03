@@ -2,22 +2,54 @@ import { createCpuCanvasRenderer } from './backends/canvas/cpu'
 import { createWebglCanvasRenderer } from './backends/webgl/renderer'
 import type {
   CanvasRenderer,
+  CanvasRendererOptions,
   Cpu2dBackendConfig,
   CreateCanvasRenderer,
   DetectPreferredBackendOptions,
   RendererBackendConfig,
   RendererBackendFallback,
+  RendererBackendKind,
   RendererBackendProbeContext,
   RendererBackendProbeResult,
   RendererBackendProvider,
   WebglBackendConfig,
-  WebgpuBackendConfig,
   WebglBackendProbeResult,
+  WebgpuBackendConfig,
 } from './types'
 
 export * from './types'
 
 const DEFAULT_BACKEND: RendererBackendConfig = { type: 'cpu-2d' }
+
+const setRendererBackendDataset = (
+  canvas: CanvasRendererOptions['canvas'],
+  backend: RendererBackendKind,
+): void => {
+  if (!canvas) {
+    return
+  }
+  const element = canvas as HTMLCanvasElement
+  if (!element || typeof element !== 'object') {
+    return
+  }
+  if (!('dataset' in element) || !element.dataset) {
+    return
+  }
+  switch (backend) {
+    case 'cpu-2d':
+      element.dataset.manaRendererBackend = 'cpu'
+      break
+    case 'gpu-webgl':
+      element.dataset.manaRendererBackend = 'webgl'
+      break
+    case 'gpu-webgpu':
+      element.dataset.manaRendererBackend = 'webgpu'
+      break
+    default:
+      element.dataset.manaRendererBackend = backend
+      break
+  }
+}
 
 const cpuBackendProvider: RendererBackendProvider<Cpu2dBackendConfig> = {
   kind: 'cpu-2d',
@@ -33,7 +65,8 @@ const webglBackendProvider: RendererBackendProvider<
   WebglBackendProbeResult
 > = {
   kind: 'gpu-webgl',
-  matches: (config): config is WebglBackendConfig => config.type === 'gpu-webgl',
+  matches: (config): config is WebglBackendConfig =>
+    config.type === 'gpu-webgl',
   normalizeConfig: (config) => ({
     type: 'gpu-webgl',
     contextAttributes: {
@@ -54,10 +87,12 @@ const webglBackendProvider: RendererBackendProvider<
         reason: 'Canvas is required to probe WebGL backend',
       }
     }
-    const attributes = config.contextAttributes ?? context.webgl?.contextAttributes
-    const gl = canvas.getContext('webgl2', attributes) as
-      | WebGL2RenderingContext
-      | null
+    const attributes =
+      config.contextAttributes ?? context.webgl?.contextAttributes
+    const gl = canvas.getContext(
+      'webgl2',
+      attributes,
+    ) as WebGL2RenderingContext | null
     if (!gl) {
       return {
         kind: 'gpu-webgl',
@@ -129,7 +164,9 @@ const createWithProvider = <
         : (probeResult.reason ?? 'Renderer backend not supported'),
     )
   }
-  return provider.create(options, config, probeResult)
+  const renderer = provider.create(options, config, probeResult)
+  setRendererBackendDataset(options.canvas, provider.kind)
+  return renderer
 }
 
 export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
@@ -147,13 +184,22 @@ export const createCanvasRenderer: CreateCanvasRenderer = (options) => {
         const fallbackMode = resolveFallbackMode(requestedConfig)
         if (fallbackMode === 'require-gpu') {
           throw new Error(
-            probeResult.reason ?? 'WebGL backend is not supported on this device',
+            probeResult.reason ??
+              'WebGL backend is not supported on this device',
           )
         }
-        const normalizedCpu = cpuBackendProvider.normalizeConfig({ type: 'cpu-2d' })
+        const normalizedCpu = cpuBackendProvider.normalizeConfig({
+          type: 'cpu-2d',
+        })
         return createWithProvider(options, cpuBackendProvider, normalizedCpu)
       }
-      return webglBackendProvider.create(options, normalizedConfig, probeResult)
+      const renderer = webglBackendProvider.create(
+        options,
+        normalizedConfig,
+        probeResult,
+      )
+      setRendererBackendDataset(options.canvas, 'gpu-webgl')
+      return renderer
     }
     case 'gpu-webgpu': {
       /** Todo implemnent actual WebGPU backend */
@@ -186,11 +232,14 @@ export const detectPreferredBackend = (
       preserveDrawingBuffer: true,
       alpha: false,
       antialias: true,
-      ...(options?.webgl?.contextAttributes ?? options?.contextAttributes ?? {}),
+      ...(options?.webgl?.contextAttributes ??
+        options?.contextAttributes ??
+        {}),
     }
-    const gl = canvas.getContext('webgl2', attributes) as
-      | WebGL2RenderingContext
-      | null
+    const gl = canvas.getContext(
+      'webgl2',
+      attributes,
+    ) as WebGL2RenderingContext | null
     if (gl) {
       const lose = gl.getExtension('WEBGL_lose_context')
       lose?.loseContext()
@@ -201,7 +250,10 @@ export const detectPreferredBackend = (
 }
 
 const createProbeCanvas = (): HTMLCanvasElement | null => {
-  if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
+  if (
+    typeof document !== 'undefined' &&
+    typeof document.createElement === 'function'
+  ) {
     return document.createElement('canvas')
   }
   return null

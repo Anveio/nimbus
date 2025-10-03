@@ -1,6 +1,7 @@
 import type { TerminalCell } from '@mana/vt'
-import type { RendererMetrics } from '../../types'
-import { fontString } from '../canvas/internal/fonts'
+import type { RendererMetrics } from '../../../types'
+import { fontString } from '../../../util/fonts'
+import type { GlyphMeta } from '../renderer-types'
 import {
   ATLAS_TEXTURE_FORMAT,
   ATLAS_TEXTURE_INTERNAL_FORMAT,
@@ -9,7 +10,6 @@ import {
   MAX_ATLAS_PAGES,
 } from './constants'
 import { WebglError } from './gl-utils'
-import type { GlyphMeta } from './types'
 
 const GLYPH_PADDING = 0
 
@@ -40,7 +40,9 @@ const ensureCanvas = (width: number, height: number): RasterContext => {
       desynchronized: true,
     }) as CanvasRenderingContext2D | null
     if (!ctx) {
-      throw new WebglError('Unable to obtain 2D context for glyph rasterisation')
+      throw new WebglError(
+        'Unable to obtain 2D context for glyph rasterisation',
+      )
     }
     ctx.fillStyle = 'white'
     ctx.textAlign = 'left'
@@ -71,7 +73,8 @@ const glyphKey = (cell: TerminalCell): string => {
   ].join(':')
 }
 
-const isColorGlyph = (cell: TerminalCell): boolean => cell.attr.foreground.type === 'rgb'
+const isColorGlyph = (cell: TerminalCell): boolean =>
+  cell.attr.foreground.type === 'rgb'
 
 export class GlyphAtlas {
   private readonly gl: WebGL2RenderingContext
@@ -162,9 +165,7 @@ export class GlyphAtlas {
   private allocateSlot(
     width: number,
     height: number,
-  ):
-    | { page: number; x: number; y: number }
-    | null {
+  ): { page: number; x: number; y: number } | null {
     const slotWidth = width + GLYPH_PADDING * 2
     const slotHeight = height + GLYPH_PADDING * 2
 

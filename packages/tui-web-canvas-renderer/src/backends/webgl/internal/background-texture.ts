@@ -1,10 +1,9 @@
-import type {
-  SelectionRowSegment,
-  TerminalCell,
-  TerminalState,
-} from '@mana/vt'
-import type { RendererTheme } from '../../types'
-import { resolveCellColorBytes, rendererColorToRgba } from './color-utils'
+import type { SelectionRowSegment, TerminalCell, TerminalState } from '@mana/vt'
+import type { RendererTheme } from '../../../types'
+import {
+  rendererColorToRgba,
+  resolveCellColorBytes,
+} from '../../../util/colors'
 import {
   CONTENT_TEXTURE_FORMAT,
   CONTENT_TEXTURE_INTERNAL_FORMAT,
@@ -23,10 +22,7 @@ export class BackgroundTexture {
   private fallbackBackground: string
   private paletteOverrides = new Map<number, string>()
 
-  constructor(
-    gl: WebGL2RenderingContext,
-    theme: RendererTheme,
-  ) {
+  constructor(gl: WebGL2RenderingContext, theme: RendererTheme) {
     this.gl = gl
     this.fallbackForeground = theme.foreground
     this.fallbackBackground = theme.background
@@ -117,7 +113,7 @@ export class BackgroundTexture {
     const reverseVideo = Boolean(snapshot.reverseVideo)
     const fallbackFg = reverseVideo ? theme.background : this.fallbackForeground
     const fallbackBg = reverseVideo ? theme.foreground : this.fallbackBackground
-    const selectionFg = selectionTheme?.foreground
+    const _selectionFg = selectionTheme?.foreground
       ? rendererColorToRgba(selectionTheme.foreground)
       : null
     const selectionBg = selectionTheme?.background
@@ -171,7 +167,8 @@ export class BackgroundTexture {
       this.fallbackForeground,
       this.fallbackBackground,
     )
-    const rgba = colors.background ?? rendererColorToRgba(this.fallbackBackground)
+    const rgba =
+      colors.background ?? rendererColorToRgba(this.fallbackBackground)
     const index = (row * this.width + column) * 4
     this.data[index] = rgba[0]
     this.data[index + 1] = rgba[1]

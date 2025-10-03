@@ -1,5 +1,5 @@
 import type { CanvasLike, RendererMetrics } from '../../../types'
-import { fontString } from './fonts'
+import { fontString } from '../../../util/fonts'
 
 interface GlyphStyle {
   readonly bold: boolean
