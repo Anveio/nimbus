@@ -6,17 +6,15 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
-    include: ['test/**/*.test.ts'],
     reporters: verbose ? ['default'] : ['dot'],
     silent: !verbose,
-    snapshotFormat: {
-      printBasicPrototype: false,
-    },
+    include: ['src/**/*.test.{ts,tsx}'],
+    exclude: ['e2e/**'],
     coverage: {
       enabled: true,
       provider: 'v8',
       reporter: ['text', 'lcov'],
-      include: ['src/**/*.ts'],
+      include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/**/*.d.ts'],
     },
   },

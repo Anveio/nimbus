@@ -21,6 +21,7 @@ import {
   resolveCellColorBytes,
   resolvePaletteOverrideColor,
 } from '../../util/colors'
+import { hashFrameBytes } from '../../util/frame-hash'
 import {
   ensureCanvasDimensions,
   setCanvasStyleSize,
@@ -28,7 +29,6 @@ import {
 import { BackgroundTexture } from './internal/background-texture'
 import { TILE_HEIGHT_CELLS, TILE_WIDTH_CELLS } from './internal/constants'
 import { DamageTracker } from './internal/damage-tracker'
-import { hashFrameBytes } from './internal/frame-hash'
 import {
   bindFramebufferTexture,
   createFramebufferTexture,

@@ -112,20 +112,20 @@ const DEFAULT_THEME: RendererTheme = {
       '#ffffff',
     ],
   },
-}
+} as const
 
 const DEFAULT_FONT: RendererFontMetrics = {
   family: `'Fira Code', Menlo, monospace`,
   size: 14,
   letterSpacing: 0,
   lineHeight: 1.2,
-}
+} as const
 
 const DEFAULT_CELL: RendererCellMetrics = {
   width: 9,
   height: 18,
   baseline: 14,
-}
+} as const
 
 const DEFAULT_METRICS: RendererMetrics = {
   devicePixelRatio:
@@ -134,7 +134,7 @@ const DEFAULT_METRICS: RendererMetrics = {
       : 1,
   font: DEFAULT_FONT,
   cell: DEFAULT_CELL,
-}
+} as const
 
 const mergeCursorTheme = (
   base: RendererCursorTheme,
@@ -297,7 +297,6 @@ export const resolveGraphicsOptions = (
           },
           captureDiagnosticsFrame: config.captureDiagnosticsFrame,
         }
-      case 'auto':
       default:
         return {
           backend: 'auto',
@@ -313,9 +312,4 @@ export const resolveGraphicsOptions = (
   }
 }
 
-export {
-  DEFAULT_THEME,
-  DEFAULT_METRICS,
-  DEFAULT_FONT,
-  DEFAULT_CELL,
-}
+export { DEFAULT_THEME, DEFAULT_METRICS, DEFAULT_FONT, DEFAULT_CELL }

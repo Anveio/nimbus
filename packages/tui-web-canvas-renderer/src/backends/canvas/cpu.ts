@@ -22,7 +22,7 @@ import {
   resolvePaletteOverrideColor,
 } from '../../util/colors'
 import { fontString } from '../../util/fonts'
-import { hashFrameBytes } from '../webgl/internal/frame-hash'
+import { hashFrameBytes } from '../../util/frame-hash'
 import { ensureCanvasDimensions, setCanvasStyleSize } from './internal/layout'
 
 const createDefaultAttributes = (): TerminalAttributes => ({
@@ -414,7 +414,12 @@ export const createCpuCanvasRenderer = (
 
   const renderer: CanvasRenderer = {
     canvas,
-    applyUpdates({ snapshot, updates, metrics: nextMetrics, theme: nextTheme }) {
+    applyUpdates({
+      snapshot,
+      updates,
+      metrics: nextMetrics,
+      theme: nextTheme,
+    }) {
       ensureNotDisposed(disposed)
       const pendingUpdates = updates ?? []
 

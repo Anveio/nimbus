@@ -36,6 +36,7 @@ import {
   type TerminalGraphicsOptions,
   type TerminalStylingOptions,
 } from './utils/terminal-options'
+import { useAutoResize } from './hooks/useAutoResize'
 import {
   type TerminalFrameEvent,
   type TerminalInstrumentationOptions,
@@ -53,9 +54,6 @@ import { useTerminalUserEvents } from './user-events/terminal-user-events'
 const DEFAULT_ROWS = 24
 const DEFAULT_COLUMNS = 80
 const TEXT_ENCODER = new TextEncoder()
-
-const clamp = (value: number, min: number, max: number): number =>
-  Math.max(min, Math.min(max, value))
 
 const createInterpreterInstance = (
   rows: number,
@@ -156,56 +154,21 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     } = resolvedStyling
     const { renderer: rendererGraphicsOptions, cursorOverlayStrategy } = resolvedGraphics
 
-    const containerRef = useRef<HTMLDivElement>(null)
+    const {
+      containerRef,
+      rows,
+      columns,
+    } = useAutoResize({
+      rows: rowsProp,
+      columns: columnsProp,
+      autoResize: autoResize ?? true,
+      defaultRows: DEFAULT_ROWS,
+      defaultColumns: DEFAULT_COLUMNS,
+      cellMetrics: metrics.cell,
+    })
     const focus = useCallback(() => {
       containerRef.current?.focus()
     }, [])
-
-    const [containerSize, setContainerSize] = useState<{
-      width: number
-      height: number
-    } | null>(null)
-
-    useEffect(() => {
-      if (!autoResize) {
-        setContainerSize(null)
-        return undefined
-      }
-      const node = containerRef.current
-      if (!node) {
-        return
-      }
-      const observer = new ResizeObserver((entries) => {
-        const entry = entries[0]
-        if (!entry) {
-          return
-        }
-        const { width, height } = entry.contentRect
-        if (!Number.isNaN(width) && !Number.isNaN(height)) {
-          setContainerSize({ width, height })
-        }
-      })
-      observer.observe(node)
-      return () => observer.disconnect()
-    }, [autoResize])
-
-    const fallbackWidth = (columnsProp ?? DEFAULT_COLUMNS) * metrics.cell.width
-    const fallbackHeight = (rowsProp ?? DEFAULT_ROWS) * metrics.cell.height
-    const effectiveSize = autoResize ? containerSize : null
-    const availableWidth = effectiveSize?.width ?? fallbackWidth
-    const availableHeight = effectiveSize?.height ?? fallbackHeight
-
-    const autoColumns = Math.max(
-      1,
-      Math.floor(availableWidth / Math.max(metrics.cell.width, 1)),
-    )
-    const autoRows = Math.max(
-      1,
-      Math.floor(availableHeight / Math.max(metrics.cell.height, 1)),
-    )
-
-    const rows = clamp(rowsProp ?? autoRows, 1, 500)
-    const columns = clamp(columnsProp ?? autoColumns, 1, 500)
 
     const interpreterRef = useRef<TerminalInterpreter | null>(null)
     const parserRef = useRef(createParser())
