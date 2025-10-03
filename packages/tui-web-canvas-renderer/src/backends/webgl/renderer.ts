@@ -29,10 +29,6 @@ import {
 import { BackgroundTexture } from './internal/background-texture'
 import { TILE_HEIGHT_CELLS, TILE_WIDTH_CELLS } from './internal/constants'
 import { DamageTracker } from './internal/damage-tracker'
-import {
-  computeGlyphRenderMetadata,
-  deriveSelectionTint,
-} from './internal/glyph-metadata'
 import { hashFrameBytes } from './internal/frame-hash'
 import {
   bindFramebufferTexture,
@@ -45,6 +41,7 @@ import {
   disposeVertexArray,
 } from './internal/gl-utils'
 import { GlyphAtlas } from './internal/glyph-atlas'
+import { computeGlyphRenderMetadata } from './internal/glyph-metadata'
 import type { TileDefinition } from './renderer-types'
 
 const INSTANCE_FLOAT_COUNT = 9

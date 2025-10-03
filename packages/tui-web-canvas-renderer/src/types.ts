@@ -182,12 +182,9 @@ export interface CanvasRendererOptions {
 
 export interface CanvasRendererUpdateOptions {
   readonly snapshot: TerminalState
-  readonly updates: ReadonlyArray<TerminalUpdate>
-}
-
-export interface CanvasRendererResizeOptions {
-  readonly snapshot: TerminalState
-  readonly metrics: RendererMetrics
+  readonly updates?: ReadonlyArray<TerminalUpdate>
+  readonly metrics?: RendererMetrics
+  readonly theme?: RendererTheme
 }
 
 export interface CanvasRendererDiagnostics {
@@ -250,8 +247,6 @@ export type CursorOverlayStrategy = (options: {
 export interface CanvasRenderer {
   readonly canvas: CanvasLike
   applyUpdates(options: CanvasRendererUpdateOptions): void
-  resize(options: CanvasRendererResizeOptions): void
-  setTheme(theme: RendererTheme): void
   /** Resynchronise the canvas with the entire snapshot (full repaint). */
   sync(snapshot: TerminalState): void
   dispose(): void

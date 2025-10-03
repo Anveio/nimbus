@@ -10,12 +10,11 @@ This charter guides how we evolve the React bindings for the Mana terminal stack
 ## Boundaries & Dependencies
 - Owns React-specific controllers, hooks, and components located in `packages/tui-react`.
 - Depends on `@mana/vt` for terminal semantics and on renderer packages (e.g. `@mana/tui-web-canvas-renderer`) for drawing.
-- Exposes typed contracts (`TerminalHost`, renderer registry, imperative handle) consumed by apps (`apps/terminal-web-app`) and future environments. Never inline transport, crypto, or DOM-global hacks.
+- Never inline transport, crypto, or DOM-global hacks.
 
 ## Design Pillars
 - **Presentation-only**: Treat VT + renderers as injected collaborators. React components marshal updates and inputs but never implement parser logic.
 - **Renderer abstraction**: Maintain a registry-driven interface so canvas, SVG, WebGL, or native renderers can plug in without changing React code.
-- **Host contract**: Keep `TerminalHost` small (`write`, `onData`, `resize`, `dispose`) and transport-neutral. Ensure imperative handles forward lifecycle hooks predictably.
 - **Controller hook**: `useTerminalController` owns diff buffering, diagnostics, and synchronization between interpreter and renderer. The hook must stay pure/testable.
 - **UX discipline**: Keyboard, pointer, selection, and clipboard flows should respect modern terminal ergonomics (Ghostty/xterm parity) while still emitting canonical escape sequences to hosts.
 - **Accessibility & ergonomics**: Provide focus management, screen-reader affordances, and theming hooks by default, with escapes for hosts to customize.
@@ -41,10 +40,20 @@ This charter guides how we evolve the React bindings for the Mana terminal stack
 4. Log consequential changes, gaps, and decisions in the memory bank with dates for future maintainers.
 
 ## Memory Bank
+### 2025-10-03 – Terminal composition refactor
+- Promoted `<Terminal />` to a pure composer by extracting instrumentation, printer, accessibility, scroll, and selection logic into dedicated hooks/layers (`useTerminalInstrumentation`, `usePrinterController`, `useTerminalAccessibility`, `useTerminalSelection`).
+- Removed the built-in WebSocket transport implementation; hosts now own transports and can listen to `instrumentation.onData` to bridge bytes outward.
+- Added unit coverage for the instrumentation hook and updated docs/tests to reflect the leaner surface.
+
 ### 2025-10-08 – Hotkey module extraction
 - Moved keyboard handling into `hotkeys/handler.ts`, keeping `<Terminal />` focused on interpreter/render orchestration.
 - The `HotkeyContext` captures interpreter motion helpers, selection refs, and IO callbacks, paving the way for configurable bindings.
 - Unit + E2E coverage exercise the new module; future work is to expose a public API for custom key maps.
+
+### 2025-10-02 – Terminal props consolidation + managed transport *(superseded by 2025-10-03 refactor)*
+- Collapsed the `<Terminal />` surface into nested `accessibility`, `styling`, `graphics`, `instrumentation`, and `transport` option blocks. Back-compat shims remain, but new work should target the structured API.
+- Renderer selection now hinges on string backends (`cpu`, `webgl`, `webgpu`) routed through the canvas renderer package; the imperative handle exposes `getRendererBackend()` and frame callbacks ship richer diagnostics via `instrumentation.onFrame`.
+- Introduced an opt-in WebSocket transport that handled connection state, reconnect policy, and ingress/egress wiring so simple hosts could forgo bespoke plumbing. This path is now removed; see 2025-10-03 notes.
 
 ### 2025-10-07 – Shortcut guide overlay + focus discipline
 - Defaulted `<Terminal />` focus to opt-in and shipped a built-in Shift + `?` modal surfaced through `useTerminalAccessibilityAdapter` / `TerminalAccessibilityLayer`.

@@ -18,6 +18,7 @@ Core Principles:
 * Error is signal. Surface contradictions, risky assumptions, and spec gaps; tension is how we earn clarity.
 
 ## Collaboration Protocol
+- This is a greenfield software project aiming to bring the next generation of technologies to browsers and terminals, be creative with an eye towards elegance and future proofing! We love using the latest technologies while gracefully falling back to legacy technology via polyfills where necessary.
 - Always propose an implementation strategy before touching files, and wait for my explicit approval.
 - Keep the strategy log in the memory bank updated with timestamped entries.
 - Default tone: peer review over status report. Champion the problem, not the ego.

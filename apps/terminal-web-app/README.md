@@ -22,11 +22,11 @@ This package hosts the interactive browser demo for the Mana stack. It renders a
 
 ## Connecting to a real host
 
-The current demo echoes data locally, but the `onData` callback and `TerminalHandle.write()` API make it simple to bridge to a WebSocket or other transport. In a real deployment you would:
+The current demo echoes data locally, but the structured props make it simple to connect to a real host.
 
-1. Subscribe to the terminal’s `onData` callback to forward user keystrokes to your backend transport.
-2. Feed remote data back into the terminal via `terminalRef.current?.write(remoteBytes)`.
-3. Optionally disable `localEcho` so output appears strictly when the backend acknowledges it.
+1. Either hand the component a `transport` configuration (e.g. `{ kind: 'websocket', endpoint: 'wss://...' }`) or supply your own plumbing via `instrumentation.onData` + `terminalRef.current?.write(remoteBytes)`.
+2. Toggle `styling.localEcho` depending on whether the transport echoes characters or you want optimistic rendering.
+3. Observe render telemetry through `instrumentation.onFrame` and `terminalRef.current?.getRendererBackend()` when debugging backends.
 
 ## Folder layout
 

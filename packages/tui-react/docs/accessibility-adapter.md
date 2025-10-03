@@ -55,34 +55,13 @@ The layer renders:
 - Caret status and notification live regions.
 - Default Shift+`?` shortcut guide overlay when `adapter.shortcutGuide.enabled` and `visible`.
 
-## Using `TerminalAccessibilityLayer` Outside `<Terminal />`
-1. Create or obtain a `TerminalState` snapshot (e.g., from `TerminalHost` or your own interpreter instance).
-2. Call `useTerminalAccessibilityAdapter` with that snapshot and pass the result to your component.
-3. Wire container props:
-   ```tsx
-   const adapter = useTerminalAccessibilityAdapter({ snapshot, snapshotRevision })
-
-   return (
-     <div
-       role="textbox"
-       aria-describedby={adapter.describedByIds.join(' ')}
-       aria-activedescendant={adapter.activeDescendantId ?? undefined}
-       aria-keyshortcuts={adapter.shortcuts.flatMap(s => s.ariaKeys ?? s.keys).join(' ')}
-     >
-       <TerminalAccessibilityLayer adapter={adapter} />
-       {/* your renderer */}
-     </div>
-   )
-   ```
-4. Expose shortcut guide controls through your own UI by calling `adapter.shortcutGuide.open/close/toggle`.
-
 ## Shortcut Guide Configuration
 `ShortcutGuideConfig` supports:
 - `enabled`: disable the built-in overlay entirely (default `true`).
 - `initiallyOpen`: show the guide on mount (default `false`).
 - `title`, `description`, `content`: replace portions of the modal (still accessible).
 
-`<Terminal />` forwards the same config via its `shortcutGuide` prop and surfaces presses of Shift+`?` through `onShortcutGuideToggle` and the imperative handle methods `openShortcutGuide`, `closeShortcutGuide`, `toggleShortcutGuide`.
+`<Terminal />` forwards the same config via `accessibility.shortcutGuide` and surfaces presses of Shift+`?` through `onShortcutGuideToggle` plus the imperative handle methods `openShortcutGuide`, `closeShortcutGuide`, `toggleShortcutGuide`.
 
 ## Imperative Handle
 `TerminalHandle` now includes the shortcut guide helpers in addition to focus/write/reset:
@@ -91,6 +70,7 @@ interface TerminalHandle {
   openShortcutGuide(): void
   closeShortcutGuide(): void
   toggleShortcutGuide(): void
+  getRendererBackend(): 'cpu' | 'webgl' | 'webgpu' | 'custom' | null
 }
 ```
 Use these when you need to expose your own “Show shortcuts” buttons or automation hooks.
