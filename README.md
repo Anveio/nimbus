@@ -7,7 +7,7 @@ Mana is a zero-dependency, standards-compliant, universally embeddable, high per
 - Renderer backends: `@mana/tui-web-canvas-renderer` today, SVG/WebGL/native next
 - React bindings: `@mana/tui-react`
 - SSH protocol core + targets: `@mana/ssh` with `client/web`, `client/node`, and `server/node`
-- Browser transport primitives: `@mana/websocket`
+- WebSocket transport suite: `@mana/websocket` (browser + Node clients, reference server atop `@mana/ssh`)
 - Batteries-included browser SDK: `@mana/web`
 - Demo and infra: `apps/terminal-web-app`, `apps/proxy-server`, `apps/simulated-instance`
 
@@ -61,9 +61,9 @@ Status legend: Delivered = in main, In progress = active work, Planned = design/
 ## SSH protocol and transport
 | Capability | Status | Notes |
 | --- | --- | --- |
-| SSH key exchange and cipher suite | In progress | `@mana/ssh` scaffolding state machine and crypto plumbing.
+| SSH key exchange and cipher suite | In progress | Identification + negotiation + curve25519/group14 KEX landed; cipher activation next.
 | Channel and window management | Planned | Scheduled after key exchange milestone.
-| Browser WebSocket transport | Planned | `@mana/websocket` package stub pending protocol milestone.
+| Browser WebSocket transport | Planned | `@mana/websocket` will ship browser/node clients and a Node server that delegate to the matching `@mana/ssh` builds.
 | Web host SDK (`@mana/web`) | Planned | Will compose transport, renderer, telemetry, and lifecycle policies.
 | Alternate transports (HTTP/3, QUIC, SSE) | Planned | API contracts drafted; awaiting protocol baseline.
 | Proxy bridge (`apps/proxy-server`) | Delivered | WebSocket <-> TCP relay for development and tests.

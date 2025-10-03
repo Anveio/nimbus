@@ -1,20 +1,11 @@
 import path from 'node:path'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
-import dts from 'vite-plugin-dts'
 
 const entry = path.resolve(__dirname, 'src/index.ts')
 
 export default defineConfig({
-  plugins: [
-    react({ include: /\.(js|jsx|ts|tsx)$/ }),
-    dts({
-      entryRoot: 'src',
-      tsconfigPath: path.resolve(__dirname, 'tsconfig.json'),
-      outDir: 'dist/types',
-      rollupTypes: true,
-    }),
-  ],
+  plugins: [react({ include: /\.(js|jsx|ts|tsx)$/ })],
   build: {
     sourcemap: true,
     lib: {

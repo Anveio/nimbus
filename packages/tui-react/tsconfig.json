@@ -1,8 +1,5 @@
 {
   "extends": "../tsconfig/workspace-react-library-config.json",
-  "compilerOptions": {
-    "jsx": "react-jsx"
-  },
   "include": ["src", "test", "vitest.setup.ts"],
   "exclude": ["dist", "build", "node_modules"]
 }
