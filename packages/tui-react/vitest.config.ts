@@ -8,7 +8,6 @@ export default defineConfig({
     globals: true,
     reporters: verbose ? ['default'] : ['dot'],
     silent: !verbose,
-    setupFiles: ['./vitest.setup.ts'],
     exclude: ['test/e2e/**'],
     coverage: {
       enabled: true,

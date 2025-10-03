@@ -414,14 +414,25 @@ export const createCpuCanvasRenderer = (
 
   const renderer: CanvasRenderer = {
     canvas,
-    applyUpdates({ snapshot, updates }) {
+    applyUpdates({ snapshot, updates, metrics: nextMetrics, theme: nextTheme }) {
       ensureNotDisposed(disposed)
+      const pendingUpdates = updates ?? []
+
+      const metricsChanged = typeof nextMetrics !== 'undefined'
+      const themeChanged = typeof nextTheme !== 'undefined'
+
+      if (metricsChanged) {
+        metrics = nextMetrics
+      }
+      if (themeChanged) {
+        theme = nextTheme
+      }
       currentSnapshot = snapshot
 
-      let requiresRepaint = false
-      let selectionChanged = false
+      let requiresRepaint = metricsChanged || themeChanged
+      let selectionChanged = metricsChanged
 
-      for (const update of updates) {
+      for (const update of pendingUpdates) {
         switch (update.type) {
           case 'cells':
           case 'clear':
@@ -518,7 +529,9 @@ export const createCpuCanvasRenderer = (
       }
 
       const snapshotSelection = snapshot.selection ?? null
-      if (!selectionChanged && snapshotSelection !== currentSelection) {
+      if (metricsChanged) {
+        currentSelection = snapshotSelection
+      } else if (!selectionChanged && snapshotSelection !== currentSelection) {
         currentSelection = snapshotSelection
         selectionChanged = true
       }
@@ -540,39 +553,6 @@ export const createCpuCanvasRenderer = (
       if (selectionChanged) {
         emitSelectionChange()
       }
-    },
-    resize({ snapshot, metrics: nextMetrics }) {
-      ensureNotDisposed(disposed)
-      metrics = nextMetrics
-      currentSnapshot = snapshot
-      currentSelection = snapshot.selection ?? null
-      applyFrameStats(
-        fullRepaint(
-          ctx,
-          canvas,
-          currentSnapshot,
-          metrics,
-          theme,
-          paletteOverrides,
-          cursorOverlayStrategy,
-        ),
-      )
-      emitSelectionChange()
-    },
-    setTheme(nextTheme) {
-      ensureNotDisposed(disposed)
-      theme = nextTheme
-      applyFrameStats(
-        fullRepaint(
-          ctx,
-          canvas,
-          currentSnapshot,
-          metrics,
-          theme,
-          paletteOverrides,
-          cursorOverlayStrategy,
-        ),
-      )
     },
     sync(snapshot) {
       ensureNotDisposed(disposed)

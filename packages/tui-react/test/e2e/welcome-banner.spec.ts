@@ -1,4 +1,3 @@
-import type { Page } from '@playwright/test'
 import { WELCOME_BANNER } from './banner-fixtures'
 import {
   expect,
@@ -13,17 +12,6 @@ const SCREENSHOT_OPTIONS = {
   caret: 'hide' as const,
   maxDiffPixelRatio: 0.01,
   scale: 'device' as const,
-}
-
-const _isWebglSupported = async (page: Page) => {
-  return page.evaluate(() => {
-    const canvas = document.createElement('canvas')
-    return Boolean(
-      canvas.getContext('webgl2') ||
-        canvas.getContext('webgl') ||
-        canvas.getContext('experimental-webgl'),
-    )
-  })
 }
 
 test.describe('tui-react welcome banner rendering', () => {

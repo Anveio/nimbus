@@ -4,7 +4,7 @@ This charter defines how we evolve the web canvas renderer. Update it when rende
 
 ## Mandate
 - Render `@mana/vt` interpreter diffs into high-fidelity pixels using HTML canvas surfaces (2D + optional GPU paths).
-- Provide a stable renderer contract (`init`, `applyUpdates`, `resize`, `dispose`) that downstream hosts can adopt without depending on implementation details.
+- Provide a stable renderer contract (`init`, `applyUpdates`, `sync`, `dispose`) that downstream hosts can adopt without depending on implementation details.
 - Serve as the reference implementation for future renderers (SVG, WebGL, native) by documenting expectations, performance baselines, and testing rituals.
 
 ## Boundaries & Dependencies
@@ -20,9 +20,8 @@ This charter defines how we evolve the web canvas renderer. Update it when rende
 - **Resilience**: Handle resize, context loss, and palette changes gracefully, with deterministic cleanup on `dispose`.
 
 ## Renderer Contract Snapshot
-- `init(options)`: Bind to a canvas, prepare atlases/metrics, return an object exposing `applyUpdates`, `resize`, `dispose`, and diagnostics getters.
-- `applyUpdates(updates)`: Consume `TerminalUpdate` arrays, updating internal buffers and drawing only invalidated regions.
-- `resize(size, metrics)`: Adjust backing store (respect devicePixelRatio), recompute grid metrics, and trigger redraw as needed.
+- `init(options)`: Bind to a canvas, prepare atlases/metrics, return an object exposing `applyUpdates`, `sync`, `dispose`, and diagnostics getters.
+- `applyUpdates({ snapshot, updates?, metrics?, theme? })`: Consume `TerminalUpdate` arrays and optional theme/metric changes, reconciling state with minimal redraws (full repaints when metrics/theme shift).
 - `dispose()`: Tear down timers, release WebGL contexts, and clear references.
 - Diagnostics: Expose frame timing, draw counts, palette state, and current selection so hosts can introspect behaviour.
 
@@ -63,4 +62,3 @@ Codified renderer mandate, contract, and testing doctrine; highlighted selection
 - Exported public renderer contract with theme/metrics/lifecycle types from `src/index.ts`.
 - Stood up Vitest + node-canvas + pixelmatch harness with initial smoke tests and artifact emission plan.
 - Documented feature targets (glyph pipeline, performance, accessibility) to guide forthcoming implementations.
-

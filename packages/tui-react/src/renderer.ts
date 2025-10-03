@@ -1,7 +1,6 @@
 import {
   type CanvasRenderer,
   type CanvasRendererOptions,
-  type CanvasRendererResizeOptions,
   type CanvasRendererUpdateOptions,
   type CreateCanvasRenderer,
   type CursorOverlayStrategy,
@@ -174,8 +173,6 @@ export interface UseTerminalRendererOptions {
 export interface TerminalRendererHandle {
   readonly canvasRef: RefObject<HTMLCanvasElement | null>
   readonly applyUpdates: (options: CanvasRendererUpdateOptions) => void
-  readonly resize: (options: CanvasRendererResizeOptions) => void
-  readonly setTheme: (theme: RendererTheme) => void
   readonly sync: (snapshot: TerminalState) => void
   readonly dispose: () => void
   readonly diagnostics: CanvasRenderer['diagnostics'] | null
@@ -349,17 +346,18 @@ export const useTerminalCanvasRenderer = (
 
   useEffect(() => {
     const rendererInstance = ensureRenderer()
-    rendererInstance.setTheme(theme)
+    rendererInstance.applyUpdates({ snapshot, theme })
     diagnosticsRef.current = rendererInstance.diagnostics
+    selectionRef.current = rendererInstance.currentSelection
     diagnosticsCallbackRef.current?.(rendererInstance.diagnostics)
     emitFrame('theme-change')
-  }, [ensureRenderer, theme, emitFrame])
+  }, [ensureRenderer, snapshot, theme, emitFrame])
 
   useEffect(() => {
     const rendererInstance = ensureRenderer()
-    rendererInstance.resize({ metrics, snapshot })
-    rendererInstance.sync(snapshot)
+    rendererInstance.applyUpdates({ snapshot, metrics })
     diagnosticsRef.current = rendererInstance.diagnostics
+    selectionRef.current = rendererInstance.currentSelection
     diagnosticsCallbackRef.current?.(rendererInstance.diagnostics)
     emitFrame('resize')
   }, [ensureRenderer, metrics, snapshot, emitFrame])
@@ -396,30 +394,6 @@ export const useTerminalCanvasRenderer = (
     }
   }, [cursorOverlayStrategy, ensureRenderer, emitFrame])
 
-  const resize = useCallback(
-    (resizeOptions: CanvasRendererResizeOptions) => {
-      const rendererInstance = ensureRenderer()
-      rendererInstance.resize(resizeOptions)
-      diagnosticsRef.current = rendererInstance.diagnostics
-      selectionRef.current = rendererInstance.currentSelection
-      diagnosticsCallbackRef.current?.(rendererInstance.diagnostics)
-      emitFrame('resize')
-    },
-    [ensureRenderer, emitFrame],
-  )
-
-  const setTheme = useCallback(
-    (nextTheme: RendererTheme) => {
-      const rendererInstance = ensureRenderer()
-      rendererInstance.setTheme(nextTheme)
-      diagnosticsRef.current = rendererInstance.diagnostics
-      selectionRef.current = rendererInstance.currentSelection
-      diagnosticsCallbackRef.current?.(rendererInstance.diagnostics)
-      emitFrame('theme-change')
-    },
-    [ensureRenderer, emitFrame],
-  )
-
   const sync = useCallback(
     (nextSnapshot: TerminalState) => {
       const rendererInstance = ensureRenderer()
@@ -449,14 +423,12 @@ export const useTerminalCanvasRenderer = (
     () => ({
       canvasRef,
       applyUpdates,
-      resize,
-      setTheme,
       sync,
       dispose,
       diagnostics: diagnosticsRef.current,
       getCurrentSelection: () => selectionRef.current,
       backend: backendRef.current,
     }),
-    [applyUpdates, dispose, resize, setTheme, sync],
+    [applyUpdates, dispose, sync],
   )
 }

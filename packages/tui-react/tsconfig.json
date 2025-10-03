@@ -1,5 +1,5 @@
 {
   "extends": "../tsconfig/workspace-react-library-config.json",
-  "include": ["src", "test", "vitest.setup.ts"],
+  "include": ["src", "test"],
   "exclude": ["dist", "build", "node_modules"]
 }

@@ -10,7 +10,6 @@ import type {
   CanvasRenderer,
   CanvasRendererDiagnostics,
   CanvasRendererOptions,
-  CanvasRendererResizeOptions,
   CanvasRendererUpdateOptions,
   CursorOverlayStrategy,
   RendererMetrics,
@@ -385,14 +384,47 @@ export class WebglCanvasRenderer implements CanvasRenderer {
 
   getCurrentSelection = (): TerminalSelection | null => this._currentSelection
 
-  applyUpdates({ snapshot, updates }: CanvasRendererUpdateOptions): void {
+  applyUpdates({
+    snapshot,
+    updates,
+    metrics,
+    theme,
+  }: CanvasRendererUpdateOptions): void {
     const previousSnapshot = this.snapshot
+    const pendingUpdates = updates ?? []
+    const metricsChanged = typeof metrics !== 'undefined'
+    const themeChanged = typeof theme !== 'undefined'
+
+    if (metricsChanged) {
+      this.metrics = metrics
+    }
+    if (themeChanged) {
+      this.theme = theme
+      this.backgroundTexture.setTheme(theme)
+      this.paletteOverrides.clear()
+      this.backgroundTexture.clearPaletteOverrides()
+    }
+
     this.snapshot = snapshot
-    this.handleUpdates(updates)
+    if (metricsChanged) {
+      this.configureFromSnapshot(snapshot)
+    }
+
+    this.handleUpdates(pendingUpdates)
     this._currentSelection = snapshot.selection ?? null
     this.onSelectionChange?.(this._currentSelection)
+
+    if (metricsChanged || themeChanged) {
+      this.renderFullFrame()
+      return
+    }
+
+    if (pendingUpdates.length === 0) {
+      return
+    }
+
     const { requireFull } = this.markDamageFromUpdates(
-      updates,
+      pendingUpdates,
       previousSnapshot,
     )
     if (requireFull) {
@@ -400,23 +432,6 @@ export class WebglCanvasRenderer implements CanvasRenderer {
     } else {
       this.renderDamagedFrame()
     }
-  }
-
-  resize({ snapshot, metrics }: CanvasRendererResizeOptions): void {
-    this.metrics = metrics
-    this.snapshot = snapshot
-    this._currentSelection = snapshot.selection ?? null
-    this.onSelectionChange?.(this._currentSelection)
-    this.configureFromSnapshot(snapshot)
-    this.renderFullFrame()
-  }
-
-  setTheme(theme: RendererTheme): void {
-    this.theme = theme
-    this.backgroundTexture.setTheme(theme)
-    this.paletteOverrides.clear()
-    this.backgroundTexture.clearPaletteOverrides()
-    this.renderFullFrame()
   }
 
   sync(snapshot: TerminalState): void {

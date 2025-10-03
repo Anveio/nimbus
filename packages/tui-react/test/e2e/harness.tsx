@@ -1,10 +1,14 @@
 import { type CSSProperties, createRef } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { Terminal, type TerminalHandle } from '../../src/Terminal'
+import type { CanvasRendererDiagnostics } from '@mana/tui-web-canvas-renderer'
+import type { TerminalSelection } from '@mana/vt'
+import { Terminal, type TerminalFrameEvent, type TerminalHandle } from '../../src/Terminal'
 import type {
   TerminalHarnessExports,
+  TerminalHarnessInstrumentationOptions,
   TerminalHarnessMountOptions,
   TerminalHarnessOnDataEvent,
+  TerminalHarnessShortcutGuideToggleEvent,
 } from './harness-types'
 
 const nextFrame = (): Promise<void> =>
@@ -19,11 +23,30 @@ const DEFAULT_STYLE: CSSProperties = {
 
 const TEXT_DECODER = new TextDecoder()
 
+const structuredCloneFallback = <T,>(value: T): T => {
+  if (typeof structuredClone === 'function') {
+    return structuredClone(value)
+  }
+  return JSON.parse(JSON.stringify(value)) as T
+}
+
 const createHarness = (): TerminalHarnessExports => {
   let root: Root | null = null
   let container: HTMLDivElement | null = null
   const terminalRef = createRef<TerminalHandle>()
   const onDataEvents: TerminalHarnessOnDataEvent[] = []
+  const frameEvents: TerminalFrameEvent[] = []
+  const diagnosticsEvents: CanvasRendererDiagnostics[] = []
+  const cursorSelectionEvents: Array<TerminalSelection | null> = []
+  const shortcutGuideToggleEvents: TerminalHarnessShortcutGuideToggleEvent[] = []
+
+  const resetEventStores = () => {
+    onDataEvents.length = 0
+    frameEvents.length = 0
+    diagnosticsEvents.length = 0
+    cursorSelectionEvents.length = 0
+    shortcutGuideToggleEvents.length = 0
+  }
 
   const dispose = () => {
     root?.unmount()
@@ -36,13 +59,14 @@ const createHarness = (): TerminalHarnessExports => {
       terminalRef.current = null
     }
     document.body.innerHTML = ''
+    resetEventStores()
   }
 
   const mount = async (
     options: TerminalHarnessMountOptions = {},
   ): Promise<void> => {
     dispose()
-    onDataEvents.length = 0
+    resetEventStores()
 
     document.body.innerHTML = `
       <main id="terminal-harness-root" role="main">
@@ -68,6 +92,27 @@ const createHarness = (): TerminalHarnessExports => {
         ? { type: 'webgl' as const }
         : { type: 'canvas-cpu' as const }
 
+    const instrumentationOptions: TerminalHarnessInstrumentationOptions =
+      options.instrumentation ?? {}
+
+    const isEnabled = (flag: boolean | undefined, fallback: boolean) =>
+      flag ?? fallback
+
+    const captureOnData = isEnabled(instrumentationOptions.onData, true)
+    const captureDiagnostics = isEnabled(
+      instrumentationOptions.onDiagnostics,
+      true,
+    )
+    const captureFrame = isEnabled(instrumentationOptions.onFrame, true)
+    const captureSelection = isEnabled(
+      instrumentationOptions.onCursorSelectionChange,
+      true,
+    )
+    const captureShortcutToggle = isEnabled(
+      instrumentationOptions.onShortcutGuideToggle,
+      true,
+    )
+
     root = createRoot(container)
 
     root.render(
@@ -84,14 +129,48 @@ const createHarness = (): TerminalHarnessExports => {
           autoResize: options.autoResize ?? false,
         }}
         graphics={graphicsOptions}
-        instrumentation={{
-          onData: (data) => {
-            onDataEvents.push({
-              text: TEXT_DECODER.decode(data),
-              bytes: Array.from(data),
-            })
-          },
-        }}
+        instrumentation={
+          captureOnData || captureDiagnostics || captureFrame || captureSelection
+            ? {
+                onData: captureOnData
+                  ? (data) => {
+                      onDataEvents.push({
+                        text: TEXT_DECODER.decode(data),
+                        bytes: Array.from(data),
+                      })
+                    }
+                  : undefined,
+                onDiagnostics: captureDiagnostics
+                  ? (diagnostics) => {
+                      if (diagnostics) {
+                        diagnosticsEvents.push(
+                          structuredCloneFallback(diagnostics),
+                        )
+                      }
+                    }
+                  : undefined,
+                onFrame: captureFrame
+                  ? (event) => {
+                      frameEvents.push(structuredCloneFallback(event))
+                    }
+                  : undefined,
+                onCursorSelectionChange: captureSelection
+                  ? (selection) => {
+                      cursorSelectionEvents.push(
+                        selection ? structuredCloneFallback(selection) : null,
+                      )
+                    }
+                  : undefined,
+              }
+            : undefined
+        }
+        onShortcutGuideToggle={
+          captureShortcutToggle
+            ? (visible, reason) => {
+                shortcutGuideToggleEvents.push({ visible, reason })
+              }
+            : undefined
+        }
         style={DEFAULT_STYLE}
         data-testid="terminal-root"
       />,
@@ -168,10 +247,55 @@ const createHarness = (): TerminalHarnessExports => {
     onDataEvents.length = 0
   }
 
+  const getFrameEvents = () => frameEvents.map((event) => structuredCloneFallback(event))
+
+  const resetFrameEvents = () => {
+    frameEvents.length = 0
+  }
+
+  const getDiagnosticsEvents = () =>
+    diagnosticsEvents.map((event) => structuredCloneFallback(event))
+
+  const resetDiagnosticsEvents = () => {
+    diagnosticsEvents.length = 0
+  }
+
+  const getCursorSelectionEvents = () =>
+    cursorSelectionEvents.map((selection) =>
+      selection ? structuredCloneFallback(selection) : null,
+    )
+
+  const resetCursorSelectionEvents = () => {
+    cursorSelectionEvents.length = 0
+  }
+
+  const getShortcutGuideToggleEvents = () =>
+    shortcutGuideToggleEvents.map((event) => ({ ...event }))
+
+  const resetShortcutGuideToggleEvents = () => {
+    shortcutGuideToggleEvents.length = 0
+  }
+
   const announceStatus = (
     message: Parameters<TerminalHarnessExports['announceStatus']>[0],
   ) => {
     terminalRef.current?.announceStatus(message)
+  }
+
+  const openShortcutGuide = () => {
+    terminalRef.current?.openShortcutGuide()
+  }
+
+  const closeShortcutGuide = () => {
+    terminalRef.current?.closeShortcutGuide()
+  }
+
+  const toggleShortcutGuide = () => {
+    terminalRef.current?.toggleShortcutGuide()
+  }
+
+  const resetTerminal = () => {
+    terminalRef.current?.reset()
   }
 
   return {
@@ -185,7 +309,19 @@ const createHarness = (): TerminalHarnessExports => {
     getDiagnostics,
     getOnDataEvents,
     resetOnDataEvents,
+    getFrameEvents,
+    resetFrameEvents,
+    getDiagnosticsEvents,
+    resetDiagnosticsEvents,
+    getCursorSelectionEvents,
+    resetCursorSelectionEvents,
+    getShortcutGuideToggleEvents,
+    resetShortcutGuideToggleEvents,
     announceStatus,
+    openShortcutGuide,
+    closeShortcutGuide,
+    toggleShortcutGuide,
+    resetTerminal,
   }
 }
 

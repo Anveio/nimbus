@@ -6,9 +6,12 @@ import type { OutputChunk, RollupOutput } from 'rollup'
 import type {
   TerminalHarnessMountOptions,
   TerminalHarnessOnDataEvent,
+  TerminalHarnessShortcutGuideToggleEvent,
 } from './harness-types'
 import type { CanvasRendererDiagnostics } from '@mana/tui-web-canvas-renderer'
 import type { TerminalStatusMessage } from '../../src/Terminal'
+import type { TerminalSelection } from '@mana/vt'
+import type { TerminalFrameEvent } from '../../src/Terminal'
 
 const HARNESS_ENTRY = path.resolve(__dirname, 'harness.tsx')
 
@@ -143,6 +146,60 @@ export const resetOnDataEvents = async (page: Page): Promise<void> => {
   })
 }
 
+export const readFrameEvents = async (
+  page: Page,
+): Promise<TerminalFrameEvent[]> =>
+  page.evaluate(() => window.__manaTuiReactTest__?.getFrameEvents() ?? [])
+
+export const resetFrameEvents = async (page: Page): Promise<void> => {
+  await page.evaluate(() => {
+    window.__manaTuiReactTest__?.resetFrameEvents()
+  })
+}
+
+export const readDiagnosticsEvents = async (
+  page: Page,
+): Promise<CanvasRendererDiagnostics[]> =>
+  page.evaluate(
+    () => window.__manaTuiReactTest__?.getDiagnosticsEvents() ?? [],
+  )
+
+export const resetDiagnosticsEvents = async (page: Page): Promise<void> => {
+  await page.evaluate(() => {
+    window.__manaTuiReactTest__?.resetDiagnosticsEvents()
+  })
+}
+
+export const readCursorSelectionEvents = async (
+  page: Page,
+): Promise<Array<TerminalSelection | null>> =>
+  page.evaluate(
+    () => window.__manaTuiReactTest__?.getCursorSelectionEvents() ?? [],
+  )
+
+export const resetCursorSelectionEvents = async (
+  page: Page,
+): Promise<void> => {
+  await page.evaluate(() => {
+    window.__manaTuiReactTest__?.resetCursorSelectionEvents()
+  })
+}
+
+export const readShortcutGuideToggleEvents = async (
+  page: Page,
+): Promise<TerminalHarnessShortcutGuideToggleEvent[]> =>
+  page.evaluate(
+    () => window.__manaTuiReactTest__?.getShortcutGuideToggleEvents() ?? [],
+  )
+
+export const resetShortcutGuideToggleEvents = async (
+  page: Page,
+): Promise<void> => {
+  await page.evaluate(() => {
+    window.__manaTuiReactTest__?.resetShortcutGuideToggleEvents()
+  })
+}
+
 export const announceTerminalStatus = async (
   page: Page,
   message: TerminalStatusMessage,
@@ -150,4 +207,28 @@ export const announceTerminalStatus = async (
   await page.evaluate((detail) => {
     window.__manaTuiReactTest__?.announceStatus(detail)
   }, message)
+}
+
+export const openShortcutGuide = async (page: Page): Promise<void> => {
+  await page.evaluate(() => {
+    window.__manaTuiReactTest__?.openShortcutGuide()
+  })
+}
+
+export const closeShortcutGuide = async (page: Page): Promise<void> => {
+  await page.evaluate(() => {
+    window.__manaTuiReactTest__?.closeShortcutGuide()
+  })
+}
+
+export const toggleShortcutGuide = async (page: Page): Promise<void> => {
+  await page.evaluate(() => {
+    window.__manaTuiReactTest__?.toggleShortcutGuide()
+  })
+}
+
+export const resetTerminal = async (page: Page): Promise<void> => {
+  await page.evaluate(() => {
+    window.__manaTuiReactTest__?.resetTerminal()
+  })
 }

@@ -25,14 +25,17 @@ interface InitRendererOptions {
   readonly useCustomCursorOverlay?: boolean
 }
 
-interface ResizeOptions {
-  readonly snapshot: TerminalState
-  readonly metrics: RendererMetrics
-}
-
 interface UpdateOptions {
   readonly snapshot: TerminalState
-  readonly updates: ReadonlyArray<TerminalUpdate>
+  readonly updates?: ReadonlyArray<TerminalUpdate>
+  readonly metrics?: RendererMetrics
+  readonly theme?: RendererTheme
+}
+
+interface ResizeOptions extends UpdateOptions {
+  readonly metrics: RendererMetrics
+  readonly updates?: ReadonlyArray<TerminalUpdate>
+  readonly theme?: RendererTheme
 }
 
 declare global {
@@ -160,20 +163,27 @@ window.__manaRendererTest__ = {
     store.metrics = options.metrics
   },
 
-  applyUpdates({ snapshot, updates }) {
+  applyUpdates({ snapshot, updates, metrics, theme }) {
     store.snapshot = snapshot
-    ensureRenderer().applyUpdates({ snapshot, updates })
+    if (metrics) {
+      store.metrics = metrics
+    }
+    if (theme) {
+      store.theme = theme
+    }
+    ensureRenderer().applyUpdates({ snapshot, updates, metrics, theme })
   },
 
   resize({ snapshot, metrics }) {
     store.snapshot = snapshot
     store.metrics = metrics
-    ensureRenderer().resize({ snapshot, metrics })
+    ensureRenderer().applyUpdates({ snapshot, metrics })
   },
 
   setTheme(theme) {
     store.theme = theme
-    ensureRenderer().setTheme(theme)
+    const snapshot = ensureSnapshot()
+    ensureRenderer().applyUpdates({ snapshot, theme })
   },
 
   sync(snapshot) {

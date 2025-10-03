@@ -1,6 +1,23 @@
 import type { CanvasRendererDiagnostics } from '@mana/tui-web-canvas-renderer'
 import type { TerminalSelection, TerminalState } from '@mana/vt'
-import type { TerminalStatusMessage } from '../../src/Terminal'
+import type {
+  ShortcutGuideReason,
+  TerminalFrameEvent,
+  TerminalStatusMessage,
+} from '../../src/Terminal'
+
+export interface TerminalHarnessInstrumentationOptions {
+  readonly onData?: boolean
+  readonly onDiagnostics?: boolean
+  readonly onFrame?: boolean
+  readonly onCursorSelectionChange?: boolean
+  readonly onShortcutGuideToggle?: boolean
+}
+
+export interface TerminalHarnessShortcutGuideToggleEvent {
+  readonly visible: boolean
+  readonly reason: ShortcutGuideReason
+}
 
 export interface TerminalHarnessMountOptions {
   readonly rows?: number
@@ -10,6 +27,7 @@ export interface TerminalHarnessMountOptions {
   readonly autoFocus?: boolean
   readonly autoResize?: boolean
   readonly rendererBackend?: 'cpu-2d' | 'gpu-webgl'
+  readonly instrumentation?: TerminalHarnessInstrumentationOptions
 }
 
 export interface TerminalHarnessOnDataEvent {
@@ -28,5 +46,17 @@ export interface TerminalHarnessExports {
   getDiagnostics(): CanvasRendererDiagnostics | null
   getOnDataEvents(): TerminalHarnessOnDataEvent[]
   resetOnDataEvents(): void
+  getFrameEvents(): TerminalFrameEvent[]
+  resetFrameEvents(): void
+  getDiagnosticsEvents(): CanvasRendererDiagnostics[]
+  resetDiagnosticsEvents(): void
+  getCursorSelectionEvents(): Array<TerminalSelection | null>
+  resetCursorSelectionEvents(): void
+  getShortcutGuideToggleEvents(): TerminalHarnessShortcutGuideToggleEvent[]
+  resetShortcutGuideToggleEvents(): void
   announceStatus(message: TerminalStatusMessage): void
+  openShortcutGuide(): void
+  closeShortcutGuide(): void
+  toggleShortcutGuide(): void
+  resetTerminal(): void
 }

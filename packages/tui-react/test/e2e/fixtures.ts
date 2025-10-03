@@ -7,9 +7,21 @@ import {
   mountTerminal,
   prepareHarness,
   readOnDataEvents,
+  readFrameEvents,
+  readDiagnosticsEvents,
+  readCursorSelectionEvents,
+  readShortcutGuideToggleEvents,
   readTerminalDiagnostics,
   resetOnDataEvents,
+  resetFrameEvents,
+  resetDiagnosticsEvents,
+  resetCursorSelectionEvents,
+  resetShortcutGuideToggleEvents,
   composeTerminalText,
+  openShortcutGuide,
+  closeShortcutGuide,
+  toggleShortcutGuide,
+  resetTerminal,
   writeToTerminal,
 } from './harness-loader'
 
@@ -32,6 +44,10 @@ test.setTimeout(10_000)
 
 test.afterEach(async ({ page }) => {
   await resetOnDataEvents(page)
+  await resetFrameEvents(page)
+  await resetDiagnosticsEvents(page)
+  await resetCursorSelectionEvents(page)
+  await resetShortcutGuideToggleEvents(page)
 })
 
 export { expect }
@@ -40,8 +56,20 @@ export {
   focusTerminal,
   mountTerminal,
   readOnDataEvents,
+  readFrameEvents,
+  readDiagnosticsEvents,
+  readCursorSelectionEvents,
+  readShortcutGuideToggleEvents,
   readTerminalDiagnostics,
   composeTerminalText,
+  openShortcutGuide,
+  closeShortcutGuide,
+  toggleShortcutGuide,
+  resetTerminal,
   writeToTerminal,
   resetOnDataEvents,
+  resetFrameEvents,
+  resetDiagnosticsEvents,
+  resetCursorSelectionEvents,
+  resetShortcutGuideToggleEvents,
 }
