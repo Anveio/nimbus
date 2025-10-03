@@ -1,6 +1,6 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { classifyByte } from '../src/classifier'
+import { classifyByte } from '../src/parser-internals/classifier'
 import { ByteFlag } from '../src/types'
 
 const computeExpectedFlags = (value: number): number => {

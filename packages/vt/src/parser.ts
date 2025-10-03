@@ -1,7 +1,7 @@
-import { classifyByte } from './classifier'
-import { BYTE_TO_C1_ACTION } from './internal/c1-table'
-import { createInitialContext } from './internal/context'
-import { resolveParserOptions } from './internal/resolve-options'
+import { BYTE_TO_C1_ACTION } from './parser-internals/c1-table'
+import { classifyByte } from './parser-internals/classifier'
+import { createInitialContext } from './parser-internals/context'
+import { resolveParserOptions } from './parser-internals/resolve-options'
 import {
   BYTE_LIMITS,
   BYTE_TABLE_SIZE,
@@ -10,20 +10,10 @@ import {
   createStateRuleSpecs,
   type StateRuleRuntime,
   type StateRuleSpec,
-} from './internal/state-rules'
-import {
-  ASCII_CODES,
-  C1_ESC_FINAL_RANGE,
-  C1_TO_ESC_FINAL_OFFSET,
-  STRING_TERMINATOR_BYTES,
-  UTF8_BOUNDARIES,
-  UTF8_CONTINUATION,
-  UTF8_REPLACEMENT_BYTES,
-} from './internal/byte-constants'
+} from './parser-internals/state-rules'
 import {
   type C1HandlingMode,
   type C1TransmissionMode,
-  type Mutable,
   type Parser,
   type ParserEvent,
   type ParserEventSink,
@@ -33,6 +23,15 @@ import {
   type ParserStringLimits,
   type SosPmApcKind,
 } from './types'
+import {
+  ASCII_CODES,
+  C1_ESC_FINAL_RANGE,
+  C1_TO_ESC_FINAL_OFFSET,
+  STRING_TERMINATOR_BYTES,
+  UTF8_BOUNDARIES,
+  UTF8_CONTINUATION,
+  UTF8_REPLACEMENT_BYTES,
+} from './utils/constants'
 
 const MAX_CSI_PARAMS = 16
 const MAX_CSI_INTERMEDIATES = 4
@@ -804,13 +803,22 @@ class ParserImpl implements Parser {
 export const createParser = (options: ParserOptions = {}): Parser =>
   new ParserImpl(resolveParserOptions(options))
 const getUtf8ContinuationCount = (byte: number): number => {
-  if (byte >= UTF8_BOUNDARIES.FOUR_BYTE_MIN && byte <= UTF8_BOUNDARIES.FOUR_BYTE_MAX) {
+  if (
+    byte >= UTF8_BOUNDARIES.FOUR_BYTE_MIN &&
+    byte <= UTF8_BOUNDARIES.FOUR_BYTE_MAX
+  ) {
     return 3
   }
-  if (byte >= UTF8_BOUNDARIES.THREE_BYTE_MIN && byte <= UTF8_BOUNDARIES.THREE_BYTE_MAX) {
+  if (
+    byte >= UTF8_BOUNDARIES.THREE_BYTE_MIN &&
+    byte <= UTF8_BOUNDARIES.THREE_BYTE_MAX
+  ) {
     return 2
   }
-  if (byte >= UTF8_BOUNDARIES.TWO_BYTE_MIN && byte <= UTF8_BOUNDARIES.TWO_BYTE_MAX) {
+  if (
+    byte >= UTF8_BOUNDARIES.TWO_BYTE_MIN &&
+    byte <= UTF8_BOUNDARIES.TWO_BYTE_MAX
+  ) {
     return 1
   }
   return 0

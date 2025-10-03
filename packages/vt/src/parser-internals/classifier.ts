@@ -1,5 +1,5 @@
-import { BYTE_RANGES } from './internal/char-class'
-import { ByteFlag } from './types'
+import { ByteFlag } from '../types'
+import { BYTE_RANGES } from './char-class'
 
 /**
  * Determine the category for a byte according to ECMA-48 / VT500 rules.

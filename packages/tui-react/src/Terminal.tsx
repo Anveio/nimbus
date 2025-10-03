@@ -1,10 +1,7 @@
-import type { PrinterController, TerminalInterpreter } from '@mana/vt'
+import type { PrinterController } from '@mana/vt'
 import {
-  createInterpreter,
-  createParser,
-  type ParserEvent,
-  type ParserEventSink,
-  resolveTerminalCapabilities,
+  createTerminalRuntime,
+  type TerminalRuntime,
   type TerminalSelection,
   type TerminalState,
   type TerminalUpdate,
@@ -28,14 +25,6 @@ import {
   TerminalAccessibilityLayer,
   useTerminalAccessibility,
 } from './accessibility/accessibility-layer'
-import {
-  resolveAccessibilityOptions,
-  resolveGraphicsOptions,
-  resolveStylingOptions,
-  type TerminalAccessibilityOptions,
-  type TerminalGraphicsOptions,
-  type TerminalStylingOptions,
-} from './utils/terminal-options'
 import { useAutoResize } from './hooks/useAutoResize'
 import {
   type TerminalFrameEvent,
@@ -50,28 +39,17 @@ import {
 } from './renderer'
 import { useTerminalSelection } from './selection/terminal-selection'
 import { useTerminalUserEvents } from './user-events/terminal-user-events'
+import {
+  resolveAccessibilityOptions,
+  resolveGraphicsOptions,
+  resolveStylingOptions,
+  type TerminalAccessibilityOptions,
+  type TerminalGraphicsOptions,
+  type TerminalStylingOptions,
+} from './utils/terminal-options'
 
 const DEFAULT_ROWS = 24
 const DEFAULT_COLUMNS = 80
-const TEXT_ENCODER = new TextEncoder()
-
-const createInterpreterInstance = (
-  rows: number,
-  columns: number,
-  printer: PrinterController,
-): TerminalInterpreter => {
-  const baseCapabilities = resolveTerminalCapabilities({})
-  const capabilities = {
-    ...baseCapabilities,
-    features: {
-      ...baseCapabilities.features,
-      initialRows: rows,
-      initialColumns: columns,
-    },
-  }
-  return createInterpreter({ capabilities, printer })
-}
-
 export interface TerminalHandle {
   focus(): void
   write(data: Uint8Array | string): void
@@ -152,13 +130,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       canvasClassName,
       canvasStyle,
     } = resolvedStyling
-    const { renderer: rendererGraphicsOptions, cursorOverlayStrategy } = resolvedGraphics
+    const { renderer: rendererGraphicsOptions, cursorOverlayStrategy } =
+      resolvedGraphics
 
-    const {
-      containerRef,
-      rows,
-      columns,
-    } = useAutoResize({
+    const { containerRef, rows, columns } = useAutoResize({
       rows: rowsProp,
       columns: columnsProp,
       autoResize: autoResize ?? true,
@@ -170,28 +145,31 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       containerRef.current?.focus()
     }, [])
 
-    const interpreterRef = useRef<TerminalInterpreter | null>(null)
-    const parserRef = useRef(createParser())
+    const runtimeRef = useRef<TerminalRuntime | null>(null)
 
-    const ensureInterpreter = useCallback(
+    const ensureRuntime = useCallback(
       (nextRows: number, nextColumns: number) => {
-        interpreterRef.current = createInterpreterInstance(
-          nextRows,
-          nextColumns,
-          printerController,
-        )
+        runtimeRef.current = createTerminalRuntime({
+          features: {
+            initialRows: nextRows,
+            initialColumns: nextColumns,
+          },
+          printer: printerController,
+        })
       },
       [printerController],
     )
 
-    if (!interpreterRef.current) {
-      ensureInterpreter(rows, columns)
+    if (!runtimeRef.current) {
+      ensureRuntime(rows, columns)
     }
 
-    const interpreter = interpreterRef.current!
+    const runtime = runtimeRef.current!
+    const interpreter = runtime.interpreter
 
-    const [currentSelection, setCurrentSelection] =
-      useState<TerminalSelection | null>(interpreter.snapshot.selection ?? null)
+    const [currentSelection, setCurrentSelection] = useState<
+      TerminalSelection | null
+    >(interpreter.snapshot.selection ?? null)
 
     const [snapshotVersion, setSnapshotVersion] = useState(0)
     const snapshot = useMemo(
@@ -246,28 +224,30 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     })
 
     useEffect(() => {
-      const current = interpreterRef.current
+      const current = runtimeRef.current
       if (!current) {
-        ensureInterpreter(rows, columns)
-        rendererHandle.sync(interpreterRef.current!.snapshot)
-        setCurrentSelection(interpreterRef.current!.snapshot.selection ?? null)
+        ensureRuntime(rows, columns)
+        const nextRuntime = runtimeRef.current!
+        rendererHandle.sync(nextRuntime.snapshot)
+        setCurrentSelection(nextRuntime.snapshot.selection ?? null)
         setSnapshotVersion((value) => value + 1)
         resetPrinterEvents()
         return
       }
 
-      const { rows: currentRows, columns: currentColumns } = current.snapshot
+      const { rows: currentRows, columns: currentColumns } =
+        current.snapshot
       if (currentRows === rows && currentColumns === columns) {
         return
       }
 
-      ensureInterpreter(rows, columns)
-      parserRef.current = createParser()
-      rendererHandle.sync(interpreterRef.current!.snapshot)
-      setCurrentSelection(interpreterRef.current!.snapshot.selection ?? null)
+      ensureRuntime(rows, columns)
+      const nextRuntime = runtimeRef.current!
+      rendererHandle.sync(nextRuntime.snapshot)
+      setCurrentSelection(nextRuntime.snapshot.selection ?? null)
       setSnapshotVersion((value) => value + 1)
       resetPrinterEvents()
-    }, [ensureInterpreter, rendererHandle, resetPrinterEvents, rows, columns])
+    }, [ensureRuntime, rendererHandle, resetPrinterEvents, rows, columns])
 
     const applyUpdates = useCallback(
       (updates: TerminalUpdate[]) => {
@@ -281,7 +261,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
               instrumentation.emitData(update.data)
               continue
             case 'c1-transmission':
-              parserRef.current.setC1TransmissionMode(update.value)
+              runtimeRef.current?.parser.setC1TransmissionMode(update.value)
               continue
             default:
               paintUpdates.push(update)
@@ -311,24 +291,14 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       focusTerminal: focus,
     })
 
-    const sinkRef = useRef<ParserEventSink>({ onEvent: () => {} })
-
-    const handleEvent = useCallback(
-      (event: ParserEvent) => {
-        const updates = interpreter.handleEvent(event)
-        applyUpdates(updates)
-      },
-      [applyUpdates, interpreter],
-    )
-
-    sinkRef.current.onEvent = handleEvent
-
     const write = useCallback((input: Uint8Array | string) => {
-      const buffer =
-        typeof input === 'string' ? TEXT_ENCODER.encode(input) : input
-      parserRef.current.write(buffer, sinkRef.current)
-      setSnapshotVersion((value) => value + 1)
-    }, [])
+      const runtimeInstance = runtimeRef.current
+      if (!runtimeInstance) {
+        return
+      }
+      const updates = runtimeInstance.write(input)
+      applyUpdates(updates)
+    }, [applyUpdates])
 
     const emitData = useCallback(
       (bytes: Uint8Array, options?: { skipLocalEcho?: boolean }) => {
@@ -385,20 +355,24 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     }, [focus, interpreter, rendererHandle, resolvedAccessibility.autoFocus])
 
     const reset = useCallback(() => {
-      parserRef.current.reset()
-      interpreter.reset()
-      rendererHandle.sync(interpreter.snapshot)
+      const runtimeInstance = runtimeRef.current
+      if (!runtimeInstance) {
+        return
+      }
+      runtimeInstance.reset()
+      const freshInterpreter = runtimeInstance.interpreter
+      rendererHandle.sync(freshInterpreter.snapshot)
       setSnapshotVersion((value) => value + 1)
       resetPrinterEvents()
-      setCurrentSelection(interpreter.snapshot.selection ?? null)
-    }, [interpreter, rendererHandle, resetPrinterEvents])
+      setCurrentSelection(freshInterpreter.snapshot.selection ?? null)
+    }, [rendererHandle, resetPrinterEvents])
 
     const imperativeHandle = useMemo<TerminalHandle>(
       () => ({
         focus,
         write,
         reset,
-        getSnapshot: () => interpreterRef.current!.snapshot,
+        getSnapshot: () => runtimeRef.current!.snapshot,
         getSelection: () => currentSelection,
         getPrinterEvents: () => getPrinterEventsSnapshot(),
         getDiagnostics: () => rendererHandle.diagnostics,

@@ -6,7 +6,7 @@ import {
   C0_CONTROL_BYTES,
   C1_CONTROL_BYTES,
   C1_CONTROL_RANGE,
-} from './byte-constants'
+} from '../utils/constants'
 
 export interface ByteRange {
   readonly start: number

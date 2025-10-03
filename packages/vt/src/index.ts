@@ -1,44 +1,38 @@
 /** biome-ignore-all lint/performance/noBarrelFile: Library */
 
-export { resolveTerminalCapabilities } from './capabilities'
-export { classifyByte } from './classifier'
-export { resolveEmulatorOverlay } from './internal/emulator-quirks'
-export { resolveParserOptions } from './internal/resolve-options'
-export { SPEC_DEFAULTS, SPEC_FALLBACK } from './internal/spec-defaults'
-export {
-  createInterpreter,
-  TerminalInterpreter,
-} from './interpreter'
-export type { CellDelta, TerminalUpdate } from './interpreter-internals/delta'
 export type {
+  CellDelta,
+  ClipboardEntry,
+  CursorPosition,
+  InterpreterOptions,
   SelectionBounds,
   SelectionKind,
   SelectionPoint,
   SelectionRange,
   SelectionRowSegment,
   SelectionStatus,
+  TerminalAttributes,
+  TerminalCell,
+  TerminalColor,
   TerminalSelection,
-} from './interpreter-internals/selection'
+  TerminalState,
+  TerminalUpdate,
+} from './interpreter'
 export {
   areSelectionsEqual,
   clampSelectionRange,
+  createInterpreter,
   getSelectionBounds,
   getSelectionRange,
   getSelectionRowSegment,
   getSelectionRowSegments,
   isSelectionCollapsed,
-} from './interpreter-internals/selection'
-export type {
-  ClipboardEntry,
-  CursorPosition,
-  TerminalAttributes,
-  TerminalCell,
-  TerminalColor,
-  TerminalState,
-} from './interpreter-internals/state'
+  TerminalInterpreter,
+} from './interpreter'
 export { createParser } from './parser'
-export type { PrinterController } from './printer/controller'
-export { createNoopPrinterController } from './printer/controller'
+export type { TerminalRuntime, TerminalRuntimeOptions } from './runtime'
+
+export { createTerminalRuntime, parser } from './runtime'
 export type {
   ByteFlag,
   C1HandlingMode,
@@ -57,3 +51,4 @@ export type {
   TerminalEmulator,
   TerminalFeatures,
 } from './types'
+export type { PrinterController } from './utils/printer'

@@ -1,4 +1,4 @@
-import type { Mutable, ParserOptionOverrides, ParserOptions } from '../types'
+import type { ParserOptionOverrides, ParserOptions } from '../types'
 import { resolveEmulatorOverlay } from './emulator-quirks'
 import { resolveSpecOptions, SPEC_FALLBACK } from './spec-defaults'
 

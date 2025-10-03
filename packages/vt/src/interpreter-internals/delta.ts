@@ -1,4 +1,5 @@
 import type { SosPmApcKind } from '../types'
+import type { TerminalSelection } from './selection'
 import type {
   ClipboardEntry,
   CursorPosition,
@@ -6,7 +7,6 @@ import type {
   TerminalCell,
   TerminalColor,
 } from './state'
-import type { TerminalSelection } from './selection'
 
 export interface CellDelta {
   readonly row: number

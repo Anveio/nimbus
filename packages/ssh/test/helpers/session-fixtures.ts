@@ -1,3 +1,4 @@
+import { webcrypto as nodeCrypto } from 'node:crypto'
 import type {
   AlgorithmCatalog,
   AlgorithmName,
@@ -11,7 +12,6 @@ import type {
   SshEvent,
   SshSession,
 } from '../../src/api'
-import { webcrypto as nodeCrypto } from 'node:crypto'
 
 import { BinaryWriter } from '../../src/internal/binary/binary-writer'
 import { encodeMpint as encodeMpintInternal } from '../../src/internal/binary/mpint'
@@ -29,9 +29,7 @@ export const TEST_ALGORITHMS: AlgorithmCatalog = {
     asAlgorithmName('curve25519-sha256@libssh.org'),
     asAlgorithmName('diffie-hellman-group14-sha256'),
   ],
-  ciphers: [
-    asAlgorithmName('aes128-gcm@openssh.com'),
-  ],
+  ciphers: [asAlgorithmName('aes128-gcm@openssh.com')],
   macs: [asAlgorithmName('AEAD_AES_128_GCM'), asAlgorithmName('hmac-sha2-256')],
   hostKeys: [asAlgorithmName('ssh-ed25519'), asAlgorithmName('rsa-sha2-256')],
   compression: [asAlgorithmName('none')],
@@ -91,10 +89,6 @@ class NullDiagnostics implements DiagnosticsSink {
 const zeroRandomBytes = (length: number): Uint8Array => new Uint8Array(length)
 
 const fixedClock = (): number => 0
-
-type Mutable<T> = {
-  -readonly [P in keyof T]: T[P]
-}
 
 export function createTestClientConfig(
   overrides: Partial<SshClientConfig> = {},

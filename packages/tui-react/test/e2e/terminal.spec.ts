@@ -361,24 +361,32 @@ test.describe('tui-react terminal', () => {
     await expect(dialog).toBeVisible()
 
     await page.waitForFunction(() => {
-      const events = window.__manaTuiReactTest__?.getShortcutGuideToggleEvents() ?? []
+      const events =
+        window.__manaTuiReactTest__?.getShortcutGuideToggleEvents() ?? []
       return events.some((event) => event.visible === true)
     })
 
     let toggleEvents = await readShortcutGuideToggleEvents(page)
     expect(toggleEvents.length).toBeGreaterThan(0)
-    expect(toggleEvents.at(-1)).toMatchObject({ visible: true, reason: 'imperative' })
+    expect(toggleEvents.at(-1)).toMatchObject({
+      visible: true,
+      reason: 'imperative',
+    })
 
     await closeShortcutGuide(page)
     await expect(dialog).toHaveCount(0)
 
     await page.waitForFunction(() => {
-      const events = window.__manaTuiReactTest__?.getShortcutGuideToggleEvents() ?? []
+      const events =
+        window.__manaTuiReactTest__?.getShortcutGuideToggleEvents() ?? []
       return events.some((event) => event.visible === false)
     })
 
     toggleEvents = await readShortcutGuideToggleEvents(page)
-    expect(toggleEvents.at(-1)).toMatchObject({ visible: false, reason: 'imperative' })
+    expect(toggleEvents.at(-1)).toMatchObject({
+      visible: false,
+      reason: 'imperative',
+    })
   })
 
   test('imperative write and reset update the transcript snapshot', async ({
@@ -406,7 +414,10 @@ test.describe('tui-react terminal', () => {
     })
     expect(snapshot).not.toBeNull()
     expect(
-      snapshot!.buffer[0]?.map((cell) => cell?.char ?? ' ').join('').trimEnd(),
+      snapshot!.buffer[0]
+        ?.map((cell) => cell?.char ?? ' ')
+        .join('')
+        .trimEnd(),
     ).toBe('hello')
 
     await resetTerminal(page)
@@ -417,8 +428,15 @@ test.describe('tui-react terminal', () => {
         return false
       }
       const firstRow =
-        snap.buffer[0]?.map((cell) => cell?.char ?? ' ').join('').trim() ?? ''
-      return firstRow.length === 0 && snap.cursor.column === 0 && snap.cursor.row === 0
+        snap.buffer[0]
+          ?.map((cell) => cell?.char ?? ' ')
+          .join('')
+          .trim() ?? ''
+      return (
+        firstRow.length === 0 &&
+        snap.cursor.column === 0 &&
+        snap.cursor.row === 0
+      )
     })
 
     snapshot = await page.evaluate(() => {
@@ -429,7 +447,10 @@ test.describe('tui-react terminal', () => {
     expect(snapshot!.cursor.column).toBe(0)
     expect(snapshot!.cursor.row).toBe(0)
     expect(
-      snapshot!.buffer[0]?.map((cell) => cell?.char ?? ' ').join('').trim(),
+      snapshot!.buffer[0]
+        ?.map((cell) => cell?.char ?? ' ')
+        .join('')
+        .trim(),
     ).toBe('')
   })
 
@@ -516,7 +537,9 @@ test.describe('tui-react terminal', () => {
     await page.waitForTimeout(50)
 
     await page.evaluate(() => {
-      const root = document.querySelector<HTMLElement>('[data-testid="terminal-root"]')
+      const root = document.querySelector<HTMLElement>(
+        '[data-testid="terminal-root"]',
+      )
       if (!root) {
         throw new Error('terminal root not found')
       }
@@ -600,35 +623,27 @@ test.describe('tui-react terminal', () => {
 
     await page.keyboard.press('ArrowRight')
 
-    await page.waitForFunction(
-      (expected) => {
-        const snapshot = window.__manaTuiReactTest__?.getSnapshot()
-        return snapshot?.cursor.column === expected
-      },
-      1,
-    )
+    await page.waitForFunction((expected) => {
+      const snapshot = window.__manaTuiReactTest__?.getSnapshot()
+      return snapshot?.cursor.column === expected
+    }, 1)
 
-    const wordJumpCombo = process.platform === 'darwin' ? 'Alt+ArrowRight' : 'Control+ArrowRight'
+    const wordJumpCombo =
+      process.platform === 'darwin' ? 'Alt+ArrowRight' : 'Control+ArrowRight'
     const wordStart = text.indexOf('two')
     await page.keyboard.press(wordJumpCombo)
 
-    await page.waitForFunction(
-      (expected) => {
-        const snapshot = window.__manaTuiReactTest__?.getSnapshot()
-        return snapshot?.cursor.column === expected
-      },
-      wordStart,
-    )
+    await page.waitForFunction((expected) => {
+      const snapshot = window.__manaTuiReactTest__?.getSnapshot()
+      return snapshot?.cursor.column === expected
+    }, wordStart)
 
     await page.keyboard.press('Meta+ArrowRight')
 
-    await page.waitForFunction(
-      (expected) => {
-        const snapshot = window.__manaTuiReactTest__?.getSnapshot()
-        return snapshot?.cursor.column === expected
-      },
-      text.length,
-    )
+    await page.waitForFunction((expected) => {
+      const snapshot = window.__manaTuiReactTest__?.getSnapshot()
+      return snapshot?.cursor.column === expected
+    }, text.length)
   })
 
   test('Delete key removes the next character locally while emitting ESC[3~', async ({
@@ -727,7 +742,9 @@ test.describe('tui-react terminal', () => {
 
     const selectionEvents = await readCursorSelectionEvents(page)
     expect(selectionEvents.length).toBeGreaterThan(0)
-    const lastEvent = [...selectionEvents].reverse().find((event) => event !== null)
+    const lastEvent = [...selectionEvents]
+      .reverse()
+      .find((event) => event !== null)
     expect(lastEvent).not.toBeNull()
     expect(lastEvent?.status).toBe('idle')
   })
@@ -743,7 +760,9 @@ test.describe('tui-react terminal', () => {
     })
 
     const initialEvents = await readFrameEvents(page)
-    expect(initialEvents.some((event) => event.reason === 'initial-sync')).toBe(true)
+    expect(initialEvents.some((event) => event.reason === 'initial-sync')).toBe(
+      true,
+    )
 
     await resetFrameEvents(page)
     await writeToTerminal(page, 'hi')

@@ -1,11 +1,12 @@
-import { resolveEmulatorOverlay } from './internal/emulator-quirks'
-import { SPEC_FALLBACK } from './internal/spec-defaults'
+import { resolveEmulatorOverlay } from '../parser-internals/emulator-quirks'
+import { SPEC_FALLBACK } from '../parser-internals/spec-defaults'
 import type {
   ParserOptions,
   ParserSpec,
   TerminalCapabilities,
+  TerminalEmulator,
   TerminalFeatures,
-} from './types'
+} from '../types'
 
 const SPEC_FEATURES: Record<ParserSpec, TerminalFeatures> = {
   vt100: {
@@ -114,45 +115,85 @@ const SPEC_FEATURES: Record<ParserSpec, TerminalFeatures> = {
 
 const mergeFeatures = (
   base: TerminalFeatures,
-  overlay: Partial<TerminalFeatures>,
-): TerminalFeatures => ({
-  initialRows: overlay.initialRows ?? base.initialRows,
-  initialColumns: overlay.initialColumns ?? base.initialColumns,
-  supportsAnsiColors: overlay.supportsAnsiColors ?? base.supportsAnsiColors,
-  supportsDecPrivateModes:
-    overlay.supportsDecPrivateModes ?? base.supportsDecPrivateModes,
-  supportsSosPmApc: overlay.supportsSosPmApc ?? base.supportsSosPmApc,
-  supportsTabStops: overlay.supportsTabStops ?? base.supportsTabStops,
-  supportsScrollRegions:
-    overlay.supportsScrollRegions ?? base.supportsScrollRegions,
-  supportsOriginMode: overlay.supportsOriginMode ?? base.supportsOriginMode,
-  supportsAutoWrap: overlay.supportsAutoWrap ?? base.supportsAutoWrap,
-  supportsCursorVisibility:
-    overlay.supportsCursorVisibility ?? base.supportsCursorVisibility,
-  supportsC1TransmissionToggle:
-    overlay.supportsC1TransmissionToggle ?? base.supportsC1TransmissionToggle,
-  defaultC1Transmission:
-    overlay.defaultC1Transmission ?? base.defaultC1Transmission,
-  primaryDeviceAttributes:
-    overlay.primaryDeviceAttributes ?? base.primaryDeviceAttributes,
-  secondaryDeviceAttributes:
-    overlay.secondaryDeviceAttributes ?? base.secondaryDeviceAttributes,
-  supportsNationalReplacementCharsets:
-    overlay.supportsNationalReplacementCharsets ??
-    base.supportsNationalReplacementCharsets,
-})
-
-export const resolveTerminalCapabilities = (
-  options: ParserOptions,
-): TerminalCapabilities => {
-  const emulatorOverlay = resolveEmulatorOverlay(options)
-  const spec = options.spec ?? emulatorOverlay.spec ?? SPEC_FALLBACK
-  const baseFeatures = SPEC_FEATURES[spec]
-  const features = mergeFeatures(baseFeatures, emulatorOverlay.features)
+  overlay: Partial<TerminalFeatures> | undefined,
+): TerminalFeatures => {
+  if (!overlay || Object.keys(overlay).length === 0) {
+    return base
+  }
 
   return {
+    initialRows: overlay.initialRows ?? base.initialRows,
+    initialColumns: overlay.initialColumns ?? base.initialColumns,
+    supportsAnsiColors: overlay.supportsAnsiColors ?? base.supportsAnsiColors,
+    supportsDecPrivateModes:
+      overlay.supportsDecPrivateModes ?? base.supportsDecPrivateModes,
+    supportsSosPmApc: overlay.supportsSosPmApc ?? base.supportsSosPmApc,
+    supportsTabStops: overlay.supportsTabStops ?? base.supportsTabStops,
+    supportsScrollRegions:
+      overlay.supportsScrollRegions ?? base.supportsScrollRegions,
+    supportsOriginMode: overlay.supportsOriginMode ?? base.supportsOriginMode,
+    supportsAutoWrap: overlay.supportsAutoWrap ?? base.supportsAutoWrap,
+    supportsCursorVisibility:
+      overlay.supportsCursorVisibility ?? base.supportsCursorVisibility,
+    supportsC1TransmissionToggle:
+      overlay.supportsC1TransmissionToggle ?? base.supportsC1TransmissionToggle,
+    defaultC1Transmission:
+      overlay.defaultC1Transmission ?? base.defaultC1Transmission,
+    primaryDeviceAttributes:
+      overlay.primaryDeviceAttributes ?? base.primaryDeviceAttributes,
+    secondaryDeviceAttributes:
+      overlay.secondaryDeviceAttributes ?? base.secondaryDeviceAttributes,
+    supportsNationalReplacementCharsets:
+      overlay.supportsNationalReplacementCharsets ??
+      base.supportsNationalReplacementCharsets,
+  }
+}
+
+export interface ResolveCapabilitiesOptions {
+  readonly parser?: ParserOptions
+  readonly spec?: ParserSpec
+  readonly emulator?: TerminalEmulator
+  readonly features?: Partial<TerminalFeatures>
+}
+
+export interface ResolvedCapabilities {
+  readonly parser: ParserOptions
+  readonly capabilities: TerminalCapabilities
+}
+
+export const resolveTerminalCapabilities = (
+  options: ResolveCapabilitiesOptions = {},
+): ResolvedCapabilities => {
+  const parserOptions: Mutable<ParserOptions> = {
+    ...(options.parser ?? {}),
+  }
+
+  if (options.spec !== undefined) {
+    parserOptions.spec = options.spec
+  }
+
+  if (options.emulator !== undefined) {
+    parserOptions.emulator = options.emulator
+  }
+
+  const emulatorOverlay = resolveEmulatorOverlay(parserOptions)
+
+  const spec =
+    parserOptions.spec ?? emulatorOverlay.spec ?? SPEC_FALLBACK
+  parserOptions.spec = spec
+
+  const baseFeatures = SPEC_FEATURES[spec]
+  const emulatorFeatures = mergeFeatures(baseFeatures, emulatorOverlay.features)
+  const features = mergeFeatures(emulatorFeatures, options.features)
+
+  const capabilities: TerminalCapabilities = {
     spec,
-    emulator: options.emulator,
+    emulator: parserOptions.emulator,
     features,
+  }
+
+  return {
+    parser: parserOptions,
+    capabilities,
   }
 }

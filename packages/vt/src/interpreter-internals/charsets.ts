@@ -91,7 +91,6 @@ export const resolveCharset = (designator: string): CharsetId => {
       return 'dec_french'
     case 'K':
       return 'dec_german'
-    case 'B':
     default:
       return 'us_ascii'
   }

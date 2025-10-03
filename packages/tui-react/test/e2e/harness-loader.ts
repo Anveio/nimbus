@@ -1,17 +1,19 @@
 import path from 'node:path'
+import type { CanvasRendererDiagnostics } from '@mana/tui-web-canvas-renderer'
+import type { TerminalSelection } from '@mana/vt'
 import type { Page } from '@playwright/test'
-import { build, type InlineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import type { OutputChunk, RollupOutput } from 'rollup'
+import { build, type InlineConfig } from 'vite'
+import type {
+  TerminalFrameEvent,
+  TerminalStatusMessage,
+} from '../../src/Terminal'
 import type {
   TerminalHarnessMountOptions,
   TerminalHarnessOnDataEvent,
   TerminalHarnessShortcutGuideToggleEvent,
 } from './harness-types'
-import type { CanvasRendererDiagnostics } from '@mana/tui-web-canvas-renderer'
-import type { TerminalStatusMessage } from '../../src/Terminal'
-import type { TerminalSelection } from '@mana/vt'
-import type { TerminalFrameEvent } from '../../src/Terminal'
 
 const HARNESS_ENTRY = path.resolve(__dirname, 'harness.tsx')
 
@@ -43,7 +45,9 @@ const createBuildConfig = (): InlineConfig => ({
   },
 })
 
-const extractBundle = (output: RollupOutput | RollupOutput[] | undefined): string => {
+const extractBundle = (
+  output: RollupOutput | RollupOutput[] | undefined,
+): string => {
   const outputs = Array.isArray(output) ? output : output ? [output] : []
   for (const result of outputs) {
     for (const chunk of result.output) {
@@ -160,9 +164,7 @@ export const resetFrameEvents = async (page: Page): Promise<void> => {
 export const readDiagnosticsEvents = async (
   page: Page,
 ): Promise<CanvasRendererDiagnostics[]> =>
-  page.evaluate(
-    () => window.__manaTuiReactTest__?.getDiagnosticsEvents() ?? [],
-  )
+  page.evaluate(() => window.__manaTuiReactTest__?.getDiagnosticsEvents() ?? [])
 
 export const resetDiagnosticsEvents = async (page: Page): Promise<void> => {
   await page.evaluate(() => {
@@ -177,9 +179,7 @@ export const readCursorSelectionEvents = async (
     () => window.__manaTuiReactTest__?.getCursorSelectionEvents() ?? [],
   )
 
-export const resetCursorSelectionEvents = async (
-  page: Page,
-): Promise<void> => {
+export const resetCursorSelectionEvents = async (page: Page): Promise<void> => {
   await page.evaluate(() => {
     window.__manaTuiReactTest__?.resetCursorSelectionEvents()
   })

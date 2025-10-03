@@ -1,13 +1,3 @@
-import { resolveTerminalCapabilities } from './capabilities'
-import {
-  ASCII_CODES,
-  ASCII_RANGE,
-  BIT_MASKS,
-  C0_CONTROL_BYTES,
-  C1_CONTROL_BYTES,
-  C1_CONTROL_RANGE,
-  EXTENDED_ASCII,
-} from './internal/byte-constants'
 import {
   resolveCharset,
   translateGlyph,
@@ -20,7 +10,10 @@ import type {
 import {
   areSelectionsEqual,
   clampSelectionRange,
+  getSelectionBounds,
   getSelectionRange,
+  getSelectionRowSegment,
+  getSelectionRowSegments,
   isSelectionCollapsed,
 } from './interpreter-internals/selection'
 import {
@@ -44,16 +37,32 @@ import {
   type TerminalState,
 } from './interpreter-internals/state'
 import {
-  createNoopPrinterController,
-  type PrinterController,
-} from './printer/controller'
-import {
   type C1TransmissionMode,
   type ParserEvent,
   ParserEventType,
   type ParserOptions,
   type TerminalCapabilities,
 } from './types'
+import {
+  ASCII_CODES,
+  ASCII_RANGE,
+  BIT_MASKS,
+  C0_CONTROL_BYTES,
+  C1_CONTROL_BYTES,
+  C1_CONTROL_RANGE,
+  EXTENDED_ASCII,
+} from './utils/constants'
+import {
+  createNoopPrinterController,
+  type PrinterController,
+} from './utils/printer'
+import { resolveTerminalCapabilities } from './utils/resolve-capabilities'
+
+export interface InterpreterOptions {
+  readonly parser?: ParserOptions
+  readonly capabilities?: TerminalCapabilities
+  readonly printer?: PrinterController
+}
 
 const QUESTION_MARK = ASCII_CODES.QUESTION_MARK
 
@@ -114,12 +123,6 @@ interface ActiveDcs {
   readonly chunks: string[]
 }
 
-export interface InterpreterOptions {
-  readonly parser?: ParserOptions
-  readonly capabilities?: TerminalCapabilities
-  readonly printer?: PrinterController
-}
-
 export class TerminalInterpreter {
   readonly capabilities: TerminalCapabilities
   private state: TerminalState
@@ -129,8 +132,8 @@ export class TerminalInterpreter {
   private readonly printer: PrinterController
 
   constructor(options: InterpreterOptions = {}) {
-    this.capabilities =
-      options.capabilities ?? resolveTerminalCapabilities(options.parser ?? {})
+    const resolved = resolveTerminalCapabilities({ parser: options.parser })
+    this.capabilities = options.capabilities ?? resolved.capabilities
     this.state = createInitialState(this.capabilities)
     this.printer = options.printer ?? createNoopPrinterController()
   }
@@ -877,11 +880,14 @@ export class TerminalInterpreter {
   private handleDecsca(params: ReadonlyArray<number>): TerminalUpdate[] {
     const mode = params[0] ?? 0
     switch (mode) {
+      case 0:
+        return this.setProtectedMode('off')
       case 1:
         return this.setProtectedMode('dec')
       case 2:
         return this.setProtectedMode('off')
     }
+    return []
   }
 
   private setLineAttribute(
@@ -2458,6 +2464,35 @@ export class TerminalInterpreter {
   }
 }
 
+export {
+  areSelectionsEqual,
+  clampSelectionRange,
+  getSelectionBounds,
+  getSelectionRange,
+  getSelectionRowSegment,
+  getSelectionRowSegments,
+  isSelectionCollapsed,
+}
+
+export type { CellDelta, TerminalUpdate } from './interpreter-internals/delta'
+export type {
+  SelectionBounds,
+  SelectionKind,
+  SelectionPoint,
+  SelectionRange,
+  SelectionRowSegment,
+  SelectionStatus,
+  TerminalSelection,
+} from './interpreter-internals/selection'
+export type {
+  ClipboardEntry,
+  CursorPosition,
+  TerminalAttributes,
+  TerminalCell,
+  TerminalColor,
+  TerminalState,
+} from './interpreter-internals/state'
+
 export const createInterpreter = (
-  options?: InterpreterOptions,
+  options?: Partial<InterpreterOptions>,
 ): TerminalInterpreter => new TerminalInterpreter(options)

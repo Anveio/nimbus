@@ -9,9 +9,9 @@ import {
   BYTE_LIMITS,
   CONTROL_BYTES,
   PRIVATE_PREFIX_RANGE,
-} from './byte-constants'
+} from '../utils/constants'
 
-export { BYTE_LIMITS, CONTROL_BYTES } from './byte-constants'
+export { BYTE_LIMITS, CONTROL_BYTES } from '../utils/constants'
 
 export const BYTE_TABLE_SIZE = 256
 

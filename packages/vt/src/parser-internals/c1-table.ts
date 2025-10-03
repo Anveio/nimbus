@@ -1,5 +1,5 @@
 import type { SosPmApcKind } from '../types'
-import { ASCII_CODES, C1_CONTROL_BYTES } from './byte-constants'
+import { ASCII_CODES, C1_CONTROL_BYTES } from '../utils/constants'
 
 export type C1Action =
   | { readonly type: 'enterCsi' }

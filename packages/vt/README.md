@@ -1,11 +1,11 @@
 # @packages/vt
 
-Our mission is to deliver a zero-dependency VT parser that fully covers
+Our mission is to deliver a zero-dependency VT core that fully covers
 VT220 + ECMA-48 semantics while keeping the architecture modular enough
 that VT500 or xterm extensions can be layered in as additional rule
-modules when the product needs them. In practice that means a clean,
-data-driven core that emits rich events other packages (like `tui`) can
-interpret to maintain terminal state.
+modules when the product needs them. The public face of that core is a
+terminal runtime that threads parser options, emulator quirks, and
+interpreter state management into a single, spec-faithful entry point.
 
 ## What lives here?
 
@@ -14,9 +14,13 @@ interpret to maintain terminal state.
 - **Table-driven classifier** – A hot-path byte classifier that assigns
   ECMA-48 categories (printable, parameter, intermediate, etc.) using
   bit flags so a single byte can belong to multiple roles when needed.
-- **Parser scaffold** – (Work in progress) a `createParser` factory that
-  wires the state machine, manages mutable context (parameters,
-  intermediates, private prefixes), and emits rich events to any sink.
+- **Terminal runtime** – `createTerminalRuntime` wires the parser and
+  interpreter together, passing a consistent configuration surface to both
+  layers so hosts only need to call `write` and read `snapshot`.
+- **Parser scaffold** – A `createParser` factory that wires the state
+  machine, manages mutable context (parameters, intermediates, private
+  prefixes), and emits rich events to any sink when you need custom
+  wiring or instrumentation.
 - **Terminal interpreter** – A layered behaviour engine (`createInterpreter`)
   that consumes parser events, applies spec/emulator capabilities, and
   maintains terminal state while emitting incremental deltas for renderers.
@@ -52,16 +56,33 @@ trade-offs between strict VT220 fidelity and more permissive behaviour:
   then drop into the `DcsIgnore` state so the terminator is swallowed
   without emitting a `DcsUnhook`.
 
-## Behaviour layer
+## Runtime entry point
 
-`createInterpreter` pairs naturally with the parser. Feed every
-`ParserEvent` into the interpreter to maintain an in-memory terminal
-model. The interpreter tracks cursor position, screen buffers, SGR
-attributes, and scrollback, emitting `TerminalUpdate`s (`cells`, `cursor`,
-`clear`, `scroll`, etc.) so renderers can update incrementally. By
-initialising both parser and interpreter with the same `spec`/`emulator`
-options, downstream consumers get a consistent capability bundle whether
-they target classic VT220 semantics or modern xterm behaviour.
+Most consumers should start with `createTerminalRuntime`. It returns a
+fully wired `{ write, writeBytes, handleEvents, reset, snapshot }` bundle
+that hides parser sinks while still exposing both the interpreter and the
+underlying parser when advanced control is required. Pass your
+`parser`/`capabilities`/`printer` options once and the runtime forwards
+them to every layer so responses, scroll regions, and printer flows stay
+in sync. `write` returns the aggregated `TerminalUpdate[]` diff emitted by
+the interpreter, which you can hand straight to renderers.
+
+If you need to tap directly into parser events (for logging, fuzzing, or
+alternate interpreters) the raw `createParser` export remains available
+via `import { parser } from '@mana/vt'` and calling `parser.create()`.
+
+## Interpreter behaviour
+
+`createInterpreter` remains available when you want to build a custom
+pipeline around parser events. Feed every `ParserEvent` into the
+interpreter to maintain an in-memory terminal model. The interpreter
+tracks cursor position, screen buffers, SGR attributes, and scrollback,
+emitting `TerminalUpdate`s (`cells`, `cursor`, `clear`, `scroll`, etc.) so
+renderers can update incrementally. By initialising both parser and
+interpreter with the same `spec`/`emulator` options—something the runtime
+handles automatically—downstream consumers get a consistent capability
+bundle whether they target classic VT220 semantics or modern xterm
+behaviour.
 
 Hitting any string limit leaves previously dispatched data untouched but
 guarantees the parser will not buffer unbounded payloads – a critical

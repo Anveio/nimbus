@@ -46,6 +46,11 @@ This file anchors how we reason about the VT parser + interpreter stack. Treat i
 ### 2025-09-30 – Charter refresh
 Reframed the VT agent charter to mirror the root repository ethos, extracted foundational component notes into dedicated sections, and captured the outstanding backlog around soft reset, DSR coverage, and legacy escape handling.
 
+### 2025-10-09 – Terminal runtime entry point
+- Introduced `createTerminalRuntime` as the recommended API for consumers that just want a wired parser+interpreter pair. Keeps parser export available via a dedicated `parser.create` escape hatch for instrumentation or custom pipelines.
+- Added Vitest coverage for runtime behaviours (print flow, byte writes, capability overrides, printer wiring, reset semantics) so regressions surface immediately when the wiring changes.
+- Documentation now points newcomers at the runtime abstraction first, clarifying that the interpreter is the core product and the raw parser is an advanced tool.
+
 ### 2025-09-29 – Printer controller stub
 - Introduced `printer/controller.ts` with a default no-op controller so the interpreter can mirror output when printer modes engage.
 - `TerminalInterpreter` now tracks printer flags, mirrors writes for `CSI 0/4/5 i` and `CSI ? 4/5/6 i`, and exposes state for React and browser harnesses.
@@ -72,4 +77,3 @@ Encoded the initial FSM (ground, escape, CSI entry/param/intermediate) emitting 
 - Created declarative action/transition descriptors and context factories to centralise parser bookkeeping.
 - Implemented `classifyByte` helper returning bitwise category flags, enabling overlapping roles without ad-hoc branching.
 - Seeded Vitest coverage for byte classification to lock semantics against the VT500 chart and prepared `createParser` for state-table driven development.
-

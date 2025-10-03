@@ -1,6 +1,5 @@
 import type {
   C1HandlingMode,
-  Mutable,
   ParserOptions,
   ParserSpec,
   ParserStringLimits,

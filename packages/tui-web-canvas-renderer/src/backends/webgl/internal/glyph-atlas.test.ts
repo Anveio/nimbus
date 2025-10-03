@@ -56,7 +56,7 @@ const baseCell = (overrides: Partial<TerminalCell> = {}): TerminalCell => ({
   ...overrides,
 })
 
-type MetricsOverrides = Partial<RendererMetrics> & {
+type MetricsOverrides = Partial<Omit<RendererMetrics, 'cell' | 'font'>> & {
   cell?: Partial<RendererMetrics['cell']>
   font?: Partial<RendererMetrics['font']>
 }
@@ -146,12 +146,21 @@ describe('GlyphAtlas', () => {
 
     const cell = baseCell({ char: 'x' })
     const first = atlas.ensureGlyph(cell)
-    const page = (atlas as unknown as { pages: Array<{ cursorX: number; cursorY: number }> }).pages[0]
+    const { pages } = atlas as unknown as {
+      pages: Array<{ cursorX: number; cursorY: number }>
+    }
+    const page = pages[0]
+    if (!page) {
+      throw new Error('expected atlas page to exist after first glyph')
+    }
     expect(page.cursorX).toBeGreaterThan(0)
 
     atlas.setMetrics(createMetrics({ cell: { width: 11 } }))
 
-    const resetPage = (atlas as unknown as { pages: Array<{ cursorX: number; cursorY: number }> }).pages[0]
+    const resetPage = pages[0]
+    if (!resetPage) {
+      throw new Error('expected atlas page to persist after metrics reset')
+    }
     expect(resetPage.cursorX).toBe(0)
     const second = atlas.ensureGlyph(cell)
 
