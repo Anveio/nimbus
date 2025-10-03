@@ -5,43 +5,44 @@ export { classifyByte } from './classifier'
 export { resolveEmulatorOverlay } from './internal/emulator-quirks'
 export { resolveParserOptions } from './internal/resolve-options'
 export { SPEC_DEFAULTS, SPEC_FALLBACK } from './internal/spec-defaults'
-export type { CellDelta, TerminalUpdate } from './interpreter/delta'
-export type {
-  CursorPosition,
-  ClipboardEntry,
-  TerminalAttributes,
-  TerminalColor,
-  TerminalCell,
-  TerminalState,
-} from './interpreter/state'
-export type { PrinterController } from './printer/controller'
-export { createNoopPrinterController } from './printer/controller'
 export {
-  getSelectionBounds,
-  getSelectionRowSegment,
-  getSelectionRowSegments,
-  isSelectionCollapsed,
-  areSelectionsEqual,
-  getSelectionRange,
-  clampSelectionRange,
-} from './interpreter/selection'
+  createInterpreter,
+  TerminalInterpreter,
+} from './interpreter'
+export type { CellDelta, TerminalUpdate } from './interpreter-internals/delta'
 export type {
   SelectionBounds,
   SelectionKind,
   SelectionPoint,
+  SelectionRange,
   SelectionRowSegment,
   SelectionStatus,
   TerminalSelection,
-  SelectionRange,
-} from './interpreter/selection'
+} from './interpreter-internals/selection'
 export {
-  createInterpreter,
-  TerminalInterpreter,
-} from './interpreter/terminal-interpreter'
+  areSelectionsEqual,
+  clampSelectionRange,
+  getSelectionBounds,
+  getSelectionRange,
+  getSelectionRowSegment,
+  getSelectionRowSegments,
+  isSelectionCollapsed,
+} from './interpreter-internals/selection'
+export type {
+  ClipboardEntry,
+  CursorPosition,
+  TerminalAttributes,
+  TerminalCell,
+  TerminalColor,
+  TerminalState,
+} from './interpreter-internals/state'
 export { createParser } from './parser'
+export type { PrinterController } from './printer/controller'
+export { createNoopPrinterController } from './printer/controller'
 export type {
   ByteFlag,
   C1HandlingMode,
+  C1TransmissionMode,
   Parser,
   ParserEvent,
   ParserEventSink,
@@ -55,5 +56,4 @@ export type {
   TerminalCapabilities,
   TerminalEmulator,
   TerminalFeatures,
-  C1TransmissionMode,
 } from './types'

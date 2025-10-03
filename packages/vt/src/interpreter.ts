@@ -1,23 +1,28 @@
-import { resolveTerminalCapabilities } from '../capabilities'
+import { resolveTerminalCapabilities } from './capabilities'
 import {
-  type ParserEvent,
-  ParserEventType,
-  type ParserOptions,
-  type TerminalCapabilities,
-  type C1TransmissionMode,
-} from '../types'
+  ASCII_CODES,
+  ASCII_RANGE,
+  BIT_MASKS,
+  C0_CONTROL_BYTES,
+  C1_CONTROL_BYTES,
+  C1_CONTROL_RANGE,
+  EXTENDED_ASCII,
+} from './internal/byte-constants'
 import {
-  type PrinterController,
-  createNoopPrinterController,
-} from '../printer/controller'
-import type { CellDelta, TerminalUpdate } from './delta'
-import type { SelectionPoint, TerminalSelection } from './selection'
+  resolveCharset,
+  translateGlyph,
+} from './interpreter-internals/charsets'
+import type { CellDelta, TerminalUpdate } from './interpreter-internals/delta'
+import type {
+  SelectionPoint,
+  TerminalSelection,
+} from './interpreter-internals/selection'
 import {
   areSelectionsEqual,
   clampSelectionRange,
   getSelectionRange,
   isSelectionCollapsed,
-} from './selection'
+} from './interpreter-internals/selection'
 import {
   blankCell,
   type CharsetId,
@@ -37,17 +42,18 @@ import {
   type TerminalCell,
   type TerminalColor,
   type TerminalState,
-} from './state'
-import { resolveCharset, translateGlyph } from './charsets'
+} from './interpreter-internals/state'
 import {
-  ASCII_CODES,
-  ASCII_RANGE,
-  BIT_MASKS,
-  C0_CONTROL_BYTES,
-  C1_CONTROL_BYTES,
-  C1_CONTROL_RANGE,
-  EXTENDED_ASCII,
-} from '../internal/byte-constants'
+  createNoopPrinterController,
+  type PrinterController,
+} from './printer/controller'
+import {
+  type C1TransmissionMode,
+  type ParserEvent,
+  ParserEventType,
+  type ParserOptions,
+  type TerminalCapabilities,
+} from './types'
 
 const QUESTION_MARK = ASCII_CODES.QUESTION_MARK
 
@@ -820,8 +826,7 @@ export class TerminalInterpreter {
       .filter((char) => {
         const code = char.charCodeAt(0)
         return (
-          code >= ASCII_RANGE.PRINTABLE_MIN &&
-          code <= ASCII_RANGE.PRINTABLE_MAX
+          code >= ASCII_RANGE.PRINTABLE_MIN && code <= ASCII_RANGE.PRINTABLE_MAX
         )
       })
       .join('')
@@ -874,9 +879,7 @@ export class TerminalInterpreter {
     switch (mode) {
       case 1:
         return this.setProtectedMode('dec')
-      case 0:
       case 2:
-      default:
         return this.setProtectedMode('off')
     }
   }

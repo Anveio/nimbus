@@ -8,7 +8,7 @@ import {
   isSelectionCollapsed,
   type SelectionKind,
   type TerminalSelection,
-} from '../src/interpreter/selection'
+} from '../src/interpreter-internals/selection'
 
 const createSelection = (
   anchorRow: number,

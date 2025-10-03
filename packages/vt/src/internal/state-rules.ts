@@ -11,7 +11,7 @@ import {
   PRIVATE_PREFIX_RANGE,
 } from './byte-constants'
 
-export { CONTROL_BYTES, BYTE_LIMITS } from './byte-constants'
+export { BYTE_LIMITS, CONTROL_BYTES } from './byte-constants'
 
 export const BYTE_TABLE_SIZE = 256
 

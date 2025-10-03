@@ -1,12 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import type { TerminalUpdate } from '../src/interpreter/delta'
-import type { PrinterController } from '../src/printer/controller'
-import {
-  createInterpreter,
-  type TerminalInterpreter,
-} from '../src/interpreter/terminal-interpreter'
-import type { TerminalSelection } from '../src/interpreter/selection'
+import { createInterpreter, type TerminalInterpreter } from '../src/interpreter'
+import type { TerminalUpdate } from '../src/interpreter-internals/delta'
+import type { TerminalSelection } from '../src/interpreter-internals/selection'
 import { createParser } from '../src/parser'
+import type { PrinterController } from '../src/printer/controller'
 import type { ParserEvent, ParserEventSink, ParserOptions } from '../src/types'
 
 class InterpreterSink implements ParserEventSink {
@@ -287,7 +284,10 @@ describe('TerminalInterpreter basic behaviour', () => {
       ?.map((cell) => cell?.char ?? ' ')
       .join('')
       .trimEnd()
-    expect(afterOverwrite, 'IRM off after toggle should overwrite at cursor').toBe('ABXYZ')
+    expect(
+      afterOverwrite,
+      'IRM off after toggle should overwrite at cursor',
+    ).toBe('ABXYZ')
   })
 
   it('handles single shift SS2 without altering GL', () => {

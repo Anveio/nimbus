@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { createInterpreter, type TerminalInterpreter } from '../src/interpreter'
+import type { TerminalUpdate } from '../src/interpreter-internals/delta'
 import { createParser } from '../src/parser'
 import type {
   Parser,
@@ -6,11 +8,6 @@ import type {
   ParserEventSink,
   ParserOptions,
 } from '../src/types'
-import type { TerminalUpdate } from '../src/interpreter/delta'
-import {
-  createInterpreter,
-  type TerminalInterpreter,
-} from '../src/interpreter/terminal-interpreter'
 
 class RecordingSink implements ParserEventSink {
   constructor(
