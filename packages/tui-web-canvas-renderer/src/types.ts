@@ -147,6 +147,10 @@ export interface RendererBackendProvider<
   ) => CanvasRenderer
 }
 
+export interface WebglBackendProbeResult extends RendererBackendProbeResult {
+  readonly context: WebGL2RenderingContext | null
+}
+
 export interface DetectPreferredBackendOptions
   extends RendererBackendProbeContext {
   readonly fallback?: RendererBackendFallback

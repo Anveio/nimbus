@@ -1,7 +1,7 @@
 import path from 'node:path'
 import type { Page } from '@playwright/test'
-import { build, type InlineConfig } from 'vite'
 import type { OutputChunk, RollupOutput } from 'rollup'
+import { build, type InlineConfig } from 'vite'
 
 const HARNESS_ENTRY = path.resolve(__dirname, 'harness.ts')
 

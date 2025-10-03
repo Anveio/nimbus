@@ -205,12 +205,24 @@ window.__manaRendererTest__ = {
 
   getPixel(x, y) {
     const renderer = ensureRenderer()
-    const ctx = renderer.canvas.getContext('2d')
-    if (!ctx) {
-      throw new Error('Unable to access 2D context')
+    const canvas = renderer.canvas as HTMLCanvasElement
+    const ctx = canvas.getContext('2d')
+    if (ctx) {
+      const data = ctx.getImageData(x, y, 1, 1).data
+      return [data[0]!, data[1]!, data[2]!, data[3]!]
     }
-    const data = ctx.getImageData(x, y, 1, 1).data
-    return [data[0]!, data[1]!, data[2]!, data[3]!]
+    const gl =
+      (canvas.getContext('webgl2') as WebGL2RenderingContext | null) ??
+      (canvas.getContext('webgl') as WebGLRenderingContext | null)
+    if (!gl) {
+      throw new Error('Unable to access rendering context for pixel readback')
+    }
+    gl.finish()
+    const pixel = new Uint8Array(4)
+    const deviceX = Math.floor(x)
+    const deviceY = Math.floor(canvas.height - y - 1)
+    gl.readPixels(deviceX, deviceY, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel)
+    return [pixel[0]!, pixel[1]!, pixel[2]!, pixel[3]!]
   },
 
   getDiagnostics() {
