@@ -38,6 +38,7 @@ import { GlyphAtlas } from './glyph-atlas'
 import { TILE_HEIGHT_CELLS, TILE_WIDTH_CELLS } from './constants'
 import type { TileDefinition } from './types'
 import { DamageTracker } from './damage-tracker'
+import { hashFrameBytes } from '../../internal/frame-hash'
 
 const INSTANCE_FLOAT_COUNT = 9
 const INSTANCE_COLOR_OFFSET_BYTES = INSTANCE_FLOAT_COUNT * 4
@@ -227,6 +228,7 @@ export class WebglCanvasRenderer implements CanvasRenderer {
   private readonly tileResources: TileResources[] = []
   private readonly paletteOverrides = new Map<number, string>()
   private readonly damageTracker = new DamageTracker()
+  private readonly captureDiagnosticsFrame: boolean
   private columns = 0
   private rows = 0
   private tileColumns = 0
@@ -317,6 +319,7 @@ export class WebglCanvasRenderer implements CanvasRenderer {
 
     this.glyphAtlas = new GlyphAtlas(this.gl, this.metrics)
     this.backgroundTexture = new BackgroundTexture(this.gl, this.theme)
+    this.captureDiagnosticsFrame = Boolean(options.captureDiagnosticsFrame)
 
     this.diagnosticsState = {
       lastFrameDurationMs: null,
@@ -330,6 +333,7 @@ export class WebglCanvasRenderer implements CanvasRenderer {
       lastOsc: null,
       lastSosPmApc: null,
       lastDcs: null,
+      frameHash: undefined,
     }
 
     this.configureFromSnapshot(options.snapshot)
@@ -619,6 +623,7 @@ export class WebglCanvasRenderer implements CanvasRenderer {
     this.gl.viewport(0, 0, this.scaledWidth, this.scaledHeight)
     this.drawPresent()
     this.drawCursorOverlay()
+    this.updateDiagnosticsFrameHash()
 
     const frameDuration = performance.now() - startTime
     this.diagnosticsState = {
@@ -688,6 +693,7 @@ export class WebglCanvasRenderer implements CanvasRenderer {
     this.gl.viewport(0, 0, this.scaledWidth, this.scaledHeight)
     this.drawPresent()
     this.drawCursorOverlay()
+    this.updateDiagnosticsFrameHash()
 
     const duration = performance.now() - start
     this.diagnosticsState = {
@@ -704,6 +710,29 @@ export class WebglCanvasRenderer implements CanvasRenderer {
 
     this.damageTracker.clear()
     this.lastCursorPosition = { ...this.snapshot.cursor }
+  }
+
+  private updateDiagnosticsFrameHash(): void {
+    if (!this.captureDiagnosticsFrame) {
+      this.diagnosticsState = { ...this.diagnosticsState, frameHash: undefined }
+      return
+    }
+    const canvas = this.canvas as HTMLCanvasElement
+    const width = canvas.width || 0
+    const height = canvas.height || 0
+    if (width === 0 || height === 0) {
+      this.diagnosticsState = {
+        ...this.diagnosticsState,
+        frameHash: hashFrameBytes(new Uint8Array(0), width, height),
+      }
+      return
+    }
+    const gl = this.gl
+    gl.finish()
+    const pixels = new Uint8Array(width * height * 4)
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+    const frameHash = hashFrameBytes(pixels, width, height)
+    this.diagnosticsState = { ...this.diagnosticsState, frameHash }
   }
 
 

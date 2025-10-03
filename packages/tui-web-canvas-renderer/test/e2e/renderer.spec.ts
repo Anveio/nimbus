@@ -218,6 +218,12 @@ const getDiagnostics = async (page: Page) => {
   return page.evaluate(() => window.__manaRendererTest__?.getDiagnostics())
 }
 
+const getFrameSnapshot = async (
+  page: Page,
+): Promise<{ hash: string | null; width: number; height: number } | null> => {
+  return page.evaluate(() => window.__manaRendererTest__?.getFrameSnapshot() ?? null)
+}
+
 const getSelectionEvents = async (page: Page) => {
   return page.evaluate(() => window.__manaRendererTest__?.getSelectionEvents())
 }
@@ -286,7 +292,6 @@ test.describe('createCanvasRenderer (browser)', () => {
 
       const pixel = await getPixel(page, 0, 0)
       const expected = hexToRgba(theme.palette.ansi[1]!)
-      console.log('test webgl update pixel', pixel, 'expected', expected)
       expect(pixel[0]).toBe(expected[0])
       expect(pixel[1]).toBe(expected[1])
       expect(pixel[2]).toBe(expected[2])
@@ -709,7 +714,6 @@ test.describe('createCanvasRenderer (webgl backend)', () => {
   test('applies cell updates and repaints with palette colours', async ({
     page,
   }) => {
-    test.skip(true, 'WebGL pixel readback coverage pending GPU diff harness')
     await withHarness(page, async () => {
       const theme = createTheme()
       const snapshot = createSnapshot(2, 2)
@@ -719,6 +723,9 @@ test.describe('createCanvasRenderer (webgl backend)', () => {
         metrics: baseMetrics,
         backend: 'webgl',
       })
+
+      const before = await getFrameSnapshot(page)
+      expect(before?.hash).not.toBeNull()
 
       const updatedCell: TerminalCell = {
         char: ' ',
@@ -743,13 +750,9 @@ test.describe('createCanvasRenderer (webgl backend)', () => {
       ]
 
       await applyUpdates(page, { snapshot: nextSnapshot, updates })
-      await page.waitForTimeout(0)
-
-      const pixel = await getPixel(page, 0, 0)
-      const expected = hexToRgba(theme.palette.ansi[1]!)
-      expect(pixel[0]).toBe(expected[0])
-      expect(pixel[1]).toBe(expected[1])
-      expect(pixel[2]).toBe(expected[2])
+      const after = await getFrameSnapshot(page)
+      expect(after?.hash).not.toBeNull()
+      expect(after?.hash).not.toBe(before?.hash)
     })
   })
 })

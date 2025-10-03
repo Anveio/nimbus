@@ -21,6 +21,7 @@ import {
   resolveCellColors,
   resolvePaletteOverrideColor,
 } from './internal/colors'
+import { hashFrameBytes } from '../../internal/frame-hash'
 import { fontString } from './internal/fonts'
 import { ensureCanvasDimensions, setCanvasStyleSize } from './internal/layout'
 
@@ -354,6 +355,31 @@ export const createCpuCanvasRenderer = (
     lastOsc: null,
     lastSosPmApc: null,
     lastDcs: null,
+    frameHash: undefined,
+  }
+
+  const captureFrameHash = Boolean(options.captureDiagnosticsFrame)
+
+  const refreshFrameHash = (): void => {
+    if (!captureFrameHash) {
+      diagnostics = { ...diagnostics, frameHash: undefined }
+      return
+    }
+   const width = canvas.width || 0
+   const height = canvas.height || 0
+   if (width === 0 || height === 0) {
+     diagnostics = {
+        ...diagnostics,
+        frameHash: hashFrameBytes(new Uint8Array(0), width, height),
+      }
+      return
+    }
+    const data = ctx.getImageData(0, 0, width, height).data
+    const bytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+    diagnostics = {
+      ...diagnostics,
+      frameHash: hashFrameBytes(bytes, width, height),
+    }
   }
 
   let currentSelection: TerminalSelection | null =
@@ -370,6 +396,7 @@ export const createCpuCanvasRenderer = (
       lastFrameDurationMs: frame.lastFrameDurationMs,
       lastDrawCallCount: frame.lastDrawCallCount,
     }
+    refreshFrameHash()
   }
 
   applyFrameStats(

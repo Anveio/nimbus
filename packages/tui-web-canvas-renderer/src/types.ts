@@ -173,6 +173,11 @@ export interface CanvasRendererOptions {
   readonly onSelectionChange?: (selection: TerminalSelection | null) => void
   readonly cursorOverlayStrategy?: CursorOverlayStrategy
   readonly backend?: RendererBackendConfig
+  /**
+   * When enabled, the renderer captures a frame hash inside diagnostics after
+   * each render. Primarily used by tests that need deterministic GPU snapshots.
+   */
+  readonly captureDiagnosticsFrame?: boolean
 }
 
 export interface CanvasRendererUpdateOptions {
@@ -221,6 +226,8 @@ export interface CanvasRendererDiagnostics {
     readonly intermediates: ReadonlyArray<number>
     readonly data: string
   } | null
+  /** Optional frame hash captured when diagnostics frame capture is enabled. */
+  readonly frameHash?: string
 }
 
 export interface RendererRowMetadataDiagnostics {

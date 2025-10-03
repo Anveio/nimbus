@@ -53,6 +53,7 @@ declare global {
       setCursorPosition: (row: number, column: number) => void
       getPixel: (x: number, y: number) => [number, number, number, number]
       getDiagnostics: () => CanvasRenderer['diagnostics'] | null
+      getFrameSnapshot: () => { hash: string | null; width: number; height: number }
       getSelectionEvents: () => Array<TerminalSelection | null>
       getOverlayEvents: () => Array<{ selection: TerminalSelection | null }>
       setSelectionListener: () => void
@@ -147,6 +148,7 @@ window.__manaRendererTest__ = {
       snapshot: options.snapshot,
       cursorOverlayStrategy: cursorOverlay,
       backend: options.backend === 'webgl' ? { type: 'gpu-webgl' } : undefined,
+      captureDiagnosticsFrame: true,
       onSelectionChange: (selection) => {
         store.selectionEvents.push(selection)
       },
@@ -227,6 +229,17 @@ window.__manaRendererTest__ = {
 
   getDiagnostics() {
     return ensureRenderer().diagnostics
+  },
+
+  getFrameSnapshot() {
+    const renderer = ensureRenderer()
+    const canvas = renderer.canvas as HTMLCanvasElement
+    const diagnostics = renderer.diagnostics
+    return {
+      hash: diagnostics.frameHash ?? null,
+      width: canvas.width,
+      height: canvas.height,
+    }
   },
 
   getSelectionEvents() {
