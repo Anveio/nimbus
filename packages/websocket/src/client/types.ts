@@ -18,6 +18,19 @@ export interface ResumeOptions {
   readonly ttlMs?: number
 }
 
+export interface ResumePersistState {
+  readonly token: string
+  readonly expiresAt?: number
+  readonly channels?: ReadonlyArray<{ readonly id: number; readonly window: number }>
+}
+
+export interface ResumeHooks {
+  readonly enable?: boolean
+  onPersist?(state: ResumePersistState): void | Promise<void>
+  onLoad?(): ResumePersistState | undefined | Promise<ResumePersistState | undefined>
+  onClear?(): void | Promise<void>
+}
+
 export interface ClientInfo {
   readonly app?: string
   readonly version?: string
@@ -31,6 +44,7 @@ export interface ConnectOptions {
   readonly highWaterMark?: number
   readonly lowWaterMark?: number
   readonly resume?: ResumeOptions
+  readonly resumeHooks?: ResumeHooks
   readonly transport?: 'auto' | 'websocket' | 'websocketstream'
   readonly clientInfo?: ClientInfo
   readonly node?: NodeExtras

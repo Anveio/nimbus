@@ -2,9 +2,12 @@
   "extends": "../tsconfig/workspace-package-config.json",
   "compilerOptions": {
     "paths": {
-      "@mana/websocket": ["./src/index.ts"]
-    }
+      "@mana/websocket": ["./src/index.ts"],
+      "@mana/ssh": ["../ssh/src/index.ts"],
+      "@mana/ssh/*": ["../ssh/src/*"]
+    },
+    "rootDir": "../.."
   },
-  "include": ["src"],
+  "include": ["src", "../ssh/src"],
   "exclude": ["dist", "build", "node_modules"]
 }

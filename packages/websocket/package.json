@@ -33,6 +33,9 @@
     "typecheck": "tsc --noEmit"
   },
   "sideEffects": false,
+  "dependencies": {
+    "@mana/ssh": "workspace:*"
+  },
   "devDependencies": {
     "@playwright/test": "^1.55.1",
     "esbuild": "^0.21.5",

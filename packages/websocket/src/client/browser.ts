@@ -1,10 +1,33 @@
 import { ensureDefaultProfiles, getProfile } from '../protocol'
 import { initialiseConnection } from './internal/connection'
+import { createChannelTransport } from './internal/ssh-bridge'
 import { makeFactory, type RuntimeWebSocket } from './internal/socket'
-import type { Connection, ConnectOptions, WebSocketConstructor } from './types'
+import type { Connection, ConnectOptions, WebSocketConstructor, Channel } from './types'
+import {
+  connectSSH as connectSsh,
+  type HostIdentity,
+  type WebConnectOptions as SshWebConnectOptions,
+} from '@mana/ssh/client/web'
+import type { DiagnosticRecord } from '@mana/ssh/client/web'
+
+type SshConnectedSession = Awaited<ReturnType<typeof connectSsh>>
 
 export interface BrowserConnectOptions extends ConnectOptions {
   readonly WebSocketImpl?: WebSocketConstructor
+}
+
+export interface BrowserSshBridgeOptions
+  extends Omit<SshWebConnectOptions, 'transport' | 'host'> {
+  readonly host?: HostIdentity
+  readonly closeChannelOnDispose?: boolean
+  readonly disposeReason?: string
+}
+
+export interface BrowserSshSession {
+  readonly connection: Connection
+  readonly channel: Channel
+  readonly ssh: SshConnectedSession
+  dispose(options?: { closeChannel?: boolean; reason?: string }): Promise<void>
 }
 
 export async function connect(
@@ -18,6 +41,86 @@ export async function connect(
   }
 
   return initialiseConnection(factory, options)
+}
+
+export async function openSshSession(
+  connection: Connection,
+  init: Parameters<Connection['openSession']>[0],
+  sshOptions: BrowserSshBridgeOptions = {},
+): Promise<{ channel: Channel; ssh: SshConnectedSession; dispose: BrowserSshSession['dispose'] }> {
+  const channel = await connection.openSession(init)
+  const { transport, dispose: disposeTransport } = createChannelTransport(channel, {
+    onSendError(error) {
+      emitDiagnostic(sshOptions.callbacks, {
+        timestamp: Date.now(),
+        level: 'error',
+        code: 'channel-send-failed',
+        message: 'Failed to forward SSH payload to websocket channel',
+        detail: error,
+      })
+    },
+  })
+
+  try {
+    const ssh = await connectSsh({
+      ...sshOptions,
+      transport: transport,
+      host: sshOptions.host ?? {
+        host: init.target.host,
+        port: init.target.port,
+      },
+    })
+
+    const dispose: BrowserSshSession['dispose'] = async (options) => {
+      const closeChannel = options?.closeChannel ?? sshOptions.closeChannelOnDispose ?? true
+      const reason = options?.reason ?? sshOptions.disposeReason ?? 'ssh-session-disposed'
+      disposeTransport()
+      ssh.dispose()
+      if (closeChannel) {
+        try {
+          await channel.close(reason)
+        } catch (error) {
+          emitDiagnostic(sshOptions.callbacks, {
+            timestamp: Date.now(),
+            level: 'warn',
+            code: 'channel-close-failed',
+            message: 'Failed to close websocket SSH channel',
+            detail: error,
+          })
+        }
+      }
+    }
+
+    return { channel, ssh, dispose }
+  } catch (error) {
+    disposeTransport()
+    await channel.close('ssh-session-failed').catch(() => {
+      /* noop */
+    })
+    throw error
+  }
+}
+
+export async function connectAndOpenSsh(
+  options: BrowserConnectOptions,
+  init: Parameters<Connection['openSession']>[0],
+  sshOptions: BrowserSshBridgeOptions = {},
+): Promise<BrowserSshSession> {
+  const connection = await connect(options)
+  try {
+    const { channel, ssh, dispose } = await openSshSession(connection, init, sshOptions)
+    return {
+      connection,
+      channel,
+      ssh,
+      dispose,
+    }
+  } catch (error) {
+    await connection.close(1011, 'ssh-session-failed').catch(() => {
+      /* noop */
+    })
+    throw error
+  }
 }
 
 function resolveImplementation(
@@ -56,3 +159,10 @@ export type {
   ConnectOptions,
   WebSocketConstructor,
 } from './types'
+
+function emitDiagnostic(
+  callbacks: SshWebConnectOptions['callbacks'],
+  record: DiagnosticRecord,
+): void {
+  callbacks?.onDiagnostic?.(record)
+}

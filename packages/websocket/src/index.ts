@@ -1,8 +1,24 @@
-export { connect as connectWeb } from './client/browser'
-export type { BrowserConnectOptions } from './client/browser'
+export {
+  connect as connectWeb,
+  openSshSession as openWebSshSession,
+  connectAndOpenSsh as connectAndOpenWebSsh,
+} from './client/browser'
+export type {
+  BrowserConnectOptions,
+  BrowserSshBridgeOptions,
+  BrowserSshSession,
+} from './client/browser'
 
-export { connect as connectNode } from './client/node'
-export type { NodeConnectOptions } from './client/node'
+export {
+  connect as connectNode,
+  openSshSession as openNodeSshSession,
+  connectAndOpenSsh as connectAndOpenNodeSsh,
+} from './client/node'
+export type {
+  NodeConnectOptions,
+  NodeSshBridgeOptions,
+  NodeSshSession,
+} from './client/node'
 
 export { createNodeWebSocketServer } from './server/node'
 export type {

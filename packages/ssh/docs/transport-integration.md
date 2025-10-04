@@ -32,6 +32,21 @@ interface RuntimeConnectOptions {
   host?: HostIdentity
   configOverrides?: RuntimeConfigOverrides
   callbacks?: ConnectCallbacks
+  resume?: ResumeConfig
+}
+
+interface ResumeConfig {
+  readonly enable?: boolean
+  onPersist?(state: ResumeState): void | Promise<void>
+  onLoad?(): ResumeState | undefined | Promise<ResumeState | undefined>
+  onClear?(): void | Promise<void>
+}
+
+interface ResumeState {
+  readonly token: string
+  readonly expiresAt?: number
+  readonly sessionId?: string
+  readonly channels?: ReadonlyArray<{ readonly id: number; readonly window: number }>
 }
 ```
 
@@ -41,6 +56,7 @@ The runtime adapters inject defaults for:
 - `randomBytes`: `crypto.getRandomValues` (browser) / `crypto.randomBytes` (node).
 - `crypto`: WebCrypto (`globalThis.crypto` / `crypto.webcrypto`).
 - `hostKeys`: IndexedDB-backed persistence in browsers (configurable via `hostKeyConfig`), in-memory TOFU for Node.
+- `resume`: optional callbacks that will orchestrate token persistence once the SSH core begins emitting resume metadata.
 - `diagnostics`: forwards into `callbacks.onDiagnostic` when provided.
 
 Consumers may override any portion of the `SshClientConfig` (identification string, algorithm catalog, channel policy, authentication strategy, guards) through `configOverrides`.
@@ -86,13 +102,15 @@ The Phase‑2 websocket client needs PTY setup, shell startup, and exec flows. T
 
 Transports/watchers should observe these events to resolve promises exposed to UI layers and to terminate renderer pipelines promptly when the remote process exits.
 
-## Resume (Forward Look)
+## Resume (Transport-Owned)
 
-The runtime helpers intentionally leave a slot for transport resume:
+Phase‑2 keeps resume logic entirely inside transports. The SSH engine and its runtime adapters remain stateless: they never store, load, or generate resume tokens, and `connectSSH` continues to return only `{ session, dispose }`.
 
-- `connectSSH` accepts `configOverrides.guards` and `callbacks` but does not yet persist replay buffers or tokens.
-- Phase‑2 will extend `RuntimeConnectOptions` with `{ resume?: { token: string; onUpdate(token: string): void } }` once the websocket harness finalises its resume token schema.
-- The SSH session already supports `waitForIdle()` and stateless `receive/flushOutbound` patterns, so rehydrating a session across reconnects only requires replaying outbound packets held by the transport layer. Documentation will be amended when the websocket contract stabilises.
+- Websocket (and future) transports own persistence. They decide when to capture tokens (e.g., from `open_ok.resumeKey`), which storage medium to use, and how to replay snapshots on reconnect.
+- Because the SSH session already supports `receive`, `flushOutbound`, and `waitForIdle()` without hidden buffers, transports can safely pause IO during reconnects and resume once the wire protocol is back.
+- When the SSH core eventually emits resume-ready snapshots, those events will surface through normal `SshEvent` channels; runtime adapters will stay pass-through so transports can continue making independent policy decisions.
+
+For guidance on the websocket contract—including hello payloads and resume token flow—see `packages/websocket/docs/technical-design-spec.md`.
 
 ## Build & Packaging Plan
 

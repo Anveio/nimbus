@@ -295,6 +295,11 @@ Server MAY accept within a retention window (default 60s) and rebind channel IDs
 
 If resume fails, client SHOULD present a typed error and require manual reconnect.
 
+SSH bridge:
+
+- Once a channel is confirmed (`open_ok`), the client spins up an `@mana/ssh` session using the channel as its transport. The websocket layer remains owner of resume tokens; the SSH runtime sees only raw octets.
+- Browser and Node adapters expose helpers that bridge a `Connection` + channel init payload into `{ session, dispose }`, mirroring `connectSSH`. The bridge forwards channel `data` into `session.receive`, flushes `outbound-data` events back through `channel.send`, and propagates channel `exit`/`error` to the disposer.
+
 7.2 Channel lifecycle
 ```lua
 (open) → open_ok → (data/resize/signal)* → exit → close

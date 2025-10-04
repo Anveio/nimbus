@@ -42,6 +42,19 @@ Consumers choose the adapter that matches their runtime:
 
 Each adapter re-exports the shared protocol surface from `src/api.ts` while wiring runtime defaults (crypto, RNG, host key stores) through `src/client/shared`. There is intentionally no package-level entry so hosts make an explicit choice about the environment they are targeting.
 
+### Runtime helpers
+
+Both adapters expose `connectSSH(options)`, a convenience wrapper around `createClientSession` that wires transports and diagnostics:
+
+```ts
+const { session, dispose } = await connectSSH({
+  transport,
+  callbacks,
+})
+```
+
+The helper performs runtime wiring (crypto, RNG, host key persistence) and returns the core `SshSession` plus a `dispose` function that tears down registered transport listeners.
+
 ### `SshClientConfig`
 
 | Field | Purpose | Notes |

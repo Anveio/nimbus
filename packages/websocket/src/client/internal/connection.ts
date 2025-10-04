@@ -17,6 +17,8 @@ import type {
   Connection,
   ConnectionEvents,
   ConnectionState,
+  ResumeHooks,
+  ResumePersistState,
 } from '../types'
 import { createResumeStore } from './resume-store'
 import { registerChannel } from '../../protocol/flow'
@@ -41,6 +43,7 @@ export interface ConnectionContext {
   readonly authProvider?: AuthProvider
   readonly resumeStorage: ReturnType<typeof createResumeStore>
   readonly resumeTtlMs: number
+  readonly resumeHooks?: ResumeHooks
 }
 
 export async function initialiseConnection(
@@ -61,11 +64,20 @@ export async function initialiseConnection(
     lowWaterMark: options.lowWaterMark,
   })
 
+  const resumeHooks = options.resumeHooks?.enable === false ? undefined : options.resumeHooks
   const resumeOptions = options.resume ?? { storage: 'session', ttlMs: 60_000 }
   const resumeStorage = createResumeStore(
     resumeOptions.storage ?? 'session',
     `mana.ws.${options.url}`,
   )
+  if (resumeHooks?.onLoad) {
+    const loaded = await resumeHooks.onLoad()
+    if (loaded?.token) {
+      const expiresAt =
+        loaded.expiresAt ?? Date.now() + (resumeOptions.ttlMs ?? 60_000)
+      resumeStorage.set({ token: loaded.token, expiresAt })
+    }
+  }
   const resumeRecord = resumeStorage.get()
   if (resumeRecord) {
     harness.update({ type: 'hello_sent', resumeToken: resumeRecord.token })
@@ -84,9 +96,10 @@ export async function initialiseConnection(
     authProvider: options.auth,
     resumeStorage,
     resumeTtlMs: resumeOptions.ttlMs ?? 60_000,
+    resumeHooks,
   }
 
-  attachSocketHandlers(context, resumeStorage)
+  attachSocketHandlers(context)
   harness.update({ type: 'connect_requested' })
 
   const readyPromise = new Promise<void>((resolve, reject) => {
@@ -123,10 +136,7 @@ function resolveProfile(profile: ConnectOptions['profile']): WireProfile {
   return profile
 }
 
-function attachSocketHandlers(
-  context: ConnectionContext,
-  resumeStorage: ReturnType<typeof createResumeStore>,
-): void {
+function attachSocketHandlers(context: ConnectionContext): void {
   const {
     harness,
     profile,
@@ -135,6 +145,8 @@ function attachSocketHandlers(
     options,
     authProvider,
     pendingOpens,
+    resumeStorage,
+    resumeHooks,
   } = context
 
   const handleOpen = async () => {
@@ -184,6 +196,7 @@ function attachSocketHandlers(
       timestamp: Date.now(),
     })
     resumeStorage.clear()
+    void resumeHooks?.onClear?.()
     for (const [, pending] of pendingOpens) {
       pending.reject(
         new Error(`Connection closed before channel ready (${event.code})`),
@@ -239,10 +252,21 @@ function handleControl(context: ConnectionContext, ctl: Ctl): void {
         pending.resolve(channel)
         pendingOpens.delete(ctl.id)
         if (ctl.resumeKey) {
+          const expiresAt = Date.now() + context.resumeTtlMs
           context.resumeStorage.set({
             token: ctl.resumeKey,
-            expiresAt: Date.now() + context.resumeTtlMs,
+            expiresAt,
           })
+          const snapshot: ResumePersistState = {
+            token: ctl.resumeKey,
+            expiresAt,
+            channels: Array.from(context.channels.values()).map((ch) => ({
+              id: ch.id,
+              window:
+                context.harness.flow.channels.get(ch.id)?.creditOutstanding ?? 0,
+            })),
+          }
+          void context.resumeHooks?.onPersist?.(snapshot)
         }
       }
       break
