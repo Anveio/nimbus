@@ -53,9 +53,21 @@ const NORMALIZED_CLIENT_EXPONENT = normalizeExponent(CLIENT_EXPONENT)
 const SERVER_EXPONENT = bytesToBigInt(SERVER_EXPONENT_BYTES)
 const NORMALIZED_SERVER_EXPONENT = normalizeExponent(SERVER_EXPONENT)
 
-const CLIENT_PUBLIC = modPow(DH_GROUP14_GENERATOR, NORMALIZED_CLIENT_EXPONENT, DH_GROUP14_PRIME)
-const SERVER_PUBLIC = modPow(DH_GROUP14_GENERATOR, NORMALIZED_SERVER_EXPONENT, DH_GROUP14_PRIME)
-const SHARED_SECRET = modPow(SERVER_PUBLIC, NORMALIZED_CLIENT_EXPONENT, DH_GROUP14_PRIME)
+const CLIENT_PUBLIC = modPow(
+  DH_GROUP14_GENERATOR,
+  NORMALIZED_CLIENT_EXPONENT,
+  DH_GROUP14_PRIME,
+)
+const SERVER_PUBLIC = modPow(
+  DH_GROUP14_GENERATOR,
+  NORMALIZED_SERVER_EXPONENT,
+  DH_GROUP14_PRIME,
+)
+const SHARED_SECRET = modPow(
+  SERVER_PUBLIC,
+  NORMALIZED_CLIENT_EXPONENT,
+  DH_GROUP14_PRIME,
+)
 
 function bytesToBigInt(bytes: Uint8Array): bigint {
   let hex = ''
@@ -104,7 +116,10 @@ function buildDhReplyPacket(): Uint8Array {
   return wrapSshPacket(payload)
 }
 
-function expectEventTypes(events: ReadonlyArray<SshEvent>, expected: ReadonlyArray<SshEvent['type']>): void {
+function expectEventTypes(
+  events: ReadonlyArray<SshEvent>,
+  expected: ReadonlyArray<SshEvent['type']>,
+): void {
   expect(events.map((event) => event.type)).toEqual(expected)
 }
 
@@ -120,7 +135,10 @@ describe('RFC 4419 §3 diffie-hellman-group14-sha256 key exchange', () => {
   test('negotiates group14 fallback and emits NEWKEYS after shared secret derivation', async () => {
     expect(SHARED_SECRET).toBeGreaterThan(0n)
 
-    const decision: HostKeyDecision = { outcome: 'trusted', source: 'known-hosts' }
+    const decision: HostKeyDecision = {
+      outcome: 'trusted',
+      source: 'known-hosts',
+    }
     const hostKeys = new RecordingHostKeyStore(decision)
 
     const randomBytes = vi.fn((length: number) => {
@@ -191,7 +209,10 @@ describe('RFC 4419 §3 diffie-hellman-group14-sha256 key exchange', () => {
     const outboundPackets = session.flushOutbound()
     expect(outboundPackets).toHaveLength(2)
     const [clientKexPacket, dhInitPacket] = outboundPackets
-    const expectedClientKexPayload = buildClientKexInitPayload(algorithms, randomBytes)
+    const expectedClientKexPayload = buildClientKexInitPayload(
+      algorithms,
+      randomBytes,
+    )
     const clientPayload = unwrapPayload(clientKexPacket!)
     expect(clientPayload).toEqual(expectedClientKexPayload)
     const dhInitPayload = unwrapPayload(dhInitPacket!)

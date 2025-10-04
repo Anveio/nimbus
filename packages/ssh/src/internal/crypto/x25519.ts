@@ -73,7 +73,7 @@ function montgomeryLadder(scalar: Uint8Array, uBytes: Uint8Array): Uint8Array {
   const k = decodeLittleEndian(scalar)
   const u = decodeLittleEndian(uBytes)
 
-  let x1 = u
+  const x1 = u
   let x2 = 1n
   let z2 = 0n
   let x3 = u
@@ -132,7 +132,10 @@ export function scalarMultBase(scalar: Uint8Array): Uint8Array {
   return montgomeryLadder(clamped, basePoint)
 }
 
-export function scalarMult(scalar: Uint8Array, publicKey: Uint8Array): Uint8Array {
+export function scalarMult(
+  scalar: Uint8Array,
+  publicKey: Uint8Array,
+): Uint8Array {
   const clamped = clampScalar(scalar)
   return montgomeryLadder(clamped, publicKey)
 }

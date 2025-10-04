@@ -56,18 +56,16 @@ export async function initialiseConnection(
   harnessEvents.on('diagnostic', (diag) => events.emit('diagnostic', diag))
   harnessEvents.on('policy', (policy) => events.emit('policy', policy))
 
-  const harness = createProtocolHarness(
-    socket,
-    profile,
-    harnessEvents,
-    {
-      highWaterMark: options.highWaterMark,
-      lowWaterMark: options.lowWaterMark,
-    },
-  )
+  const harness = createProtocolHarness(socket, profile, harnessEvents, {
+    highWaterMark: options.highWaterMark,
+    lowWaterMark: options.lowWaterMark,
+  })
 
   const resumeOptions = options.resume ?? { storage: 'session', ttlMs: 60_000 }
-  const resumeStorage = createResumeStore(resumeOptions.storage ?? 'session', `mana.ws.${options.url}`)
+  const resumeStorage = createResumeStore(
+    resumeOptions.storage ?? 'session',
+    `mana.ws.${options.url}`,
+  )
   const resumeRecord = resumeStorage.get()
   if (resumeRecord) {
     harness.update({ type: 'hello_sent', resumeToken: resumeRecord.token })
@@ -129,7 +127,15 @@ function attachSocketHandlers(
   context: ConnectionContext,
   resumeStorage: ReturnType<typeof createResumeStore>,
 ): void {
-  const { harness, profile, socket, events, options, authProvider, pendingOpens } = context
+  const {
+    harness,
+    profile,
+    socket,
+    events,
+    options,
+    authProvider,
+    pendingOpens,
+  } = context
 
   const handleOpen = async () => {
     harness.update({ type: 'socket_opened' })
@@ -179,7 +185,9 @@ function attachSocketHandlers(
     })
     resumeStorage.clear()
     for (const [, pending] of pendingOpens) {
-      pending.reject(new Error(`Connection closed before channel ready (${event.code})`))
+      pending.reject(
+        new Error(`Connection closed before channel ready (${event.code})`),
+      )
     }
     pendingOpens.clear()
   })
@@ -222,7 +230,11 @@ function handleControl(context: ConnectionContext, ctl: Ctl): void {
       const pending = pendingOpens.get(ctl.id)
       const channel = channels.get(ctl.id)
       if (channel && pending) {
-        harness.update({ type: 'channel_open_ok', channelId: ctl.id, resumeKey: ctl.resumeKey })
+        harness.update({
+          type: 'channel_open_ok',
+          channelId: ctl.id,
+          resumeKey: ctl.resumeKey,
+        })
         maybeGrantCredit(harness, ctl.id)
         pending.resolve(channel)
         pendingOpens.delete(ctl.id)
@@ -303,7 +315,12 @@ function createConnection(context: ConnectionContext): Connection {
         context.harness.sendData(df)
       },
       resize(size) {
-        context.harness.sendControl({ t: 'resize', id, cols: size.cols, rows: size.rows })
+        context.harness.sendControl({
+          t: 'resize',
+          id,
+          cols: size.cols,
+          rows: size.rows,
+        })
       },
       async signal(sig) {
         context.harness.sendControl({ t: 'signal', id, sig })
@@ -338,7 +355,11 @@ function createConnection(context: ConnectionContext): Connection {
 
   return {
     get protocol(): string {
-      return context.socket.protocol || context.profile.subprotocols?.[0] || context.profile.id
+      return (
+        context.socket.protocol ||
+        context.profile.subprotocols?.[0] ||
+        context.profile.id
+      )
     },
     get state(): ConnectionState {
       const phases: Record<string, ConnectionState> = {

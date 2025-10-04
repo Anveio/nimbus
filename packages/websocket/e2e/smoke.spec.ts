@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test'
 import { connect as connectWeb } from '../src/client/browser'
 
-test('browser client wiring survives a browser round-trip', async ({ page }) => {
+test('browser client wiring survives a browser round-trip', async ({
+  page,
+}) => {
   await page.goto('about:blank')
 
   const serializedConnect = connectWeb.toString()

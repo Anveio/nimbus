@@ -47,7 +47,9 @@ describe('RFC 4253 §7 algorithm negotiation', () => {
     session.nextEvent()
     session.flushOutbound()
 
-    const serverIdentification = encodeIdentificationLine('SSH-2.0-Server_Example_1.0')
+    const serverIdentification = encodeIdentificationLine(
+      'SSH-2.0-Server_Example_1.0',
+    )
     const serverKex = buildServerKexInitPacket({
       kexAlgorithms: [
         'diffie-hellman-group14-sha256',
@@ -65,17 +67,18 @@ describe('RFC 4253 §7 algorithm negotiation', () => {
       compressionServerToClient: ['zlib@openssh.com'],
     })
 
-    const combined = new Uint8Array(serverIdentification.length + serverKex.length)
+    const combined = new Uint8Array(
+      serverIdentification.length + serverKex.length,
+    )
     combined.set(serverIdentification, 0)
     combined.set(serverKex, serverIdentification.length)
 
     session.receive(combined)
 
     const events = drainSessionEvents(session)
-    const kexReceived = events.find((event) => event.type === 'kex-init-received') as Extract<
-      SshEvent,
-      { type: 'kex-init-received' }
-    > | undefined
+    const kexReceived = events.find(
+      (event) => event.type === 'kex-init-received',
+    ) as Extract<SshEvent, { type: 'kex-init-received' }> | undefined
     expect(kexReceived).toBeDefined()
 
     const snapshot = session.inspect()

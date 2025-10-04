@@ -5,7 +5,9 @@ import { SshInvariantViolation } from '../../errors'
  */
 export function encodeMpint(value: bigint): Uint8Array {
   if (value < 0n) {
-    throw new SshInvariantViolation('mpint encoding does not support negative values')
+    throw new SshInvariantViolation(
+      'mpint encoding does not support negative values',
+    )
   }
   if (value === 0n) {
     return new Uint8Array(0)
@@ -42,7 +44,9 @@ export function decodeMpint(bytes: Uint8Array): bigint {
 function hexToUint8Array(hex: string): Uint8Array {
   const normalized = hex.replace(/\s+/g, '')
   if (normalized.length % 2 !== 0) {
-    throw new SshInvariantViolation('Hex string must contain an even number of characters')
+    throw new SshInvariantViolation(
+      'Hex string must contain an even number of characters',
+    )
   }
   const result = new Uint8Array(normalized.length / 2)
   for (let i = 0; i < normalized.length; i += 2) {
@@ -50,4 +54,3 @@ function hexToUint8Array(hex: string): Uint8Array {
   }
   return result
 }
-

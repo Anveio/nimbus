@@ -178,8 +178,7 @@ export const resolveTerminalCapabilities = (
 
   const emulatorOverlay = resolveEmulatorOverlay(parserOptions)
 
-  const spec =
-    parserOptions.spec ?? emulatorOverlay.spec ?? SPEC_FALLBACK
+  const spec = parserOptions.spec ?? emulatorOverlay.spec ?? SPEC_FALLBACK
   parserOptions.spec = spec
 
   const baseFeatures = SPEC_FEATURES[spec]

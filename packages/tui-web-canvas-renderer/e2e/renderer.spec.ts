@@ -867,14 +867,20 @@ test.describe('createCanvasRenderer (webgl backend)', () => {
       const selectionUpdates: TerminalUpdate[] = [
         { type: 'selection-set', selection },
       ]
-      await applyUpdates(page, { snapshot: withSelection, updates: selectionUpdates })
+      await applyUpdates(page, {
+        snapshot: withSelection,
+        updates: selectionUpdates,
+      })
       const selected = await getFrameSnapshot(page)
       expect(selected?.hash).not.toBeNull()
       expect(selected?.hash).not.toBe(before?.hash)
 
       const clearedSnapshot = structuredClone(snapshot)
       const clearUpdates: TerminalUpdate[] = [{ type: 'selection-clear' }]
-      await applyUpdates(page, { snapshot: clearedSnapshot, updates: clearUpdates })
+      await applyUpdates(page, {
+        snapshot: clearedSnapshot,
+        updates: clearUpdates,
+      })
       const cleared = await getFrameSnapshot(page)
       expect(cleared?.hash).not.toBeNull()
       expect(cleared?.hash).not.toBe(selected?.hash)

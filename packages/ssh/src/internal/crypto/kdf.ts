@@ -38,13 +38,27 @@ export interface KdfParams {
   readonly length: number
 }
 
-async function hash(crypto: Crypto, algorithm: HashAlgorithm, input: Uint8Array): Promise<Uint8Array> {
+async function hash(
+  crypto: Crypto,
+  algorithm: HashAlgorithm,
+  input: Uint8Array,
+): Promise<Uint8Array> {
   const buffer = await crypto.subtle.digest(algorithm, toArrayBuffer(input))
   return new Uint8Array(buffer)
 }
 
-export async function deriveKeyMaterial(params: KdfParams): Promise<Uint8Array> {
-  const { crypto, hashAlgorithm, sharedSecret, exchangeHash, sessionId, letter, length } = params
+export async function deriveKeyMaterial(
+  params: KdfParams,
+): Promise<Uint8Array> {
+  const {
+    crypto,
+    hashAlgorithm,
+    sharedSecret,
+    exchangeHash,
+    sessionId,
+    letter,
+    length,
+  } = params
   if (length <= 0) {
     return new Uint8Array(0)
   }

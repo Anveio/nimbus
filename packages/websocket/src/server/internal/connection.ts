@@ -1,5 +1,9 @@
 import { createEventBus, type EventBus } from '../../client/internal/event-bus'
-import { lenPrefixedV1Profile, manaV1Profile, ensureDefaultProfiles } from '../../protocol'
+import {
+  lenPrefixedV1Profile,
+  manaV1Profile,
+  ensureDefaultProfiles,
+} from '../../protocol'
 import type { WireProfile, Ctl, DataFrame } from '../../protocol'
 import type { RuntimeWebSocket } from '../../client/internal/socket'
 import { adaptWebSocket } from '../../client/internal/socket'
@@ -24,7 +28,11 @@ export interface ChannelOpenRequest {
   readonly id: number
   readonly target: { readonly host: string; readonly port: number }
   readonly user: { readonly username: string; readonly auth: unknown }
-  readonly term?: { readonly cols: number; readonly rows: number; readonly env?: Readonly<Record<string, string>> }
+  readonly term?: {
+    readonly cols: number
+    readonly rows: number
+    readonly env?: Readonly<Record<string, string>>
+  }
 }
 
 export interface ChannelApi {
@@ -38,14 +46,20 @@ export interface ServerConnectionOptions {
   readonly serverName: string
   readonly maxFrame?: number
   readonly windowTarget?: number
-  readonly onChannelOpen?: (request: ChannelOpenRequest, api: ChannelApi) => void | Promise<void>
+  readonly onChannelOpen?: (
+    request: ChannelOpenRequest,
+    api: ChannelApi,
+  ) => void | Promise<void>
   readonly events?: EventBus<ServerEvents>
 }
 
 interface ChannelState {
   readonly id: number
   credit: number
-  readonly queue: Array<{ readonly payload: Uint8Array; readonly stream: 'stdout' | 'stderr' }>
+  readonly queue: Array<{
+    readonly payload: Uint8Array
+    readonly stream: 'stdout' | 'stderr'
+  }>
   readonly api: ChannelApi
   openResolved: boolean
 }
@@ -112,7 +126,10 @@ export class ServerConnection {
   }
 
   private handleHello(msg: Extract<Ctl, { t: 'hello' }>): void {
-    const profileRequested = msg.caps && typeof msg.caps.profile === 'string' ? msg.caps.profile : undefined
+    const profileRequested =
+      msg.caps && typeof msg.caps.profile === 'string'
+        ? msg.caps.profile
+        : undefined
     const profileAccepted = profileRequested ?? this.wireProfile.id
     const helloOk: Ctl = {
       t: 'hello_ok',
@@ -124,7 +141,10 @@ export class ServerConnection {
       },
     }
     this.sendControl(helloOk)
-    this.events.emit('diagnostic', { type: 'handshake', detail: { profileAccepted } })
+    this.events.emit('diagnostic', {
+      type: 'handshake',
+      detail: { profileAccepted },
+    })
   }
 
   private async handleOpen(msg: Extract<Ctl, { t: 'open' }>): Promise<void> {
@@ -150,9 +170,15 @@ export class ServerConnection {
       queue: [],
       openResolved: false,
       api: {
-        write: (data, stream = 'stdout') => this.queueWrite(msg.id, data, stream),
+        write: (data, stream = 'stdout') =>
+          this.queueWrite(msg.id, data, stream),
         exit: (payload) => {
-          this.sendControl({ t: 'exit', id: msg.id, code: payload.code, sig: payload.sig })
+          this.sendControl({
+            t: 'exit',
+            id: msg.id,
+            code: payload.code,
+            sig: payload.sig,
+          })
         },
         close: (reason) => {
           this.sendControl({ t: 'close', id: msg.id, reason })
@@ -162,7 +188,10 @@ export class ServerConnection {
     this.channels.set(msg.id, state)
 
     this.sendControl({ t: 'open_ok', id: msg.id, resumeKey })
-    this.events.emit('diagnostic', { type: 'channel_open', detail: { id: msg.id, resumeKey } })
+    this.events.emit('diagnostic', {
+      type: 'channel_open',
+      detail: { id: msg.id, resumeKey },
+    })
 
     if (this.options.onChannelOpen) {
       await this.options.onChannelOpen(
@@ -182,7 +211,10 @@ export class ServerConnection {
     const channel = this.channels.get(id)
     if (!channel) return
     this.channels.delete(id)
-    this.events.emit('diagnostic', { type: 'channel_close', detail: { id, reason } })
+    this.events.emit('diagnostic', {
+      type: 'channel_close',
+      detail: { id, reason },
+    })
   }
 
   private handleFlow(id: number, credit: number): void {
@@ -198,7 +230,11 @@ export class ServerConnection {
     channel.credit = Math.max(0, channel.credit - frame.payload.length)
   }
 
-  private queueWrite(id: number, payload: Uint8Array, stream: 'stdout' | 'stderr'): void {
+  private queueWrite(
+    id: number,
+    payload: Uint8Array,
+    stream: 'stdout' | 'stderr',
+  ): void {
     const channel = this.channels.get(id)
     if (!channel) return
     channel.queue.push({ payload, stream })
@@ -221,9 +257,15 @@ export class ServerConnection {
     this.socket.send(this.wireProfile.encodeCtl(msg))
   }
 
-  private sendData(id: number, payload: Uint8Array, stream: 'stdout' | 'stderr'): void {
+  private sendData(
+    id: number,
+    payload: Uint8Array,
+    stream: 'stdout' | 'stderr',
+  ): void {
     const data: DataFrame = { id, payload, stream }
-    const frames = this.wireProfile.encodeData(data, { maxFrame: this.options.maxFrame })
+    const frames = this.wireProfile.encodeData(data, {
+      maxFrame: this.options.maxFrame,
+    })
     for (const frame of frames) {
       this.socket.send(frame)
     }
@@ -234,5 +276,7 @@ function resolveProfile(options: ServerConnectionOptions): WireProfile {
   if (options.maxFrame && options.maxFrame > 8 * 1024 * 1024) {
     throw new Error('maxFrame exceeds supported limit (8 MiB)')
   }
-  return options.maxFrame && options.maxFrame > 1_048_576 ? lenPrefixedV1Profile : manaV1Profile
+  return options.maxFrame && options.maxFrame > 1_048_576
+    ? lenPrefixedV1Profile
+    : manaV1Profile
 }

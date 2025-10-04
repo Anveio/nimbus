@@ -1,4 +1,7 @@
-import { ServerConnection, type ServerConnectionOptions } from './internal/connection'
+import {
+  ServerConnection,
+  type ServerConnectionOptions,
+} from './internal/connection'
 export type { ServerConnectionOptions } from './internal/connection'
 
 export interface WebSocketServerLike {

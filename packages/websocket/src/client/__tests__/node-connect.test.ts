@@ -6,7 +6,10 @@ class MockNodeSocket {
   static instances: MockNodeSocket[] = []
 
   readonly sent: unknown[] = []
-  readonly listeners: Record<'open' | 'message' | 'close' | 'error', Set<(event: unknown) => void>> = {
+  readonly listeners: Record<
+    'open' | 'message' | 'close' | 'error',
+    Set<(event: unknown) => void>
+  > = {
     open: new Set(),
     message: new Set(),
     close: new Set(),
@@ -16,7 +19,10 @@ class MockNodeSocket {
   readyState = 0
   protocol = 'mana.ssh.v1'
 
-  constructor(readonly url: string, readonly protocols?: string | string[]) {
+  constructor(
+    readonly url: string,
+    readonly protocols?: string | string[],
+  ) {
     MockNodeSocket.instances.push(this)
   }
 
@@ -26,11 +32,17 @@ class MockNodeSocket {
 
   close() {}
 
-  addEventListener(type: 'open' | 'message' | 'close' | 'error', listener: (event: unknown) => void) {
+  addEventListener(
+    type: 'open' | 'message' | 'close' | 'error',
+    listener: (event: unknown) => void,
+  ) {
     this.listeners[type].add(listener)
   }
 
-  removeEventListener(type: 'open' | 'message' | 'close' | 'error', listener: (event: unknown) => void) {
+  removeEventListener(
+    type: 'open' | 'message' | 'close' | 'error',
+    listener: (event: unknown) => void,
+  ) {
     this.listeners[type].delete(listener)
   }
 
@@ -43,16 +55,17 @@ class MockNodeSocket {
 
 describe('node connect', () => {
   it('requires explicit WebSocket implementation', async () => {
-    await expect(connect({ url: 'wss://example', WebSocketImpl: undefined as never })).rejects.toThrow(
-      /requires WebSocketImpl/,
-    )
+    await expect(
+      connect({ url: 'wss://example', WebSocketImpl: undefined as never }),
+    ).rejects.toThrow(/requires WebSocketImpl/)
   })
 
   it('negotiates subprotocols from profile', async () => {
     MockNodeSocket.instances.length = 0
     const options: NodeConnectOptions = {
       url: 'wss://example',
-      WebSocketImpl: MockNodeSocket as unknown as NodeConnectOptions['WebSocketImpl'],
+      WebSocketImpl:
+        MockNodeSocket as unknown as NodeConnectOptions['WebSocketImpl'],
       profile: manaV1Profile,
     }
 

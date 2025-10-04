@@ -12,9 +12,11 @@ class FakeCanvasContext2D {
   font = ''
   clearRect = vi.fn()
   fillText = vi.fn()
-  getImageData = vi.fn((_: number, __: number, width: number, height: number) => ({
-    data: new Uint8ClampedArray(width * height * 4),
-  }))
+  getImageData = vi.fn(
+    (_: number, __: number, width: number, height: number) => ({
+      data: new Uint8ClampedArray(width * height * 4),
+    }),
+  )
 }
 
 class FakeOffscreenCanvas {
@@ -122,7 +124,8 @@ describe('GlyphAtlas', () => {
   const originalOffscreenCanvas = globalThis.OffscreenCanvas
 
   beforeAll(() => {
-    globalThis.OffscreenCanvas = FakeOffscreenCanvas as unknown as typeof OffscreenCanvas
+    globalThis.OffscreenCanvas =
+      FakeOffscreenCanvas as unknown as typeof OffscreenCanvas
   })
 
   afterAll(() => {
@@ -170,7 +173,9 @@ describe('GlyphAtlas', () => {
 
   test('throws when glyph will not fit within atlas bounds', () => {
     const { gl } = createMockWebGL2()
-    const metrics = createMetrics({ cell: { width: DEFAULT_ATLAS_SIZE + 1, height: 2, baseline: 1 } })
+    const metrics = createMetrics({
+      cell: { width: DEFAULT_ATLAS_SIZE + 1, height: 2, baseline: 1 },
+    })
     const atlas = new GlyphAtlas(gl, metrics)
 
     expect(() => atlas.ensureGlyph(baseCell())).toThrow(WebglError)

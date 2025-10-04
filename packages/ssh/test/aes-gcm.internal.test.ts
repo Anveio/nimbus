@@ -1,9 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import {
-  encryptAesGcm,
-  importAesGcmKey,
-} from '../src/internal/crypto/aes-gcm'
+import { encryptAesGcm, importAesGcmKey } from '../src/internal/crypto/aes-gcm'
 
 const createKey = async () => {
   const keyBytes = Uint8Array.from({ length: 16 }, (_, index) => index)

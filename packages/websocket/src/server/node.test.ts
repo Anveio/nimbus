@@ -81,7 +81,11 @@ describe('createNodeWebSocketServer', () => {
     server.connect(socket)
 
     socket.emit('message', {
-      data: JSON.stringify({ t: 'hello', proto: 1, caps: { profile: 'mana.v1' } }),
+      data: JSON.stringify({
+        t: 'hello',
+        proto: 1,
+        caps: { profile: 'mana.v1' },
+      }),
     })
 
     const helloOk = JSON.parse(socket.sent.at(-1) as string)
@@ -99,14 +103,18 @@ describe('createNodeWebSocketServer', () => {
     const openOk = JSON.parse(socket.sent.at(-1) as string)
     expect(openOk).toMatchObject({ t: 'open_ok', id: 1 })
 
-    const channelFramesBeforeCredit = socket.sent.filter((frame) => frame instanceof ArrayBuffer)
+    const channelFramesBeforeCredit = socket.sent.filter(
+      (frame) => frame instanceof ArrayBuffer,
+    )
     expect(channelFramesBeforeCredit).toHaveLength(0)
 
     socket.emit('message', {
       data: JSON.stringify({ t: 'flow', id: 1, credit: 4 }),
     })
 
-    const firstFrame = socket.sent.find((frame) => frame instanceof ArrayBuffer) as ArrayBuffer
+    const firstFrame = socket.sent.find(
+      (frame) => frame instanceof ArrayBuffer,
+    ) as ArrayBuffer
     const decoded = manaV1Profile.decodeData(firstFrame)
     expect(decoded?.payload).toEqual(new Uint8Array([1, 2, 3]))
 

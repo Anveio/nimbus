@@ -10,7 +10,7 @@
     "incremental": true,
     "tsBuildInfoFile": "./tsconfig.tsbuildinfo",
     "baseUrl": ".",
-    "typeRoots": ["../../types"]
+    "typeRoots": ["../../types", "../../node_modules/@types"]
   },
   "exclude": ["dist", "build", "node_modules"]
 }

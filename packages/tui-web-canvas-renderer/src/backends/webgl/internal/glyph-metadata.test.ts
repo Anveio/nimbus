@@ -28,7 +28,12 @@ const dummyTheme = {
   foreground: '#f0f0f0',
   cursor: { color: '#ff00ff', opacity: 1, shape: 'block' },
   selection: { background: '#336699', foreground: '#ffffff' },
-  palette: { ansi: Array.from({ length: 16 }, (_, index) => `#${index.toString(16).padStart(6, '0')}`) },
+  palette: {
+    ansi: Array.from(
+      { length: 16 },
+      (_, index) => `#${index.toString(16).padStart(6, '0')}`,
+    ),
+  },
 } as const
 
 describe('glyph render metadata', () => {

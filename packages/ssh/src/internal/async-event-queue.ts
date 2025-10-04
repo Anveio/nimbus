@@ -16,7 +16,9 @@ export class AsyncEventQueue<T> implements AsyncIterable<T> {
 
   push(value: T): void {
     if (this.#closed) {
-      throw new SshInvariantViolation('Cannot push into a closed AsyncEventQueue')
+      throw new SshInvariantViolation(
+        'Cannot push into a closed AsyncEventQueue',
+      )
     }
     const resolver = this.#resolvers.shift()
     if (resolver) {
@@ -58,4 +60,3 @@ export class AsyncEventQueue<T> implements AsyncIterable<T> {
     }
   }
 }
-

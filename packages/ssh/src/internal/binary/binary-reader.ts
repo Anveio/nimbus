@@ -67,7 +67,9 @@ export class BinaryReader {
     try {
       return UTF8_DECODER.decode(bytes)
     } catch (error) {
-      throw new SshDecodeError('Invalid UTF-8 string in SSH packet', { cause: error })
+      throw new SshDecodeError('Invalid UTF-8 string in SSH packet', {
+        cause: error,
+      })
     }
   }
 
@@ -107,7 +109,11 @@ export class BinaryReader {
 
   #readView(byteLength: number): DataView {
     this.#ensureAvailable(byteLength)
-    const view = new DataView(this.#buffer.buffer, this.#buffer.byteOffset + this.#offset, byteLength)
+    const view = new DataView(
+      this.#buffer.buffer,
+      this.#buffer.byteOffset + this.#offset,
+      byteLength,
+    )
     this.#offset += byteLength
     return view
   }

@@ -3,7 +3,12 @@ import { createInterpreter, type TerminalInterpreter } from './interpreter'
 import type { TerminalUpdate } from './interpreter-internals/delta'
 import type { TerminalSelection } from './interpreter-internals/selection'
 import { createParser } from './parser'
-import type { Parser, ParserEvent, ParserEventSink, ParserOptions } from './types'
+import type {
+  Parser,
+  ParserEvent,
+  ParserEventSink,
+  ParserOptions,
+} from './types'
 import type { PrinterController } from './utils/printer'
 
 class InterpreterSink implements ParserEventSink {

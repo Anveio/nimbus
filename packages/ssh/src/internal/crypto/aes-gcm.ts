@@ -15,11 +15,17 @@ function toArrayBuffer(view: Uint8Array): ArrayBuffer {
   return copy.buffer as ArrayBuffer
 }
 
-export async function importAesGcmKey(crypto: Crypto, keyBytes: Uint8Array): Promise<CryptoKey> {
-  return crypto.subtle.importKey('raw', toArrayBuffer(keyBytes), { name: 'AES-GCM' }, false, [
-    'encrypt',
-    'decrypt',
-  ])
+export async function importAesGcmKey(
+  crypto: Crypto,
+  keyBytes: Uint8Array,
+): Promise<CryptoKey> {
+  return crypto.subtle.importKey(
+    'raw',
+    toArrayBuffer(keyBytes),
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt', 'decrypt'],
+  )
 }
 
 export interface AesGcmDirectionState {
@@ -30,7 +36,10 @@ export interface AesGcmDirectionState {
   sequenceNumber: number
 }
 
-export function splitInitialIv(initialIv: Uint8Array): { fixed: Uint8Array; invocation: bigint } {
+export function splitInitialIv(initialIv: Uint8Array): {
+  fixed: Uint8Array
+  invocation: bigint
+} {
   if (initialIv.length !== 12) {
     throw new TypeError('Initial IV for AES-GCM must be 12 bytes')
   }
@@ -43,7 +52,10 @@ export function splitInitialIv(initialIv: Uint8Array): { fixed: Uint8Array; invo
   return { fixed, invocation }
 }
 
-export function buildNonce(fixedIv: Uint8Array, invocationCounter: bigint): Uint8Array {
+export function buildNonce(
+  fixedIv: Uint8Array,
+  invocationCounter: bigint,
+): Uint8Array {
   if (fixedIv.length !== 4) {
     throw new TypeError('Fixed IV prefix must be 4 bytes')
   }
@@ -83,7 +95,9 @@ export async function encryptAesGcm(params: {
   additionalData: Uint8Array
 }): Promise<{ ciphertext: Uint8Array; tagLength: number }> {
   if (params.state.sequenceNumber === 0xffff_ffff) {
-    throw new RangeError('SSH packet sequence number exhausted for AES-GCM cipher')
+    throw new RangeError(
+      'SSH packet sequence number exhausted for AES-GCM cipher',
+    )
   }
   if (params.state.invocationCounter === INVOCATION_COUNTER_MAX) {
     throw new RangeError('AES-GCM invocation counter exhausted for SSH cipher')
@@ -99,9 +113,14 @@ export async function encryptAesGcm(params: {
     params.state.key,
     toArrayBuffer(params.plaintext),
   )
-  params.state.invocationCounter = computeNextInvocation(params.state.invocationCounter)
+  params.state.invocationCounter = computeNextInvocation(
+    params.state.invocationCounter,
+  )
   params.state.sequenceNumber = computeNextSequence(params.state.sequenceNumber)
-  return { ciphertext: new Uint8Array(encrypted), tagLength: GCM_TAG_LENGTH_BYTES }
+  return {
+    ciphertext: new Uint8Array(encrypted),
+    tagLength: GCM_TAG_LENGTH_BYTES,
+  }
 }
 
 export async function decryptAesGcm(params: {
@@ -112,7 +131,9 @@ export async function decryptAesGcm(params: {
   additionalData: Uint8Array
 }): Promise<Uint8Array> {
   if (params.state.sequenceNumber === 0xffff_ffff) {
-    throw new RangeError('SSH packet sequence number exhausted for AES-GCM cipher')
+    throw new RangeError(
+      'SSH packet sequence number exhausted for AES-GCM cipher',
+    )
   }
   if (params.state.invocationCounter === INVOCATION_COUNTER_MAX) {
     throw new RangeError('AES-GCM invocation counter exhausted for SSH cipher')
@@ -128,7 +149,9 @@ export async function decryptAesGcm(params: {
     params.state.key,
     toArrayBuffer(params.encrypted),
   )
-  params.state.invocationCounter = computeNextInvocation(params.state.invocationCounter)
+  params.state.invocationCounter = computeNextInvocation(
+    params.state.invocationCounter,
+  )
   params.state.sequenceNumber = computeNextSequence(params.state.sequenceNumber)
   const view = new Uint8Array(plaintext)
   if (view.length !== params.packetLength) {

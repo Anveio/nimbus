@@ -1,6 +1,5 @@
 import { describe, test } from 'vitest'
 
-
 describe('Spec coverage outline', () => {
   describe('RFC 4253 §7 Algorithm Negotiation', () => {
     test.skip('FIXME: selects the first mutual key exchange algorithm in client preference order', () => {
@@ -72,4 +71,3 @@ describe('Spec coverage outline', () => {
     })
   })
 })
-

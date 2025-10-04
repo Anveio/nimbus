@@ -6,7 +6,10 @@ class MockSocket {
   static instances: MockSocket[] = []
 
   readonly sent: unknown[] = []
-  readonly listeners: Record<'open' | 'message' | 'close' | 'error', Set<(event: unknown) => void>> = {
+  readonly listeners: Record<
+    'open' | 'message' | 'close' | 'error',
+    Set<(event: unknown) => void>
+  > = {
     open: new Set(),
     message: new Set(),
     close: new Set(),
@@ -16,7 +19,10 @@ class MockSocket {
   readyState = 0
   protocol = 'mana.ssh.v1'
 
-  constructor(readonly url: string, readonly protocols?: string | string[]) {
+  constructor(
+    readonly url: string,
+    readonly protocols?: string | string[],
+  ) {
     MockSocket.instances.push(this)
   }
 
@@ -28,11 +34,17 @@ class MockSocket {
     this.sent.push({ type: 'close', code, reason })
   }
 
-  addEventListener(type: 'open' | 'message' | 'close' | 'error', listener: (event: unknown) => void) {
+  addEventListener(
+    type: 'open' | 'message' | 'close' | 'error',
+    listener: (event: unknown) => void,
+  ) {
     this.listeners[type].add(listener)
   }
 
-  removeEventListener(type: 'open' | 'message' | 'close' | 'error', listener: (event: unknown) => void) {
+  removeEventListener(
+    type: 'open' | 'message' | 'close' | 'error',
+    listener: (event: unknown) => void,
+  ) {
     this.listeners[type].delete(listener)
   }
 
@@ -48,7 +60,8 @@ describe('browser connect', () => {
     MockSocket.instances.length = 0
     const options: BrowserConnectOptions = {
       url: 'wss://example.test/ws',
-      WebSocketImpl: MockSocket as unknown as BrowserConnectOptions['WebSocketImpl'],
+      WebSocketImpl:
+        MockSocket as unknown as BrowserConnectOptions['WebSocketImpl'],
     }
 
     const connectionPromise = connect(options)
@@ -75,7 +88,8 @@ describe('browser connect', () => {
     MockSocket.instances.length = 0
     const options: BrowserConnectOptions = {
       url: 'wss://data.example/ws',
-      WebSocketImpl: MockSocket as unknown as BrowserConnectOptions['WebSocketImpl'],
+      WebSocketImpl:
+        MockSocket as unknown as BrowserConnectOptions['WebSocketImpl'],
     }
 
     const connectionPromise = connect(options)
@@ -100,7 +114,10 @@ describe('browser connect', () => {
     })
 
     const openFrame = JSON.parse(socket.sent.at(-1) as string)
-    expect(openFrame).toMatchObject({ t: 'open', target: { host: 'demo.example', port: 22 } })
+    expect(openFrame).toMatchObject({
+      t: 'open',
+      target: { host: 'demo.example', port: 22 },
+    })
 
     socket.emit('message', {
       data: manaV1Profile.encodeCtl({ t: 'open_ok', id: openFrame.id ?? 1 }),

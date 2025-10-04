@@ -195,6 +195,24 @@ export interface ChannelSnapshot extends ChannelDescriptor {
   readonly status: 'opening' | 'open' | 'closing' | 'closed'
 }
 
+export type ChannelRequestPayload =
+  | {
+      readonly type: 'pty-req'
+      readonly wantReply?: boolean
+      readonly term?: string
+      readonly columns: number
+      readonly rows: number
+      readonly widthPixels?: number
+      readonly heightPixels?: number
+      readonly modes?: Uint8Array
+    }
+  | { readonly type: 'shell'; readonly wantReply?: boolean }
+  | {
+      readonly type: 'exec'
+      readonly command: string
+      readonly wantReply?: boolean
+    }
+
 export type GlobalRequestPayload =
   | {
       readonly type: 'tcpip-forward'
@@ -267,6 +285,11 @@ export type ClientIntent =
       readonly channelId: ChannelId
       readonly delta: number
     }
+  | {
+      readonly type: 'request-channel'
+      readonly channelId: ChannelId
+      readonly request: ChannelRequestPayload
+    }
   | { readonly type: 'request-global'; readonly request: GlobalRequestPayload }
   | {
       readonly type: 'signal-channel'
@@ -320,11 +343,31 @@ export type SshEvent =
       readonly channelId: ChannelId
       readonly delta: number
     }
+  | {
+      readonly type: 'channel-request'
+      readonly channelId: ChannelId
+      readonly requestType: string
+      readonly status: 'success' | 'failure'
+      readonly request?: ChannelRequestPayload
+    }
   | { readonly type: 'channel-eof'; readonly channelId: ChannelId }
   | {
       readonly type: 'channel-close'
       readonly channelId: ChannelId
       readonly exitStatus?: number
+    }
+  | {
+      readonly type: 'channel-exit-status'
+      readonly channelId: ChannelId
+      readonly exitStatus: number
+    }
+  | {
+      readonly type: 'channel-exit-signal'
+      readonly channelId: ChannelId
+      readonly signal: string
+      readonly coreDumped: boolean
+      readonly errorMessage?: string
+      readonly language?: string
     }
   | { readonly type: 'global-request'; readonly request: GlobalRequestPayload }
   | { readonly type: 'disconnect'; readonly summary: DisconnectSummary }
@@ -371,6 +414,8 @@ const SSH_MSG_CHANNEL_EXTENDED_DATA = 95
 const SSH_MSG_CHANNEL_EOF = 96
 const SSH_MSG_CHANNEL_CLOSE = 97
 const SSH_MSG_CHANNEL_REQUEST = 98
+const SSH_MSG_CHANNEL_SUCCESS = 99
+const SSH_MSG_CHANNEL_FAILURE = 100
 const MIN_PADDING_LENGTH = 4
 const SSH_PACKET_BLOCK_SIZE = 8
 const MAX_IDENTIFICATION_LENGTH = 255
@@ -422,6 +467,12 @@ interface ChannelState {
   maxOutboundPacketSize: number
   remoteEof: boolean
   exitStatus: number | null
+  pendingRequests: PendingChannelRequest[]
+}
+
+interface PendingChannelRequest {
+  readonly requestType: string
+  readonly request?: ChannelRequestPayload
 }
 
 function concatUint8Arrays(a: Uint8Array, b: Uint8Array): Uint8Array {
@@ -616,6 +667,9 @@ class ClientSessionImpl implements SshSession {
         return
       case 'adjust-window':
         this.#handleCommandAdjustWindow(intent.channelId, intent.delta)
+        return
+      case 'request-channel':
+        this.#handleCommandChannelRequest(intent.channelId, intent.request)
         return
       case 'close-channel':
         this.#handleCommandCloseChannel(intent.channelId)
@@ -1018,6 +1072,12 @@ class ClientSessionImpl implements SshSession {
         return
       case SSH_MSG_CHANNEL_REQUEST:
         this.#handleChannelRequest(reader)
+        return
+      case SSH_MSG_CHANNEL_SUCCESS:
+        this.#handleChannelRequestSuccess(reader)
+        return
+      case SSH_MSG_CHANNEL_FAILURE:
+        this.#handleChannelRequestFailure(reader)
         return
       case SSH_MSG_CHANNEL_OPEN:
         this.#emitWarning(
@@ -1881,7 +1941,10 @@ class ClientSessionImpl implements SshSession {
     const recipient = reader.readUint32()
     const state = this.#channels.get(recipient as ChannelId)
     if (!state) {
-      this.#emitWarning('channel-eof-unknown', `EOF for unknown channel ${recipient}`)
+      this.#emitWarning(
+        'channel-eof-unknown',
+        `EOF for unknown channel ${recipient}`,
+      )
       return
     }
     state.remoteEof = true
@@ -1895,7 +1958,10 @@ class ClientSessionImpl implements SshSession {
     const recipient = reader.readUint32()
     const state = this.#channels.get(recipient as ChannelId)
     if (!state) {
-      this.#emitWarning('channel-close-unknown', `Close for unknown channel ${recipient}`)
+      this.#emitWarning(
+        'channel-close-unknown',
+        `Close for unknown channel ${recipient}`,
+      )
       return
     }
     if (state.remoteId !== null && state.status !== 'closing') {
@@ -1928,8 +1994,30 @@ class ClientSessionImpl implements SshSession {
     switch (requestType) {
       case 'exit-status': {
         const exitReader = new BinaryReader(payload)
-        state.exitStatus = exitReader.readUint32()
-        break
+        const status = exitReader.readUint32()
+        state.exitStatus = status
+        this.#emit({
+          type: 'channel-exit-status',
+          channelId: state.localId,
+          exitStatus: status,
+        })
+        return
+      }
+      case 'exit-signal': {
+        const signalReader = new BinaryReader(payload)
+        const signalName = signalReader.readString()
+        const coreDumped = signalReader.readBoolean()
+        const errorMessage = signalReader.readString()
+        const language = signalReader.readString()
+        this.#emit({
+          type: 'channel-exit-signal',
+          channelId: state.localId,
+          signal: signalName,
+          coreDumped,
+          errorMessage: errorMessage.length > 0 ? errorMessage : undefined,
+          language: language.length > 0 ? language : undefined,
+        })
+        return
       }
       default:
         this.#emitWarning(
@@ -1937,18 +2025,20 @@ class ClientSessionImpl implements SshSession {
           `Channel request ${requestType} is not supported yet`,
           { wantReply },
         )
-    }
-    if (wantReply) {
-      this.#emitWarning(
-        'channel-request-reply-ignored',
-        `Ignoring reply requested for channel request ${requestType}`,
-      )
+        if (wantReply) {
+          this.#emitWarning(
+            'channel-request-reply-ignored',
+            `Ignoring reply requested for channel request ${requestType}`,
+          )
+        }
     }
   }
 
   #handleCommandOpenChannel(request: ChannelOpenRequest): void {
     if (this.#phase !== 'authenticated' && this.#phase !== 'connected') {
-      throw new SshProtocolError('Cannot open channels before key exchange completes')
+      throw new SshProtocolError(
+        'Cannot open channels before key exchange completes',
+      )
     }
     if (request.type !== 'session') {
       throw new SshNotImplementedError(
@@ -1956,8 +2046,10 @@ class ClientSessionImpl implements SshSession {
       )
     }
     const localId = this.#allocateChannelId()
-    const initialWindow = request.initialWindowSize ?? this.#defaultChannelInitialWindow()
-    const maxPacketSize = request.maxPacketSize ?? this.#defaultChannelMaxPacketSize()
+    const initialWindow =
+      request.initialWindowSize ?? this.#defaultChannelInitialWindow()
+    const maxPacketSize =
+      request.maxPacketSize ?? this.#defaultChannelMaxPacketSize()
 
     const state: ChannelState = {
       localId,
@@ -1970,6 +2062,7 @@ class ClientSessionImpl implements SshSession {
       maxOutboundPacketSize: 0,
       remoteEof: false,
       exitStatus: null,
+      pendingRequests: [],
     }
     this.#channels.set(localId, state)
 
@@ -1980,12 +2073,17 @@ class ClientSessionImpl implements SshSession {
     writer.writeUint32(initialWindow >>> 0)
     writer.writeUint32(maxPacketSize >>> 0)
     const payload = writer.toUint8Array()
-    this.#recordDiagnostic('info', 'channel-open-send', 'Sent SSH_MSG_CHANNEL_OPEN', {
-      localId: Number(localId),
-      type: request.type,
-      initialWindow,
-      maxPacketSize,
-    })
+    this.#recordDiagnostic(
+      'info',
+      'channel-open-send',
+      'Sent SSH_MSG_CHANNEL_OPEN',
+      {
+        localId: Number(localId),
+        type: request.type,
+        initialWindow,
+        maxPacketSize,
+      },
+    )
     this.#sendPacket(payload)
   }
 
@@ -2007,7 +2105,10 @@ class ClientSessionImpl implements SshSession {
     if (data.length > state.outboundWindow) {
       throw new SshProtocolError('Channel remote window exhausted')
     }
-    if (state.maxOutboundPacketSize > 0 && data.length > state.maxOutboundPacketSize) {
+    if (
+      state.maxOutboundPacketSize > 0 &&
+      data.length > state.maxOutboundPacketSize
+    ) {
       throw new SshProtocolError('Channel data exceeds remote max packet size')
     }
 
@@ -2041,6 +2142,49 @@ class ClientSessionImpl implements SshSession {
     state.inboundWindow = newWindow > 0xffff_ffff ? 0xffff_ffff : newWindow
   }
 
+  #handleCommandChannelRequest(
+    channelId: ChannelId,
+    request: ChannelRequestPayload,
+  ): void {
+    const state = this.#requireChannel(channelId)
+    if (state.remoteId === null) {
+      throw new SshInvariantViolation(
+        `Channel ${Number(channelId)} is missing remote identifier`,
+      )
+    }
+    if (state.status !== 'open' && state.status !== 'closing') {
+      throw new SshProtocolError(
+        `Channel ${Number(channelId)} is not ready for requests`,
+      )
+    }
+
+    const writer = new BinaryWriter()
+    writer.writeUint8(SSH_MSG_CHANNEL_REQUEST)
+    writer.writeUint32(state.remoteId >>> 0)
+    const metadata = this.#resolveChannelRequestMetadata(request)
+    writer.writeString(metadata.name)
+    writer.writeBoolean(metadata.wantReply)
+    this.#encodeChannelRequestPayload(writer, request)
+    this.#recordDiagnostic(
+      'debug',
+      'channel-request-send',
+      'Sent channel request',
+      {
+        channel: Number(channelId),
+        requestType: metadata.name,
+        wantReply: metadata.wantReply,
+      },
+    )
+    this.#sendPacket(writer.toUint8Array())
+
+    if (metadata.wantReply) {
+      state.pendingRequests.push({
+        requestType: metadata.name,
+        request,
+      })
+    }
+  }
+
   #handleCommandCloseChannel(channelId: ChannelId): void {
     const state = this.#requireChannel(channelId)
     if (state.remoteId !== null && state.status !== 'closed') {
@@ -2050,6 +2194,132 @@ class ClientSessionImpl implements SshSession {
       this.#sendPacket(writer.toUint8Array())
     }
     state.status = 'closing'
+  }
+
+  #resolveChannelRequestMetadata(request: ChannelRequestPayload): {
+    name: string
+    wantReply: boolean
+  } {
+    const defaultWantReply = ((): boolean => {
+      switch (request.type) {
+        case 'pty-req':
+          return true
+        case 'shell':
+          return true
+        case 'exec':
+          return true
+      }
+    })()
+    const wantReply = request.wantReply ?? defaultWantReply
+    switch (request.type) {
+      case 'pty-req':
+        return { name: 'pty-req', wantReply }
+      case 'shell':
+        return { name: 'shell', wantReply }
+      case 'exec':
+        return { name: 'exec', wantReply }
+      default: {
+        const exhaustive: never = request
+        throw new SshNotImplementedError(
+          `Channel request ${(exhaustive as { type: string }).type} is not supported`,
+        )
+      }
+    }
+  }
+
+  #encodeChannelRequestPayload(
+    writer: BinaryWriter,
+    request: ChannelRequestPayload,
+  ): void {
+    switch (request.type) {
+      case 'pty-req': {
+        const term = request.term ?? 'xterm-256color'
+        const widthChars = request.columns >>> 0
+        const heightChars = request.rows >>> 0
+        const widthPixels = (request.widthPixels ?? 0) >>> 0
+        const heightPixels = (request.heightPixels ?? 0) >>> 0
+        const modes = request.modes ?? Uint8Array.of(0)
+        writer.writeString(term)
+        writer.writeUint32(widthChars)
+        writer.writeUint32(heightChars)
+        writer.writeUint32(widthPixels)
+        writer.writeUint32(heightPixels)
+        writer.writeUint32(modes.length >>> 0)
+        writer.writeBytes(modes)
+        return
+      }
+      case 'shell':
+        return
+      case 'exec':
+        writer.writeString(request.command)
+        return
+      default: {
+        const exhaustive: never = request
+        throw new SshNotImplementedError(
+          `Channel request ${(exhaustive as { type: string }).type} payload unsupported`,
+        )
+      }
+    }
+  }
+
+  #handleChannelRequestSuccess(reader: BinaryReader): void {
+    const recipient = reader.readUint32()
+    const state = this.#channels.get(recipient as ChannelId)
+    if (!state) {
+      this.#emitWarning(
+        'channel-request-success-unknown',
+        `CHANNEL_SUCCESS for unknown channel ${recipient}`,
+      )
+      return
+    }
+    const pending = state.pendingRequests.shift()
+    const requestType = pending?.requestType ?? 'unknown'
+    this.#recordDiagnostic(
+      'info',
+      'channel-request-success',
+      'Server accepted channel request',
+      {
+        channel: Number(state.localId),
+        requestType,
+      },
+    )
+    this.#emit({
+      type: 'channel-request',
+      channelId: state.localId,
+      requestType,
+      status: 'success',
+      request: pending?.request,
+    })
+  }
+
+  #handleChannelRequestFailure(reader: BinaryReader): void {
+    const recipient = reader.readUint32()
+    const state = this.#channels.get(recipient as ChannelId)
+    if (!state) {
+      this.#emitWarning(
+        'channel-request-failure-unknown',
+        `CHANNEL_FAILURE for unknown channel ${recipient}`,
+      )
+      return
+    }
+    const pending = state.pendingRequests.shift()
+    const requestType = pending?.requestType ?? 'unknown'
+    this.#recordDiagnostic(
+      'warn',
+      'channel-request-failure',
+      'Server rejected channel request',
+      {
+        channel: Number(state.localId),
+        requestType,
+      },
+    )
+    this.#emit({
+      type: 'channel-request',
+      channelId: state.localId,
+      requestType,
+      status: 'failure',
+      request: pending?.request,
+    })
   }
 
   #collectChannelSnapshots(): ChannelSnapshot[] {
@@ -2099,7 +2369,9 @@ class ClientSessionImpl implements SshSession {
   #requireChannel(channelId: ChannelId): ChannelState {
     const state = this.#channels.get(channelId)
     if (!state) {
-      throw new SshProtocolError(`Channel ${Number(channelId)} is not registered`)
+      throw new SshProtocolError(
+        `Channel ${Number(channelId)} is not registered`,
+      )
     }
     return state
   }
