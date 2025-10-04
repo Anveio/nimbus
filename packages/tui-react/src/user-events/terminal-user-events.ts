@@ -6,11 +6,7 @@ import type {
   TerminalUpdate,
 } from '@mana/vt'
 import { getSelectionRowSegments } from '@mana/vt'
-import {
-  useCallback,
-  useRef,
-  type MutableRefObject,
-} from 'react'
+import { useCallback, useRef, type MutableRefObject } from 'react'
 import type {
   ClipboardEvent as ReactClipboardEvent,
   CompositionEvent as ReactCompositionEvent,
@@ -143,7 +139,10 @@ interface InstrumentationBridge {
 export interface TerminalUserEventsOptions {
   readonly interpreter: TerminalInterpreter
   readonly applyUpdates: (updates: TerminalUpdate[]) => void
-  readonly emitData: (bytes: Uint8Array, options?: { skipLocalEcho?: boolean }) => void
+  readonly emitData: (
+    bytes: Uint8Array,
+    options?: { skipLocalEcho?: boolean },
+  ) => void
   readonly write: (input: Uint8Array | string) => void
   readonly selection: SelectionControllers
   readonly localEcho: boolean

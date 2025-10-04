@@ -1,9 +1,5 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
-import type {
-  SelectionPoint,
-  TerminalState,
-  TerminalUpdate,
-} from '@mana/vt'
+import type { SelectionPoint, TerminalState, TerminalUpdate } from '@mana/vt'
 
 export type ShortcutGuideReason = 'hotkey' | 'imperative'
 
@@ -55,4 +51,5 @@ export interface HotkeyResult {
   readonly clearKeyboardAnchor?: boolean
 }
 
-export const createHotkeyContext = (context: HotkeyContext): HotkeyContext => context
+export const createHotkeyContext = (context: HotkeyContext): HotkeyContext =>
+  context

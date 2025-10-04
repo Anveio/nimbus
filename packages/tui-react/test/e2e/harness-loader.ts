@@ -4,7 +4,7 @@ import type { TerminalSelection } from '@mana/vt'
 import type { Page } from '@playwright/test'
 import react from '@vitejs/plugin-react'
 import type { OutputChunk, RollupOutput } from 'rollup'
-import { build, type InlineConfig } from 'vite'
+import { build, type InlineConfig, type PluginOption } from 'vite'
 import type {
   TerminalFrameEvent,
   TerminalStatusMessage,
@@ -27,7 +27,7 @@ const createBuildConfig = (): InlineConfig => ({
   define: {
     'process.env.NODE_ENV': JSON.stringify('test'),
   },
-  plugins: [react({ include: /\.(js|jsx|ts|tsx)$/ })],
+  plugins: [react({ include: /\.(js|jsx|ts|tsx)$/ }) as PluginOption],
   build: {
     write: false,
     emptyOutDir: false,

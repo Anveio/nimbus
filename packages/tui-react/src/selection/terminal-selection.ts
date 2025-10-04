@@ -74,11 +74,7 @@ const resolvePointerMetrics = (
     0,
     columns - 1,
   )
-  const row = clamp(
-    Math.floor(offsetY / Math.max(cellHeight, 1)),
-    0,
-    rows - 1,
-  )
+  const row = clamp(Math.floor(offsetY / Math.max(cellHeight, 1)), 0, rows - 1)
   return {
     row,
     column,
@@ -98,8 +94,12 @@ export interface UseTerminalSelectionOptions {
 export interface UseTerminalSelectionResult {
   readonly keyboardSelectionAnchorRef: MutableRefObject<SelectionPoint | null>
   readonly pointerHandlers: {
-    readonly onPointerDown: (event: ReactPointerEvent<HTMLCanvasElement>) => void
-    readonly onPointerMove: (event: ReactPointerEvent<HTMLCanvasElement>) => void
+    readonly onPointerDown: (
+      event: ReactPointerEvent<HTMLCanvasElement>,
+    ) => void
+    readonly onPointerMove: (
+      event: ReactPointerEvent<HTMLCanvasElement>,
+    ) => void
     readonly onPointerUp: (event: ReactPointerEvent<HTMLCanvasElement>) => void
     readonly onPointerCancel: (
       event: ReactPointerEvent<HTMLCanvasElement>,
@@ -116,7 +116,8 @@ export interface UseTerminalSelectionResult {
 export const useTerminalSelection = (
   options: UseTerminalSelectionOptions,
 ): UseTerminalSelectionResult => {
-  const { interpreter, applyUpdates, viewport, metrics, focusTerminal } = options
+  const { interpreter, applyUpdates, viewport, metrics, focusTerminal } =
+    options
 
   const keyboardSelectionAnchorRef = useRef<SelectionPoint | null>(null)
   const pointerSelectionRef = useRef<PointerSelectionState>(
@@ -130,7 +131,10 @@ export const useTerminalSelection = (
   }, [autoScroll])
 
   const setSelection = useCallback(
-    (selection: TerminalSelection, capture?: { pointerId: number; target: HTMLCanvasElement }) => {
+    (
+      selection: TerminalSelection,
+      capture?: { pointerId: number; target: HTMLCanvasElement },
+    ) => {
       const updates = interpreter.setSelection(selection)
       applyUpdates(updates)
       keyboardSelectionAnchorRef.current = null
@@ -160,7 +164,11 @@ export const useTerminalSelection = (
   )
 
   const endPointerSelection = useCallback(
-    (selection: TerminalSelection | null, pointerId: number | null, target: HTMLCanvasElement) => {
+    (
+      selection: TerminalSelection | null,
+      pointerId: number | null,
+      target: HTMLCanvasElement,
+    ) => {
       autoScroll.stop()
       keyboardSelectionAnchorRef.current = null
       if (
@@ -234,7 +242,8 @@ export const useTerminalSelection = (
         metrics.cellHeight,
       )
 
-      const direction: -1 | 0 | 1 = offsetY < 0 ? -1 : offsetY > rectHeight ? 1 : 0
+      const direction: -1 | 0 | 1 =
+        offsetY < 0 ? -1 : offsetY > rectHeight ? 1 : 0
       if (direction === 0) {
         autoScroll.stop()
       } else {
@@ -248,7 +257,11 @@ export const useTerminalSelection = (
           if (!active) {
             return
           }
-          const nextRow = clamp(active.focus.row + direction, 0, viewport.rows - 1)
+          const nextRow = clamp(
+            active.focus.row + direction,
+            0,
+            viewport.rows - 1,
+          )
           if (nextRow === active.focus.row) {
             return
           }
@@ -323,13 +336,13 @@ export const useTerminalSelection = (
       finalizeSelection(event, 'idle')
       const selection = interpreter.snapshot.selection
       if (!selection || isSelectionCollapsed(selection)) {
-      const { row, column } = resolvePointerMetrics(
-        event,
-        viewport.rows,
-        viewport.columns,
-        metrics.cellWidth,
-        metrics.cellHeight,
-      )
+        const { row, column } = resolvePointerMetrics(
+          event,
+          viewport.rows,
+          viewport.columns,
+          metrics.cellWidth,
+          metrics.cellHeight,
+        )
         const clampedColumn = interpreter.clampCursorColumn(row, column)
         const updates = interpreter.moveCursorTo(
           { row, column: clampedColumn },

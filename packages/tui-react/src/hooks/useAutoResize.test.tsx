@@ -127,7 +127,10 @@ describe('useAutoResize', () => {
     expect(observerCallback).not.toBeNull()
 
     act(() => {
-      observerCallback?.([createEntry(host, 200, 100)], new ResizeObserver(() => {}) as any)
+      observerCallback?.(
+        [createEntry(host, 200, 100)],
+        new ResizeObserver(() => {}) as any,
+      )
     })
 
     expect(handleSnapshot).toHaveBeenLastCalledWith({ rows: 5, columns: 20 })
@@ -146,7 +149,10 @@ describe('useAutoResize', () => {
     )
 
     act(() => {
-      observerCallback?.([createEntry(observedElements[0]!, 300, 200)], new ResizeObserver(() => {}) as any)
+      observerCallback?.(
+        [createEntry(observedElements[0]!, 300, 200)],
+        new ResizeObserver(() => {}) as any,
+      )
     })
 
     expect(handleSnapshot).toHaveBeenLastCalledWith({ rows: 10, columns: 30 })

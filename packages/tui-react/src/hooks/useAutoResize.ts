@@ -44,9 +44,10 @@ export const useAutoResize = ({
   maxColumns = DEFAULT_MAX_DIMENSION,
 }: UseAutoResizeOptions): UseAutoResizeResult => {
   const containerRef = useRef<HTMLDivElement | null>(null)
-  const [containerSize, setContainerSize] = useState<{ width: number; height: number } | null>(
-    null,
-  )
+  const [containerSize, setContainerSize] = useState<{
+    width: number
+    height: number
+  } | null>(null)
 
   useEffect(() => {
     if (!autoResize) {
@@ -80,11 +81,19 @@ export const useAutoResize = ({
   const fallbackWidth = (columns ?? defaultColumns) * cellWidth
   const fallbackHeight = (rows ?? defaultRows) * cellHeight
 
-  const effectiveWidth = autoResize && containerSize ? containerSize.width : fallbackWidth
-  const effectiveHeight = autoResize && containerSize ? containerSize.height : fallbackHeight
+  const effectiveWidth =
+    autoResize && containerSize ? containerSize.width : fallbackWidth
+  const effectiveHeight =
+    autoResize && containerSize ? containerSize.height : fallbackHeight
 
-  const autoColumns = Math.max(DEFAULT_MIN_DIMENSION, Math.floor(effectiveWidth / cellWidth))
-  const autoRows = Math.max(DEFAULT_MIN_DIMENSION, Math.floor(effectiveHeight / cellHeight))
+  const autoColumns = Math.max(
+    DEFAULT_MIN_DIMENSION,
+    Math.floor(effectiveWidth / cellWidth),
+  )
+  const autoRows = Math.max(
+    DEFAULT_MIN_DIMENSION,
+    Math.floor(effectiveHeight / cellHeight),
+  )
 
   const resolvedColumns = clamp(columns ?? autoColumns, minColumns, maxColumns)
   const resolvedRows = clamp(rows ?? autoRows, minRows, maxRows)

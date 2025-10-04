@@ -2,7 +2,11 @@ import { type CSSProperties, createRef } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import type { CanvasRendererDiagnostics } from '@mana/tui-web-canvas-renderer'
 import type { TerminalSelection } from '@mana/vt'
-import { Terminal, type TerminalFrameEvent, type TerminalHandle } from '../../src/Terminal'
+import {
+  Terminal,
+  type TerminalFrameEvent,
+  type TerminalHandle,
+} from '../../src/Terminal'
 import type {
   TerminalHarnessExports,
   TerminalHarnessInstrumentationOptions,
@@ -38,7 +42,8 @@ const createHarness = (): TerminalHarnessExports => {
   const frameEvents: TerminalFrameEvent[] = []
   const diagnosticsEvents: CanvasRendererDiagnostics[] = []
   const cursorSelectionEvents: Array<TerminalSelection | null> = []
-  const shortcutGuideToggleEvents: TerminalHarnessShortcutGuideToggleEvent[] = []
+  const shortcutGuideToggleEvents: TerminalHarnessShortcutGuideToggleEvent[] =
+    []
 
   const resetEventStores = () => {
     onDataEvents.length = 0
@@ -130,7 +135,10 @@ const createHarness = (): TerminalHarnessExports => {
         }}
         graphics={graphicsOptions}
         instrumentation={
-          captureOnData || captureDiagnostics || captureFrame || captureSelection
+          captureOnData ||
+          captureDiagnostics ||
+          captureFrame ||
+          captureSelection
             ? {
                 onData: captureOnData
                   ? (data) => {
@@ -229,7 +237,10 @@ const createHarness = (): TerminalHarnessExports => {
         }),
       )
     } else {
-      const fallback = new Event('input', { bubbles: true, cancelable: true }) as Event & { data: string }
+      const fallback = new Event('input', {
+        bubbles: true,
+        cancelable: true,
+      }) as Event & { data: string }
       fallback.data = text
       target.dispatchEvent(fallback)
     }
@@ -247,7 +258,8 @@ const createHarness = (): TerminalHarnessExports => {
     onDataEvents.length = 0
   }
 
-  const getFrameEvents = () => frameEvents.map((event) => structuredCloneFallback(event))
+  const getFrameEvents = () =>
+    frameEvents.map((event) => structuredCloneFallback(event))
 
   const resetFrameEvents = () => {
     frameEvents.length = 0

@@ -84,36 +84,48 @@ export function isCtl(value: unknown): value is Ctl {
       )
     case 'open':
       return (
+        typeof value.id === 'number' &&
         Number.isInteger(value.id) &&
         value.id >= 0 &&
         isTarget(value.target) &&
         isUser(value.user)
       )
     case 'open_ok':
-      return Number.isInteger(value.id)
+      return typeof value.id === 'number' && Number.isInteger(value.id)
     case 'open_err':
       return (
+        typeof value.id === 'number' &&
         Number.isInteger(value.id) &&
         typeof value.code === 'string' &&
         typeof value.msg === 'string'
       )
     case 'resize':
       return (
+        typeof value.id === 'number' &&
         Number.isInteger(value.id) &&
         isPositiveInt(value.cols) &&
         isPositiveInt(value.rows)
       )
     case 'signal':
-      return Number.isInteger(value.id) && typeof value.sig === 'string'
+      return (
+        typeof value.id === 'number' &&
+        Number.isInteger(value.id) &&
+        typeof value.sig === 'string'
+      )
     case 'close':
       return (
+        typeof value.id === 'number' &&
         Number.isInteger(value.id) &&
         (value.reason === undefined || typeof value.reason === 'string')
       )
     case 'exit':
-      return Number.isInteger(value.id)
+      return typeof value.id === 'number' && Number.isInteger(value.id)
     case 'flow':
-      return Number.isInteger(value.id) && isNonNegativeNumber(value.credit)
+      return (
+        typeof value.id === 'number' &&
+        Number.isInteger(value.id) &&
+        isNonNegativeNumber(value.credit)
+      )
     case 'ping':
     case 'pong':
       return typeof value.ts === 'number'
@@ -147,6 +159,7 @@ function isTarget(
   return (
     isRecord(value) &&
     typeof value.host === 'string' &&
+    typeof value.port === 'number' &&
     Number.isInteger(value.port) &&
     value.port > 0 &&
     value.port <= 65535

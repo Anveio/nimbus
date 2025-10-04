@@ -18,13 +18,19 @@ export const handleTerminalHotkey = (
   event: ReactKeyboardEvent<HTMLDivElement>,
   context: HotkeyContext,
 ): HotkeyResult => {
-  if (event.nativeEvent.isComposing || context.compositionStateRef.current.active) {
+  if (
+    event.nativeEvent.isComposing ||
+    context.compositionStateRef.current.active
+  ) {
     return noopResult
   }
 
   const key = event.key
 
-  if (context.shortcutGuideEnabled && (key === '?' || (key === '/' && event.shiftKey))) {
+  if (
+    context.shortcutGuideEnabled &&
+    (key === '?' || (key === '/' && event.shiftKey))
+  ) {
     context.toggleShortcutGuide('hotkey')
     return createResult({ preventDefault: true })
   }
@@ -57,11 +63,11 @@ export const handleTerminalHotkey = (
   const snapshot = context.interpreter.getSnapshot()
   const previousCursor = snapshot.cursor
   const anchorPoint = shouldExtendSelection
-    ? context.keyboardSelectionAnchorRef.current ?? {
+    ? (context.keyboardSelectionAnchorRef.current ?? {
         row: previousCursor.row,
         column: previousCursor.column,
         timestamp: Date.now(),
-      }
+      })
     : null
 
   let handledViaLocalErase = false
@@ -91,7 +97,8 @@ export const handleTerminalHotkey = (
 
   if (arrowKey) {
     const isLineMotion = event.metaKey
-    const isWordMotion = !isLineMotion && (event.altKey || (event.ctrlKey && !event.metaKey))
+    const isWordMotion =
+      !isLineMotion && (event.altKey || (event.ctrlKey && !event.metaKey))
 
     let updates: TerminalUpdate[] = []
     switch (key) {

@@ -167,9 +167,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     const runtime = runtimeRef.current!
     const interpreter = runtime.interpreter
 
-    const [currentSelection, setCurrentSelection] = useState<
-      TerminalSelection | null
-    >(interpreter.snapshot.selection ?? null)
+    const [currentSelection, setCurrentSelection] =
+      useState<TerminalSelection | null>(interpreter.snapshot.selection ?? null)
 
     const [snapshotVersion, setSnapshotVersion] = useState(0)
     const snapshot = useMemo(
@@ -235,8 +234,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         return
       }
 
-      const { rows: currentRows, columns: currentColumns } =
-        current.snapshot
+      const { rows: currentRows, columns: currentColumns } = current.snapshot
       if (currentRows === rows && currentColumns === columns) {
         return
       }
@@ -291,14 +289,17 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       focusTerminal: focus,
     })
 
-    const write = useCallback((input: Uint8Array | string) => {
-      const runtimeInstance = runtimeRef.current
-      if (!runtimeInstance) {
-        return
-      }
-      const updates = runtimeInstance.write(input)
-      applyUpdates(updates)
-    }, [applyUpdates])
+    const write = useCallback(
+      (input: Uint8Array | string) => {
+        const runtimeInstance = runtimeRef.current
+        if (!runtimeInstance) {
+          return
+        }
+        const updates = runtimeInstance.write(input)
+        applyUpdates(updates)
+      },
+      [applyUpdates],
+    )
 
     const emitData = useCallback(
       (bytes: Uint8Array, options?: { skipLocalEcho?: boolean }) => {
