@@ -21,7 +21,8 @@
       },
       "style": {
         "noNonNullAssertion": "off",
-        "useTemplate": "off"
+        "useTemplate": "off",
+        "noEnum": "error"
       },
       "correctness": {
         "useExhaustiveDependencies": "warn",

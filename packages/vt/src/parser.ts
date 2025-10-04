@@ -20,6 +20,7 @@ import {
   ParserEventType,
   type ParserOptions,
   ParserState,
+  parserStates,
   type ParserStringLimits,
   type SosPmApcKind,
 } from './types'
@@ -168,7 +169,7 @@ class ParserImpl implements Parser {
     const runtime = this.createStateRuntime()
     const specs = createStateRuleSpecs(runtime)
     const table: Partial<Record<ParserState, ReadonlyArray<ByteHandler>>> = {}
-    for (const state of Object.values(ParserState)) {
+    for (const state of parserStates) {
       const spec = specs[state]
       table[state] = this.buildRowFromSpec(spec)
     }

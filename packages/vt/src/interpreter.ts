@@ -1004,7 +1004,7 @@ export class TerminalInterpreter {
   }
 
   private handleEsc(
-    event: ParserEvent & { type: ParserEventType.EscDispatch },
+    event: ParserEvent & { type: typeof ParserEventType.EscDispatch },
   ): TerminalUpdate[] {
     const final = String.fromCharCode(event.finalByte)
     if (event.intermediates.length > 0) {
@@ -1094,7 +1094,7 @@ export class TerminalInterpreter {
   }
 
   private handleOsc(
-    event: ParserEvent & { type: ParserEventType.OscDispatch },
+    event: ParserEvent & { type: typeof ParserEventType.OscDispatch },
   ): TerminalUpdate[] {
     const raw = this.decode(event.data)
     const separator = raw.indexOf(';')
@@ -1214,7 +1214,7 @@ export class TerminalInterpreter {
   }
 
   private handleDcsHook(
-    event: ParserEvent & { type: ParserEventType.DcsHook },
+    event: ParserEvent & { type: typeof ParserEventType.DcsHook },
   ): TerminalUpdate[] {
     this.activeDcs = {
       finalByte: event.finalByte,
@@ -1233,7 +1233,7 @@ export class TerminalInterpreter {
   }
 
   private handleDcsPut(
-    event: ParserEvent & { type: ParserEventType.DcsPut },
+    event: ParserEvent & { type: typeof ParserEventType.DcsPut },
   ): TerminalUpdate[] {
     if (!this.activeDcs) {
       return []
@@ -1268,7 +1268,7 @@ export class TerminalInterpreter {
   }
 
   private handleSosPmApc(
-    event: ParserEvent & { type: ParserEventType.SosPmApcDispatch },
+    event: ParserEvent & { type: typeof ParserEventType.SosPmApcDispatch },
   ): TerminalUpdate[] {
     const data = this.decode(event.data)
     this.state.lastSosPmApc = { kind: event.kind, data }
@@ -1276,7 +1276,7 @@ export class TerminalInterpreter {
   }
 
   private handleCsi(
-    event: ParserEvent & { type: ParserEventType.CsiDispatch },
+    event: ParserEvent & { type: typeof ParserEventType.CsiDispatch },
   ): TerminalUpdate[] {
     if (event.intermediates.length > 0) {
       const intermediate = String.fromCharCode(event.intermediates[0]!)
@@ -1375,7 +1375,7 @@ export class TerminalInterpreter {
   }
 
   private handleDecPrivateMode(
-    event: ParserEvent & { type: ParserEventType.CsiDispatch },
+    event: ParserEvent & { type: typeof ParserEventType.CsiDispatch },
   ): TerminalUpdate[] {
     const final = String.fromCharCode(event.finalByte)
     if (final === 'p' && event.intermediates.includes('$'.charCodeAt(0))) {
@@ -1452,7 +1452,7 @@ export class TerminalInterpreter {
   }
 
   private handleMediaCopy(
-    event: ParserEvent & { type: ParserEventType.CsiDispatch },
+    event: ParserEvent & { type: typeof ParserEventType.CsiDispatch },
   ): TerminalUpdate[] {
     const params = event.params.length === 0 ? [0] : event.params
     if (event.prefix === QUESTION_MARK) {

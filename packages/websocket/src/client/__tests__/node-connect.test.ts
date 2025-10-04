@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { connect, type NodeConnectOptions } from '../node'
 import { manaV1Profile } from '../../protocol'
 
@@ -53,6 +53,8 @@ class MockNodeSocket {
   }
 }
 
+const flushMicrotasks = () => new Promise((resolve) => setTimeout(resolve, 0))
+
 describe('node connect', () => {
   it('requires explicit WebSocket implementation', async () => {
     await expect(
@@ -74,8 +76,7 @@ describe('node connect', () => {
     expect(socket.protocols).toEqual(['mana.ssh.v1'])
 
     socket.emit('open', {})
-    await Promise.resolve()
-    await Promise.resolve()
+    await flushMicrotasks()
     socket.emit('message', {
       data: manaV1Profile.encodeCtl({
         t: 'hello_ok',
@@ -86,5 +87,72 @@ describe('node connect', () => {
 
     const connection = await connectionPromise
     expect(connection.protocol).toBe('mana.ssh.v1')
+  })
+
+  it('honours resume hooks', async () => {
+    MockNodeSocket.instances.length = 0
+    const persisted: unknown[] = []
+    const load = vi.fn(async () => ({ token: 'node-token' }))
+    let cleared = false
+    const options: NodeConnectOptions = {
+      url: 'wss://resume-node',
+      WebSocketImpl:
+        MockNodeSocket as unknown as NodeConnectOptions['WebSocketImpl'],
+      resumeHooks: {
+        onLoad: load,
+        onPersist(state) {
+          persisted.push(state)
+        },
+        onClear() {
+          cleared = true
+        },
+      },
+    }
+
+    const connectionPromise = connect(options)
+    const socket = MockNodeSocket.instances.at(-1)!
+    socket.emit('open', {})
+    await flushMicrotasks()
+
+    expect(load).toHaveBeenCalled()
+
+    socket.emit('message', {
+      data: manaV1Profile.encodeCtl({
+        t: 'hello_ok',
+        server: 'node-resume',
+        caps: { flow: 'credit', profileAccepted: 'mana.v1' },
+      }),
+    })
+
+    const connection = await connectionPromise
+
+    const sessionPromise = connection.openSession({
+      target: { host: 'resume-node', port: 22 },
+      user: { username: 'resumer', auth: { type: 'password' } },
+    })
+
+    const openFrame = socket.sent
+      .map((item) => (typeof item === 'string' ? JSON.parse(item) : item))
+      .find((item) => item && typeof item === 'object' && item.t === 'open')
+
+    socket.emit('message', {
+      data: manaV1Profile.encodeCtl({
+        t: 'open_ok',
+        id: openFrame?.id ?? 1,
+        resumeKey: 'new-node-token',
+      }),
+    })
+    await flushMicrotasks()
+
+    await sessionPromise
+
+    expect(persisted).toHaveLength(1)
+    expect(persisted[0]).toMatchObject({ token: 'new-node-token' })
+
+    socket.emit('close', { code: 1000, reason: 'bye' })
+    await flushMicrotasks()
+    expect(cleared).toBe(true)
+
+    await connection.close()
   })
 })

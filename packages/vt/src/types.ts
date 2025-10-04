@@ -2,69 +2,89 @@
 /**
  * Parser states as described by the VT500 state machine.
  */
-export enum ParserState {
-  Ground = 'ground',
-  Escape = 'escape',
-  EscapeIntermediate = 'escape_intermediate',
-  CsiEntry = 'csi_entry',
-  CsiParam = 'csi_param',
-  CsiIntermediate = 'csi_intermediate',
-  CsiIgnore = 'csi_ignore',
-  OscString = 'osc_string',
-  DcsEntry = 'dcs_entry',
-  DcsParam = 'dcs_param',
-  DcsIntermediate = 'dcs_intermediate',
-  DcsIgnore = 'dcs_ignore',
-  DcsPassthrough = 'dcs_passthrough',
-  SosPmApcString = 'sos_pm_apc_string',
-}
+const parserState = {
+  Ground: 'ground',
+  Escape: 'escape',
+  EscapeIntermediate: 'escape_intermediate',
+  CsiEntry: 'csi_entry',
+  CsiParam: 'csi_param',
+  CsiIntermediate: 'csi_intermediate',
+  CsiIgnore: 'csi_ignore',
+  OscString: 'osc_string',
+  DcsEntry: 'dcs_entry',
+  DcsParam: 'dcs_param',
+  DcsIntermediate: 'dcs_intermediate',
+  DcsIgnore: 'dcs_ignore',
+  DcsPassthrough: 'dcs_passthrough',
+  SosPmApcString: 'sos_pm_apc_string',
+} as const
+
+export const ParserState = parserState
+export type ParserState = (typeof parserState)[keyof typeof parserState]
+
+export const parserStates: readonly ParserState[] = Object.freeze(
+  Object.values(parserState) as ParserState[],
+)
 
 /**
  * Bit flags that describe the classes a byte belongs to. A single byte may
  * belong to multiple classes depending on the state table edge definitions.
  */
-export enum ByteFlag {
-  None = 0,
-  C0Control = 1 << 0,
-  C1Control = 1 << 1,
-  Printable = 1 << 2,
-  Escape = 1 << 3,
-  Parameter = 1 << 4,
-  Intermediate = 1 << 5,
-  Final = 1 << 6,
-  Delete = 1 << 7,
-  StringTerminator = 1 << 8,
-}
+const byteFlag = {
+  None: 0,
+  C0Control: 1 << 0,
+  C1Control: 1 << 1,
+  Printable: 1 << 2,
+  Escape: 1 << 3,
+  Parameter: 1 << 4,
+  Intermediate: 1 << 5,
+  Final: 1 << 6,
+  Delete: 1 << 7,
+  StringTerminator: 1 << 8,
+} as const satisfies Record<string, number>
+
+export const ByteFlag = byteFlag
+export type ByteFlagLiteral = (typeof byteFlag)[keyof typeof byteFlag]
+// Bitwise combinations are common when working with flags, so we keep the
+// exported "ByteFlag" type wide enough to permit aggregates.
+export type ByteFlag = number
 
 /**
  * Event types emitted by the parser.
  */
-export enum ParserEventType {
-  Print = 'print',
-  Execute = 'execute',
-  EscDispatch = 'esc_dispatch',
-  CsiDispatch = 'csi_dispatch',
-  OscDispatch = 'osc_dispatch',
-  DcsHook = 'dcs_hook',
-  DcsPut = 'dcs_put',
-  DcsUnhook = 'dcs_unhook',
-  SosPmApcDispatch = 'sos_pm_apc_dispatch',
-  Ignore = 'ignore',
-}
+const parserEventType = {
+  Print: 'print',
+  Execute: 'execute',
+  EscDispatch: 'esc_dispatch',
+  CsiDispatch: 'csi_dispatch',
+  OscDispatch: 'osc_dispatch',
+  DcsHook: 'dcs_hook',
+  DcsPut: 'dcs_put',
+  DcsUnhook: 'dcs_unhook',
+  SosPmApcDispatch: 'sos_pm_apc_dispatch',
+  Ignore: 'ignore',
+} as const
+
+export const ParserEventType = parserEventType
+export type ParserEventType =
+  (typeof parserEventType)[keyof typeof parserEventType]
 
 /**
  * Payload schema for parser events.
  */
 export type ParserEvent =
-  | { readonly type: ParserEventType.Print; readonly data: Uint8Array }
-  | { readonly type: ParserEventType.Execute; readonly codePoint: number }
+  | { readonly type: typeof parserEventType.Print; readonly data: Uint8Array }
   | {
-      readonly type: ParserEventType.EscDispatch
+      readonly type: typeof parserEventType.Execute
+      readonly codePoint: number
+    }
+  | {
+      readonly type: typeof parserEventType.EscDispatch
       readonly finalByte: number
       readonly intermediates: ReadonlyArray<number>
     }
   | {
-      readonly type: ParserEventType.CsiDispatch
+      readonly type: typeof parserEventType.CsiDispatch
       readonly finalByte: number
       readonly params: ReadonlyArray<number>
       readonly paramSeparators: ReadonlyArray<'colon' | 'semicolon'>
@@ -72,23 +92,23 @@ export type ParserEvent =
       readonly prefix: number | null
     }
   | {
-      readonly type: ParserEventType.OscDispatch
+      readonly type: typeof parserEventType.OscDispatch
       readonly data: Uint8Array
     }
   | {
-      readonly type: ParserEventType.DcsHook
+      readonly type: typeof parserEventType.DcsHook
       readonly finalByte: number
       readonly params: ReadonlyArray<number>
       readonly intermediates: ReadonlyArray<number>
     }
-  | { readonly type: ParserEventType.DcsPut; readonly data: Uint8Array }
-  | { readonly type: ParserEventType.DcsUnhook }
+  | { readonly type: typeof parserEventType.DcsPut; readonly data: Uint8Array }
+  | { readonly type: typeof parserEventType.DcsUnhook }
   | {
-      readonly type: ParserEventType.SosPmApcDispatch
+      readonly type: typeof parserEventType.SosPmApcDispatch
       readonly kind: SosPmApcKind
       readonly data: Uint8Array
     }
-  | { readonly type: ParserEventType.Ignore }
+  | { readonly type: typeof parserEventType.Ignore }
 
 /**
  * API for receiving parser events.

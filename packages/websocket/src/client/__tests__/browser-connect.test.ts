@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { connect, type BrowserConnectOptions } from '../browser'
 import { manaV1Profile } from '../../protocol'
 
@@ -55,6 +55,8 @@ class MockSocket {
   }
 }
 
+const flushMicrotasks = () => new Promise((resolve) => setTimeout(resolve, 0))
+
 describe('browser connect', () => {
   it('performs handshake and resolves connection', async () => {
     MockSocket.instances.length = 0
@@ -69,8 +71,7 @@ describe('browser connect', () => {
     expect(socket.protocols).toEqual(['mana.ssh.v1'])
 
     socket.emit('open', {})
-    await Promise.resolve()
-    await Promise.resolve()
+    await flushMicrotasks()
 
     const helloOk = manaV1Profile.encodeCtl({
       t: 'hello_ok',
@@ -95,8 +96,7 @@ describe('browser connect', () => {
     const connectionPromise = connect(options)
     const socket = MockSocket.instances.at(-1)!
     socket.emit('open', {})
-    await Promise.resolve()
-    await Promise.resolve()
+    await flushMicrotasks()
 
     socket.emit('message', {
       data: manaV1Profile.encodeCtl({
@@ -147,5 +147,75 @@ describe('browser connect', () => {
     expect(last).instanceOf(ArrayBuffer)
     const decoded = manaV1Profile.decodeData(last as ArrayBuffer)
     expect(decoded?.payload).toEqual(new Uint8Array([9, 10]))
+  })
+
+  it('invokes resume hooks', async () => {
+    MockSocket.instances.length = 0
+
+    const persisted: unknown[] = []
+    const load = vi.fn(async () => ({ token: 'cached-token', expiresAt }))
+    let cleared = false
+    const expiresAt = Date.now() + 60_000
+    const options: BrowserConnectOptions = {
+      url: 'wss://resume.example/ws',
+      WebSocketImpl:
+        MockSocket as unknown as BrowserConnectOptions['WebSocketImpl'],
+      resumeHooks: {
+        onLoad: load,
+        onPersist(state) {
+          persisted.push(state)
+        },
+        onClear() {
+          cleared = true
+        },
+      },
+    }
+
+    const connectionPromise = connect(options)
+    const socket = MockSocket.instances.at(-1)!
+
+    socket.emit('open', {})
+    await flushMicrotasks()
+
+    expect(load).toHaveBeenCalled()
+
+    socket.emit('message', {
+      data: manaV1Profile.encodeCtl({
+        t: 'hello_ok',
+        server: 'resume-server',
+        caps: { flow: 'credit', profileAccepted: 'mana.v1' },
+      }),
+    })
+
+    const connection = await connectionPromise
+
+    const sessionPromise = connection.openSession({
+      target: { host: 'resume-host', port: 22 },
+      user: { username: 'resumer', auth: { type: 'password' } },
+    })
+
+    const openFrame = socket.sent
+      .map((item) => (typeof item === 'string' ? JSON.parse(item) : item))
+      .find((item) => item && typeof item === 'object' && item.t === 'open')
+
+    socket.emit('message', {
+      data: manaV1Profile.encodeCtl({
+        t: 'open_ok',
+        id: openFrame?.id ?? 1,
+        resumeKey: 'fresh-token',
+      }),
+    })
+    await flushMicrotasks()
+
+    await sessionPromise
+
+    expect(persisted).toHaveLength(1)
+    expect(persisted[0]).toMatchObject({ token: 'fresh-token' })
+
+    socket.emit('close', { code: 1000, reason: 'done' })
+    await flushMicrotasks()
+    expect(cleared).toBe(true)
+
+    await connection.close()
   })
 })

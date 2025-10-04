@@ -290,7 +290,10 @@ describe('ParserImpl basic behaviour', () => {
     const puts = sink.events.filter(
       (
         event,
-      ): event is Extract<ParserEvent, { type: ParserEventType.DcsPut }> =>
+      ): event is Extract<
+        ParserEvent,
+        { type: typeof ParserEventType.DcsPut }
+      > =>
         event.type === ParserEventType.DcsPut,
     )
 
@@ -402,7 +405,10 @@ describe('ParserImpl basic behaviour', () => {
     const putEvents = sink.events.filter(
       (
         event,
-      ): event is Extract<ParserEvent, { type: ParserEventType.DcsPut }> =>
+      ): event is Extract<
+        ParserEvent,
+        { type: typeof ParserEventType.DcsPut }
+      > =>
         event.type === ParserEventType.DcsPut,
     )
 
@@ -453,7 +459,10 @@ describe('ParserImpl basic behaviour', () => {
     const puts = sink.events.filter(
       (
         event,
-      ): event is Extract<ParserEvent, { type: ParserEventType.DcsPut }> =>
+      ): event is Extract<
+        ParserEvent,
+        { type: typeof ParserEventType.DcsPut }
+      > =>
         event.type === ParserEventType.DcsPut,
     )
 
