@@ -12,13 +12,35 @@ This document captures the proposed API surface, behavioural contract, and build
 - **Security posture**: Default to modern algorithms (curve25519, Ed25519, chacha20-poly1305, AES-GCM, HMAC-SHA2) with opt-in compatibility toggles.
 - **Traceability**: Emit auditable events for every significant transition (handshake, auth, channel ops, extension negotiation, disconnects).
 
-## Top-Level Entry Point
+## Runtime-Specific Entry Points
 
-```ts
-import { createClientSession } from '@mana/ssh';
+Consumers choose the adapter that matches their runtime:
 
-const session = createClientSession(config);
-```
+- Browsers/workers:
+
+  ```ts
+  import { createClientSession } from '@mana/ssh/client/web'
+
+  const session = createClientSession(config)
+  ```
+
+- Node.js clients:
+
+  ```ts
+  import { createClientSession } from '@mana/ssh/client/node'
+
+  const session = createClientSession(config)
+  ```
+
+- Node.js servers:
+
+  ```ts
+  import { createClientSession } from '@mana/ssh/server/node'
+
+  const session = createClientSession(config)
+  ```
+
+Each adapter re-exports the shared protocol surface from `src/api.ts` while wiring runtime defaults (crypto, RNG, host key stores). There is intentionally no package-level entry so hosts make an explicit choice about the environment they are targeting.
 
 ### `SshClientConfig`
 

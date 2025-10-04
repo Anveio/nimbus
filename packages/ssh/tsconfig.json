@@ -3,7 +3,6 @@
   "compilerOptions": {
     "types": ["global", "node"],
     "paths": {
-      "@mana/ssh": ["./src/index.ts"],
       "@mana/ssh/client/web": ["./src/client/web/index.ts"],
       "@mana/ssh/client/node": ["./src/client/node/index.ts"],
       "@mana/ssh/server/node": ["./src/server/node/index.ts"]

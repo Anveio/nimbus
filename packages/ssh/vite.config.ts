@@ -5,7 +5,6 @@ import dts from 'vite-plugin-dts'
 const rootDir = __dirname
 
 const entryPoints = {
-  index: path.resolve(rootDir, 'src/index.ts'),
   'client/web': path.resolve(rootDir, 'src/client/web/index.ts'),
   'client/node': path.resolve(rootDir, 'src/client/node/index.ts'),
   'server/node': path.resolve(rootDir, 'src/server/node/index.ts'),
@@ -32,7 +31,7 @@ export default defineConfig({
       entry: entryPoints,
       formats: ['es', 'cjs'],
       fileName: (format, entryName) => {
-        const normalized = (entryName ?? 'index').replace(/\\/g, '/')
+        const normalized = (entryName ?? 'entry').replace(/\\/g, '/')
         return format === 'es' ? `${normalized}.js` : `${normalized}.cjs`
       },
     },

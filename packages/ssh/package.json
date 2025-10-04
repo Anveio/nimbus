@@ -2,13 +2,10 @@
   "name": "@mana/ssh",
   "version": "0.0.1",
   "description": "The core, transport-agnostic SSH protocol implementation for Mana.",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "scripts": {
     "clean": "git clean -xfd .",
     "clean:artifacts": "rm -rf dist",
-    "build": "vite build",
+    "build": "bunx vite build --config vite.config.ts",
     "test": "vitest run",
     "test:watch": "vitest --reporter=default --silent=false",
     "test:coverage": "vitest run --coverage --reporter=dot --silent",
@@ -27,11 +24,6 @@
   },
   "sideEffects": false,
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
-    },
     "./client/web": {
       "types": "./dist/client/web.d.ts",
       "import": "./dist/client/web.js",
