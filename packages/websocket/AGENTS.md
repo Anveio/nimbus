@@ -5,7 +5,7 @@
 
 ## Distributions
 - `client/browser`: A zero-dependency browser client that connects a Mana terminal to a remote session over WebSocket. It emits typed control, data, and lifecycle events that bind directly to `@mana/vt`, `@mana/tui-react`, and the browser SDK in `@mana/web`.
-- `client/node`: Mirrors the browser contract for headless scenarios (Vitest, Playwright, CLI tooling). Useful for black-box protocol tests and simulating browser peers without DOM requirements.
+- `client/node`: Mirrors the browser contract for headless scenarios (Vitest, Playwright, CLI tooling). Useful for black-box protocol tests and simulating browser peers without DOM requirements. **Runtime note:** browsers are the only first-class environment we support today; Node/Bun/Deno still require user-supplied `WebSocket` polyfills and do not expose `WebSocketStream`, so this adapter is reserved for automated testing until we ship hardened server-side integration docs.
 - `server/node`: A reference Node server that speaks the same protocol to upstream Mana clients. It supervises session lifecycles, enforces flow control, and bridges to SSH channels.
 
 Every distribution will ship as a dedicated bundle from `src/` so runtime-specific surfaces (browser, node client, node server) stay lean and tree-shakeable.
