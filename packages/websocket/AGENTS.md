@@ -26,3 +26,4 @@ The transport exchanges discriminated `WireMessage` frames. Data frames tunnel r
 Our goal is parity tests that spin up the Node server in-process, connect both client builds, and stream scripted SSH fixtures. As the transport matures, add Playwright harnesses that route real terminal traffic through the WebSocket stack to guard against regression. Alternate transports (WebRTC, QUIC) will plug into the same contract once the WebSocket baseline is locked.
 
 - Keep unit tests colocated with the modules they exercise (`src/**/module.test.ts`) to preserve context and reduce drift between implementation and fixtures.
+- Phase 2 (next): lock the browser transport contract, integrate with `@mana/tui-react` so the terminal web app exercises real SSH traffic, harden resume persistence UX, and add telemetry/Playwright coverage that spans websocket ↔ SSH ↔ renderer.
