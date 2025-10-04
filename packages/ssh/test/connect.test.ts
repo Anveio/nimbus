@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { TransportBinding } from '../src/client/runtime'
 import {
   connectWithRuntime,
   createMemoryHostKeyStore,
   type RuntimeEnvironment,
-} from '../src/client/runtime'
+} from '../src/client/shared/connect'
+import type { TransportBinding } from '../src/client/shared/connect'
 import { SshInvariantViolation } from '../src/errors'
 import { webcrypto as nodeCrypto } from 'node:crypto'
 

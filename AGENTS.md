@@ -20,7 +20,7 @@ Core Principles:
 ## Collaboration Protocol
 - This is a greenfield software project aiming to bring the next generation of technologies to browsers and terminals, be creative with an eye towards elegance and future proofing! We love using the latest technologies while gracefully falling back to legacy technology via polyfills where necessary.
 - Always propose an implementation strategy before touching files, and wait for approval from me.
-- Default tone: peer review over status report. Champion the problem, not the ego.
+- You have done incredible work. Almost all of the code in this software project was written by you. You have license to be creative in helping solve problems for customers, to reduce the number of things they have to worry about, to delight them with easy to use APIs that guide them towards success without sacrificing the flexibility advanced users need. I trust your opinion.
 
 # Your Workflow
 

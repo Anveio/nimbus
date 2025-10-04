@@ -10,7 +10,8 @@ import {
   type RuntimeConfigOverrides,
   type RuntimeConnectOptions,
   type TransportBinding,
-} from '../runtime'
+} from '../shared/connect'
+import { createIndexedDbHostKeyStore } from './host-key-store'
 
 export interface WebTransportBinding extends TransportBinding {}
 
@@ -21,6 +22,13 @@ export interface WebConnectOptions {
   callbacks?: ConnectCallbacks
   hostKeys?: HostKeyStore
   diagnostics?: DiagnosticsSink
+  hostKeyConfig?: {
+    readonly persistence?: 'indexeddb' | 'memory' | 'disabled'
+    readonly databaseName?: string
+    readonly storeName?: string
+    readonly trustOnFirstUse?: boolean
+    readonly indexedDB?: IDBFactory
+  }
 }
 
 export function createWebTransport(socket: WebSocket): WebTransportBinding {
@@ -88,6 +96,25 @@ export async function connectSSH(
     options.diagnostics ??
     (callbacks?.onDiagnostic ? { onRecord: callbacks.onDiagnostic } : undefined)
   const cryptoProvider = resolveWebCrypto()
+  const hostKeyConfig = options.hostKeyConfig ?? {}
+  const persistence = hostKeyConfig.persistence ?? 'indexeddb'
+  let hostKeys = options.hostKeys
+  if (!hostKeys) {
+    if (persistence === 'indexeddb') {
+      hostKeys = await createIndexedDbHostKeyStore({
+        databaseName: hostKeyConfig.databaseName,
+        storeName: hostKeyConfig.storeName,
+        trustOnFirstUse: hostKeyConfig.trustOnFirstUse,
+        indexedDB: hostKeyConfig.indexedDB,
+      })
+    } else if (persistence === 'memory') {
+      hostKeys = createMemoryHostKeyStore()
+    } else {
+      throw new Error(
+        'Host key persistence is disabled but no hostKeys store was provided. Supply options.hostKeys to manage host keys manually.',
+      )
+    }
+  }
   const environment = {
     now: resolveNow,
     randomBytes: (length: number) => {
@@ -97,7 +124,7 @@ export async function connectSSH(
     },
     crypto: cryptoProvider,
     diagnostics,
-    hostKeys: options.hostKeys ?? createMemoryHostKeyStore(),
+    hostKeys,
   }
 
   const configOverrides: RuntimeConfigOverrides = {
@@ -123,6 +150,7 @@ export {
   createDefaultAlgorithmCatalog,
   createDefaultIdentification,
   createMemoryHostKeyStore,
+  createIndexedDbHostKeyStore,
 }
 
 export * from '../../api'

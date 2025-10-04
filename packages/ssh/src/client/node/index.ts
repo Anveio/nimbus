@@ -1,17 +1,17 @@
+import { randomBytes as nodeRandomBytes, webcrypto } from 'node:crypto'
+import type { DiagnosticsSink, HostKeyStore } from '../../api'
 import {
-  type ConnectedSession,
-  type ConnectCallbacks,
-  type RuntimeConnectOptions,
-  type RuntimeConfigOverrides,
-  type TransportBinding,
   buildClientConfig,
+  type ConnectCallbacks,
+  type ConnectedSession,
   connectWithRuntime,
   createDefaultAlgorithmCatalog,
   createDefaultIdentification,
   createMemoryHostKeyStore,
-} from '../runtime'
-import type { DiagnosticsSink, HostKeyStore } from '../../api'
-import { webcrypto, randomBytes as nodeRandomBytes } from 'node:crypto'
+  type RuntimeConfigOverrides,
+  type RuntimeConnectOptions,
+  type TransportBinding,
+} from '../shared/connect'
 
 export interface NodeTransportBinding extends TransportBinding {}
 
@@ -71,14 +71,14 @@ function resolveNodeCrypto(): Crypto {
   if (webcrypto) {
     return webcrypto as Crypto
   }
-  if (globalThis.crypto && globalThis.crypto.subtle) {
+  if (globalThis.crypto?.subtle) {
     return globalThis.crypto
   }
   throw new Error('WebCrypto API unavailable in this Node runtime')
 }
 
 function resolveNow(): number {
-  if (typeof process !== 'undefined' && process.hrtime) {
+  if (process?.hrtime) {
     const hr = process.hrtime.bigint()
     return Number(hr / 1_000_000n) + Number(hr % 1_000_000n) / 1_000
   }

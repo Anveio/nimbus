@@ -66,6 +66,7 @@
       "devDependencies": {
         "@types/node": "^24.6.1",
         "@vitest/coverage-v8": "^3.2.4",
+        "fake-indexeddb": "^6.0.0",
         "typescript": "^5.9.2",
         "vite": "^5.3.4",
         "vite-plugin-dts": "^4.2.2",
@@ -136,6 +137,7 @@
       "version": "0.0.0",
       "devDependencies": {
         "@playwright/test": "^1.55.1",
+        "esbuild": "^0.21.5",
         "typescript": "^5.9.2",
         "vitest": "^3.2.4",
       },
@@ -653,6 +655,8 @@
     "expect-type": ["expect-type@1.2.2", "", {}, "sha512-JhFGDVJ7tmDJItKhYgJCGLOWjuK9vPxiXoUFLwLDc99NlmklilbiQJwoctZtt13+xMw91MCk/REan6MWHqDjyA=="],
 
     "exsolve": ["exsolve@1.0.7", "", {}, "sha512-VO5fQUzZtI6C+vx4w/4BWJpg3s/5l+6pRQEHzFRM8WFi4XffSP1Z+4qi7GbjWbvRQEbdIco5mIMq+zX4rPuLrw=="],
+
+    "fake-indexeddb": ["fake-indexeddb@6.2.2", "", {}, "sha512-SGbf7fzjeHz3+12NO1dYigcYn4ivviaeULV5yY5rdGihBvvgwMds4r4UBbNIUMwkze57KTDm32rq3j1Az8mzEw=="],
 
     "fast-check": ["fast-check@3.23.2", "", { "dependencies": { "pure-rand": "^6.1.0" } }, "sha512-h5+1OzzfCC3Ef7VbtKdcv7zsstUQwUDlYpUTvjeUsJAssPgLn7QzbboPtL5ro04Mq0rPOsMzl7q5hIbRs2wD1A=="],
 

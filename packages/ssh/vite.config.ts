@@ -4,55 +4,48 @@ import dts from 'vite-plugin-dts'
 
 const rootDir = __dirname
 
-const entryPoints = {
-  'client/web': path.resolve(rootDir, 'src/client/web/index.ts'),
-  'client/node': path.resolve(rootDir, 'src/client/node/index.ts'),
-  'server/node': path.resolve(rootDir, 'src/server/node/index.ts'),
-}
+const targets = {
+  'client-web': { entry: 'src/client/web/index.ts', fileBase: 'client/web' },
+  'client-node': { entry: 'src/client/node/index.ts', fileBase: 'client/node' },
+  'server-node': { entry: 'src/server/node/index.ts', fileBase: 'server/node' },
+} as const
 
-export default defineConfig({
-  plugins: [
-    dts({
-      entryRoot: path.resolve(rootDir, 'src'),
-      tsconfigPath: path.resolve(rootDir, 'tsconfig.json'),
+type TargetKey = keyof typeof targets
+
+export default defineConfig(({ mode }) => {
+  const targetKey = mode as TargetKey
+  const target = targets[targetKey]
+  if (!target) {
+    const available = Object.keys(targets).join(', ')
+    throw new Error(`Unknown build target '${mode}'. Expected one of: ${available}`)
+  }
+
+  return {
+    plugins: [
+      dts({
+        entryRoot: path.resolve(rootDir, 'src'),
+        tsconfigPath: path.resolve(rootDir, 'tsconfig.json'),
+        outDir: path.resolve(rootDir, 'dist'),
+        include: ['src/**/*'],
+        exclude: ['test/**/*', 'vitest.config.ts'],
+        insertTypesEntry: false,
+        rollupTypes: true,
+      }),
+    ],
+    build: {
+      target: 'es2022',
       outDir: path.resolve(rootDir, 'dist'),
-      include: ['src/**/*'],
-      exclude: ['test/**/*', 'vitest.config.ts'],
-      insertTypesEntry: false,
-      rollupTypes: true,
-    }),
-  ],
-  build: {
-    target: 'es2022',
-    outDir: path.resolve(rootDir, 'dist'),
-    emptyOutDir: true,
-    sourcemap: true,
-    lib: {
-      entry: entryPoints,
-      formats: ['es', 'cjs'],
-      fileName: (format, entryName) => {
-        const normalized = (entryName ?? 'entry').replace(/\\/g, '/')
-        return format === 'es' ? `${normalized}.js` : `${normalized}.cjs`
+      emptyOutDir: false,
+      sourcemap: true,
+      lib: {
+        entry: path.resolve(rootDir, target.entry),
+        formats: ['es', 'cjs'],
+        fileName: (format) =>
+          `${target.fileBase}.${format === 'es' ? 'js' : 'cjs'}`,
+      },
+      rollupOptions: {
+        external: [/^(node:)/],
       },
     },
-    rollupOptions: {
-      external: [/^(node:)/],
-      output: [
-        {
-          format: 'es',
-          dir: path.resolve(rootDir, 'dist'),
-          entryFileNames: (chunk) => `${chunk.name}.js`,
-          chunkFileNames: (chunk) => `${chunk.name}.js`,
-          exports: 'named',
-        },
-        {
-          format: 'cjs',
-          dir: path.resolve(rootDir, 'dist'),
-          entryFileNames: (chunk) => `${chunk.name}.cjs`,
-          chunkFileNames: (chunk) => `${chunk.name}.cjs`,
-          exports: 'named',
-        },
-      ],
-    },
-  },
+  }
 })

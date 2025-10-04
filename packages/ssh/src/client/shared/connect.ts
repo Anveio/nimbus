@@ -1,18 +1,21 @@
 import {
   type AlgorithmCatalog,
-  type AlgorithmName,
   createClientSession,
   type DiagnosticRecord,
   type DiagnosticsSink,
   type HostIdentity,
-  type HostKeyCandidate,
   type HostKeyStore,
   type IdentificationConfig,
   type SshClientConfig,
   type SshEvent,
   type SshSession,
-} from '../api'
-import { SshInvariantViolation } from '../errors'
+} from '../../api'
+import { SshInvariantViolation } from '../../errors'
+import {
+  createDefaultAlgorithmCatalog,
+  createDefaultIdentification,
+} from './defaults'
+import { createMemoryHostKeyStore } from './memory-host-key-store'
 
 export interface TransportBinding {
   send(payload: Uint8Array): void
@@ -48,69 +51,6 @@ export type RuntimeConfigOverrides = {
   guards?: SshClientConfig['guards']
 }
 
-export interface MemoryHostKeyStoreOptions {
-  readonly trustOnFirstUse?: boolean
-}
-
-export function createMemoryHostKeyStore(
-  options: MemoryHostKeyStoreOptions = {},
-): HostKeyStore {
-  const seen = new Map<string, HostKeyCandidate>()
-  const trustOnFirstUse = options.trustOnFirstUse ?? true
-  return {
-    async evaluate(candidate) {
-      const key = canonicalHostKeyId(candidate)
-      const existing = seen.get(key)
-      if (!existing) {
-        if (trustOnFirstUse) {
-          seen.set(key, candidate)
-          return { outcome: 'trusted', source: 'pinned' }
-        }
-        return { outcome: 'unknown' }
-      }
-      if (equalBytes(existing.raw, candidate.raw)) {
-        return { outcome: 'trusted', source: 'known-hosts' }
-      }
-      return {
-        outcome: 'mismatch',
-        severity: 'fatal',
-        comment: 'Stored host key does not match candidate',
-      }
-    },
-    async remember(candidate, decision) {
-      if (decision.outcome === 'trusted') {
-        seen.set(canonicalHostKeyId(candidate), candidate)
-      }
-    },
-  }
-}
-
-export function createDefaultIdentification(): IdentificationConfig {
-  return {
-    clientId: 'SSH-2.0-mana_ssh_0.0.1',
-  }
-}
-
-export function createDefaultAlgorithmCatalog(): AlgorithmCatalog {
-  const asAlgorithm = (value: string): AlgorithmName => value as AlgorithmName
-  return {
-    keyExchange: [
-      asAlgorithm('curve25519-sha256@libssh.org'),
-      asAlgorithm('curve25519-sha256'),
-      asAlgorithm('diffie-hellman-group14-sha256'),
-    ],
-    ciphers: [asAlgorithm('aes128-gcm@openssh.com')],
-    macs: [asAlgorithm('AEAD_AES_128_GCM'), asAlgorithm('hmac-sha2-256')],
-    hostKeys: [
-      asAlgorithm('ssh-ed25519'),
-      asAlgorithm('rsa-sha2-512'),
-      asAlgorithm('rsa-sha2-256'),
-    ],
-    compression: [asAlgorithm('none')],
-    extensions: [asAlgorithm('ext-info-c')],
-  }
-}
-
 export interface ConnectedSession {
   readonly session: SshSession
   dispose(): void
@@ -121,7 +61,7 @@ export interface RuntimeEnvironment {
   randomBytes: (length: number) => Uint8Array
   crypto: Crypto
   diagnostics?: DiagnosticsSink
-  hostKeys: HostKeyStore
+  hostKeys?: HostKeyStore
 }
 
 export function buildClientConfig(
@@ -138,7 +78,8 @@ export function buildClientConfig(
     overrides.algorithms,
   )
   const diagnostics = overrides.diagnostics ?? environment.diagnostics
-  const hostKeys = overrides.hostKeys ?? environment.hostKeys
+  const hostKeys =
+    overrides.hostKeys ?? environment.hostKeys ?? createMemoryHostKeyStore()
   const randomBytes = overrides.randomBytes ?? environment.randomBytes
   const clock = overrides.clock ?? environment.now
   if (!hostKeys) {
@@ -288,19 +229,8 @@ function mergeAlgorithmCatalog(
   }
 }
 
-function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.length !== b.length) {
-    return false
-  }
-  let diff = 0
-  for (let i = 0; i < a.length; i += 1) {
-    const left = a[i] ?? 0
-    const right = b[i] ?? 0
-    diff |= left ^ right
-  }
-  return diff === 0
-}
-
-function canonicalHostKeyId(candidate: HostKeyCandidate): string {
-  return `${candidate.host}:${candidate.port}:${candidate.keyType}`
+export {
+  createDefaultAlgorithmCatalog,
+  createDefaultIdentification,
+  createMemoryHostKeyStore,
 }

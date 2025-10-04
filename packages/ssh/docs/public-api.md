@@ -40,7 +40,7 @@ Consumers choose the adapter that matches their runtime:
   const session = createClientSession(config)
   ```
 
-Each adapter re-exports the shared protocol surface from `src/api.ts` while wiring runtime defaults (crypto, RNG, host key stores). There is intentionally no package-level entry so hosts make an explicit choice about the environment they are targeting.
+Each adapter re-exports the shared protocol surface from `src/api.ts` while wiring runtime defaults (crypto, RNG, host key stores) through `src/client/shared`. There is intentionally no package-level entry so hosts make an explicit choice about the environment they are targeting.
 
 ### `SshClientConfig`
 
@@ -50,7 +50,8 @@ Each adapter re-exports the shared protocol surface from `src/api.ts` while wiri
 | `randomBytes: (length: number) => Uint8Array` | Cryptographically strong entropy | Required for key exchange, padding, nonce generation |
 | `identification` | Client banner + optional local metadata | Must satisfy RFC 4253 §4.2 |
 | `algorithms: AlgorithmCatalog` | Ordered preferences for KEX, ciphers, MACs, host keys, compression, extensions | Defaults prefer modern suites; registries validate identifiers against RFC 4250 |
-| `hostKeys: HostKeyStore` | Policy for verifying server keys (TOFU, SSHFP/DNSSEC, X.509, OpenSSH KRL) | Exposes callbacks for persistence and policy prompts |
+| `hostKeys: HostKeyStore` | Policy for verifying server keys (TOFU, SSHFP/DNSSEC, X.509, OpenSSH KRL) | Exposes callbacks for persistence and policy prompts. Provide this to fully manage trust decisions yourself. |
+| `hostKeyConfig?` | `{ persistence?: 'indexeddb' \| 'memory' \| 'disabled'; databaseName?: string; storeName?: string; trustOnFirstUse?: boolean; indexedDB?: IDBFactory }` | Web-only convenience object controlling the built-in persistence. Defaults to IndexedDB TOFU. Set `persistence` to `'disabled'` when wiring a custom `hostKeys` store. |
 | `auth: AuthenticationStrategy` | Orchestrates RFC 4252 flows (password, public-key, keyboard-interactive, GSS) | Keeps interactive UX outside core |
 | `channels?: ChannelPolicy` | Limits and feature toggles for RFC 4254 channels and vendor extras | Controls window sizing, concurrency, port forwarding enablement |
 | `diagnostics?: DiagnosticsSink` | Structured logging hooks | No side-effects unless host subscribes |

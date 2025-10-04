@@ -8,7 +8,7 @@ This note codifies how the SSH engine composes with transports (e.g. the Phase�
 
 - `@mana/ssh/client/web` – browser/worker default wiring (`connectSSH`, `createWebTransport`).
 - `@mana/ssh/client/node` – Node 18+ runtime wiring (`connectSSH`).
-- Both build on shared primitives from `src/client/runtime.ts`.
+- Both build on shared primitives from `src/client/shared`.
 
 `connectSSH(options)` expects:
 
@@ -40,7 +40,7 @@ The runtime adapters inject defaults for:
 - `clock`: `performance.now()` (browser) / `process.hrtime.bigint()` (node).
 - `randomBytes`: `crypto.getRandomValues` (browser) / `crypto.randomBytes` (node).
 - `crypto`: WebCrypto (`globalThis.crypto` / `crypto.webcrypto`).
-- `hostKeys`: in-memory TOFU store (remembers trusted keys, fatal on mismatch).
+- `hostKeys`: IndexedDB-backed persistence in browsers (configurable via `hostKeyConfig`), in-memory TOFU for Node.
 - `diagnostics`: forwards into `callbacks.onDiagnostic` when provided.
 
 Consumers may override any portion of the `SshClientConfig` (identification string, algorithm catalog, channel policy, authentication strategy, guards) through `configOverrides`.
@@ -66,6 +66,14 @@ A transport wrapper (WebSocket, QUIC, fixed TCP) must:
 - Surface a `HostIdentity` (`host`, `port`) so host key evaluation and diagnostics mirror the actual peer.
 
 `createWebTransport(socket: WebSocket)` demonstrates how the browser adapter normalises DOM `MessageEvent` payloads into `Uint8Array` before forwarding them to the session and returns disposer functions that detach each event listener.
+
+### Host Key Persistence Options
+
+Configure persistence through `hostKeyConfig`:
+
+- `persistence: 'indexeddb'` (default) stores trusted host keys in IndexedDB so TOFU decisions survive reloads. Customise the database/store names via `databaseName`/`storeName`, provide a custom `indexedDB` factory when running in sandboxed contexts, or disable automatic TOFU via `trustOnFirstUse: false` and call `hostKeys.remember` manually.
+- `persistence: 'memory'` falls back to the in-memory TOFU store used by Node clients.
+- `persistence: 'disabled'` opts out entirely; callers must supply `hostKeys` and handle trust decisions themselves.
 
 ## Channel Lifecycle Expectations
 
