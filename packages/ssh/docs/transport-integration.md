@@ -1,0 +1,95 @@
+# Transport Integration Contract (Phase 2)
+
+This note codifies how the SSH engine composes with transports (e.g. the Phase‑2 `@mana/websocket` client). It describes the responsibilities of both sides, the baseline runtime wiring, and the resume story we are building toward.
+
+## Runtime Entrypoints
+
+`@mana/ssh` exposes runtime-specific helpers that wrap the core `createClientSession` API:
+
+- `@mana/ssh/client/web` – browser/worker default wiring (`connectSSH`, `createWebTransport`).
+- `@mana/ssh/client/node` – Node 18+ runtime wiring (`connectSSH`).
+- Both build on shared primitives from `src/client/runtime.ts`.
+
+`connectSSH(options)` expects:
+
+```ts
+interface TransportBinding {
+  send(payload: Uint8Array): void
+  onData(listener: (payload: Uint8Array) => void): () => void
+  onClose?(listener: (summary?: { code?: number; reason?: string }) => void):
+    | (() => void)
+    | void
+  onError?(listener: (error: unknown) => void): (() => void) | void
+}
+
+interface ConnectCallbacks {
+  onEvent?(event: SshEvent): void
+  onDiagnostic?(record: DiagnosticRecord): void
+}
+
+interface RuntimeConnectOptions {
+  transport: TransportBinding
+  host?: HostIdentity
+  configOverrides?: RuntimeConfigOverrides
+  callbacks?: ConnectCallbacks
+}
+```
+
+The runtime adapters inject defaults for:
+
+- `clock`: `performance.now()` (browser) / `process.hrtime.bigint()` (node).
+- `randomBytes`: `crypto.getRandomValues` (browser) / `crypto.randomBytes` (node).
+- `crypto`: WebCrypto (`globalThis.crypto` / `crypto.webcrypto`).
+- `hostKeys`: in-memory TOFU store (remembers trusted keys, fatal on mismatch).
+- `diagnostics`: forwards into `callbacks.onDiagnostic` when provided.
+
+Consumers may override any portion of the `SshClientConfig` (identification string, algorithm catalog, channel policy, authentication strategy, guards) through `configOverrides`.
+
+`connectSSH` resolves the runtime config, creates a session, wires transport event handlers, and starts an async consumer that:
+
+1. Feeds inbound octets via `session.receive`.
+2. Flushes outbound buffers whenever the session emits `outbound-data` events or after synchronous commands.
+3. Surfaces `SshEvent`s and diagnostics to the caller.
+4. Registers the disposer hooks returned by `onData`/`onClose`/`onError` so callers can tear everything down with a single `dispose()` call (important for reconnect loops).
+5. Closes the session if the transport terminates.
+
+The helper returns `{ session, dispose }`. Hosts are free to continue using `session.command`, `session.flushOutbound`, and the async iterator directly (e.g. to build custom pumps or to multiplex additional telemetry).
+
+## Transport Responsibilities
+
+A transport wrapper (WebSocket, QUIC, fixed TCP) must:
+
+- Deliver raw SSH payloads as `Uint8Array` via `onData` in FIFO order.
+- Backpressure according to its own policy; `connectSSH` does not apply rate limiting beyond SSH window semantics.
+- Route outbound buffers from `connectSSH` straight onto the wire; the helper already frames packets and handles encryption.
+- Propagate close/error conditions, allowing the SSH layer to emit diagnostics and shut down cleanly.
+- Surface a `HostIdentity` (`host`, `port`) so host key evaluation and diagnostics mirror the actual peer.
+
+`createWebTransport(socket: WebSocket)` demonstrates how the browser adapter normalises DOM `MessageEvent` payloads into `Uint8Array` before forwarding them to the session and returns disposer functions that detach each event listener.
+
+## Channel Lifecycle Expectations
+
+The Phase‑2 websocket client needs PTY setup, shell startup, and exec flows. The engine now exposes:
+
+- `session.command({ type: 'request-channel', request: ChannelRequestPayload })` to emit `SSH_MSG_CHANNEL_REQUEST` for `pty-req`, `shell`, and `exec`.
+- `SshEvent` variants:
+  - `channel-request` (success/failure with the originating payload).
+  - `channel-exit-status` and `channel-exit-signal` (emitted immediately when the server notifies exit conditions).
+
+Transports/watchers should observe these events to resolve promises exposed to UI layers and to terminate renderer pipelines promptly when the remote process exits.
+
+## Resume (Forward Look)
+
+The runtime helpers intentionally leave a slot for transport resume:
+
+- `connectSSH` accepts `configOverrides.guards` and `callbacks` but does not yet persist replay buffers or tokens.
+- Phase‑2 will extend `RuntimeConnectOptions` with `{ resume?: { token: string; onUpdate(token: string): void } }` once the websocket harness finalises its resume token schema.
+- The SSH session already supports `waitForIdle()` and stateless `receive/flushOutbound` patterns, so rehydrating a session across reconnects only requires replaying outbound packets held by the transport layer. Documentation will be amended when the websocket contract stabilises.
+
+## Build & Packaging Plan
+
+- Library builds run through Vite in “library mode”, emitting dual-format bundles (`dist/**/*.js` for ESM and `.cjs` for CommonJS) for the core, browser adapter, node adapter, and server bindings.
+- `vite-plugin-dts` rolls declaration files into the same layout (`dist/index.d.ts`, `dist/client/web.d.ts`, etc.) so the `exports` map advertises a complete surface.
+- `package.json` now points `main`/`module`/`types` at the built artefacts and the `files` whitelist only ships `dist/**` to npm.
+- Source maps are generated for both formats to aid debugging inside downstream bundlers.
+- The build runs as part of `prepublishOnly`; local development can continue hitting `src/` through the workspace resolution.
