@@ -1,16 +1,8 @@
-export { createBrowserWebSocketClient } from './client/browser'
-export type {
-  BrowserWebSocketClient,
-  BrowserWebSocketClientOptions,
-  WebSocketLike,
-  WebSocketConstructor,
-} from './client/browser'
+export { connect as connectWeb } from './client/browser'
+export type { BrowserConnectOptions } from './client/browser'
 
-export { createNodeWebSocketClient } from './client/node'
-export type {
-  NodeWebSocketClient,
-  NodeWebSocketClientOptions,
-} from './client/node'
+export { connect as connectNode } from './client/node'
+export type { NodeConnectOptions } from './client/node'
 
 export { createNodeWebSocketServer } from './server/node'
 export type {
@@ -19,3 +11,12 @@ export type {
   WebSocketServerFactory,
   WebSocketServerLike,
 } from './server/node'
+
+export type {
+  Connection,
+  ConnectionState,
+  ConnectionEvents,
+  Channel,
+  ChannelEvents,
+  ConnectOptions,
+} from './client/types'

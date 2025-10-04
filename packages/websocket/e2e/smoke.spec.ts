@@ -1,51 +1,84 @@
 import { test, expect } from '@playwright/test'
-import { createBrowserWebSocketClient } from '../src/client/browser'
+import { connect as connectWeb } from '../src/client/browser'
 
 test('browser client wiring survives a browser round-trip', async ({ page }) => {
   await page.goto('about:blank')
 
-  const serializedFactory = createBrowserWebSocketClient.toString()
+  const serializedConnect = connectWeb.toString()
 
-  const result = await page.evaluate((factorySource) => {
-    const createClient = globalThis.eval(`(${factorySource})`)
+  const result = await page.evaluate(async (connectSource) => {
+    // biome-ignore lint/security/noGlobalEval: serialized function executed within isolated test page context
+    const connect = globalThis.eval(`(${connectSource})`)
 
     class HarnessSocket {
-      readonly url: string
-      readonly protocols?: string | string[]
       static instances = 0
-      closed = false
+      static lastHello: unknown
 
-      constructor(url: string, protocols?: string | string[]) {
+      readyState = 0
+      protocol = 'mana.ssh.v1'
+      closed = false
+      listeners = {
+        open: new Set(),
+        message: new Set(),
+        close: new Set(),
+        error: new Set(),
+      }
+
+      constructor(url, protocols) {
         this.url = url
         this.protocols = protocols
         HarnessSocket.instances += 1
+        queueMicrotask(() => {
+          this.emit('open', {})
+        })
       }
 
-      close(): void {
+      addEventListener(type, listener) {
+        this.listeners[type].add(listener)
+      }
+
+      removeEventListener(type, listener) {
+        this.listeners[type].delete(listener)
+      }
+
+      emit(type, event) {
+        for (const listener of this.listeners[type]) {
+          listener(event)
+        }
+      }
+
+      send(data) {
+        HarnessSocket.lastHello = data
+        const helloOk = JSON.stringify({
+          t: 'hello_ok',
+          server: 'browser-harness',
+          caps: { flow: 'credit', profileAccepted: 'mana.v1' },
+        })
+        queueMicrotask(() => {
+          this.emit('message', { data: helloOk })
+        })
+      }
+
+      close() {
         this.closed = true
       }
     }
 
-    const client = createClient({
+    const connection = await connect({
       url: 'wss://playwright.mana',
-      protocols: ['ssh'],
       WebSocketImpl: HarnessSocket,
     })
-    const socket = client.connect()
-    socket.close()
+    await connection.close()
 
     return {
-      url: socket.url,
-      protocols: socket.protocols,
-      closed: socket.closed,
       instances: HarnessSocket.instances,
+      hello: HarnessSocket.lastHello,
+      protocol: connection.protocol,
     }
-  }, serializedFactory)
+  }, serializedConnect)
 
-  expect(result).toEqual({
-    url: 'wss://playwright.mana',
-    protocols: ['ssh'],
-    closed: true,
-    instances: 1,
-  })
+  expect(result.instances).toBe(1)
+  expect(typeof result.hello).toBe('string')
+  expect(JSON.parse(result.hello).t).toBe('hello')
+  expect(result.protocol).toBe('mana.ssh.v1')
 })
