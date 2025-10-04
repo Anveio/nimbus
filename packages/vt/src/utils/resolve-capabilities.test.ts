@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveTerminalCapabilities } from '../src/utils/resolve-capabilities'
+import { resolveTerminalCapabilities } from './resolve-capabilities'
 
 describe('resolveTerminalCapabilities', () => {
   it('falls back to vt220 defaults when no options are provided', () => {

@@ -1,7 +1,34 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { classifyByte } from '../src/parser-internals/classifier'
-import { ByteFlag } from '../src/types'
+import { classifyByte } from './classifier'
+import { ByteFlag } from '../types'
+
+describe('classifyByte', () => {
+  it('categorises ESC as escape', () => {
+    const flags = classifyByte(0x1b)
+    expect(flags & ByteFlag.Escape).not.toBe(0)
+    expect(flags & ByteFlag.C0Control).not.toBe(0)
+  })
+
+  it('categorises printable ASCII', () => {
+    const flags = classifyByte(0x41)
+    expect(flags & ByteFlag.Printable).not.toBe(0)
+  })
+
+  it('categorises C0 controls', () => {
+    expect(classifyByte(0x07) & ByteFlag.StringTerminator).not.toBe(0)
+    expect(classifyByte(0x1f) & ByteFlag.C0Control).not.toBe(0)
+  })
+
+  it('prioritises delete over printable', () => {
+    expect(classifyByte(0x7f) & ByteFlag.Delete).not.toBe(0)
+  })
+
+  it('prioritises final bytes after parameters', () => {
+    expect(classifyByte(0x41) & ByteFlag.Printable).not.toBe(0)
+    expect(classifyByte(0x40) & ByteFlag.Final).not.toBe(0)
+  })
+})
 
 const computeExpectedFlags = (value: number): number => {
   let flags = ByteFlag.None
@@ -30,7 +57,7 @@ const ALL_FLAGS_MASK =
   ByteFlag.Delete |
   ByteFlag.StringTerminator
 
-describe('classifyByte fuzz', () => {
+describe('classifyByte fuzz properties', () => {
   it('matches the VT500-derived specification for the entire byte range', () => {
     fc.assert(
       fc.property(fc.integer({ min: 0x00, max: 0xff }), (value) => {

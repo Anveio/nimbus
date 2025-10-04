@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import type { TerminalUpdate } from '../src/interpreter-internals/delta'
-import { createTerminalRuntime } from '../src/runtime'
-import type { ParserEventSink } from '../src/types'
-import { ParserEventType } from '../src/types'
+import type { TerminalUpdate } from './interpreter-internals/delta'
+import { createTerminalRuntime } from './runtime'
+import type { ParserEventSink } from './types'
+import { ParserEventType } from './types'
 
 describe('createTerminalRuntime', () => {
   it('writes printable data and updates interpreter snapshot', () => {
