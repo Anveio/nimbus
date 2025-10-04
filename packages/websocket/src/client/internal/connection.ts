@@ -70,17 +70,14 @@ export async function initialiseConnection(
     resumeOptions.storage ?? 'session',
     `mana.ws.${options.url}`,
   )
-  if (resumeHooks?.onLoad) {
-    const loaded = await resumeHooks.onLoad()
-    if (loaded?.token) {
-      const expiresAt =
-        loaded.expiresAt ?? Date.now() + (resumeOptions.ttlMs ?? 60_000)
-      resumeStorage.set({ token: loaded.token, expiresAt })
-    }
-  }
-  const resumeRecord = resumeStorage.get()
-  if (resumeRecord) {
-    harness.update({ type: 'hello_sent', resumeToken: resumeRecord.token })
+  const resumeTtlMs = resumeOptions.ttlMs ?? 60_000
+  const seededToken = await seedResumeState({
+    resumeHooks,
+    resumeStorage,
+    resumeTtlMs,
+  })
+  if (seededToken) {
+    harness.update({ type: 'hello_sent', resumeToken: seededToken })
   }
 
   const normalizedOptions: ConnectOptions = { ...options }
@@ -95,7 +92,7 @@ export async function initialiseConnection(
     pendingOpens: new Map(),
     authProvider: options.auth,
     resumeStorage,
-    resumeTtlMs: resumeOptions.ttlMs ?? 60_000,
+    resumeTtlMs,
     resumeHooks,
   }
 
@@ -195,8 +192,7 @@ function attachSocketHandlers(context: ConnectionContext): void {
       reason: event.reason,
       timestamp: Date.now(),
     })
-    resumeStorage.clear()
-    void resumeHooks?.onClear?.()
+    clearResumeState(context)
     for (const [, pending] of pendingOpens) {
       pending.reject(
         new Error(`Connection closed before channel ready (${event.code})`),
@@ -252,21 +248,7 @@ function handleControl(context: ConnectionContext, ctl: Ctl): void {
         pending.resolve(channel)
         pendingOpens.delete(ctl.id)
         if (ctl.resumeKey) {
-          const expiresAt = Date.now() + context.resumeTtlMs
-          context.resumeStorage.set({
-            token: ctl.resumeKey,
-            expiresAt,
-          })
-          const snapshot: ResumePersistState = {
-            token: ctl.resumeKey,
-            expiresAt,
-            channels: Array.from(context.channels.values()).map((ch) => ({
-              id: ch.id,
-              window:
-                context.harness.flow.channels.get(ch.id)?.creditOutstanding ?? 0,
-            })),
-          }
-          void context.resumeHooks?.onPersist?.(snapshot)
+          persistResumeState(context, ctl.resumeKey)
         }
       }
       break
@@ -402,4 +384,50 @@ function createConnection(context: ConnectionContext): Connection {
     openSession,
     close,
   }
+}
+
+async function seedResumeState(options: {
+  readonly resumeHooks?: ResumeHooks
+  readonly resumeStorage: ReturnType<typeof createResumeStore>
+  readonly resumeTtlMs: number
+}): Promise<string | undefined> {
+  const { resumeHooks, resumeStorage, resumeTtlMs } = options
+  if (resumeHooks?.onLoad) {
+    const loaded = await resumeHooks.onLoad()
+    if (loaded?.token) {
+      const expiresAt = loaded.expiresAt ?? Date.now() + resumeTtlMs
+      resumeStorage.set({ token: loaded.token, expiresAt })
+    }
+  }
+  const record = resumeStorage.get()
+  return record?.token
+}
+
+function persistResumeState(
+  context: ConnectionContext,
+  token: string,
+): void {
+  const expiresAt = Date.now() + context.resumeTtlMs
+  context.resumeStorage.set({ token, expiresAt })
+  const snapshot: ResumePersistState = {
+    token,
+    expiresAt,
+    channels: collectChannelSnapshots(context),
+  }
+  void context.resumeHooks?.onPersist?.(snapshot)
+}
+
+function clearResumeState(context: ConnectionContext): void {
+  context.resumeStorage.clear()
+  void context.resumeHooks?.onClear?.()
+}
+
+function collectChannelSnapshots(
+  context: ConnectionContext,
+): ResumePersistState['channels'] {
+  return Array.from(context.channels.values()).map((channel) => ({
+    id: channel.id,
+    window:
+      context.harness.flow.channels.get(channel.id)?.creditOutstanding ?? 0,
+  }))
 }
