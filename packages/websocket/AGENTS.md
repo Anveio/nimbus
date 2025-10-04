@@ -8,6 +8,10 @@
 - `client/node`: Mirrors the browser contract for headless scenarios (Vitest, Playwright, CLI tooling). Useful for black-box protocol tests and simulating browser peers without DOM requirements.
 - `server/node`: A reference Node server that speaks the same protocol to upstream Mana clients. It supervises session lifecycles, enforces flow control, and bridges to SSH channels.
 
+Every distribution will ship as a dedicated bundle from `src/` so runtime-specific surfaces (browser, node client, node server) stay lean and tree-shakeable.
+
+> Stub notice: the current client and server factories are intentionally skeletal. They exist only to unblock test harness wiring and may be deleted wholesale once we lock the real transport design.
+
 All three distributions rely on the corresponding surface in `@mana/ssh`: browser clients consume `@mana/ssh/client/web`, headless clients leverage `@mana/ssh/client/node`, and the server delegates to `@mana/ssh/server/node` for SSHv2 handshakes, channel multiplexing, and cipher management. Keeping the protocol and SSH primitives in lockstep ensures cross-package updates remain atomic.
 
 ## Protocol contract
@@ -20,3 +24,5 @@ The transport exchanges discriminated `WireMessage` frames. Data frames tunnel r
 
 ## Testing and future work
 Our goal is parity tests that spin up the Node server in-process, connect both client builds, and stream scripted SSH fixtures. As the transport matures, add Playwright harnesses that route real terminal traffic through the WebSocket stack to guard against regression. Alternate transports (WebRTC, QUIC) will plug into the same contract once the WebSocket baseline is locked.
+
+- Keep unit tests colocated with the modules they exercise (`src/**/module.test.ts`) to preserve context and reduce drift between implementation and fixtures.

@@ -1,6 +1,21 @@
-/**
- * Placeholder transport surface for Mana's WebSocket integration.
- * Actual implementation will handle connection policies, reconnection,
- * and backpressure mediation for SSH sessions.
- */
-export const TODO = null
+export { createBrowserWebSocketClient } from './client/browser'
+export type {
+  BrowserWebSocketClient,
+  BrowserWebSocketClientOptions,
+  WebSocketLike,
+  WebSocketConstructor,
+} from './client/browser'
+
+export { createNodeWebSocketClient } from './client/node'
+export type {
+  NodeWebSocketClient,
+  NodeWebSocketClientOptions,
+} from './client/node'
+
+export { createNodeWebSocketServer } from './server/node'
+export type {
+  NodeWebSocketServer,
+  NodeWebSocketServerOptions,
+  WebSocketServerFactory,
+  WebSocketServerLike,
+} from './server/node'

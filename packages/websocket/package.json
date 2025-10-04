@@ -14,11 +14,23 @@
     }
   },
   "scripts": {
+    "clean": "git clean -xfd .",
     "build": "echo 'TODO: implement build step for @mana/websocket'",
-    "test": "echo 'TODO: add tests for @mana/websocket'",
+    "test": "bun run test:unit && bun run test:e2e",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest --watch",
+    "test:unit:coverage": "vitest run --coverage --reporter=dot --silent",
+    "test:e2e": "playwright test",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:ui": "playwright test --ui",
     "lint": "biome lint .",
     "lint:fix": "biome lint --fix . && biome format --write .",
     "typecheck": "tsc --noEmit"
   },
-  "sideEffects": false
+  "sideEffects": false,
+  "devDependencies": {
+    "@playwright/test": "^1.55.1",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
 }
