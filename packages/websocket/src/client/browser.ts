@@ -9,6 +9,7 @@ import {
   type WebConnectOptions as SshWebConnectOptions,
 } from '@mana/ssh/client/web'
 import type { DiagnosticRecord } from '@mana/ssh/client/web'
+import type { DiagnosticEvent } from '../protocol/diagnostics'
 
 type SshConnectedSession = Awaited<ReturnType<typeof connectSsh>>
 
@@ -21,6 +22,7 @@ export interface BrowserSshBridgeOptions
   readonly host?: HostIdentity
   readonly closeChannelOnDispose?: boolean
   readonly disposeReason?: string
+  readonly onConnectionDiagnostic?: (event: DiagnosticEvent) => void
 }
 
 export interface BrowserSshSession {
@@ -49,6 +51,12 @@ export async function openSshSession(
   sshOptions: BrowserSshBridgeOptions = {},
 ): Promise<{ channel: Channel; ssh: SshConnectedSession; dispose: BrowserSshSession['dispose'] }> {
   const channel = await connection.openSession(init)
+  const detachDiagnostic =
+    sshOptions.onConnectionDiagnostic != null
+      ? connection.on('diagnostic', (event) => {
+          sshOptions.onConnectionDiagnostic?.(event as DiagnosticEvent)
+        })
+      : undefined
   const { transport, dispose: disposeTransport } = createChannelTransport(channel, {
     onSendError(error) {
       emitDiagnostic(sshOptions.callbacks, {
@@ -74,6 +82,7 @@ export async function openSshSession(
     const dispose: BrowserSshSession['dispose'] = async (options) => {
       const closeChannel = options?.closeChannel ?? sshOptions.closeChannelOnDispose ?? true
       const reason = options?.reason ?? sshOptions.disposeReason ?? 'ssh-session-disposed'
+      detachDiagnostic?.()
       disposeTransport()
       ssh.dispose()
       if (closeChannel) {
@@ -94,6 +103,7 @@ export async function openSshSession(
     return { channel, ssh, dispose }
   } catch (error) {
     disposeTransport()
+    detachDiagnostic?.()
     await channel.close('ssh-session-failed').catch(() => {
       /* noop */
     })

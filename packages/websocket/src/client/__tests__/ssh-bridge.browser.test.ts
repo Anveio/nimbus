@@ -5,7 +5,9 @@ import {
   createMockChannel,
   createMockConnection,
   flushMicrotasks as flush,
+  type MockConnection,
 } from './ssh-bridge.test-utils'
+import type { DiagnosticEvent } from '../../protocol/diagnostics'
 
 const hoisted = vi.hoisted(() => {
   const disposeSpy = vi.fn()
@@ -130,5 +132,48 @@ describe('openSshSession (browser)', () => {
     expect(diagnostics[0]).toMatchObject({ code: 'channel-send-failed' })
 
     await dispose()
+  })
+
+  it('wires connection diagnostics when requested', async () => {
+    const channel = createMockChannel()
+    const connection = createMockConnection(channel)
+    const events: DiagnosticEvent[] = []
+
+    const { dispose } = await openSshSession(
+      connection,
+      {
+        target: { host: 'diag.example', port: 22 },
+        user: { username: 'carol', auth: {} },
+      },
+      {
+        onConnectionDiagnostic(event) {
+          events.push(event)
+        },
+      },
+    )
+
+    const highEvent: DiagnosticEvent = {
+      type: 'buffer_state',
+      timestamp: Date.now(),
+      state: 'high',
+      bufferedAmount: 1024,
+      threshold: 4096,
+    }
+    ;(connection as MockConnection).emit('diagnostic', highEvent)
+
+    expect(events).toHaveLength(1)
+
+    await dispose()
+
+    const recovered: DiagnosticEvent = {
+      type: 'buffer_state',
+      timestamp: Date.now(),
+      state: 'recovered',
+      bufferedAmount: 0,
+      threshold: 2048,
+    }
+    ;(connection as MockConnection).emit('diagnostic', recovered)
+
+    expect(events).toHaveLength(1)
   })
 })
