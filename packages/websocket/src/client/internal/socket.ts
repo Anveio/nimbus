@@ -3,6 +3,7 @@ export type MessageData = string | ArrayBuffer | ArrayBufferView | Blob
 export interface RuntimeWebSocket {
   readonly readyState: number
   readonly protocol: string
+  readonly bufferedAmount?: number
   send(data: MessageData): void
   close(code?: number, reason?: string): void
   addEventListener(
@@ -157,6 +158,9 @@ export function adaptWebSocket(instance: unknown): RuntimeWebSocket {
     },
     get protocol() {
       return ws.protocol
+    },
+    get bufferedAmount() {
+      return (ws as { bufferedAmount?: number }).bufferedAmount
     },
     send(data) {
       ws.send(data)

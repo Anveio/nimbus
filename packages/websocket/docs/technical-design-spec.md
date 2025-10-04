@@ -2,13 +2,13 @@
 
 Audience: engineers building a browser/desktop Terminal UI + SSH over WebSockets; backend engineers building compatible WS servers.
 
-Status: Draft v1 (ready for implementation tickets)
+Status: Phase 2 planning (browser-focused hardening in progress)
 
-Scope (v1):
+Scope (Phase 2):
 
 client/web (WHATWG WebSocket; progressive WebSocketStream when available)
 
-client/node (Node/Electron main using ws)
+client/node (ws-backed harness for integration tests; not a shipping runtime)
 
 server/node (reference WS server atop @mana/ssh; Deno/Bun adapters next)
 
@@ -18,7 +18,7 @@ Flow control, backpressure, reconnect/resume, security & policy, observability
 
 BYO‑server compatibility via a small, stable semantic contract
 
-Non‑goals (v1): SFTP helpers, file transfer UI, QUIC/HTTP3 transports.
+Non‑goals (Phase 2): SFTP helpers, file transfer UI, QUIC/HTTP3 transports, production-ready Node/Bun/Deno clients (will follow once browser story is solid).
 
 1) Goals & Tenets
 
@@ -112,6 +112,8 @@ retry = { strategy: 'exponential', baseMs: 300, jitter: true, maxRetries: 10 }
 
 transport = 'auto' (uses WebSocketStream if available; otherwise classic WebSocket)
 
+Runtime stance: browsers are the only first-class client environment in Phase 2. Node/Bun/Deno adopters MUST provide a WebSocket implementation compatible with the WHATWG API and SHOULD expect degraded behaviour (no WebSocketStream, differing buffered-amount semantics) until dedicated adapters ship.
+
 Defaults (node):
 
 node.perMessageDeflate = false (data is SSH ciphertext; compression off by default)
@@ -139,6 +141,24 @@ export type Ctl =
   | { t:'flow';     id:number; credit:number }      // add credit (bytes) for stdout+stderr
   | { t:'ping';     ts:number }
   | { t:'pong';     ts:number };
+
+Handshake timeline (normative):
+
+1. Client MUST send `hello` immediately after the WebSocket `open` event. Include `resume.token` whenever a stored token exists and is not expired.
+2. Server MUST respond with `hello_ok` (or close with an explicit error) before emitting any other control/data frame. Invalid handshakes MUST close with 4002 (BAD_HELLO) or 4003 (AUTH_FAILED).
+3. Client MUST treat the session as unauthenticated until `hello_ok` arrives and SHOULD not attempt channel opens prior to that event.
+
+Heartbeats:
+
+- Client MUST send `ping` every 20 seconds while in phase `ready`.
+- Client MUST count missed `pong`s; after three misses, transition to `reconnecting`, emit `diagnostic` code `heartbeat_timeout`, and begin retry logic.
+- Server SHOULD send `ping` (20 second cadence) when idle; clients MUST respond with `pong` immediately.
+
+Resume semantics:
+
+- Clients MAY include `resume.token` in the initial `hello`. Tokens are opaque to the transport and originate from the SSH subsystem.
+- Server that accepts resume MUST return `open_ok.resumeKey` for new channels; clients MUST persist the token before processing subsequent data frames.
+- Server that rejects a resume attempt SHOULD close with app code 4011 (RESUME_FAILED) or 4409, allowing clients to clear stored state and retry cold.
 ```
 4.2 Data frames (semantic)
 ```ts
@@ -153,6 +173,16 @@ Data delivery decrements credit by the number of payload bytes (stdout and stder
 The client SHOULD replenish credit opportunistically up to a target window (windowTarget, default 256 KiB) and MUST stop replenishing credit when its transport is backpressured (see §6).
 
 The server SHOULD coalesce small writes when practical but MUST NOT exceed caps.maxFrame when framing messages.
+
+Diagnostics & telemetry requirements (Phase 2):
+
+- Client MUST emit `diagnostic` events for:
+  - handshake transitions (`hello_sent`, `hello_ok`, resume accept/reject),
+  - backpressure changes (buffered amount crossing HWM/LWM thresholds),
+  - heartbeat misses and reconnect attempts,
+  - resume persistence operations (load/persist/clear success or failure).
+- Diagnostic payloads MUST include `timestamp`, `phase`, and a stable `code` string. Additional fields SHOULD be serialisable JSON values.
+- Browser client MUST capture current `bufferedAmount` and RTT (derived from ping/pong) so higher layers (`@mana/tui-react`, terminal web app) can render health indicators.
 
 5) Wire Profiles (customizable on‑the‑wire format)
 
@@ -418,6 +448,14 @@ Application close codes (4000–4099)
 4014 MALFORMED_FRAME
 
 4015 INTERNAL_ERROR
+
+12) Integration with @mana/tui-react & terminal web app
+
+- Browser client MUST expose bridge helpers (`connect`, `openSshSession`, `connectAndOpenSsh`) that return both the websocket connection and the underlying SSH session so `@mana/tui-react` can bind lifecycle hooks.
+- Bridge helpers MUST forward diagnostic events (handshake, buffer_state, resume outcomes) so React components can surface status to users.
+- Terminal web app MUST treat `Connection.state` as the authoritative source for UI transitions (connecting/authenticating/ready/reconnecting/closed).
+- React integration MUST cleanly dispose SSH sessions/channels when the component tree unmounts to avoid leaking resume tokens or buffered data.
+- Phase 2 exit criteria include Playwright coverage that routes real SSH traffic through the websocket client, the React bridge, and the canvas renderer to validate connect → shell → resize → resume → teardown flows.
 
 Client error surface: throw a typed CloseError with { wsCode?: number; appCode?: number; code: string; message: string }.
 

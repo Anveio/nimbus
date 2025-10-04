@@ -42,6 +42,13 @@ export type DiagnosticEvent =
       readonly tokenHash?: string
       readonly code: string
     }
+  | {
+      readonly type: 'buffer_state'
+      readonly timestamp: number
+      readonly state: 'high' | 'recovered'
+      readonly bufferedAmount: number
+      readonly threshold: number
+    }
 
 export type FlowPauseReason =
   | 'transport_backpressure'

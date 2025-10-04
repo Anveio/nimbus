@@ -146,6 +146,8 @@ function attachSocketHandlers(context: ConnectionContext): void {
     resumeHooks,
   } = context
 
+  const stopBufferedMonitor = startBufferedAmountMonitor(context)
+
   const handleOpen = async () => {
     harness.update({ type: 'socket_opened' })
     const auth = authProvider ? await authProvider() : undefined
@@ -192,6 +194,7 @@ function attachSocketHandlers(context: ConnectionContext): void {
       reason: event.reason,
       timestamp: Date.now(),
     })
+    stopBufferedMonitor()
     clearResumeState(context)
     for (const [, pending] of pendingOpens) {
       pending.reject(
@@ -430,4 +433,45 @@ function collectChannelSnapshots(
     window:
       context.harness.flow.channels.get(channel.id)?.creditOutstanding ?? 0,
   }))
+}
+
+function startBufferedAmountMonitor(
+  context: ConnectionContext,
+): () => void {
+  const { socket, harness, events } = context
+  if (typeof socket.bufferedAmount !== 'number') {
+    return () => {}
+  }
+  const highWater = harness.flow.highWaterMark
+  const lowWater = harness.flow.lowWaterMark
+  let transportBackpressured = harness.flow.transportBackpressured
+
+  const interval = setInterval(() => {
+    const buffered = socket.bufferedAmount ?? 0
+    if (!transportBackpressured && buffered >= highWater) {
+      transportBackpressured = true
+      harness.handleTransportBackpressure(true)
+      events.emit('diagnostic', {
+        type: 'buffer_state',
+        timestamp: Date.now(),
+        state: 'high',
+        bufferedAmount: buffered,
+        threshold: highWater,
+      })
+      return
+    }
+    if (transportBackpressured && buffered <= lowWater) {
+      transportBackpressured = false
+      harness.handleTransportBackpressure(false)
+      events.emit('diagnostic', {
+        type: 'buffer_state',
+        timestamp: Date.now(),
+        state: 'recovered',
+        bufferedAmount: buffered,
+        threshold: lowWater,
+      })
+    }
+  }, 250)
+
+  return () => clearInterval(interval)
 }
