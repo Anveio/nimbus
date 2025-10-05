@@ -5,7 +5,7 @@
   "description": "My Electron application description",
   "main": ".vite/build/main.js",
   "scripts": {
-    "start": "electron-forge start",
+    "dev": "electron-forge start",
     "package": "electron-forge package",
     "build": "electron-forge package",
     "make": "electron-forge make",
@@ -31,17 +31,17 @@
     "@electron-forge/plugin-vite": "^7.9.0",
     "@electron/fuses": "^1.8.0",
     "@types/electron-squirrel-startup": "^1.0.2",
-    "@types/react": "^19.2.0",
-    "@types/react-dom": "^19.2.0",
-    "@types/node": "^22.10.1",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@types/node": "^24.6.1",
+    "@types/react": "^19.1.14",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.4",
     "electron": "38.2.1",
-    "typescript": "^5.6.3",
-    "vite": "^5.4.20"
+    "typescript": "^5.9.2",
+    "vite": "^7.1.9"
   },
   "dependencies": {
     "electron-squirrel-startup": "^1.0.1",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
   }
 }
