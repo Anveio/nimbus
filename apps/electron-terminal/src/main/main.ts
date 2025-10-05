@@ -2,6 +2,18 @@ import { join } from 'node:path'
 import { app, BrowserWindow } from 'electron'
 import { sessionManager } from './session-manager'
 
+app.on('web-contents-created', (_, contents) => {
+  contents.on('did-fail-load', (_e, code, desc, url, isMainFrame) => {
+    console.error('did-fail-load', { code, desc, url, isMainFrame })
+  })
+  contents.on('render-process-gone', (_e, details) => {
+    console.error('render-process-gone', details)
+  })
+  contents.on('console-message', (_e, level, message, line, sourceId) => {
+    console.log('[renderer]', { level, message, sourceId, line })
+  })
+})
+
 async function createWindow(): Promise<void> {
   const win = new BrowserWindow({
     width: 1024,
@@ -12,23 +24,7 @@ async function createWindow(): Promise<void> {
     },
   })
 
-  const rendererEntry = join(__dirname, 'renderer/index.js').replace(/\\/g, '/')
-  const html = `<!DOCTYPE html>
-  <html lang="en">
-    <head>
-      <meta charset="utf-8" />
-      <title>Mana Electron Terminal</title>
-      <style>
-        html, body, #root { margin: 0; padding: 0; height: 100%; width: 100%; background: #0c0c0c; color: #f5f5f5; font-family: system-ui, sans-serif; }
-      </style>
-    </head>
-    <body>
-      <div id="root"></div>
-      <script type="module" src="file://${rendererEntry}"></script>
-    </body>
-  </html>`
-
-  await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+  await win.loadFile(join(__dirname, 'index.html')) // same-origin (file://)
   sessionManager.registerWebContents(win.webContents)
 }
 
