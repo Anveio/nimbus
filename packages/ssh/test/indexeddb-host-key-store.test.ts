@@ -6,7 +6,9 @@ import { describe, expect, it } from 'vitest'
 import { createIndexedDbHostKeyStore } from '../src/client/web/host-key-store'
 import type { HostKeyCandidate } from '../src/api'
 
-function createCandidate(overrides: Partial<HostKeyCandidate> = {}): HostKeyCandidate {
+function createCandidate(
+  overrides: Partial<HostKeyCandidate> = {},
+): HostKeyCandidate {
   return {
     host: 'example.test',
     port: 22,

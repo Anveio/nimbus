@@ -12,7 +12,9 @@ import type { NodeConnectOptions as NodeConnectOptionsFromSource } from './clien
 
 describe('public exports', () => {
   it('throws with guidance when imported from the package root', async () => {
-    await expect(import('@mana/websocket')).rejects.toThrow(/does not expose a root entry point/)
+    await expect(import('@mana/websocket')).rejects.toThrow(
+      /does not expose a root entry point/,
+    )
   })
 
   it('re-exports browser connect', () => {

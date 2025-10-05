@@ -293,8 +293,7 @@ describe('ParserImpl basic behaviour', () => {
       ): event is Extract<
         ParserEvent,
         { type: typeof ParserEventType.DcsPut }
-      > =>
-        event.type === ParserEventType.DcsPut,
+      > => event.type === ParserEventType.DcsPut,
     )
 
     const total = puts.reduce((sum, event) => sum + event.data.length, 0)
@@ -408,8 +407,7 @@ describe('ParserImpl basic behaviour', () => {
       ): event is Extract<
         ParserEvent,
         { type: typeof ParserEventType.DcsPut }
-      > =>
-        event.type === ParserEventType.DcsPut,
+      > => event.type === ParserEventType.DcsPut,
     )
 
     const total = putEvents.reduce((sum, event) => sum + event.data.length, 0)
@@ -462,8 +460,7 @@ describe('ParserImpl basic behaviour', () => {
       ): event is Extract<
         ParserEvent,
         { type: typeof ParserEventType.DcsPut }
-      > =>
-        event.type === ParserEventType.DcsPut,
+      > => event.type === ParserEventType.DcsPut,
     )
 
     const total = puts.reduce((sum, event) => sum + event.data.length, 0)

@@ -17,7 +17,9 @@ export default defineConfig(({ mode }) => {
   const target = targets[targetKey]
   if (!target) {
     const available = Object.keys(targets).join(', ')
-    throw new Error(`Unknown build target '${mode}'. Expected one of: ${available}`)
+    throw new Error(
+      `Unknown build target '${mode}'. Expected one of: ${available}`,
+    )
   }
 
   return {

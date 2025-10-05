@@ -63,7 +63,9 @@ type TargetKey = keyof typeof targets
 
 type InlineConfig = Parameters<typeof defineConfig>[0]
 
-type ModeFactory = Exclude<InlineConfig, any[]> extends (...args: infer P) => infer R
+type ModeFactory = Exclude<InlineConfig, any[]> extends (
+  ...args: infer P
+) => infer R
   ? (...args: P) => R
   : never
 
@@ -73,14 +75,14 @@ export default defineConfig((context) => {
 
   if (!target) {
     const available = Object.keys(targets).sort().join(', ')
-    throw new Error(`Unknown build target "${context.mode}". Expected one of: ${available}`)
+    throw new Error(
+      `Unknown build target "${context.mode}". Expected one of: ${available}`,
+    )
   }
 
   const entry = path.resolve(rootDir, target.entry)
   const outDir = path.resolve(rootDir, 'dist')
-  const external = target.inlineDependencies
-    ? []
-    : [/^@mana\//u, /^(node:)/u]
+  const external = target.inlineDependencies ? [] : [/^@mana\//u, /^(node:)/u]
 
   return {
     plugins: [

@@ -105,7 +105,6 @@ const cloneColor = (color: TerminalColor): TerminalColor => {
       return { type: color.type, index: color.index }
     case 'rgb':
       return { type: 'rgb', r: color.r, g: color.g, b: color.b }
-    case 'default':
     default:
       return { type: 'default' }
   }

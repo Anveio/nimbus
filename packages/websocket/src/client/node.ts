@@ -2,7 +2,12 @@ import { ensureDefaultProfiles, getProfile } from '../protocol'
 import { initialiseConnection } from './internal/connection'
 import { createChannelTransport } from './internal/ssh-bridge'
 import { makeFactory, type RuntimeWebSocket } from './internal/socket'
-import type { Connection, ConnectOptions, WebSocketConstructor, Channel } from './types'
+import type {
+  Connection,
+  ConnectOptions,
+  WebSocketConstructor,
+  Channel,
+} from './types'
 import {
   connectSSH as connectSsh,
   type HostIdentity,
@@ -52,7 +57,11 @@ export async function openSshSession(
   connection: Connection,
   init: Parameters<Connection['openSession']>[0],
   sshOptions: NodeSshBridgeOptions = {},
-): Promise<{ channel: Channel; ssh: SshConnectedSession; dispose: NodeSshSession['dispose'] }> {
+): Promise<{
+  channel: Channel
+  ssh: SshConnectedSession
+  dispose: NodeSshSession['dispose']
+}> {
   const channel = await connection.openSession(init)
   const detachDiagnostic =
     sshOptions.onConnectionDiagnostic != null
@@ -60,17 +69,20 @@ export async function openSshSession(
           sshOptions.onConnectionDiagnostic?.(event as DiagnosticEvent)
         })
       : undefined
-  const { transport, dispose: disposeTransport } = createChannelTransport(channel, {
-    onSendError(error) {
-      emitDiagnostic(sshOptions.callbacks, {
-        timestamp: Date.now(),
-        level: 'error',
-        code: 'channel-send-failed',
-        message: 'Failed to forward SSH payload to websocket channel',
-        detail: error,
-      })
+  const { transport, dispose: disposeTransport } = createChannelTransport(
+    channel,
+    {
+      onSendError(error) {
+        emitDiagnostic(sshOptions.callbacks, {
+          timestamp: Date.now(),
+          level: 'error',
+          code: 'channel-send-failed',
+          message: 'Failed to forward SSH payload to websocket channel',
+          detail: error,
+        })
+      },
     },
-  })
+  )
 
   try {
     const ssh = await connectSsh({
@@ -83,8 +95,10 @@ export async function openSshSession(
     })
 
     const dispose: NodeSshSession['dispose'] = async (options) => {
-      const closeChannel = options?.closeChannel ?? sshOptions.closeChannelOnDispose ?? true
-      const reason = options?.reason ?? sshOptions.disposeReason ?? 'ssh-session-disposed'
+      const closeChannel =
+        options?.closeChannel ?? sshOptions.closeChannelOnDispose ?? true
+      const reason =
+        options?.reason ?? sshOptions.disposeReason ?? 'ssh-session-disposed'
       detachDiagnostic?.()
       disposeTransport()
       ssh.dispose()
@@ -121,7 +135,11 @@ export async function connectAndOpenSsh(
 ): Promise<NodeSshSession> {
   const connection = await connect(options)
   try {
-    const { channel, ssh, dispose } = await openSshSession(connection, init, sshOptions)
+    const { channel, ssh, dispose } = await openSshSession(
+      connection,
+      init,
+      sshOptions,
+    )
     return {
       connection,
       channel,

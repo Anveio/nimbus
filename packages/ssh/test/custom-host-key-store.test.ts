@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import type { HostKeyCandidate, HostKeyDecision, HostKeyStore } from '../src/api'
+import type {
+  HostKeyCandidate,
+  HostKeyDecision,
+  HostKeyStore,
+} from '../src/api'
 
-function createCandidate(overrides: Partial<HostKeyCandidate> = {}): HostKeyCandidate {
+function createCandidate(
+  overrides: Partial<HostKeyCandidate> = {},
+): HostKeyCandidate {
   return {
     host: 'managed.example',
     port: 2222,
@@ -45,7 +51,10 @@ describe('Custom HostKeyStore', () => {
         }
       }
 
-      async remember(candidate: HostKeyCandidate, decision: HostKeyDecision): Promise<void> {
+      async remember(
+        candidate: HostKeyCandidate,
+        decision: HostKeyDecision,
+      ): Promise<void> {
         if (decision.outcome === 'trusted') {
           this.#trusted.set(this.#key(candidate), {
             raw: new Uint8Array(candidate.raw),
@@ -77,7 +86,10 @@ describe('Custom HostKeyStore', () => {
     expect(decision).toEqual({ outcome: 'trusted', source: 'pinned' })
 
     const unknown = await store.evaluate(
-      createCandidate({ fingerprint: 'sha256:other', raw: new Uint8Array([1, 2, 3]) }),
+      createCandidate({
+        fingerprint: 'sha256:other',
+        raw: new Uint8Array([1, 2, 3]),
+      }),
     )
     expect(unknown).toEqual({
       outcome: 'mismatch',
@@ -85,7 +97,10 @@ describe('Custom HostKeyStore', () => {
       comment: 'Managed host key list reported a mismatch',
     })
 
-    const newHost = createCandidate({ host: 'new.example', fingerprint: 'sha256:new' })
+    const newHost = createCandidate({
+      host: 'new.example',
+      fingerprint: 'sha256:new',
+    })
     const firstDecision = await store.evaluate(newHost)
     expect(firstDecision).toEqual({ outcome: 'unknown' })
 

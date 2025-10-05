@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  openSshSession,
-  type NodeSshBridgeOptions,
-} from '../node'
+import { openSshSession, type NodeSshBridgeOptions } from '../node'
 import {
   createMockChannel,
   createMockConnection,
@@ -25,22 +22,24 @@ const hoisted = vi.hoisted(() => {
     received: [],
   }
 
-  const connectMock = vi.fn(async (options: {
-    transport: {
-      send(payload: Uint8Array): void
-      onData(listener: (payload: Uint8Array) => void): () => void
-    }
-    host?: { host: string; port: number }
-  }) => {
-    state.transport = options.transport
-    options.transport.onData((chunk) => {
-      state.received.push(chunk)
-    })
-    return {
-      session: {} as never,
-      dispose: disposeSpy,
-    }
-  })
+  const connectMock = vi.fn(
+    async (options: {
+      transport: {
+        send(payload: Uint8Array): void
+        onData(listener: (payload: Uint8Array) => void): () => void
+      }
+      host?: { host: string; port: number }
+    }) => {
+      state.transport = options.transport
+      options.transport.onData((chunk) => {
+        state.received.push(chunk)
+      })
+      return {
+        session: {} as never,
+        dispose: disposeSpy,
+      }
+    },
+  )
 
   return { disposeSpy, state, connectMock }
 })

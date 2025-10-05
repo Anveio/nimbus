@@ -10,7 +10,8 @@
     "build": "electron-forge package",
     "make": "electron-forge make",
     "publish": "electron-forge publish",
-    "lint": "eslint --ext .ts,.tsx .",
+    "lint": "biome lint .",
+    "lint:fix": "biome lint --fix . && biome format --write .",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [],
@@ -32,13 +33,9 @@
     "@types/electron-squirrel-startup": "^1.0.2",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "@typescript-eslint/eslint-plugin": "^7.18.0",
-    "@typescript-eslint/parser": "^7.18.0",
     "@types/node": "^22.10.1",
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "38.2.1",
-    "eslint": "^8.57.1",
-    "eslint-plugin-import": "^2.32.0",
     "typescript": "^5.6.3",
     "vite": "^5.4.20"
   },

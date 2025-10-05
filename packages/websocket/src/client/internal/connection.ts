@@ -64,7 +64,8 @@ export async function initialiseConnection(
     lowWaterMark: options.lowWaterMark,
   })
 
-  const resumeHooks = options.resumeHooks?.enable === false ? undefined : options.resumeHooks
+  const resumeHooks =
+    options.resumeHooks?.enable === false ? undefined : options.resumeHooks
   const resumeOptions = options.resume ?? { storage: 'session', ttlMs: 60_000 }
   const resumeStorage = createResumeStore(
     resumeOptions.storage ?? 'session',
@@ -406,10 +407,7 @@ async function seedResumeState(options: {
   return record?.token
 }
 
-function persistResumeState(
-  context: ConnectionContext,
-  token: string,
-): void {
+function persistResumeState(context: ConnectionContext, token: string): void {
   const expiresAt = Date.now() + context.resumeTtlMs
   context.resumeStorage.set({ token, expiresAt })
   const snapshot: ResumePersistState = {
@@ -435,9 +433,7 @@ function collectChannelSnapshots(
   }))
 }
 
-function startBufferedAmountMonitor(
-  context: ConnectionContext,
-): () => void {
+function startBufferedAmountMonitor(context: ConnectionContext): () => void {
   const { socket, harness, events } = context
   if (typeof socket.bufferedAmount !== 'number') {
     return () => {}
