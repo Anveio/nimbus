@@ -1,0 +1,10 @@
+{
+  "extends": "../../packages/tsconfig/workspace-app-config.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "jsx": "react-jsx"
+  },
+  "include": ["src"],
+  "exclude": ["dist", "node_modules"]
+}

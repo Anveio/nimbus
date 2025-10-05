@@ -1,7 +1,7 @@
-import { type CSSProperties, createRef } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
 import type { CanvasRendererDiagnostics } from '@mana/tui-web-canvas-renderer'
 import type { TerminalSelection } from '@mana/vt'
+import { type CSSProperties, createRef } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
 import {
   Terminal,
   type TerminalFrameEvent,
