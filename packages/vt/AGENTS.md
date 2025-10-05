@@ -24,6 +24,15 @@ This file anchors how we reason about the VT parser + interpreter stack. Treat i
 - `createParser` and `classifyByte` share context factories (`src/internal/context.ts`, `src/internal/char-class.ts`) so tests and embedders see identical state.
 - Interpreter snapshots (`src/interpreter/state.ts`) expose terminal metrics, mode toggles, printer flags, and programmable strings that hosts surface to users.
 
+## Public Runtime Surface
+- `createTerminalRuntime` is the canonical entry point. It wires parser + interpreter, returning a stable `TerminalRuntime` façade that hides parser internals.
+- Runtime write APIs (`write`, `writeBytes`) stay byte-stream focused; local UX should express intent via `dispatchEvent` or the bulk `dispatchEvents` helper when batching.
+- `TerminalRuntimeHostEvent` is the sole host-facing command surface:
+  - `cursor.*` events wrap interpreter navigation primitives and preserve selection semantics.
+  - `selection.*` events manage user highlights and edits without requiring consumers to manually diff state.
+  - `parser.*` events are the sanctioned escape hatch for advanced embedders that already traffic in parser events.
+- The raw parser export is explicitly advanced usage—keep it around for diagnostics, but nudge hosts to the runtime events first.
+
 ## Testing Doctrine
 - Unit: `npm exec vitest run` inside `packages/vt` for parser, classifier, and interpreter suites. Property-based coverage applies to classifier and CSI parsers.
 - Integration: Pixel/e2e layers in other packages rely on deterministic updates from this core—breaking changes must coordinate spec + tests across packages.
@@ -50,6 +59,11 @@ Reframed the VT agent charter to mirror the root repository ethos, extracted fou
 - Introduced `createTerminalRuntime` as the recommended API for consumers that just want a wired parser+interpreter pair. Keeps parser export available via a dedicated `parser.create` escape hatch for instrumentation or custom pipelines.
 - Added Vitest coverage for runtime behaviours (print flow, byte writes, capability overrides, printer wiring, reset semantics) so regressions surface immediately when the wiring changes.
 - Documentation now points newcomers at the runtime abstraction first, clarifying that the interpreter is the core product and the raw parser is an advanced tool.
+
+### 2025-10-10 – Runtime host event contract
+- Documented the `TerminalRuntimeHostEvent` union so downstream packages program against cursor/selection primitives instead of raw parser events.
+- Marked `dispatchEvent` and the bulk `dispatchEvents` helper as the happy paths, with `parser.dispatch`/`parser.batch` as explicit power-user fallbacks.
+- Upcoming refactors will route `@mana/tui-react` and renderer packages through the event surface, keeping interpreter state behind the runtime façade.
 
 ### 2025-09-29 – Printer controller stub
 - Introduced `printer/controller.ts` with a default no-op controller so the interpreter can mirror output when printer modes engage.

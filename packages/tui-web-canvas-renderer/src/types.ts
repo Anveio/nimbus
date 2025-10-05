@@ -56,6 +56,14 @@ export interface RendererTheme {
   readonly palette: RendererPalette
 }
 
+export type CursorOverlayStrategy = (options: {
+  readonly ctx: CanvasRenderingContext2D
+  readonly snapshot: TerminalState
+  readonly metrics: RendererMetrics
+  readonly theme: RendererTheme
+  readonly selection: TerminalSelection | null
+}) => void
+
 export interface RendererFontMetrics {
   /** Font family string used when configuring the drawing context. */
   readonly family: string
@@ -129,6 +137,8 @@ export interface RendererBackendProbeResult {
   readonly reason?: string
 }
 
+export type RendererSessionBackend = RendererBackendKind | 'custom'
+
 export interface RendererBackendProvider<
   TConfig extends RendererBackendConfig,
   TResult extends RendererBackendProbeResult = RendererBackendProbeResult,
@@ -162,7 +172,109 @@ export interface DetectPreferredBackendOptions
   readonly contextAttributes?: WebGLContextAttributes
 }
 
+export interface RendererFrameAccessibility {
+  readonly highContrast: boolean
+  readonly colorScheme?: 'light' | 'dark' | 'system'
+  readonly reducedMotion?: boolean
+}
+
+export interface RendererCursorDescriptor {
+  readonly visible: boolean
+  readonly shape?: 'block' | 'underline' | 'bar'
+  readonly blinking?: boolean
+  readonly color?: RendererColor | null
+  readonly opacity?: number
+}
+
+export interface RendererHighlight {
+  readonly row: number
+  readonly startColumn: number
+  readonly endColumn: number
+  readonly kind: 'search-result' | 'diagnostic' | 'custom'
+  readonly color?: RendererColor
+  readonly metadata?: Record<string, unknown>
+}
+
+export interface RendererFrameOverlays {
+  readonly selection?: TerminalSelection | null
+  readonly cursor?: RendererCursorDescriptor | null
+  readonly highlights?: ReadonlyArray<RendererHighlight>
+  readonly layers?: Record<string, unknown>
+}
+
+export interface RendererFrameMetadata {
+  readonly frameId?: string
+  readonly reason?: string
+  readonly tags?: ReadonlyArray<string>
+  readonly trace?: Record<string, unknown>
+}
+
+export interface RendererNextFrameMetadata {
+  readonly snapshot: TerminalState
+  readonly updates?: ReadonlyArray<TerminalUpdate>
+  readonly epoch: number
+  readonly viewport: {
+    readonly rows: number
+    readonly columns: number
+  }
+  readonly metrics: RendererMetrics
+  readonly theme: RendererTheme
+  readonly overlays: RendererFrameOverlays
+  readonly accessibility?: RendererFrameAccessibility
+  readonly metadata?: RendererFrameMetadata
+}
+
+export interface RendererSessionFrameEvent {
+  readonly backend: RendererSessionBackend | null
+  readonly timestamp: number
+  readonly diagnostics: CanvasRendererDiagnostics | null
+  readonly metadata?: RendererFrameMetadata
+}
+
+export interface RendererSessionContextLossEvent {
+  readonly backend: RendererSessionBackend
+  readonly reason: string
+  readonly recovered: boolean
+}
+
+export interface RendererSessionObservers {
+  readonly onFrame?: (event: RendererSessionFrameEvent) => void
+  readonly onDiagnostics?: (diagnostics: CanvasRendererDiagnostics) => void
+  readonly onContextLost?: (event: RendererSessionContextLossEvent) => void
+}
+
+export interface CreateRendererSessionOptions {
+  readonly canvas: CanvasLike
+  readonly backend?: RendererBackendConfig
+  readonly metrics: RendererMetrics
+  readonly theme: RendererTheme
+  readonly captureDiagnosticsFrame?: boolean
+  readonly observers?: RendererSessionObservers
+  readonly cursorOverlayStrategy?: CursorOverlayStrategy
+  readonly onSelectionChange?: (selection: TerminalSelection | null) => void
+}
+
+export interface RendererSessionConfiguration {
+  readonly metrics?: RendererMetrics
+  readonly theme?: RendererTheme
+  readonly backend?: RendererBackendConfig
+  readonly captureDiagnosticsFrame?: boolean
+  readonly observers?: RendererSessionObservers
+  readonly cursorOverlayStrategy?: CursorOverlayStrategy
+  readonly onSelectionChange?: (selection: TerminalSelection | null) => void
+}
+
+export interface RendererSession {
+  readonly canvas: CanvasLike
+  readonly backend: RendererSessionBackend | null
+  presentFrame(frame: RendererNextFrameMetadata): void
+  configure(configuration: RendererSessionConfiguration): void
+  getDiagnostics(): CanvasRendererDiagnostics | null
+  dispose(): void
+}
+
 export interface CanvasRendererOptions {
+  /** @deprecated Use `CreateRendererSessionOptions` and `RendererSession.presentFrame` instead. */
   readonly canvas: CanvasLike
   readonly metrics: RendererMetrics
   readonly theme: RendererTheme
@@ -236,15 +348,8 @@ export interface RendererRowMetadataDiagnostics {
   readonly disabledByOther: number
 }
 
-export type CursorOverlayStrategy = (options: {
-  readonly ctx: CanvasRenderingContext2D
-  readonly snapshot: TerminalState
-  readonly metrics: RendererMetrics
-  readonly theme: RendererTheme
-  readonly selection: TerminalSelection | null
-}) => void
-
 export interface CanvasRenderer {
+  /** @deprecated Use `RendererSession.presentFrame` instead. */
   readonly canvas: CanvasLike
   applyUpdates(options: CanvasRendererUpdateOptions): void
   /** Resynchronise the canvas with the entire snapshot (full repaint). */
@@ -256,5 +361,6 @@ export interface CanvasRenderer {
 }
 
 export type CreateCanvasRenderer = (
+  /** @deprecated Use `createRendererSession` instead. */
   options: CanvasRendererOptions,
 ) => CanvasRenderer

@@ -78,16 +78,11 @@ export interface TerminalState {
   title: string
   clipboard: ClipboardEntry | null
   lastSosPmApc: { readonly kind: SosPmApcKind; readonly data: string } | null
-  savedCursor: CursorPosition | null
-  savedAttributes: TerminalAttributes | null
   selection: TerminalSelection | null
   charsets: TerminalCharsets
   keypadApplicationMode: boolean
   cursorKeysApplicationMode: boolean
-  smoothScroll: boolean
   reverseVideo: boolean
-  autoRepeat: boolean
-  protectedMode: 'off' | 'dec'
   lineAttributes: Array<'single' | 'double-top' | 'double-bottom'>
   c1Transmission: C1TransmissionMode
   answerback: string
@@ -95,6 +90,15 @@ export interface TerminalState {
     controller: boolean
     autoPrint: boolean
   }
+}
+
+/** @internal */
+export interface TerminalStateImplementation extends TerminalState {
+  savedCursor: CursorPosition | null
+  savedAttributes: TerminalAttributes | null
+  smoothScroll: boolean
+  autoRepeat: boolean
+  protectedMode: 'off' | 'dec'
 }
 
 const cloneColor = (color: TerminalColor): TerminalColor => {
@@ -162,7 +166,7 @@ const createDefaultTabStops = (columns: number): Set<number> => {
 
 export const createInitialState = (
   capabilities: TerminalCapabilities,
-): TerminalState => {
+): TerminalStateImplementation => {
   const rows = capabilities.features.initialRows
   const columns = capabilities.features.initialColumns
   const attributes = cloneAttributes(DEFAULT_ATTRIBUTES)
@@ -185,8 +189,6 @@ export const createInitialState = (
     title: '',
     clipboard: null,
     lastSosPmApc: null,
-    savedCursor: null,
-    savedAttributes: null,
     selection: null,
     charsets: {
       g0: 'us_ascii',

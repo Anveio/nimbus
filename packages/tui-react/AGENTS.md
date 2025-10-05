@@ -19,6 +19,14 @@ This charter guides how we evolve the React bindings for the Mana terminal stack
 - **UX discipline**: Keyboard, pointer, selection, and clipboard flows should respect modern terminal ergonomics (Ghostty/xterm parity) while still emitting canonical escape sequences to hosts.
 - **Accessibility & ergonomics**: Provide focus management, screen-reader affordances, and theming hooks by default, with escapes for hosts to customize.
 
+## Renderer integration contract
+The living specification lives in `docs/renderer-bridge.md` and mirrors the renderer session contract documented in `@mana/tui-web-canvas-renderer`.
+- `<Terminal />` composes `RendererNextFrameMetadata` for every interpreter tick. The payload includes the latest VT snapshot, optional diffs, viewport metrics, theming, high-contrast hints, and host overlays (selection, cursor, diagnostics markers). No renderer API call should require additional state.
+- `useTerminalCanvasRenderer` (and future renderer bridges) creates a `createRendererSession` instance once per mount, registers observers (`onFrame`, `onDiagnostics`, `onContextLost`), and drives `session.presentFrame(metadata)` inside React effects. Per-frame callback replacements are forbidden; observer swaps flow through `session.configure`.
+- Interpreter control flow stays in React land: key events, pointer gestures, and clipboard hooks feed the runtime, which emits updates. The controller hook batches those updates and builds the next metadata payload before handing it off to the renderer session.
+- Diagnostics flow outward through instrumentation hooks. After each `presentFrame` call, the renderer session invokes our registered observers; React hooks forward telemetry to user callbacks and developer tooling without reading canvas internals.
+- Renderer swapping is configuration, not code changes. Hosts inject a different session factory or backend preference via props; the controller rebuilds the session but preserves the same frame metadata contract, keeping the React layer renderer-agnostic.
+
 ## Testing Doctrine
 - Unit & component tests: `npm exec vitest run` inside `packages/tui-react` with React Testing Library/jsdom to cover hooks, lifecycle, and imperative handles. Co-locate unit tests alongside source modules (e.g. `src/hooks/useAutoResize.ts` ↔ `src/hooks/useAutoResize.test.tsx`).
 - Integration: Contract tests with `@mana/tui-web-canvas-renderer` ensure renderer swapping, selection propagation, and diagnostics remain stable.

@@ -211,11 +211,31 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       [instrumentation],
     )
 
+    const rendererOverlays = useMemo(
+      () => ({
+        selection: currentSelection,
+        cursor: {
+          visible: snapshot.cursorVisible,
+          shape: theme.cursor.shape,
+          color: theme.cursor.color,
+          opacity: theme.cursor.opacity,
+        },
+      }),
+      [
+        currentSelection,
+        snapshot.cursorVisible,
+        theme.cursor.color,
+        theme.cursor.opacity,
+        theme.cursor.shape,
+      ],
+    )
+
     const rendererHandle = useTerminalCanvasRenderer({
       graphics: rendererGraphicsOptions,
       metrics,
       theme,
       snapshot,
+      overlays: rendererOverlays,
       onDiagnostics: handleDiagnostics,
       onSelectionChange: handleSelectionChange,
       cursorOverlayStrategy,
@@ -227,7 +247,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       if (!current) {
         ensureRuntime(rows, columns)
         const nextRuntime = runtimeRef.current!
-        rendererHandle.sync(nextRuntime.snapshot)
+        rendererHandle.presentFrame({
+          snapshot: nextRuntime.snapshot,
+          reason: 'initial-sync',
+        })
         setCurrentSelection(nextRuntime.snapshot.selection ?? null)
         setSnapshotVersion((value) => value + 1)
         resetPrinterEvents()
@@ -241,7 +264,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
 
       ensureRuntime(rows, columns)
       const nextRuntime = runtimeRef.current!
-      rendererHandle.sync(nextRuntime.snapshot)
+      rendererHandle.presentFrame({
+        snapshot: nextRuntime.snapshot,
+        reason: 'sync',
+      })
       setCurrentSelection(nextRuntime.snapshot.selection ?? null)
       setSnapshotVersion((value) => value + 1)
       resetPrinterEvents()
@@ -269,9 +295,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         if (paintUpdates.length === 0) {
           return
         }
-        rendererHandle.applyUpdates({
+        rendererHandle.presentFrame({
           snapshot: interpreter.snapshot,
           updates: paintUpdates,
+          reason: 'apply-updates',
         })
         setSnapshotVersion((value) => value + 1)
       },
@@ -349,7 +376,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     })
 
     useEffect(() => {
-      rendererHandle.sync(interpreter.snapshot)
+      rendererHandle.presentFrame({
+        snapshot: interpreter.snapshot,
+        reason: 'sync',
+      })
       if (resolvedAccessibility.autoFocus) {
         focus()
       }
@@ -362,7 +392,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       }
       runtimeInstance.reset()
       const freshInterpreter = runtimeInstance.interpreter
-      rendererHandle.sync(freshInterpreter.snapshot)
+      rendererHandle.presentFrame({
+        snapshot: freshInterpreter.snapshot,
+        reason: 'sync',
+      })
       setSnapshotVersion((value) => value + 1)
       resetPrinterEvents()
       setCurrentSelection(freshInterpreter.snapshot.selection ?? null)

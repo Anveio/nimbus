@@ -1,5 +1,5 @@
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { SelectionPoint, TerminalState, TerminalUpdate } from '@mana/vt'
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 
 export type ShortcutGuideReason = 'hotkey' | 'imperative'
 

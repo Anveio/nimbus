@@ -30,7 +30,13 @@ export {
   TerminalInterpreter,
 } from './interpreter'
 export { createParser } from './parser'
-export type { TerminalRuntime, TerminalRuntimeOptions } from './runtime'
+export type {
+  TerminalRuntime,
+  TerminalRuntimeCursorMoveDirection,
+  TerminalRuntimeCursorMoveOptions,
+  TerminalRuntimeEvent as TerminalRuntimeHostEvent,
+  TerminalRuntimeOptions,
+} from './runtime'
 
 export { createTerminalRuntime, parser } from './runtime'
 export type {

@@ -25,6 +25,25 @@ This charter defines how we evolve the web canvas renderer. Update it when rende
 - `dispose()`: Tear down timers, release WebGL contexts, and clear references.
 - Diagnostics: Expose frame timing, draw counts, palette state, and current selection so hosts can introspect behaviour.
 
+## Renderer Session Contract
+See `docs/renderer-session-contract.md` for the normative specification and TypeScript signatures.
+- `createRendererSession({ canvas, backend, observers })` is the canonical entry point. It chooses the backend, bootstraps atlases, and freezes the observer set (`onFrame`, `onDiagnostics`, `onContextLost`, etc.) so the hot render path never reallocates callbacks. Hosts swap observers through `session.configure` rather than per-frame arguments.
+- `session.configure({ metrics?, theme?, backend?, observers? })` mutates renderer configuration without repainting. Use it when DPR, font metrics, or backend preference changes between frames; the next `presentFrame` will honour the updated state.
+- `session.presentFrame(frame: RendererNextFrameMetadata)` immediately drives the draw pipeline. The renderer decides whether to replay incremental `updates`, diff snapshots, or repaint wholesale. Rendering side effects (canvas mutations, GPU submissions) happen synchronously by default; diagnostics fire once the frame is committed.
+- `session.getDiagnostics()` returns the last published diagnostics object so hosts can poll outside observer callbacks. `session.dispose()` releases contexts, timers, GPU resources, and clears dataset bookkeeping.
+
+### RendererNextFrameMetadata responsibilities
+- **Interpreter state**: `snapshot` is authoritative VT state. `updates` is an optional fast-path hint derived from the same interpreter epoch; the renderer may discard it and fall back to `snapshot` if validation fails.
+- **Viewport + metrics**: `viewport` (rows, columns) and `metrics` (cell + font + DPR) describe the logical and physical layout. The renderer maps them to canvas dimensions and atlas caches.
+- **Visual layers**: `overlays` carries host-managed adornments (selection, cursor, highlighted ranges, diagnostics markers). The renderer enforces draw order (background, glyphs, overlays) while keeping the interpreter core pure.
+- **Presentation hints**: `theme`, `accessibility` (high contrast flags, colour adjustments), and optional `metadata` (frame id, reason) guide shader/theme selection and feed through to diagnostics.
+- **Invariant**: Every call is self-contained. The renderer never asks the host for missing state; hosts hand over the full picture each frame so we can support push- and pull-based runtimes, capture tools, and future renderer backends identically.
+
+### Division of responsibility
+- **Renderer**: Consume `RendererNextFrameMetadata`, paint pixels, manage GPU/CPU resources, emit diagnostics, handle context loss, and keep atlas/selection caches coherent.
+- **Host (e.g. `tui-react`)**: Observe interpreter changes, compose the next metadata payload (including overlays/accessibility flavours), call `presentFrame`, and listen to observers. Hosts never mutate canvas contexts directly.
+- **VT interpreter**: Remains the single source of terminal semantics. Renderers do not implement escape handling or screen state mutation; they render what `snapshot` describes.
+
 ## Testing Doctrine
 - Pixel regression: Vitest harness renders canonical snapshots via node-canvas + `pixelmatch`; failures emit expected/actual/diff/side-by-side artifacts under `test/__artifacts__`.
 - Scenario coverage: ASCII/CJK/emoji glyphs, SGR permutations, palette swaps (OSC 4/104, true colour), cursor modes, selection overlays, resize paths, diagnostics toggles.

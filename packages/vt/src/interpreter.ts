@@ -35,6 +35,7 @@ import {
   type TerminalCell,
   type TerminalColor,
   type TerminalState,
+  type TerminalStateImplementation,
 } from './interpreter-internals/state'
 import {
   type C1TransmissionMode,
@@ -125,7 +126,7 @@ interface ActiveDcs {
 
 export class TerminalInterpreter {
   readonly capabilities: TerminalCapabilities
-  private state: TerminalState
+  private state: TerminalStateImplementation
   private readonly textDecoder = new TextDecoder()
   private readonly printDecoder = new TextDecoder('utf-8', { fatal: false })
   private activeDcs: ActiveDcs | null = null
