@@ -27,11 +27,21 @@ It’s a teaching tool and a launchpad: demonstrate best practices, validate the
 - Offline credential storage or keychain integration.
 
 ## Status
-- **Phase 1** – Scaffolding (hello-world app, build scripts, docs).
+- **Phase 1** – Scaffolding (hello-world app, build scripts, docs). ✅
 - **Phase 2** – Integrate terminal renderer, websocket bridge, and local PTY adapter.
+  - Embed `<Terminal />` from `@mana/tui-react` inside the Electron renderer with a zero-glue adapter that forwards instrumentation events into the preload bridge.
+  - Provide a deterministic data path: initial milestone uses the websocket SSH bridge talking to the simulated instance; a PTY shim follows once native bindings land.
+  - Document renderer ↔ main-process message channels so downstream teams can slot in their own transports without forking the UI layer.
 - **Phase 3** – Harden error UX, telemetry, and packaging.
 
 ## Rituals
 - Keep build scripts aligned with monorepo tooling (`bun`, `esbuild`).
 - Maintain zero-dependency posture: no additional NPM packages beyond Electron, esbuild, and TypeScript.
 - Document runtime behaviours in the local README.
+- Update the preload/main IPC contract whenever transports change; renderer never reaches into Node APIs directly.
+
+## Architecture Notes (2025-01-07)
+- Renderer owns presentation only. All session orchestration flows through an injected `ElectronTerminalBridge` exposed on `window.mana`. The bridge surfaces diagnostics, connection state, and a bidirectional byte channel.
+- The bridge forwards outbound data to the main process over IPC, where we multiplex between websocket SSH sessions and (eventually) PTY adapters.
+- `<Terminal />` instrumentation hooks (`onData`, `onDiagnostics`, `onFrame`, `onCursorSelectionChange`) provide parity with the web shell; no bespoke renderer logic required.
+- Playwright e2e coverage launches the packaged Electron app and asserts end-to-end rendering + transport IO by reusing the tui-react harness expectations against the embedded window.

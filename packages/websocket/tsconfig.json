@@ -2,7 +2,8 @@
   "extends": "../tsconfig/workspace-package-config.json",
   "compilerOptions": {
     "paths": {
-      "@mana/websocket": ["./src/index.ts"],
+      "@mana/websocket": ["./src/root-entrypoint-block.ts"],
+      "@mana/websocket/*": ["./src/*"],
       "@mana/ssh": ["../ssh/src/index.ts"],
       "@mana/ssh/*": ["../ssh/src/*"]
     },

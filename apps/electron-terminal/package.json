@@ -22,7 +22,6 @@
   },
   "devDependencies": {
     "esbuild": "^0.21.5",
-    "electron": "^31.2.1",
     "typescript": "^5.9.2"
   }
 }

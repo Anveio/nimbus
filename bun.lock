@@ -20,7 +20,8 @@
         "react-dom": "^19.2.0",
       },
       "devDependencies": {
-        "electron": "^31.2.1",
+        "@playwright/test": "^1.55.1",
+        "electron": "30.5.1",
         "esbuild": "^0.21.5",
         "typescript": "^5.9.2",
       },
@@ -692,7 +693,7 @@
 
     "effect": ["effect@3.18.1", "", { "dependencies": { "@standard-schema/spec": "^1.0.0", "fast-check": "^3.23.1" } }, "sha512-5aJ7yRlvvkBplMSnhPyol7WYvPenvau12asO3HJhG/126SySWV9D8bscGTbV52XxtC5bwO/VUd5ffjE6uep/1A=="],
 
-    "electron": ["electron@31.7.7", "", { "dependencies": { "@electron/get": "^2.0.0", "@types/node": "^20.9.0", "extract-zip": "^2.0.1" }, "bin": { "electron": "cli.js" } }, "sha512-HZtZg8EHsDGnswFt0QeV8If8B+et63uD6RJ7I4/xhcXqmTIbI08GoubX/wm+HdY0DwcuPe1/xsgqpmYvjdjRoA=="],
+    "electron": ["electron@30.5.1", "", { "dependencies": { "@electron/get": "^2.0.0", "@types/node": "^20.9.0", "extract-zip": "^2.0.1" }, "bin": { "electron": "cli.js" } }, "sha512-AhL7+mZ8Lg14iaNfoYTkXQ2qee8mmsQyllKdqxlpv/zrKgfxz6jNVtcRRbQtLxtF8yzcImWdfTQROpYiPumdbw=="],
 
     "electron-to-chromium": ["electron-to-chromium@1.5.228", "", {}, "sha512-nxkiyuqAn4MJ1QbobwqJILiDtu/jk14hEAWaMiJmNPh1Z+jqoFlBFZjdXwLWGeVSeu9hGLg6+2G9yJaW8rBIFA=="],
 

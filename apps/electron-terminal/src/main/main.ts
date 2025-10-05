@@ -1,5 +1,6 @@
 import { join } from 'node:path'
 import { app, BrowserWindow } from 'electron'
+import { sessionManager } from './session-manager'
 
 async function createWindow(): Promise<void> {
   const win = new BrowserWindow({
@@ -28,6 +29,7 @@ async function createWindow(): Promise<void> {
   </html>`
 
   await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+  sessionManager.registerWebContents(win.webContents)
 }
 
 app.whenReady().then(() => {

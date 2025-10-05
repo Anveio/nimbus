@@ -2,12 +2,12 @@ export {
   connect as connectWeb,
   openSshSession as openWebSshSession,
   connectAndOpenSsh as connectAndOpenWebSsh,
-} from './client/browser'
+} from './client/web'
 export type {
   BrowserConnectOptions,
   BrowserSshBridgeOptions,
   BrowserSshSession,
-} from './client/browser'
+} from './client/web'
 
 export {
   connect as connectNode,

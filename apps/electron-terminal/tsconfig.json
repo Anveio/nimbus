@@ -2,8 +2,17 @@
   "extends": "../../packages/tsconfig/workspace-app-config.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src",
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "typeRoots": ["../../types", "../../node_modules/@types"],
+    "baseUrl": ".",
+    "paths": {
+      "@mana/tui-react": ["../../packages/tui-react/src/index.ts"],
+      "@mana/tui-react/*": ["../../packages/tui-react/src/*"],
+      "@mana/websocket": ["../../packages/websocket/src/index.ts"],
+      "@mana/websocket/*": ["../../packages/websocket/src/*"],
+      "@mana/ssh": ["../../packages/ssh/src/index.ts"],
+      "@mana/ssh/*": ["../../packages/ssh/src/*"]
+    }
   },
   "include": ["src"],
   "exclude": ["dist", "node_modules"]

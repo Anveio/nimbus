@@ -8,9 +8,29 @@
   "types": "src/index.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts",
-      "require": "./src/index.ts"
+      "types": "./src/root-entrypoint-block.ts",
+      "import": "./src/root-entrypoint-block.ts",
+      "require": "./src/root-entrypoint-block.ts"
+    },
+    "./client/browser": {
+      "types": "./src/client/browser.ts",
+      "import": "./src/client/browser.ts",
+      "require": "./src/client/browser.ts"
+    },
+    "./client/node": {
+      "types": "./src/client/node.ts",
+      "import": "./src/client/node.ts",
+      "require": "./src/client/node.ts"
+    },
+    "./client/web": {
+      "types": "./src/client/web.ts",
+      "import": "./src/client/web.ts",
+      "require": "./src/client/web.ts"
+    },
+    "./server/node": {
+      "types": "./src/server/node.ts",
+      "import": "./src/server/node.ts",
+      "require": "./src/server/node.ts"
     },
     "./protocol": {
       "types": "./src/protocol/index.ts",
