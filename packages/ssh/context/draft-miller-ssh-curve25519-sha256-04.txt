@@ -1,8 +1,0 @@
-The original Internet-Draft draft-miller-ssh-curve25519-sha256-04.txt is no longer served from the IETF archive.
-
-For historical context and technical details, consult:
-- https://github.com/openssh/openssh-portable/blob/master/PROTOCOL ("curve25519-sha256" section)
-- https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.kex (if present in upstream tree)
-- Mailing list archives: https://lists.mindrot.org/pipermail/openssh-unix-dev/2014-September/033073.html
-
-Preserve this placeholder until a canonical copy can be mirrored into the repository.

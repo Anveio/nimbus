@@ -16,8 +16,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mana/tui-react": "workspace:*",
-    "@mana/websocket": "workspace:*",
+    "@mana/tui-react": "^0.0.0",
+    "@mana/websocket": "^0.0.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

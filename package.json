@@ -1,5 +1,5 @@
 {
-  "name": "mana",
+  "name": "mana-workspace",
   "private": true,
   "workspaces": [
     "packages/*",
