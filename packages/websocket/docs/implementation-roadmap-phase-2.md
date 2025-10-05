@@ -38,7 +38,6 @@ _Last updated: 2025-10-04T08:12:00Z_
 ## Pre-flight Checklist
 
 - [ ] Unit + integration suites (Vitest) green.
-- [ ] `bun run lint` and `bun run typecheck` clean.
+- [ ] `npm run lint` and `npm run typecheck` clean.
 - [ ] E2E smoke extended to exercise SSH echo journey once adapters land.
 - [ ] Roadmap kept current after each milestone.
-

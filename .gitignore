@@ -90,5 +90,3 @@ dist-ssr
 # SSH keys
 apps/simulated-instance/id_rsa
 
-
-.bun-cache

@@ -15,15 +15,15 @@ This package hosts a hello-world Electron application that will evolve into the 
 
 ## Usage
 ```
-bun install
-bun run build --filter @mana/electron-terminal
-bun run --filter @mana/electron-terminal dev
+npm install
+npm run build -- --filter @mana/electron-terminal
+npm run dev -- --filter @mana/electron-terminal
 ```
 The `dev` script rebuilds the renderer in watch mode and launches Electron pointing at the compiled output.
 
 ## Testing
-1. Build the Electron bundle: `bun run build --filter @mana/electron-terminal`.
-2. Execute the headless E2E run: `bun run --filter @mana/electron-terminal test`.
+1. Build the Electron bundle: `npm run build -- --filter @mana/electron-terminal`.
+2. Execute the headless E2E run: `npm run test -- --filter @mana/electron-terminal`.
 
 The Playwright spec uses the default echo transport, waits for the preload bridge to report `ready`, and asserts that the terminal surface receives the banner emitted by `EchoSession`. The harness mirrors the browser-based tests: the compiled Electron main process is launched directly, and the renderer window is driven through the Playwright Electron helpers described in [the upstream docs](https://playwright.dev/docs/api/class-electron).
 

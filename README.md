@@ -82,7 +82,7 @@ Status legend: Delivered = in main, In progress = active work, Planned = design/
 
 ## Quick start
 ```
-bun install
-bun run dev --filter apps/terminal-web-app
-bun run test
+npm install
+npm run dev -- --filter apps/terminal-web-app
+npm run test
 ```

@@ -199,10 +199,10 @@ untrusted programs.
 ```bash
 # Run unit + fuzz tests
 cd packages/vt
-bunx vitest run
+npm exec vitest run
 
 # Collect coverage (istanbul/text + lcov)
-bun run test:coverage
+npm run test:coverage
 ```
 
 The parser implementation is still under construction; contributions to

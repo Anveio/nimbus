@@ -30,7 +30,7 @@ This charter defines how we evolve the web canvas renderer. Update it when rende
 - Scenario coverage: ASCII/CJK/emoji glyphs, SGR permutations, palette swaps (OSC 4/104, true colour), cursor modes, selection overlays, resize paths, diagnostics toggles.
 - Performance smoke: Track draw call counts and frame duration for large dirty regions to catch regressions.
 - Spec traceability: `docs/renderer-test-spec.md` records coverage with ✅/🟡/⛔️ status; update it before adding/removing fixtures.
-- Type discipline: `bun run typecheck` at the workspace root and `bunx vitest run --runInBand` locally prior to landing changes.
+- Type discipline: `npm run typecheck` at the workspace root and `npm exec vitest run -- --runInBand` locally prior to landing changes.
 
 ## Active Focus / Backlog Signals
 - Finalise `selection:*` deltas consumption—paint themed highlights for normal/rectangular selections with new pixel baselines.
@@ -42,7 +42,7 @@ This charter defines how we evolve the web canvas renderer. Update it when rende
 ## Collaboration Rituals
 1. Confirm whether a change belongs in renderer internals or upstream VT/React layers before editing.
 2. Update specs/docs → tests → implementation; never land code without corresponding pixel or unit coverage.
-3. Run `bunx vitest run` for this package and any dependent integration tests prior to submission.
+3. Run `npm exec vitest run` for this package and any dependent integration tests prior to submission.
 4. Record significant capability additions, diagnostics changes, or gaps in the memory bank with precise dates.
 
 ## Memory Bank

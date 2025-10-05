@@ -7,9 +7,9 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "clean": "git clean -xfd .",
-    "dev": "bun src/start-container.ts",
+    "dev": "tsx src/start-container.ts",
     "build": "echo 'Build script not implemented yet'",
-    "clean:container": "bun src/stop-container",
+    "clean:container": "tsx src/stop-container.ts",
     "test": "echo 'Test script not implemented yet'",
     "typecheck": "tsc --noEmit",
     "lint": "biome lint .",

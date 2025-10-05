@@ -41,7 +41,7 @@
   "scripts": {
     "clean": "git clean -xfd .",
     "build": "echo 'TODO: implement build step for @mana/websocket'",
-    "test": "bun run test:unit && bun run test:e2e",
+    "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest --watch",
     "test:unit:coverage": "vitest run --coverage --reporter=dot --silent",

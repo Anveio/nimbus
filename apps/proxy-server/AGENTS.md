@@ -20,10 +20,10 @@ This charter directs development of the WebSocket ⇄ TCP bridge. Update it when
 - **Extensibility**: Modularise policy layers (auth, rate limiting, audit) so future requirements (e.g., per-tenant routing) slot in cleanly.
 
 ## Testing Doctrine
-- Unit/integration: Use Vitest (or Bun test) with socket mocks to validate upgrade flows, framing, and policy decisions.
-- End-to-end: Drive Playwright or Bun scripts that exercise full browser → proxy → simulated instance handshakes; capture transcripts for regression.
+- Unit/integration: Use Vitest (or Node-based harnesses) with socket mocks to validate upgrade flows, framing, and policy decisions.
+- End-to-end: Drive Playwright or npm scripts that exercise full browser → proxy → simulated instance handshakes; capture transcripts for regression.
 - Security tests: Add chaos/boundary cases (oversized frames, slow loris, malformed packets) to ensure graceful rejection.
-- Type & lint gates: `bun run typecheck` / `bun run lint` at repo root before merging.
+- Type & lint gates: `npm run typecheck` / `npm run lint` at repo root before merging.
 - Documentation cadence: Update `docs/proxy-server` (to author) for new policies, config flags, or deployment guidance.
 
 ## Active Focus / Backlog Signals
@@ -42,4 +42,3 @@ This charter directs development of the WebSocket ⇄ TCP bridge. Update it when
 ## Memory Bank
 ### 2025-09-30 – Charter established
 Authored the proxy server charter capturing security mandate, observability goals, testing cadence, and backlog items (auth hooks, metrics, configurability).
-

@@ -21,7 +21,7 @@ export default defineConfig({
     permissions: ['clipboard-read', 'clipboard-write'],
   },
   webServer: {
-    command: `bun run dev --host ${HOST} --port ${PORT}`,
+    command: `npm run dev -- --host ${HOST} --port ${PORT}`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     stdout: 'pipe',

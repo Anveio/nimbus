@@ -25,9 +25,9 @@ This file anchors how we reason about the VT parser + interpreter stack. Treat i
 - Interpreter snapshots (`src/interpreter/state.ts`) expose terminal metrics, mode toggles, printer flags, and programmable strings that hosts surface to users.
 
 ## Testing Doctrine
-- Unit: `bunx vitest run` inside `packages/vt` for parser, classifier, and interpreter suites. Property-based coverage applies to classifier and CSI parsers.
+- Unit: `npm exec vitest run` inside `packages/vt` for parser, classifier, and interpreter suites. Property-based coverage applies to classifier and CSI parsers.
 - Integration: Pixel/e2e layers in other packages rely on deterministic updates from this core—breaking changes must coordinate spec + tests across packages.
-- Type Discipline: `bun run typecheck` at the workspace root gates every VT change; keep ambient types strict.
+- Type Discipline: `npm run typecheck` at the workspace root gates every VT change; keep ambient types strict.
 - Specification Ritual: Write or amend the relevant spec document (`packages/vt/docs`) before altering code or tests—commit history should show spec → tests → implementation.
 
 ## Active Focus / Backlog Signals

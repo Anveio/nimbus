@@ -12,13 +12,13 @@ This package hosts the interactive browser demo for the Mana stack. It renders a
 
 | Script | Description |
 | --- | --- |
-| `bun run dev` | Launches the Vite dev server (`http://localhost:5173`). |
-| `bun run build` | Builds the production bundle via Vite. |
-| `bun run preview` | Serves the production build locally. |
-| `bun run test` | Runs unit tests via Vitest (jsdom). |
-| `bun run test:e2e` | Executes Playwright end-to-end tests (headless). |
-| `bun run test:e2e:headed` | Runs the same Playwright suite with a headed browser. |
-| `bun run test:e2e:ui` | Opens Playwright’s interactive test runner UI. |
+| `npm run dev` | Launches the Vite dev server (`http://localhost:5173`). |
+| `npm run build` | Builds the production bundle via Vite. |
+| `npm run preview` | Serves the production build locally. |
+| `npm run test` | Runs unit tests via Vitest (jsdom). |
+| `npm run test:e2e` | Executes Playwright end-to-end tests (headless). |
+| `npm run test:e2e:headed` | Runs the same Playwright suite with a headed browser. |
+| `npm run test:e2e:ui` | Opens Playwright’s interactive test runner UI. |
 
 ## Connecting to a real host
 

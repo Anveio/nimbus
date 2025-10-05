@@ -40,7 +40,7 @@ This brief governs the SSH protocol core. Update it whenever RFC scope, security
 - Host key trust flows must support TOFU, SSHFP/DNSSEC (RFC 4255), X.509 (RFC 6187), and OpenSSH KRL revocation checks.
 
 ## Testing Doctrine
-- **Type & lint gates**: `bun run typecheck`, `bun run lint` required for every change.
+- **Type & lint gates**: `npm run typecheck`, `npm run lint` required for every change.
 - **Unit / property**: Vitest + fast-check over packet reducers, negotiation tables, and crypto glue.
 - **Integration transcripts**: Replay captures from OpenSSH/libssh/Dropbear to assert byte-for-byte compatibility.
 - **End-to-end**: Once wired into `apps/terminal-web-app`, run Playwright scenarios exercising handshake, auth, channel flows, and rekeying through the canvas renderer harness.

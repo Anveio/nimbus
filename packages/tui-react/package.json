@@ -17,7 +17,7 @@
     "clean": "git clean -xfd .",
     "build": "vite build",
     "dev": "vite build --watch",
-    "test": "bun run test:unit && bun run test:e2e",
+    "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "vitest run --reporter=dot --silent",
     "test:e2e": "playwright test",
     "test:watch": "vitest --reporter=default --silent=false",

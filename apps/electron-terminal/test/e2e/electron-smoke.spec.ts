@@ -2,13 +2,14 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
 import { _electron as electron } from 'playwright'
+import type { SessionStatus } from '../../src/shared/session-types'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const DIST_MAIN_ENTRY = resolve(__dirname, '../../dist/main.js')
 
 async function resolveElectronBinary(): Promise<string> {
-  const electronModule = await import('electron')
+  const electronModule = (await import('electron')) as unknown
   if (typeof electronModule === 'string') {
     return electronModule
   }
@@ -34,16 +35,16 @@ test.describe('Electron terminal shell', () => {
     })
 
     try {
-      const window = await electronApp.firstWindow()
-      await expect(window.locator('header')).toContainText(
+      const rendererPage = await electronApp.firstWindow()
+      await expect(rendererPage.locator('header')).toContainText(
         'Mana Electron Terminal',
       )
       await expect(
-        window.locator('[data-testid="electron-terminal"]'),
+        rendererPage.locator('[data-testid="electron-terminal"]'),
       ).toBeVisible()
 
       const sentinel = 'playwright-echo-check'
-      const result = await window.evaluate(async (roundtripToken) => {
+      const result = await rendererPage.evaluate(async (roundtripToken) => {
         const mana = window.mana
         if (!mana) {
           throw new Error('Mana preload bridge unavailable')
@@ -81,14 +82,14 @@ test.describe('Electron terminal shell', () => {
               rejectPromise(new Error(message))
             }
 
-            cleanupData = mana.session.onData((payload) => {
+            cleanupData = mana.session.onData((payload: Uint8Array) => {
               buffer += decoder.decode(payload, { stream: true })
               if (buffer.includes(roundtripToken)) {
                 finalize({ status: 'ready', echoed: buffer })
               }
             })
 
-            cleanupStatus = mana.session.onStatus((status) => {
+            cleanupStatus = mana.session.onStatus((status: SessionStatus) => {
               if (status.type === 'ready') {
                 mana.session.send(encoder.encode(`${roundtripToken}\r\n`))
               } else if (status.type === 'error') {

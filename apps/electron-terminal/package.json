@@ -5,14 +5,14 @@
   "description": "Hello-world Electron shell for the Mana terminal stack.",
   "main": "dist/main.js",
   "scripts": {
-    "build": "bun run build:main && bun run build:preload && bun run build:renderer",
-    "build:main": "esbuild src/main/main.ts --bundle --platform=node --target=node20 --format=cjs --external:electron --outdir=dist",
-    "build:preload": "esbuild src/main/preload.ts --bundle --platform=node --target=node20 --format=cjs --external:electron --outdir=dist",
+    "build": "npm run build:main && npm run build:preload && npm run build:renderer",
+    "build:main": "esbuild src/main/main.ts --bundle --platform=node --target=node24 --format=cjs --external:electron --outdir=dist",
+    "build:preload": "esbuild src/main/preload.ts --bundle --platform=node --target=node24 --format=cjs --external:electron --outdir=dist",
     "build:renderer": "esbuild src/renderer/index.tsx --bundle --platform=browser --target=chrome120 --outdir=dist/renderer",
-    "dev": "bun run build:renderer --watch & bun run start:electron",
-    "start": "bun run build && bun run start:electron",
-    "start:electron": "bun x electron dist/main.js",
-    "test": "bun run build && playwright test",
+    "dev": "npm run build:renderer -- --watch & npm run start:electron",
+    "start": "npm run build && npm run start:electron",
+    "start:electron": "npx electron dist/main.js",
+    "test": "npm run build && playwright test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

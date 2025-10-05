@@ -20,10 +20,10 @@ This charter guides how we evolve the React bindings for the Mana terminal stack
 - **Accessibility & ergonomics**: Provide focus management, screen-reader affordances, and theming hooks by default, with escapes for hosts to customize.
 
 ## Testing Doctrine
-- Unit & component tests: `bunx vitest run` inside `packages/tui-react` with React Testing Library/jsdom to cover hooks, lifecycle, and imperative handles. Co-locate unit tests alongside source modules (e.g. `src/hooks/useAutoResize.ts` ↔ `src/hooks/useAutoResize.test.tsx`).
+- Unit & component tests: `npm exec vitest run` inside `packages/tui-react` with React Testing Library/jsdom to cover hooks, lifecycle, and imperative handles. Co-locate unit tests alongside source modules (e.g. `src/hooks/useAutoResize.ts` ↔ `src/hooks/useAutoResize.test.tsx`).
 - Integration: Contract tests with `@mana/tui-web-canvas-renderer` ensure renderer swapping, selection propagation, and diagnostics remain stable.
-- End-to-end: Package-local Playwright harness (`bun run test:e2e`) mounts `<Terminal />`, drives keyboard flows, and runs `axe-core` scans; keep it green alongside the `apps/terminal-web-app` Playwright suite that exercises full host flows.
-- Type discipline: `bun run typecheck` across the monorepo before landing changes; avoid ambient `any` escape hatches.
+- End-to-end: Package-local Playwright harness (`npm run test:e2e`) mounts `<Terminal />`, drives keyboard flows, and runs `axe-core` scans; keep it green alongside the `apps/terminal-web-app` Playwright suite that exercises full host flows.
+- Type discipline: `npm run typecheck` across the monorepo before landing changes; avoid ambient `any` escape hatches.
 - Spec-first workflow: Update or author package-level specs (e.g. controller lifecycle, selection semantics) prior to modifying code/tests.
 
 ## Active Focus / Backlog Signals
@@ -62,8 +62,8 @@ This charter guides how we evolve the React bindings for the Mana terminal stack
 
 ### 2025-10-06 – Vite build + Playwright harness
 - Swapped the package build to Vite library mode (ESM + CJS + bundled declarations) and published the output from `dist/`.
-- Added a package-scoped Playwright + axe harness that bundles a React test surface via Vite, feeding smoke & accessibility checks through `bun run test:e2e`.
-- Unified the npm script surface so `bun run test` fans out to Vitest and Playwright, mirroring the renderer package’s patterns.
+- Added a package-scoped Playwright + axe harness that bundles a React test surface via Vite, feeding smoke & accessibility checks through `npm run test:e2e`.
+- Unified the npm script surface so `npm run test` fans out to Vitest and Playwright, mirroring the renderer package’s patterns.
 
 ### 2025-09-30 – Charter refresh
 Reframed the React agent charter around mandate, boundaries, and testing doctrine; promoted the `<Terminal />` rewrite, selection parity, and auto-resize as active backlog signals.

@@ -5,6 +5,10 @@
     "packages/*",
     "apps/*"
   ],
+  "engines": {
+    "node": "^24.0.0",
+    "npm": ">=10"
+  },
   "scripts": {
     "build": "turbo build --output-logs=errors-only --log-order=grouped --summarize",
     "clean": "git clean -xfd .",
@@ -16,10 +20,11 @@
     "format": "biome format --write .",
     "typecheck": "turbo typecheck --output-logs=errors-only --log-order=grouped --summarize"
   },
-  "packageManager": "bun@1.2.23",
+  "packageManager": "npm@11.5.1",
   "devDependencies": {
     "@biomejs/biome": "^2.2.4",
     "@manypkg/cli": "^0.25.1",
+    "tsx": "^4.19.2",
     "turbo": "^2.5.8",
     "typescript": "^5.9.2"
   }

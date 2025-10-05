@@ -26,4 +26,4 @@ See `packages/ssh/test` for the RFC-backed fixtures that exercise the handshake 
 | `key-exchange.curve25519.test.ts` | Browser curve25519 ECDH flow, host key verification, NEWKEYS | RFC 5656 §4.1, RFC 7748 §5.2 |
 | `key-exchange.group14.test.ts` | group14 Diffie-Hellman fallback and NEWKEYS | RFC 4419 §3 |
 
-Run `bun run test` inside `packages/ssh` to execute the suite.
+Run `npm run test` inside `packages/ssh` to execute the suite.

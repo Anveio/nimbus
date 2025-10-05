@@ -20,26 +20,25 @@ This charter governs the containerised SSH target used for development and tests
 - **Observability**: Emit logs/metrics (connection attempts, auth success/failure) to aid debugging of protocol tests.
 
 ## Testing Doctrine
-- Unit/integration: Bun scripts should validate runtime detection, build steps, and cleanup flows (mock Dockerode interactions where practical).
+- Unit/integration: Node-driven TypeScript scripts (run via `tsx`) should validate runtime detection, build steps, and cleanup flows (mock Dockerode interactions where practical).
 - End-to-end: Playwright and proxy tests must target this instance to ensure realistic SSH behaviour under canvas/React demos.
 - Health checks: Provide scripts to verify container readiness (port 22 open, banner match) before running dependent suites.
-- Type & lint gates: `bun run typecheck`/`bun run lint` at repo root; keep orchestration code strongly typed.
+- Type & lint gates: `npm run typecheck`/`npm run lint` at repo root; keep orchestration code strongly typed.
 - Documentation cadence: Update README/usage guides when adding new runtime requirements or credentials.
 
 ## Active Focus / Backlog Signals
 - Implement automated health check script used by Playwright and CI pipelines prior to running terminal tests.
 - Add support for configurable host keys and user accounts to simulate multi-tenant scenarios.
-- Capture container logs/metrics for debugging (e.g., stream to stdout, provide `bun run logs`).
+- Capture container logs/metrics for debugging (e.g., stream to stdout, provide `npm run logs`).
 - Provide hardened mode (FIPS-approved ciphers only) to test strict security policies.
 - Publish cleanup scripts that remove stale volumes/networks in addition to images/containers.
 
 ## Collaboration Rituals
 1. Confirm whether feature requests belong in the simulated instance versus proxy/protocol layers.
 2. Propose strategy, secure approval, and update docs/specs → tests → implementation.
-3. Run orchestration scripts (`bun dev`, `bun run clean`), health checks, and dependent e2e tests after making changes.
+3. Run orchestration scripts (`npm run dev`, `npm run clean`), health checks, and dependent e2e tests after making changes.
 4. Record runtime support decisions, security changes, and roadmap items in the memory bank with dates.
 
 ## Memory Bank
 ### 2025-09-30 – Charter established
 Documented the simulated-instance mandate, runtime pillars, testing cadence, and backlog (health checks, configurable host keys, hardened mode).
-

@@ -35,7 +35,7 @@ It’s a teaching tool and a launchpad: demonstrate best practices, validate the
 - **Phase 3** – Harden error UX, telemetry, and packaging.
 
 ## Rituals
-- Keep build scripts aligned with monorepo tooling (`bun`, `esbuild`).
+- Keep build scripts aligned with monorepo tooling (`npm`, `esbuild`).
 - Maintain zero-dependency posture: no additional NPM packages beyond Electron, esbuild, and TypeScript.
 - Document runtime behaviours in the local README.
 - Update the preload/main IPC contract whenever transports change; renderer never reaches into Node APIs directly.

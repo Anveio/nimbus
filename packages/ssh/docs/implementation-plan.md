@@ -7,7 +7,7 @@ This plan sequences the work required to ship the SSHv2 protocol core as describ
 ## Phase 0 — Project Foundations
 - **Scaffold package build**
   - Configure `tsconfig.json` with strict mode, `composite` for build caching, and path exports for `web`/`node` entry points.
-  - Establish lint and formatting via Biome; ensure `bun run typecheck` and `bun run lint` succeed with empty stubs.
+  - Establish lint and formatting via Biome; ensure `npm run typecheck` and `npm run lint` succeed with empty stubs.
 - **Common utilities**
   - Implement `BinaryReader`/`BinaryWriter` helpers for SSH packet structures (RFC 4253 §5, §6).
   - Define branded types (`ChannelId`, `RequestId`, `KexRound`, etc.) to enforce intent/event safety.

@@ -39,7 +39,7 @@ This charter anchors the mandate, guardrails, and rituals for the Mana web host 
 - Integration tests that spin up mocked transports (loopback WebSocket) and verify reconnection, auth retry, and telemetry emission.
 - Shared Playwright scenarios (likely co-located with `apps/terminal-web-app`) that validate “drop-in” flows, reduced-motion handling, and error propagation to host callbacks.
 - Type boundary tests ensuring exported types remain tree-shakeable and do not drag in Node-only dependencies.
-- Release gating: `bun run lint`, `bun run typecheck`, package unit/integration suites, plus the demo app e2e smoke before publishing.
+- Release gating: `npm run lint`, `npm run typecheck`, package unit/integration suites, plus the demo app e2e smoke before publishing.
 
 ## Roadmap Signals
 - Author a formal configuration spec (YAML/JSON examples) and document feature toggles for clipboard, file transfer, and session recording.

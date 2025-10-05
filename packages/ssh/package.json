@@ -5,14 +5,14 @@
   "scripts": {
     "clean": "git clean -xfd .",
     "clean:artifacts": "rm -rf dist",
-    "build": "bun run clean:artifacts && bunx vite build --config vite.config.ts --mode client-web && bunx vite build --config vite.config.ts --mode client-node && bunx vite build --config vite.config.ts --mode server-node",
+    "build": "npm run clean:artifacts && npm exec -- vite build --config vite.config.ts --mode client-web && npm exec -- vite build --config vite.config.ts --mode client-node && npm exec -- vite build --config vite.config.ts --mode server-node",
     "test": "vitest run",
     "test:watch": "vitest --reporter=default --silent=false",
     "test:coverage": "vitest run --coverage --reporter=dot --silent",
     "lint": "biome lint .",
     "lint:fix": "biome lint --fix . && biome format --write .",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "bun run build"
+    "prepublishOnly": "npm run build"
   },
   "devDependencies": {
     "@types/node": "^24.6.1",

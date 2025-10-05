@@ -59,7 +59,7 @@ Once your container runtime is running, you can start the simulated SSH instance
 
 2.  **Run the development server**:
     ```bash
-    bun dev
+    npm run dev
     ```
 
 The script will then:
@@ -69,7 +69,7 @@ The script will then:
 
 ### Cleaning Up
 
-Closing bun automatically stops and removes the **container**, but it leaves the **image** cached on your system. This ensures that the next time you run `bun dev`, the instance starts almost instantly without needing a full rebuild.
+Stopping the dev script automatically stops and removes the **container**, but it leaves the **image** cached on your system. This ensures that the next time you run `npm run dev`, the instance starts almost instantly without needing a full rebuild.
 
 If you want to perform a complete cleanup and remove both the container and the underlying `mana-ssh-instance` image, you can run the dedicated `clean` script. This is useful when you want to reclaim disk space or ensure your next build is completely fresh.
 
@@ -80,7 +80,7 @@ If you want to perform a complete cleanup and remove both the container and the 
 
 2.  **Run the clean script**:
     ```bash
-    bun run clean
+    npm run clean
     ```
 
 This script will:
