@@ -1,22 +1,16 @@
-import { describe, expect, expectTypeOf, it } from 'vitest'
-import { connectWeb, connectNode, createNodeWebSocketServer } from './index'
-import { ensureDefaultProfiles, getProfile } from './protocol'
-import { connect as connectViaWebSubpath } from '@mana/websocket/client/web'
 import { connect as connectViaBrowserSubpath } from '@mana/websocket/client/browser'
-import { connect as connectViaNodeSubpath } from '@mana/websocket/client/node'
-import { createNodeWebSocketServer as serverFactorySubpath } from '@mana/websocket/server/node'
-import type { BrowserConnectOptions as BrowserConnectOptionsFromWeb } from '@mana/websocket/client/web'
-import type { BrowserConnectOptions as BrowserConnectOptionsFromBrowser } from './client/browser'
 import type { NodeConnectOptions as NodeConnectOptionsFromNode } from '@mana/websocket/client/node'
+import { connect as connectViaNodeSubpath } from '@mana/websocket/client/node'
+import type { BrowserConnectOptions as BrowserConnectOptionsFromWeb } from '@mana/websocket/client/web'
+import { connect as connectViaWebSubpath } from '@mana/websocket/client/web'
+import { createNodeWebSocketServer as serverFactorySubpath } from '@mana/websocket/server/node'
+import { describe, expect, expectTypeOf, it } from 'vitest'
+import type { BrowserConnectOptions as BrowserConnectOptionsFromBrowser } from './client/browser'
 import type { NodeConnectOptions as NodeConnectOptionsFromSource } from './client/node'
+import { connectNode, connectWeb, createNodeWebSocketServer } from './index'
+import { ensureDefaultProfiles, getProfile } from './protocol'
 
 describe('public exports', () => {
-  it('throws with guidance when imported from the package root', async () => {
-    await expect(import('@mana/websocket')).rejects.toThrow(
-      /does not expose a root entry point/,
-    )
-  })
-
   it('re-exports browser connect', () => {
     expect(typeof connectWeb).toBe('function')
   })

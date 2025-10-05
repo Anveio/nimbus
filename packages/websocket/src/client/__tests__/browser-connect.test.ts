@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { connect, type BrowserConnectOptions } from '../browser'
 import { manaV1Profile } from '../../protocol'
+import { type BrowserConnectOptions, connect } from '../browser'
 
 class MockSocket {
   static instances: MockSocket[] = []

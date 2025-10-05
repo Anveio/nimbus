@@ -1,13 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-
-import { openSshSession, type NodeSshBridgeOptions } from '../node'
+import type { DiagnosticEvent } from '../../protocol/diagnostics'
+import { type NodeSshBridgeOptions, openSshSession } from '../node'
 import {
   createMockChannel,
   createMockConnection,
   flushMicrotasks as flush,
   type MockConnection,
 } from './ssh-bridge.test-utils'
-import type { DiagnosticEvent } from '../../protocol/diagnostics'
 
 const hoisted = vi.hoisted(() => {
   const disposeSpy = vi.fn()

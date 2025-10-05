@@ -1,6 +1,0 @@
-{
-  "extends": "@mana/tsconfig/workspace-app-config.json",
-  "compilerOptions": {
-    "noEmit": true
-  }
-}
