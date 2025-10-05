@@ -1,5 +1,5 @@
 {
-  "name": "@mana/terminal-web-app",
+  "name": "@mana/web-demo",
   "version": "0.0.1",
   "private": true,
   "description": "A web-based terminal application to demonstrate and test the ManaSSHWeb library.",

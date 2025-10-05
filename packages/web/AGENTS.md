@@ -37,7 +37,7 @@ This charter anchors the mandate, guardrails, and rituals for the Mana web host 
 ## Testing Doctrine
 - Unit tests (Vitest) over session controllers, configuration parsing, and adapter contracts.
 - Integration tests that spin up mocked transports (loopback WebSocket) and verify reconnection, auth retry, and telemetry emission.
-- Shared Playwright scenarios (likely co-located with `apps/terminal-web-app`) that validate “drop-in” flows, reduced-motion handling, and error propagation to host callbacks.
+- Shared Playwright scenarios (likely co-located with `apps/web-demo`) that validate “drop-in” flows, reduced-motion handling, and error propagation to host callbacks.
 - Type boundary tests ensuring exported types remain tree-shakeable and do not drag in Node-only dependencies.
 - Release gating: `npm run lint`, `npm run typecheck`, package unit/integration suites, plus the demo app e2e smoke before publishing.
 
@@ -52,7 +52,7 @@ This charter anchors the mandate, guardrails, and rituals for the Mana web host 
 1. Validate whether a requested change belongs in the host SDK versus lower layers; escalate cross-package impacts early.
 2. Update or create spec entries before altering behaviour; pair spec changes with configuration docs.
 3. Land changes behind feature flags when behaviour is experimental; document defaults in the README and package docs.
-4. Keep the `apps/terminal-web-app` integration green—it serves as our production-like acceptance test.
+4. Keep the `apps/web-demo` integration green—it serves as our production-like acceptance test.
 5. Log notable decisions, risks, and follow-ups in the repository memory bank with dates.
 
 ## Open Questions

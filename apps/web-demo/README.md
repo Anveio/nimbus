@@ -1,4 +1,4 @@
-# Terminal Web App
+# Web Demo
 
 This package hosts the interactive browser demo for the Mana stack. It renders a `<Terminal />` component from `@mana/tui-react`, wires keyboard and paste events, and demonstrates how the React renderer can operate in a standalone setting (using local echo) before being connected to a real host.
 

@@ -54,8 +54,8 @@
         "typescript": "^5.9.2",
       },
     },
-    "apps/terminal-web-app": {
-      "name": "@mana/terminal-web-app",
+    "apps/web-demo": {
+      "name": "@mana/web-demo",
       "version": "0.0.1",
       "dependencies": {
         "@mana/tui-react": "workspace:*",
@@ -340,7 +340,7 @@
 
     "@mana/ssh": ["@mana/ssh@workspace:packages/ssh"],
 
-    "@mana/terminal-web-app": ["@mana/terminal-web-app@workspace:apps/terminal-web-app"],
+    "@mana/web-demo": ["@mana/web-demo@workspace:apps/web-demo"],
 
     "@mana/tsconfig": ["@mana/tsconfig@workspace:packages/tsconfig"],
 

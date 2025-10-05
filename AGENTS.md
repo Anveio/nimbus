@@ -46,7 +46,7 @@ The workspace runs on Node 24 with npm. Each package is a shippable unit followi
 - `tsconfig` (`packages/tsconfig`): Shared compiler baselines. Do not fork TypeScript settings casually; propose rationale first.
 
 ## Apps
-- `apps/terminal-web-app`: Reference terminal experience. Must remain production-grade: Playwright E2E coverage, deterministic assets, telemetry hooks.
+- `apps/web-demo`: Reference terminal experience. Must remain production-grade: Playwright E2E coverage, deterministic assets, telemetry hooks.
 - `apps/proxy-server`: WebSocket⇄TCP bridge for SSH. Harden for AWS threat models; treat it like shipping infrastructure.
 - `apps/simulated-instance`: Finch/Docker-managed SSH target. Source of deterministic host behavior for tests and demos.
 
@@ -58,7 +58,7 @@ The workspace runs on Node 24 with npm. Each package is a shippable unit followi
 
 # Testing
 - Unit: Vitest for logic (parser fixtures, diff reducers, React hooks). Property-based tests where state spaces explode.
-- End-to-End: We use Playwright for anything that pushes pixels to the screen (tui-react, tui-web-canvas-renderer) and apps (apps/terminal-web-app). Every behavioral change demands a scenario. All statements in specifications MUST have a test scenario. Run the full suite (`npm run test`) before declaring victory.
+- End-to-End: We use Playwright for anything that pushes pixels to the screen (tui-react, tui-web-canvas-renderer) and apps (apps/web-demo). Every behavioral change demands a scenario. All statements in specifications MUST have a test scenario. Run the full suite (`npm run test`) before declaring victory.
 - Type Discipline: `npm run typecheck` gates every deliverable.
 - Build Smoke Test: run `npm run build` before committing so every change lands atomically.
 - Spec Currency: When behavior shifts, update the spec document first (see package-level `AGENTS.md`), then tests, then code.
@@ -89,7 +89,7 @@ The workspace runs on Node 24 with npm. Each package is a shippable unit followi
 
 # Common Commands
 - Install: `npm install`
-- Dev server (demo app): `npm run dev -- --filter apps/terminal-web-app`
+- Dev server (demo app): `npm run dev -- --filter apps/web-demo`
 - All tests: `npm run test`
 - Typecheck: `npm run typecheck`
 - Lint (write): `npm run lint:fix`

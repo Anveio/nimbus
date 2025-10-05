@@ -45,7 +45,7 @@ Users interacting with a web terminal expect:
 ### Near Term (Quarterly goals)
 1. **Configurable accessibility themes:** Offer high-contrast and reduced-motion presets, reacting to `prefers-contrast` / `prefers-reduced-motion` by default.
 2. **Instructional UI:** Layer an accessible shortcut/help surface (toggleable overlay or `role="note"`) that expands beyond the terse default instructions.
-3. **Automated tests:** Extend Vitest + Playwright suites with IME simulations, focus regression scenarios, and full axe audits within host apps (`apps/terminal-web-app`).
+3. **Automated tests:** Extend Vitest + Playwright suites with IME simulations, focus regression scenarios, and full axe audits within host apps (`apps/web-demo`).
 4. **Documentation refresh:** Publish an Accessibility Guide describing the DOM transcript contract, integration hooks, and host responsibilities.
 
 ### Long Term (Strategic investments)
@@ -71,7 +71,7 @@ Users interacting with a web terminal expect:
 
 ## Open Questions
 - What heuristics should determine when to promote the hidden DOM transcript to a visible “accessible transcript” toggle for all users?
-- Should host apps (e.g., `apps/terminal-web-app`) own instructional overlays, or should `@mana/tui-react` export a default implementation?
+- Should host apps (e.g., `apps/web-demo`) own instructional overlays, or should `@mana/tui-react` export a default implementation?
 - Which locales and input methods are highest priority for IME validation (Chinese Simplified, Japanese, Korean, accented Latin)?
 
 ## Next Steps

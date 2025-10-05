@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ESNext",
-    "module": "commonjs",
+    "module": "ESNext",
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "jsx": "react-jsx",
     "skipLibCheck": true,
@@ -10,7 +10,7 @@
     "noImplicitAny": true,
     "sourceMap": true,
     "baseUrl": ".",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "types": ["vite/client"]

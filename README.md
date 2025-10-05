@@ -9,7 +9,7 @@ Mana is a zero-dependency, standards-compliant, universally embeddable, high per
 - SSH protocol core + targets: `@mana/ssh` with `client/web`, `client/node`, and `server/node`
 - WebSocket transport suite: `@mana/websocket` (browser + Node clients, reference server atop `@mana/ssh`)
 - Batteries-included browser SDK: `@mana/web`
-- Demo and infra: `apps/terminal-web-app`, `apps/proxy-server`, `apps/simulated-instance`
+- Demo and infra: `apps/web-demo`, `apps/proxy-server`, `apps/simulated-instance`
 - Planned app:
   - `apps/electron-demo` – Electron desktop shell that can bind to local PTYs or remote SSH via the websocket bridge
 
@@ -83,6 +83,6 @@ Status legend: Delivered = in main, In progress = active work, Planned = design/
 ## Quick start
 ```
 npm install
-npm run dev -- --filter apps/terminal-web-app
+npm run dev -- --filter apps/web-demo
 npm run test
 ```

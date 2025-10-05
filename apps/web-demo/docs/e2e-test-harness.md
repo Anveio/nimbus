@@ -1,6 +1,6 @@
-# Terminal Web App – E2E Feature Guide
+# Web Demo – E2E Feature Guide
 
-This document captures the end-to-end testing features we maintain inside `apps/terminal-web-app`. It explains how each moving part works, why certain design decisions were made, and what to keep in mind when extending the suite.
+This document captures the end-to-end testing features we maintain inside `apps/web-demo`. It explains how each moving part works, why certain design decisions were made, and what to keep in mind when extending the suite.
 
 ## Overview
 

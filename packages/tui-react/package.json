@@ -16,7 +16,7 @@
   "scripts": {
     "clean": "git clean -xfd .",
     "build": "vite build",
-    "dev": "vite build --watch",
+    "dev": "vite",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "vitest run --reporter=dot --silent",
     "test:e2e": "playwright test",

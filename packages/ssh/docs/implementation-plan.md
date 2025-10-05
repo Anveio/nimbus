@@ -73,7 +73,7 @@ This plan sequences the work required to ship the SSHv2 protocol core as describ
 - Agent forwarding (`draft-miller-ssh-agent-02`), control master/multiplexing (OpenSSH PROTOCOL.mux) as optional modules behind feature flags.
 - Port forwarding helpers packaged separately but built atop channel APIs.
 - SFTP (draft-ietf-secsh-filexfer-13) integration as sibling package using the same session events.
-- Tests: integration harness with mock agent/server; file transfer unit tests; scenario coverage in `apps/terminal-web-app` once integration begins.
+- Tests: integration harness with mock agent/server; file transfer unit tests; scenario coverage in `apps/web-demo` once integration begins.
 
 ## Cross-Cutting Tasks
 - **Documentation**: maintain `docs/spec-matrix.md`, API reference, and compatibility notes after each phase.
