@@ -1,0 +1,28 @@
+{
+  "name": "@mana/electron-terminal",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Hello-world Electron shell for the Mana terminal stack.",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "bun run build:renderer --watch & bun run start:electron",
+    "start": "bun run build && bun run start:electron",
+    "start:electron": "bun x electron dist/main.js",
+    "build": "bun run build:main && bun run build:preload && bun run build:renderer",
+    "build:main": "esbuild src/main/main.ts --bundle --platform=node --target=node20 --format=cjs --external:electron --outdir=dist",
+    "build:preload": "esbuild src/main/preload.ts --bundle --platform=node --target=node20 --format=cjs --external:electron --outdir=dist",
+    "build:renderer": "esbuild src/renderer/index.tsx --bundle --platform=browser --target=chrome120 --outdir=dist/renderer",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mana/tui-react": "workspace:*",
+    "@mana/websocket": "workspace:*",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.21.5",
+    "electron": "^31.2.1",
+    "typescript": "^5.9.2"
+  }
+}

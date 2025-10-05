@@ -9,6 +9,7 @@
     "clean": "git clean -xfd .",
     "dev": "tsx src/index.ts",
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "test": "echo 'Tests not implemented yet'",
     "lint": "biome lint .",
     "lint:fix": "biome lint --fix . && biome format --write ."
