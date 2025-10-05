@@ -35,10 +35,15 @@ It’s a teaching tool and a launchpad: demonstrate best practices, validate the
 - **Phase 3** – Harden error UX, telemetry, and packaging.
 
 ## Rituals
-- Keep build scripts aligned with monorepo tooling (`npm`, `esbuild`).
-- Maintain zero-dependency posture: no additional NPM packages beyond Electron, esbuild, and TypeScript.
+- Keep build scripts aligned with monorepo tooling (`npm`, Vite).
+- Maintain near-zero-dependency posture: no additional NPM packages beyond Electron, Vite, TypeScript, and the React Vite plugin.
 - Document runtime behaviours in the local README.
 - Update the preload/main IPC contract whenever transports change; renderer never reaches into Node APIs directly.
+
+### Dev Loop Guardrail
+- `npm run dev` is backed by `scripts/dev.mjs`; it must manage both renderer watch and Electron runtime. Bypass is forbidden.
+- The orchestrator enforces an auto-exit countdown (default 5s) whenever either child process errors or exits. Configure via `--timeout=<ms>`, `ELECTRON_DEV_EXIT_TIMEOUT_MS`, or `DEV_EXIT_TIMEOUT_MS`; use `off|none|disable` to keep it running longer.
+- Failing to retain the timeout means the dev command can hang forever after an error—our primary failure mode. A hung loop hides diagnostics, blocks CI, and stalls collaborators. Treat this as dire.
 
 ## Architecture Notes (2025-01-07)
 - Renderer owns presentation only. All session orchestration flows through an injected `ElectronTerminalBridge` exposed on `window.mana`. The bridge surfaces diagnostics, connection state, and a bidirectional byte channel.

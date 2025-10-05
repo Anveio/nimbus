@@ -8,7 +8,7 @@ This package hosts a hello-world Electron application that will evolve into the 
 - Establish Playwright-powered E2E coverage for the desktop experience.
 
 ## Current state
-- Electron main/preload/renderer wiring compiled with esbuild.
+- Electron main/preload/renderer bundles built via Vite (lib mode for main/preload, SPA mode for renderer).
 - Renderer boots the `@mana/tui-react` terminal against the preload session bridge.
 - Preload exposes a minimal `window.mana.version` contract for renderer introspection.
 - Playwright smoke suite launches the packaged Electron bundle and exercises the echo transport end-to-end.

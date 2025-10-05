@@ -1,4 +1,3 @@
-import type { PrinterController } from '@mana/vt'
 import {
   createTerminalRuntime,
   type TerminalRuntime,
@@ -107,6 +106,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         accessibilityProp?.instructions,
         accessibilityProp?.shortcutGuide,
         accessibilityProp?.autoFocus,
+        accessibilityProp,
       ],
     )
 
@@ -143,7 +143,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     })
     const focus = useCallback(() => {
       containerRef.current?.focus()
-    }, [])
+    }, [containerRef.current?.focus])
 
     const runtimeRef = useRef<TerminalRuntime | null>(null)
 

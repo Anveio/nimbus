@@ -43,8 +43,8 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@mana/tui-web-canvas-renderer": "^0.0.0",
-    "@mana/vt": "^0.0.0"
+    "@mana/tui-web-canvas-renderer": "^0.0.1",
+    "@mana/vt": "^0.0.1"
   },
   "peerDependencies": {
     "react": ">=17.0.0",

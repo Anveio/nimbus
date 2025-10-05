@@ -6,7 +6,7 @@ import type { SessionStatus } from '../../src/shared/session-types'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
-const DIST_MAIN_ENTRY = resolve(__dirname, '../../dist/main.js')
+const DIST_MAIN_ENTRY = resolve(__dirname, '../../out/main.js')
 
 async function resolveElectronBinary(): Promise<string> {
   const electronModule = (await import('electron')) as unknown

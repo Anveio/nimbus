@@ -24,7 +24,7 @@ async function createWindow(): Promise<void> {
     },
   })
 
-  await win.loadFile(join(__dirname, 'index.html')) // same-origin (file://)
+  await win.loadFile(join(__dirname, 'renderer/index.html')) // same-origin (file://)
   sessionManager.registerWebContents(win.webContents)
 }
 

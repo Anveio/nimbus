@@ -3,44 +3,53 @@
   "version": "0.0.0",
   "private": true,
   "description": "WebSocket transport primitives for Mana SSH sessions.",
-  "main": "src/index.ts",
-  "module": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/**"
+  ],
   "exports": {
     ".": {
-      "types": "./src/root-entrypoint-block.ts",
-      "import": "./src/root-entrypoint-block.ts",
-      "require": "./src/root-entrypoint-block.ts"
+      "types": "./dist/root-entrypoint-block.d.ts",
+      "import": "./dist/root-entrypoint-block.js",
+      "require": "./dist/root-entrypoint-block.cjs"
     },
     "./client/browser": {
-      "types": "./src/client/browser.ts",
-      "import": "./src/client/browser.ts",
-      "require": "./src/client/browser.ts"
+      "types": "./dist/client/browser.d.ts",
+      "import": "./dist/client/browser.js",
+      "require": "./dist/client/browser.cjs"
     },
     "./client/node": {
-      "types": "./src/client/node.ts",
-      "import": "./src/client/node.ts",
-      "require": "./src/client/node.ts"
+      "types": "./dist/client/node.d.ts",
+      "import": "./dist/client/node.js",
+      "require": "./dist/client/node.cjs"
     },
     "./client/web": {
-      "types": "./src/client/web.ts",
-      "import": "./src/client/web.ts",
-      "require": "./src/client/web.ts"
+      "types": "./dist/client/web.d.ts",
+      "import": "./dist/client/web.js",
+      "require": "./dist/client/web.cjs"
     },
     "./server/node": {
-      "types": "./src/server/node.ts",
-      "import": "./src/server/node.ts",
-      "require": "./src/server/node.ts"
+      "types": "./dist/server/node.d.ts",
+      "import": "./dist/server/node.js",
+      "require": "./dist/server/node.cjs"
     },
     "./protocol": {
-      "types": "./src/protocol/index.ts",
-      "import": "./src/protocol/index.ts",
-      "require": "./src/protocol/index.ts"
+      "types": "./dist/protocol/index.d.ts",
+      "import": "./dist/protocol/index.js",
+      "require": "./dist/protocol/index.cjs"
+    },
+    "./index": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
     }
   },
   "scripts": {
     "clean": "git clean -xfd .",
-    "build": "echo 'TODO: implement build step for @mana/websocket'",
+    "clean:artifacts": "rm -rf dist",
+    "build": "npm run clean:artifacts && npm exec -- vite build --mode root-entrypoint && npm exec -- vite build --mode index && npm exec -- vite build --mode protocol && npm exec -- vite build --mode client-browser && npm exec -- vite build --mode client-web && npm exec -- vite build --mode client-node && npm exec -- vite build --mode server-node && npm exec -- vite build --mode client-browser-iife",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest --watch",
@@ -54,12 +63,14 @@
   },
   "sideEffects": false,
   "dependencies": {
-    "@mana/ssh": "^0.0.0"
+    "@mana/ssh": "^0.0.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.1",
-    "esbuild": "^0.21.5",
+    "@types/node": "^24.6.1",
     "typescript": "^5.9.2",
+    "vite": "^7.1.9",
+    "vite-plugin-dts": "^4.5.4",
     "vitest": "^3.2.4"
   }
 }

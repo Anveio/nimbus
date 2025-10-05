@@ -190,6 +190,13 @@ export class SessionManager implements SessionNotifier {
   private activeSession: ActiveSession | null = null
 
   constructor() {
+    console.log('[session-manager] initializing', {
+      processType: (process as NodeJS.Process & { type?: string }).type,
+      hasHandle: typeof ipcMain?.handle,
+      keys: Object.keys(ipcMain ?? {}),
+      electronKeys: Object.keys(require('electron') as object),
+    })
+
     ipcMain.handle(
       'mana/session/open',
       async (_event, options: SessionOpenOptions) => {

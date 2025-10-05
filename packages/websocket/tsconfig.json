@@ -7,8 +7,16 @@
       "@mana/ssh": ["../ssh/src/index.ts"],
       "@mana/ssh/*": ["../ssh/src/*"]
     },
-    "rootDir": "../.."
+    "rootDir": "../..",
+    "composite": false,
+    "incremental": false,
+    "tsBuildInfoFile": "./node_modules/.cache/websocket.tsbuildinfo"
   },
-  "include": ["src", "../ssh/src"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "../ssh/src/**/*.ts",
+    "../ssh/src/**/*.tsx"
+  ],
   "exclude": ["dist", "build", "node_modules"]
 }
