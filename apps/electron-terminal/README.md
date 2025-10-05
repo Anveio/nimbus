@@ -9,8 +9,9 @@ This package hosts a hello-world Electron application that will evolve into the 
 
 ## Current state
 - Electron main/preload/renderer wiring compiled with esbuild.
-- Renderer placeholder awaiting `<Terminal />` integration.
+- Renderer boots the `@mana/tui-react` terminal against the preload session bridge.
 - Preload exposes a minimal `window.mana.version` contract for renderer introspection.
+- Playwright smoke suite launches the packaged Electron bundle and exercises the echo transport end-to-end.
 
 ## Usage
 ```
@@ -19,6 +20,12 @@ bun run build --filter @mana/electron-terminal
 bun run --filter @mana/electron-terminal dev
 ```
 The `dev` script rebuilds the renderer in watch mode and launches Electron pointing at the compiled output.
+
+## Testing
+1. Build the Electron bundle: `bun run build --filter @mana/electron-terminal`.
+2. Execute the headless E2E run: `bun run --filter @mana/electron-terminal test`.
+
+The Playwright spec uses the default echo transport, waits for the preload bridge to report `ready`, and asserts that the terminal surface receives the banner emitted by `EchoSession`. The harness mirrors the browser-based tests: the compiled Electron main process is launched directly, and the renderer window is driven through the Playwright Electron helpers described in [the upstream docs](https://playwright.dev/docs/api/class-electron).
 
 ## Architecture plan
 1. **Renderer shell** – Mount `<Terminal />` from `@mana/tui-react`, sourced through a tiny React wrapper (`<ElectronTerminalApp />`). The component receives a bridge object from preload that exposes:
@@ -32,5 +39,5 @@ The `dev` script rebuilds the renderer in watch mode and launches Electron point
 ## Next steps
 1. Replace the placeholder React view with the terminal composition described above.
 2. Implement the websocket-backed session bridge and preload IPC contract.
-3. Establish Playwright end-to-end coverage for the Electron bundle.
+3. Expand Playwright coverage to include reconnect flows, resize negotiation, and transport errors.
 4. Add local PTY bindings (native module) to support offline shells once the transport shim lands.
