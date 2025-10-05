@@ -5,6 +5,8 @@
   "description": "My Electron application description",
   "main": ".vite/build/main.js",
   "scripts": {
+    "clean": "git clean -xfd .",
+    "clean:artifacts": "rm -rf dist .vite out",
     "dev": "electron-forge start",
     "package": "electron-forge package",
     "build": "electron-forge package",
