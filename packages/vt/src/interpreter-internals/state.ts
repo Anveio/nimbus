@@ -189,6 +189,8 @@ export const createInitialState = (
     title: '',
     clipboard: null,
     lastSosPmApc: null,
+    savedCursor: null,
+    savedAttributes: null,
     selection: null,
     charsets: {
       g0: 'us_ascii',

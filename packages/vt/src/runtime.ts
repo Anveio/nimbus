@@ -110,6 +110,18 @@ export type TerminalRuntimeEvent =
 
 export interface TerminalRuntime {
   /**
+   * Advanced escape hatch exposing the underlying interpreter. Consumers should
+   * prefer the runtime façade, but bespoke runtimes may rely on this to reuse
+   * helper methods while the higher-level API matures.
+   */
+  readonly interpreter: TerminalInterpreter
+  /**
+   * Advanced escape hatch exposing the wired parser instance. Primarily useful
+   * for instrumentation or for hosts that need to toggle parser policies at
+   * runtime.
+   */
+  readonly parser: Parser
+  /**
    * Live view over the interpreter’s mutable terminal state. Consumers should
    * treat it as read-only and rely on returned `TerminalUpdate`s to drive
    * rendering. Reads are cheap; the reference stays stable between updates.
@@ -169,8 +181,8 @@ export interface TerminalRuntime {
 }
 
 class TerminalRuntimeImpl implements TerminalRuntime {
-  private readonly interpreter: TerminalInterpreter
-  private readonly parser: Parser
+  private readonly _interpreter: TerminalInterpreter
+  private readonly _parser: Parser
 
   constructor(options: TerminalRuntimeOptions) {
     const resolved = resolveTerminalCapabilities({
@@ -180,19 +192,27 @@ class TerminalRuntimeImpl implements TerminalRuntime {
       features: options.features,
     })
 
-    this.parser = createParser(resolved.parser)
+    this._parser = createParser(resolved.parser)
 
     const capabilities: TerminalCapabilities = resolved.capabilities
 
-    this.interpreter = createInterpreter({
+    this._interpreter = createInterpreter({
       parser: resolved.parser,
       capabilities,
       printer: options.printer,
     })
   }
 
+  get interpreter(): TerminalInterpreter {
+    return this._interpreter
+  }
+
+  get parser(): Parser {
+    return this._parser
+  }
+
   get snapshot(): TerminalState {
-    return this.interpreter.snapshot
+    return this._interpreter.snapshot
   }
 
   write(input: string | Uint8Array): TerminalUpdate[] {
@@ -208,18 +228,18 @@ class TerminalRuntimeImpl implements TerminalRuntime {
       case 'cursor.move':
         return this.handleCursorMove(event.direction, event.options)
       case 'cursor.set':
-        return this.interpreter.moveCursorTo(
+        return this._interpreter.moveCursorTo(
           event.position,
           this.normalizeCursorOptions(event.options),
         )
       case 'selection.set':
-        return this.interpreter.setSelection(event.selection)
+        return this._interpreter.setSelection(event.selection)
       case 'selection.update':
-        return this.interpreter.updateSelection(event.selection)
+        return this._interpreter.updateSelection(event.selection)
       case 'selection.clear':
-        return this.interpreter.clearSelection()
+        return this._interpreter.clearSelection()
       case 'selection.replace':
-        return this.interpreter.editSelection({
+        return this._interpreter.editSelection({
           replacement: event.replacement,
           selection: event.selection ?? undefined,
           attributesOverride: event.attributesOverride,
@@ -245,29 +265,29 @@ class TerminalRuntimeImpl implements TerminalRuntime {
   }
 
   dispatchParserEvent(event: ParserEvent): TerminalUpdate[] {
-    return this.interpreter.handleEvent(event)
+    return this._interpreter.handleEvent(event)
   }
 
   dispatchParserEvents(events: Iterable<ParserEvent>): TerminalUpdate[] {
-    return this.interpreter.handleEvents(events)
+    return this._interpreter.handleEvents(events)
   }
 
   reset(): void {
-    this.parser.reset()
-    this.interpreter.reset()
+    this._parser.reset()
+    this._interpreter.reset()
   }
 
   private processWrite(input: string | Uint8Array): TerminalUpdate[] {
     const updates: TerminalUpdate[] = []
     const sink: ParserEventSink = {
       onEvent: (event) => {
-        const eventUpdates = this.interpreter.handleEvent(event)
+        const eventUpdates = this._interpreter.handleEvent(event)
         if (eventUpdates.length > 0) {
           updates.push(...eventUpdates)
         }
       },
     }
-    this.parser.write(input, sink)
+    this._parser.write(input, sink)
     return updates
   }
 
@@ -279,21 +299,21 @@ class TerminalRuntimeImpl implements TerminalRuntime {
 
     switch (direction) {
       case 'left':
-        return this.interpreter.moveCursorLeft(resolvedOptions)
+        return this._interpreter.moveCursorLeft(resolvedOptions)
       case 'right':
-        return this.interpreter.moveCursorRight(resolvedOptions)
+        return this._interpreter.moveCursorRight(resolvedOptions)
       case 'up':
-        return this.interpreter.moveCursorUp(resolvedOptions)
+        return this._interpreter.moveCursorUp(resolvedOptions)
       case 'down':
-        return this.interpreter.moveCursorDown(resolvedOptions)
+        return this._interpreter.moveCursorDown(resolvedOptions)
       case 'line-start':
-        return this.interpreter.moveCursorLineStart(resolvedOptions)
+        return this._interpreter.moveCursorLineStart(resolvedOptions)
       case 'line-end':
-        return this.interpreter.moveCursorLineEnd(resolvedOptions)
+        return this._interpreter.moveCursorLineEnd(resolvedOptions)
       case 'word-left':
-        return this.interpreter.moveCursorWordLeft(resolvedOptions)
+        return this._interpreter.moveCursorWordLeft(resolvedOptions)
       case 'word-right':
-        return this.interpreter.moveCursorWordRight(resolvedOptions)
+        return this._interpreter.moveCursorWordRight(resolvedOptions)
       default:
         return []
     }

@@ -1,5 +1,5 @@
-import { areSelectionsEqual } from '@mana/vt'
 import type { TerminalSelection, TerminalState, TerminalUpdate } from '@mana/vt'
+import { areSelectionsEqual } from '@mana/vt'
 import { createCpuCanvasRenderer } from './backends/canvas/cpu'
 import { createWebglCanvasRenderer } from './backends/webgl/renderer'
 import type {
@@ -17,13 +17,11 @@ import type {
   RendererBackendProbeResult,
   RendererBackendProvider,
   RendererCursorDescriptor,
-  RendererFrameMetadata,
   RendererFrameOverlays,
   RendererMetrics,
   RendererNextFrameMetadata,
   RendererSession,
   RendererSessionBackend,
-  RendererSessionConfiguration,
   RendererSessionObservers,
   RendererTheme,
   WebglBackendConfig,
@@ -308,7 +306,10 @@ const createProbeCanvas = (): HTMLCanvasElement | null => {
 }
 
 const resolveTimestamp = (): number => {
-  if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+  if (
+    typeof performance !== 'undefined' &&
+    typeof performance.now === 'function'
+  ) {
     return performance.now()
   }
   return Date.now()
@@ -349,8 +350,7 @@ const normaliseSelection = (
 const resolveOverlays = (
   frame: RendererNextFrameMetadata,
 ): RendererFrameOverlays => ({
-  selection:
-    frame.overlays?.selection ?? frame.snapshot.selection ?? null,
+  selection: frame.overlays?.selection ?? frame.snapshot.selection ?? null,
   cursor: frame.overlays?.cursor ?? null,
   highlights: frame.overlays?.highlights,
   layers: frame.overlays?.layers,
@@ -369,9 +369,7 @@ const deriveEffectiveTheme = (
       ? cursor.color
       : theme.cursor.color
   const resolvedOpacity =
-    cursor.opacity !== undefined
-      ? cursor.opacity
-      : theme.cursor.opacity
+    cursor.opacity !== undefined ? cursor.opacity : theme.cursor.opacity
   const resolvedShape = cursor.shape ?? theme.cursor.shape
 
   const cursorChanged =
@@ -476,8 +474,9 @@ export const createRendererSession = (
   let captureDiagnosticsFrame = initialCaptureDiagnosticsFrame ?? false
   let observers: RendererSessionObservers = initialObservers ?? {}
   let cursorOverlayStrategy = initialCursorOverlayStrategy
-  let selectionCallback: ((selection: TerminalSelection | null) => void) | null =
-    initialSelectionCallback ?? null
+  let selectionCallback:
+    | ((selection: TerminalSelection | null) => void)
+    | null = initialSelectionCallback ?? null
 
   let lastDiagnostics: CanvasRenderer['diagnostics'] | null = null
   let lastSnapshot: TerminalState | null = null
@@ -561,8 +560,14 @@ export const createRendererSession = (
     },
     presentFrame: (frame) => {
       const overlays = resolveOverlays(frame)
-      const effectiveTheme = deriveEffectiveTheme(frame.theme, overlays.cursor ?? null)
-      const effectiveSnapshot = deriveEffectiveSnapshot(frame.snapshot, overlays)
+      const effectiveTheme = deriveEffectiveTheme(
+        frame.theme,
+        overlays.cursor ?? null,
+      )
+      const effectiveSnapshot = deriveEffectiveSnapshot(
+        frame.snapshot,
+        overlays,
+      )
 
       const { instance, created } = ensureRenderer(
         frame,
@@ -579,7 +584,8 @@ export const createRendererSession = (
       }
 
       const metricsChanged = shouldIncludeMetrics(currentMetrics, frame.metrics)
-      const themeChanged = !created && shouldIncludeTheme(currentTheme, effectiveTheme)
+      const themeChanged =
+        !created && shouldIncludeTheme(currentTheme, effectiveTheme)
 
       const updateOptions: CanvasRendererUpdateOptions = {
         snapshot: effectiveSnapshot,
@@ -636,12 +642,7 @@ export const createRendererSession = (
 
       let shouldResetRenderer = false
 
-      if (
-        Object.prototype.hasOwnProperty.call(
-          configuration,
-          'captureDiagnosticsFrame',
-        )
-      ) {
+      if (Object.hasOwn(configuration, 'captureDiagnosticsFrame')) {
         const nextCapture = configuration.captureDiagnosticsFrame
         if (
           typeof nextCapture === 'boolean' &&
@@ -652,24 +653,14 @@ export const createRendererSession = (
         }
       }
 
-      if (
-        Object.prototype.hasOwnProperty.call(
-          configuration,
-          'cursorOverlayStrategy',
-        )
-      ) {
+      if (Object.hasOwn(configuration, 'cursorOverlayStrategy')) {
         if (configuration.cursorOverlayStrategy !== cursorOverlayStrategy) {
           cursorOverlayStrategy = configuration.cursorOverlayStrategy
           shouldResetRenderer = true
         }
       }
 
-      if (
-        Object.prototype.hasOwnProperty.call(
-          configuration,
-          'onSelectionChange',
-        )
-      ) {
+      if (Object.hasOwn(configuration, 'onSelectionChange')) {
         selectionCallback = configuration.onSelectionChange ?? null
         emittedSelection = null
         if (selectionCallback) {
