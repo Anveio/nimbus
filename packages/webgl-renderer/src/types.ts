@@ -35,6 +35,8 @@ export interface RendererResizeRequestEvent {
   readonly reason: 'remote' | 'host-triggered' | 'initial'
 }
 
+export type RendererColor = string
+
 export interface RendererTheme {
   readonly background: string
   readonly foreground: string
@@ -48,7 +50,13 @@ export interface RendererTheme {
     readonly foreground?: string
   }
   readonly palette: {
+    /**
+     * ANSI palette (index 0–15). Consumers should provide at least 16 entries.
+     */
     readonly ansi: readonly string[]
+    /**
+     * Optional 256-colour extension (indices 16–255).
+     */
     readonly extended?: readonly string[]
   }
 }
