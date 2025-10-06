@@ -59,7 +59,7 @@ export const handleTerminalHotkey = (
 
   const arrowKey = isArrowKey(key)
   const shouldExtendSelection = event.shiftKey && arrowKey
-  const snapshot = context.interpreter.getSnapshot()
+  const snapshot = context.runtime.getSnapshot()
   const previousCursor = snapshot.cursor
   const anchorPoint = shouldExtendSelection
     ? (context.keyboardSelectionAnchorRef.current ?? {
@@ -103,44 +103,44 @@ export const handleTerminalHotkey = (
     switch (key) {
       case 'ArrowLeft':
         handled = isLineMotion
-          ? context.interpreter.moveCursorLineStart({
+          ? context.runtime.moveCursorLineStart({
               extendSelection: shouldExtendSelection,
               selectionAnchor: anchorPoint,
             })
           : isWordMotion
-            ? context.interpreter.moveCursorWordLeft({
+            ? context.runtime.moveCursorWordLeft({
                 extendSelection: shouldExtendSelection,
                 selectionAnchor: anchorPoint,
               })
-            : context.interpreter.moveCursorLeft({
+            : context.runtime.moveCursorLeft({
                 extendSelection: shouldExtendSelection,
                 selectionAnchor: anchorPoint,
               })
         break
       case 'ArrowRight':
         handled = isLineMotion
-          ? context.interpreter.moveCursorLineEnd({
+          ? context.runtime.moveCursorLineEnd({
               extendSelection: shouldExtendSelection,
               selectionAnchor: anchorPoint,
             })
           : isWordMotion
-            ? context.interpreter.moveCursorWordRight({
+            ? context.runtime.moveCursorWordRight({
                 extendSelection: shouldExtendSelection,
                 selectionAnchor: anchorPoint,
               })
-            : context.interpreter.moveCursorRight({
+            : context.runtime.moveCursorRight({
                 extendSelection: shouldExtendSelection,
                 selectionAnchor: anchorPoint,
               })
         break
       case 'ArrowUp':
-        handled = context.interpreter.moveCursorUp({
+        handled = context.runtime.moveCursorUp({
           extendSelection: shouldExtendSelection,
           selectionAnchor: anchorPoint,
         })
         break
       case 'ArrowDown':
-        handled = context.interpreter.moveCursorDown({
+        handled = context.runtime.moveCursorDown({
           extendSelection: shouldExtendSelection,
           selectionAnchor: anchorPoint,
         })

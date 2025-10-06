@@ -1,3 +1,3 @@
 /** biome-ignore-all lint/performance/noReExportAll: Library */
 /** biome-ignore-all lint/performance/noBarrelFile: Library */
-export * from './Terminal'
+export const TODO = 'TODO'

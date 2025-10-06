@@ -10,8 +10,7 @@ import {
   useState,
 } from 'react'
 import type { ShortcutGuideReason } from '../hotkeys'
-import type { TerminalSelection, TerminalState } from '../terminal-types'
-import { getSelectionRowSegments } from '../terminal-types'
+import { RendererSession } from '@mana/webgl-renderer'
 export type TerminalStatusLevel = 'info' | 'warning' | 'error'
 
 export interface TerminalStatusMessage {
@@ -158,7 +157,7 @@ export interface ShortcutGuideConfig {
 }
 
 export interface AccessibilityAdapterOptions {
-  readonly snapshot: TerminalState
+  readonly snapshot: RendererSession['runtime']['snapshot']
   readonly instructions?: ReactNode
   readonly shortcutGuide?: ShortcutGuideConfig | false
   readonly onShortcutGuideToggle?: (
@@ -292,7 +291,7 @@ const createSelectionIndex = (
 }
 
 const createTranscriptRows = (
-  snapshot: TerminalState,
+  snapshot: RendererSession['runtime']['snapshot'],
   transcriptId: string,
   selectionIndex: SelectionIndex,
 ): readonly TranscriptRow[] => {
@@ -354,7 +353,7 @@ const createTranscriptRows = (
 }
 
 const resolveActiveCellId = (
-  snapshot: TerminalState,
+  snapshot: RendererSession['runtime']['snapshot'],
   transcriptId: string,
 ): string | null => {
   const target = snapshot.selection ? snapshot.selection.focus : snapshot.cursor
@@ -367,7 +366,7 @@ const resolveActiveCellId = (
 }
 
 const createCaretStatusText = (
-  snapshot: TerminalState,
+  snapshot: RendererSession['runtime']['snapshot'],
   hasSelection: boolean,
 ): string => {
   const focusPoint = snapshot.selection
