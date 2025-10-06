@@ -29,12 +29,16 @@ export const createWebglContext = (
     event.preventDefault()
   }
 
-  canvas.addEventListener('webglcontextlost', handleContextLost)
+  if ('addEventListener' in canvas) {
+    canvas.addEventListener('webglcontextlost', handleContextLost)
+  }
 
   return {
     gl,
     dispose: () => {
-      canvas.removeEventListener('webglcontextlost', handleContextLost)
+      if ('removeEventListener' in canvas) {
+        canvas.removeEventListener('webglcontextlost', handleContextLost)
+      }
       gl.getExtension('WEBGL_lose_context')?.loseContext()
     },
   }

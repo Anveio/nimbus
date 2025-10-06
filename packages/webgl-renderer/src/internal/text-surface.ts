@@ -1,5 +1,6 @@
 import type {
   RendererConfiguration,
+  RendererDirtyRegion,
   RendererFrameOverlays,
   RendererTheme,
   TerminalProfile,
@@ -15,10 +16,43 @@ const createFallbackCanvas = (): HTMLCanvasElement | OffscreenCanvas => {
   if (typeof OffscreenCanvas !== 'undefined') {
     return new OffscreenCanvas(1, 1)
   }
-  const canvas = document.createElement('canvas')
-  canvas.width = 1
-  canvas.height = 1
-  return canvas
+  if (typeof document !== 'undefined' && document?.createElement) {
+    const canvas = document.createElement('canvas')
+    canvas.width = 1
+    canvas.height = 1
+    return canvas
+  }
+
+  const stubContext = {
+    fillStyle: '#000000',
+    strokeStyle: '#000000',
+    textAlign: 'left',
+    textBaseline: 'alphabetic',
+    font: '12px monospace',
+    globalAlpha: 1,
+    setTransform: () => {},
+    clearRect: () => {},
+    fillRect: () => {},
+    fillText: () => {},
+    save: () => {},
+    restore: () => {},
+    beginPath: () => {},
+    closePath: () => {},
+    clip: () => {},
+    measureText: () => ({ width: 0 } as TextMetrics),
+    canvas: undefined as unknown as HTMLCanvasElement,
+  } as unknown as CanvasRenderingContext2D
+
+  const stubCanvas = {
+    width: 1,
+    height: 1,
+    getContext: (contextId: string) =>
+      contextId === '2d' ? stubContext : null,
+  } as unknown as HTMLCanvasElement
+
+  ;(stubContext as { canvas: HTMLCanvasElement }).canvas = stubCanvas
+
+  return stubCanvas
 }
 
 const terminalColorToCss = (
@@ -138,6 +172,7 @@ export class TextSurfaceRenderer {
     configuration: RendererConfiguration,
     profile: TerminalProfile,
     overlays: RendererFrameOverlays,
+    regions?: ReadonlyArray<RendererDirtyRegion> | null,
   ): RenderResult {
     const theme = profile.theme ?? {
       background: '#000000',
@@ -159,9 +194,80 @@ export class TextSurfaceRenderer {
 
     ctx.save()
     ctx.setTransform(scaleX, 0, 0, scaleY, 0, 0)
-    ctx.clearRect(0, 0, logicalWidth, logicalHeight)
-    ctx.fillStyle = theme.background
-    ctx.fillRect(0, 0, logicalWidth, logicalHeight)
+    const paintCell = (
+      row: number,
+      column: number,
+      cell: TerminalCell | undefined,
+      cellWidth: number,
+      cellHeight: number,
+      baseline: number,
+      selection: TerminalSelection | null,
+    ): void => {
+      const x = column * cellWidth
+      const yTop = row * cellHeight
+      const y = yTop + baseline
+      const selected = isCellSelected(selection, row, column)
+
+      if (selected) {
+        ctx.fillStyle =
+          theme.selection?.background ?? 'rgba(255, 255, 255, 0.2)'
+        ctx.fillRect(x, yTop, cellWidth, cellHeight)
+      } else {
+        ctx.fillStyle = theme.background
+        ctx.fillRect(x, yTop, cellWidth, cellHeight)
+      }
+
+      if (!cell) {
+        return
+      }
+
+      const background = terminalBackgroundToCss(cell.attr.background, theme)
+      if (background !== theme.background && !selected) {
+        ctx.fillStyle = background
+        ctx.fillRect(x, yTop, cellWidth, cellHeight)
+      }
+
+      ctx.font = buildFontString(configuration, cell.attr.bold, cell.attr.italic)
+      ctx.fillStyle = selected
+        ? theme.selection?.foreground ?? theme.background
+        : terminalColorToCss(cell.attr.foreground, theme)
+      ctx.fillText(cell.char, x, y)
+    }
+
+    const paintRegion = (
+      rowStart: number,
+      rowEnd: number,
+      columnStart: number,
+      columnEnd: number,
+      cellWidth: number,
+      cellHeight: number,
+      baseline: number,
+      selection: TerminalSelection | null,
+    ) => {
+      const regionX = columnStart * cellWidth
+      const regionY = rowStart * cellHeight
+      const regionWidth = (columnEnd - columnStart) * cellWidth
+      const regionHeight = (rowEnd - rowStart) * cellHeight
+      ctx.clearRect(regionX, regionY, regionWidth, regionHeight)
+      ctx.fillStyle = theme.background
+      ctx.fillRect(regionX, regionY, regionWidth, regionHeight)
+
+      for (let row = rowStart; row < rowEnd; row += 1) {
+        const bufferRow = snapshot.buffer[row]
+        for (let column = columnStart; column < columnEnd; column += 1) {
+          const cell: TerminalCell | undefined = bufferRow?.[column]
+          paintCell(
+            row,
+            column,
+            cell,
+            cellWidth,
+            cellHeight,
+            baseline,
+            selection,
+          )
+        }
+      }
+    }
 
     const cellWidth = configuration.cell.width
     const cellHeight = configuration.cell.height
@@ -171,34 +277,20 @@ export class TextSurfaceRenderer {
 
     const selection = overlays.selection ?? snapshot.selection ?? null
 
-    for (let row = 0; row < snapshot.rows; row += 1) {
-      const y = row * cellHeight + baseline
-      const line = snapshot.buffer[row]
-      for (let column = 0; column < snapshot.columns; column += 1) {
-        const cell: TerminalCell | undefined = line?.[column]
-        if (!cell) {
-          continue
-        }
-
-        const x = column * cellWidth
-        const selected = isCellSelected(selection, row, column)
-        if (selected) {
-          ctx.fillStyle =
-            theme.selection?.background ?? 'rgba(255, 255, 255, 0.2)'
-          ctx.fillRect(x, row * cellHeight, cellWidth, cellHeight)
-        }
-
-        const background = terminalBackgroundToCss(cell.attr.background, theme)
-        if (background !== theme.background && !selected) {
-          ctx.fillStyle = background
-          ctx.fillRect(x, row * cellHeight, cellWidth, cellHeight)
-        }
-
-        ctx.font = buildFontString(configuration, cell.attr.bold, cell.attr.italic)
-        ctx.fillStyle = selected
-          ? theme.selection?.foreground ?? theme.background
-          : terminalColorToCss(cell.attr.foreground, theme)
-        ctx.fillText(cell.char, x, y)
+    if (!regions || regions.length === 0) {
+      paintRegion(0, snapshot.rows, 0, snapshot.columns, cellWidth, cellHeight, baseline, selection)
+    } else {
+      for (const region of regions) {
+        paintRegion(
+          region.rowStart,
+          region.rowEnd,
+          region.columnStart,
+          region.columnEnd,
+          cellWidth,
+          cellHeight,
+          baseline,
+          selection,
+        )
       }
     }
 

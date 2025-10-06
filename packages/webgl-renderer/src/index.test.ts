@@ -9,14 +9,69 @@ const presentFrame = vi.fn()
 const configureSession = vi.fn()
 const disposeSession = vi.fn()
 
+const createWebglStub = (): WebGL2RenderingContext => {
+  const gl = {
+    TEXTURE_2D: 0x0de1,
+    UNPACK_ALIGNMENT: 0x0cf5,
+    UNPACK_PREMULTIPLY_ALPHA_WEBGL: 0x9241,
+    UNPACK_FLIP_Y_WEBGL: 0x9240,
+    TEXTURE_MIN_FILTER: 0x2801,
+    TEXTURE_MAG_FILTER: 0x2800,
+    NEAREST: 0x2600,
+    TEXTURE_WRAP_S: 0x2802,
+    TEXTURE_WRAP_T: 0x2803,
+    CLAMP_TO_EDGE: 0x812f,
+    createShader: vi.fn(() => ({} as WebGLShader)),
+    shaderSource: vi.fn(),
+    compileShader: vi.fn(),
+    getShaderParameter: vi.fn(() => true),
+    getShaderInfoLog: vi.fn(() => null),
+    deleteShader: vi.fn(),
+    createProgram: vi.fn(() => ({} as WebGLProgram)),
+    attachShader: vi.fn(),
+    linkProgram: vi.fn(),
+    getProgramParameter: vi.fn(() => true),
+    getProgramInfoLog: vi.fn(() => null),
+    deleteProgram: vi.fn(),
+    createTexture: vi.fn(() => ({} as WebGLTexture)),
+    bindTexture: vi.fn(),
+    texParameteri: vi.fn(),
+    texImage2D: vi.fn(),
+    texSubImage2D: vi.fn(),
+    deleteTexture: vi.fn(),
+    disable: vi.fn(),
+    clearColor: vi.fn(),
+    getUniformLocation: vi.fn(() => ({} as WebGLUniformLocation)),
+    uniform1i: vi.fn(),
+    createVertexArray: vi.fn(() => ({} as WebGLVertexArrayObject)),
+    createBuffer: vi.fn(() => ({} as WebGLBuffer)),
+    bindVertexArray: vi.fn(),
+    bindBuffer: vi.fn(),
+    bufferData: vi.fn(),
+    enableVertexAttribArray: vi.fn(),
+    vertexAttribPointer: vi.fn(),
+    deleteVertexArray: vi.fn(),
+    deleteBuffer: vi.fn(),
+    clear: vi.fn(),
+    drawArrays: vi.fn(),
+    flush: vi.fn(),
+    viewport: vi.fn(),
+    pixelStorei: vi.fn(),
+    useProgram: vi.fn(),
+    readPixels: vi.fn(),
+    getExtension: vi.fn(() => ({ loseContext: vi.fn() })),
+  } as unknown as WebGL2RenderingContext
+  return gl
+}
+
 class StubCanvas {
   width = 0
   height = 0
   readonly style = { width: '', height: '' }
+  addEventListener = vi.fn()
+  removeEventListener = vi.fn()
   getContext(): unknown {
-    return {
-      readPixels: vi.fn(),
-    }
+    return createWebglStub()
   }
 }
 
@@ -54,6 +109,7 @@ describe('createRenderer', () => {
     } satisfies CreateRendererOptions<WebglRendererConfig>)
 
     const canvas = new StubCanvas() as unknown as HTMLCanvasElement
+    const dispose = renderer.onFrame(presentFrame)
     renderer.mount({ renderRoot: canvas })
     await vi.runAllTimersAsync()
 
@@ -62,6 +118,7 @@ describe('createRenderer', () => {
       metadata?: { reason?: string }
     }
     expect(frame.metadata?.reason).toBe('initial')
+    dispose()
     renderer.free()
   })
 
@@ -69,6 +126,7 @@ describe('createRenderer', () => {
     const configuration = createConfiguration()
     const renderer = await createRenderer({ rendererConfig: configuration })
     const canvas = new StubCanvas() as unknown as HTMLCanvasElement
+    const dispose = renderer.onFrame(presentFrame)
     renderer.mount({ renderRoot: canvas })
     await vi.runAllTimersAsync()
     presentFrame.mockClear()
@@ -83,6 +141,7 @@ describe('createRenderer', () => {
     }
     expect((frame.updates?.length ?? 0) > 0).toBe(true)
     expect(frame.metadata?.reason).toBe('apply-updates')
+    dispose()
     renderer.free()
   })
 
@@ -90,6 +149,7 @@ describe('createRenderer', () => {
     const configuration = createConfiguration()
     const renderer = await createRenderer({ rendererConfig: configuration })
     const canvas = new StubCanvas() as unknown as HTMLCanvasElement
+    const dispose = renderer.onFrame(presentFrame)
     renderer.mount({ renderRoot: canvas })
     await vi.runAllTimersAsync()
     presentFrame.mockClear()
@@ -111,6 +171,7 @@ describe('createRenderer', () => {
     }
     expect(frame.metadata?.reason).toBe('sync')
     expect(frame.viewport.rows).toBe(48)
+    dispose()
     renderer.free()
   })
 })

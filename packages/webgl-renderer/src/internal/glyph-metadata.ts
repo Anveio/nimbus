@@ -1,6 +1,6 @@
 import type { TerminalCell } from '@mana/vt'
-import { rendererColorToRgba } from '../../../util/colors'
-import type { RendererTheme } from '../../../types'
+import { rendererColorToRgba } from './colors'
+import type { RendererTheme } from '../types'
 
 export type SelectionTint = [number, number, number, number]
 

@@ -6,6 +6,9 @@ import {
 import { createWebglContext } from './gl/context'
 import { createFullScreenQuad, disposeFullScreenQuad } from './gl/quad'
 import { createProgram } from './gl/shader'
+import { DamageTracker } from './internal/damage-tracker'
+import { FrameScheduler } from './internal/frame-scheduler'
+import { TILE_HEIGHT_CELLS, TILE_WIDTH_CELLS } from './internal/constants'
 import { createListenerRegistry } from './internal/listener-registry'
 import { mergeTerminalProfile } from './internal/profile'
 import {
@@ -16,11 +19,13 @@ import { TextSurfaceRenderer } from './internal/text-surface'
 import type {
   CreateRendererOptions,
   RendererConfiguration,
+  RendererDirtyRegion,
   RendererEvent,
   RendererFrameEvent,
   RendererInstance,
   RendererResizeRequestEvent,
   RenderSurface,
+  RuntimeUpdateBatch,
   TerminalProfile,
   WebglRendererConfig,
   WebglRendererFrameMetadata,
@@ -31,22 +36,6 @@ const DEFAULT_PROFILE: TerminalProfile = {}
 
 const DEFAULT_CONFIG: WebglRendererConfig = {
   autoFlush: true,
-}
-
-type FrameHandle = number | ReturnType<typeof setTimeout>
-
-const requestFrame: (callback: FrameRequestCallback) => FrameHandle =
-  typeof window !== 'undefined' && window.requestAnimationFrame
-    ? window.requestAnimationFrame.bind(window)
-    : (callback: FrameRequestCallback) =>
-        setTimeout(() => callback(Date.now()), 16)
-
-const cancelFrame = (handle: FrameHandle): void => {
-  if (typeof window !== 'undefined' && window.cancelAnimationFrame) {
-    window.cancelAnimationFrame(handle as number)
-    return
-  }
-  clearTimeout(handle as ReturnType<typeof setTimeout>)
 }
 
 const VERTEX_SHADER = `#version 300 es
@@ -105,11 +94,17 @@ export class WebglRenderer
   private readonly frameListeners = createListenerRegistry<RendererFrameEvent>()
   private readonly resizeListeners =
     createListenerRegistry<RendererResizeRequestEvent>()
+  private readonly scheduler = new FrameScheduler()
+  private readonly damageTracker = new DamageTracker()
+  private pendingBatches: RuntimeUpdateBatch[] = []
 
   private freed = false
-  private frameHandle: FrameHandle | null = null
   private pendingFrame: FrameState | null = null
   private lastFrameTimestamp: number | null = null
+  private needsFullRedraw = true
+  private tileColumns = 0
+  private tileRows = 0
+  private lastCursorTile: number | null = null
 
   constructor(
     runtime: TerminalRuntime,
@@ -134,13 +129,19 @@ export class WebglRenderer
       throw new Error('Renderer has been freed and cannot be remounted')
     }
     const renderRoot = surface.renderRoot
-    if (!(renderRoot instanceof HTMLElement)) {
+    if (
+      typeof HTMLElement !== 'undefined' &&
+      !(renderRoot instanceof HTMLElement)
+    ) {
       throw new Error('Renderer surface must provide an HTMLElement renderRoot')
     }
 
     let canvas: HTMLCanvasElement | null = null
     let ownsCanvas = false
-    if (renderRoot instanceof HTMLCanvasElement) {
+    if (
+      typeof HTMLCanvasElement !== 'undefined' &&
+      renderRoot instanceof HTMLCanvasElement
+    ) {
       canvas = renderRoot
     } else if (this.rendererConfig.renderRoot instanceof HTMLCanvasElement) {
       canvas = this.rendererConfig.renderRoot
@@ -158,7 +159,9 @@ export class WebglRenderer
 
     if (this._configuration) {
       this.applyConfigurationDimensions(canvas, this._configuration)
-      this.scheduleFrame('initial')
+      this.updateTileDimensions()
+      this.needsFullRedraw = true
+      this.requestFrame('initial')
     }
   }
 
@@ -191,13 +194,18 @@ export class WebglRenderer
           this.getFramebufferHeight(event.configuration),
         )
       }
-      this.scheduleFrame('resize')
+      this.updateTileDimensions()
+      this.needsFullRedraw = true
+      this.lastCursorTile = null
+      this.requestFrame('sync')
       return
     }
 
     if (event.type === 'profile.update') {
       this._profile = mergeTerminalProfile(this._profile, event.profile)
-      this.scheduleFrame('theme-change')
+      this.needsFullRedraw = true
+      this.lastCursorTile = null
+      this.requestFrame('theme-change')
       return
     }
 
@@ -207,8 +215,14 @@ export class WebglRenderer
     )
 
     if (result.handled) {
-      const reason = result.batch ? result.batch.reason : 'sync'
-      this.scheduleFrame(reason)
+      if (result.batch) {
+        this.pendingBatches.push(result.batch)
+        this.recordBatchDamage(result.batch)
+        const reason = result.batch.reason ?? 'apply-updates'
+        this.requestFrame(reason)
+      } else {
+        this.requestFrame('sync')
+      }
       return
     }
 
@@ -234,11 +248,10 @@ export class WebglRenderer
     this.unmount()
     this.frameListeners.clear()
     this.resizeListeners.clear()
-    if (this.frameHandle !== null) {
-      cancelFrame(this.frameHandle)
-      this.frameHandle = null
-    }
+    this.scheduler.cancel()
     this.pendingFrame = null
+    this.pendingBatches = []
+    this.damageTracker.clear()
     this.runtime.reset()
     this.texture = null
     this.freed = true
@@ -354,16 +367,12 @@ export class WebglRenderer
     )
   }
 
-  private scheduleFrame(reason: FrameReason): void {
+  private requestFrame(reason: FrameReason): void {
     if (this.freed) {
       return
     }
     this.pendingFrame = { reason }
-    if (this.frameHandle !== null) {
-      return
-    }
-    this.frameHandle = requestFrame((timestamp) => {
-      this.frameHandle = null
+    this.scheduler.request((timestamp) => {
       const frame = this.pendingFrame
       this.pendingFrame = null
       if (!frame) {
@@ -384,6 +393,15 @@ export class WebglRenderer
       return
     }
 
+    if (
+      !this.needsFullRedraw &&
+      !this.damageTracker.hasWork() &&
+      this.pendingBatches.length === 0 &&
+      reason === 'sync'
+    ) {
+      return
+    }
+
     const snapshot: TerminalState = this.runtime.snapshot
     const overlays = {
       selection:
@@ -393,11 +411,14 @@ export class WebglRenderer
       layers: this._profile.overlays?.layers,
     }
 
+    const regions = this.resolveRenderRegions(snapshot)
+
     const rendered = this.textRenderer.render(
       snapshot,
       this._configuration,
       this._profile,
       overlays,
+      regions,
     )
 
     const { gl } = this
@@ -406,14 +427,45 @@ export class WebglRenderer
 
     gl.viewport(0, 0, width, height)
     gl.bindTexture(gl.TEXTURE_2D, this.texture)
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.RGBA,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      rendered.canvas,
-    )
+    const fullUpload = !regions || regions.length === 0 || this.needsFullRedraw
+
+    if (fullUpload) {
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        rendered.canvas,
+      )
+      this.needsFullRedraw = false
+    } else {
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+      const dpr = this._configuration.devicePixelRatio
+      const cellWidth = this._configuration.cell.width
+      const cellHeight = this._configuration.cell.height
+      for (const region of regions) {
+        const xCss = region.columnStart * cellWidth
+        const yCss = region.rowStart * cellHeight
+        const widthCss = (region.columnEnd - region.columnStart) * cellWidth
+        const heightCss = (region.rowEnd - region.rowStart) * cellHeight
+        const xPx = Math.floor(xCss * dpr)
+        const yPx = Math.floor(yCss * dpr)
+        const widthPx = Math.max(1, Math.ceil(widthCss * dpr))
+        const heightPx = Math.max(1, Math.ceil(heightCss * dpr))
+        gl.texSubImage2D(
+          gl.TEXTURE_2D,
+          0,
+          xPx,
+          yPx,
+          widthPx,
+          heightPx,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          rendered.canvas,
+        )
+      }
+    }
 
     gl.useProgram(this.program)
     gl.bindVertexArray(this.vao)
@@ -431,13 +483,23 @@ export class WebglRenderer
         : null
     this.lastFrameTimestamp = timestamp
 
+    const dirtyRegionMetrics = this.computeDirtyMetrics(
+      snapshot,
+      regions,
+      fullUpload,
+    )
+
+    const aggregatedUpdates = this.pendingBatches.flatMap((batch) => batch.updates)
+    const gridConfig = this._configuration.grid
+
     const frameEvent: RendererFrameEvent<WebglRendererFrameMetadata> = {
       timestamp,
       approxFrameDuration,
+      dirtyRegion: dirtyRegionMetrics?.dirtyRegion,
       metadata: {
         reason,
         drawCallCount: 1,
-        grid: { rows: snapshot.rows, columns: snapshot.columns },
+        grid: { rows: gridConfig.rows, columns: gridConfig.columns },
         cssPixels: this._configuration.cssPixels,
         framebufferPixels: this._configuration.framebufferPixels ?? {
           width,
@@ -450,17 +512,250 @@ export class WebglRenderer
         gpu: {
           frameDurationMs: approxFrameDuration,
           drawCallCount: 1,
-          bytesUploaded: width * height * 4,
-          dirtyRegionCoverage: 1,
+          bytesUploaded:
+            dirtyRegionMetrics?.bytesUploaded ?? width * height * 4,
+          dirtyRegionCoverage: dirtyRegionMetrics?.coverage ?? 1,
         },
         osc: null,
         sosPmApc: snapshot.lastSosPmApc,
         dcs: null,
         frameHash: undefined,
       },
+      updates: aggregatedUpdates,
+      viewport: { rows: gridConfig.rows, columns: gridConfig.columns },
     }
 
     this.frameListeners.emit(frameEvent)
+    const currentCursorTile = this.tileIndexForPosition(
+      snapshot.cursor.row,
+      snapshot.cursor.column,
+    )
+    if (currentCursorTile !== null) {
+      this.lastCursorTile = currentCursorTile
+    }
+    this.pendingBatches = []
+    this.damageTracker.clear()
+  }
+
+  private resolveRenderRegions(
+    snapshot: TerminalState,
+  ): RendererDirtyRegion[] | null {
+    if (this.needsFullRedraw) {
+      return null
+    }
+    if (this.damageTracker.overlayChanged) {
+      this.needsFullRedraw = true
+      return null
+    }
+    const dirtyTiles = this.damageTracker.consumeDirtyTiles()
+    if (dirtyTiles.length === 0) {
+      return null
+    }
+    const configuration = this._configuration
+    if (!configuration) {
+      return null
+    }
+    const rows = configuration.grid.rows
+    const columns = configuration.grid.columns
+    const regions: RendererDirtyRegion[] = []
+    for (const index of dirtyTiles) {
+      const tile = this.tileFromIndex(index)
+      if (!tile) {
+        continue
+      }
+      const rowStart = tile.y * TILE_HEIGHT_CELLS
+      const columnStart = tile.x * TILE_WIDTH_CELLS
+      const rowEnd = Math.min(rows, rowStart + TILE_HEIGHT_CELLS)
+      const columnEnd = Math.min(columns, columnStart + TILE_WIDTH_CELLS)
+      if (rowStart >= rowEnd || columnStart >= columnEnd) {
+        continue
+      }
+      regions.push({
+        rowStart,
+        rowEnd,
+        columnStart,
+        columnEnd,
+      })
+    }
+    return regions.length > 0 ? regions : null
+  }
+
+  private computeDirtyMetrics(
+    snapshot: TerminalState,
+    regions: RendererDirtyRegion[] | null,
+    fullUpload: boolean,
+  ):
+    | {
+        dirtyRegion: { rows: number; columns: number }
+        bytesUploaded: number
+        coverage: number
+      }
+    | null {
+    if (fullUpload) {
+      return {
+        dirtyRegion: { rows: snapshot.rows, columns: snapshot.columns },
+        bytesUploaded:
+          this.getFramebufferWidth(this._configuration!) *
+          this.getFramebufferHeight(this._configuration!) *
+          4,
+        coverage: 1,
+      }
+    }
+    if (!regions || regions.length === 0) {
+      return null
+    }
+
+    const uniqueRows = new Set<number>()
+    const uniqueColumns = new Set<number>()
+    let uploadedBytes = 0
+    const dpr = this._configuration!.devicePixelRatio
+    const cellWidth = this._configuration!.cell.width
+    const cellHeight = this._configuration!.cell.height
+    for (const region of regions) {
+      for (let row = region.rowStart; row < region.rowEnd; row += 1) {
+        uniqueRows.add(row)
+      }
+      for (
+        let column = region.columnStart;
+        column < region.columnEnd;
+        column += 1
+      ) {
+        uniqueColumns.add(column)
+      }
+      const widthCss = (region.columnEnd - region.columnStart) * cellWidth
+      const heightCss = (region.rowEnd - region.rowStart) * cellHeight
+      const widthPx = Math.max(1, Math.ceil(widthCss * dpr))
+      const heightPx = Math.max(1, Math.ceil(heightCss * dpr))
+      uploadedBytes += widthPx * heightPx * 4
+    }
+    const totalPixels =
+      this.getFramebufferWidth(this._configuration!) *
+      this.getFramebufferHeight(this._configuration!)
+    const pixelsUploaded = uploadedBytes / 4
+    const coverage = Math.min(1, totalPixels === 0 ? 0 : pixelsUploaded / totalPixels)
+    return {
+      dirtyRegion: {
+        rows: uniqueRows.size,
+        columns: uniqueColumns.size,
+      },
+      bytesUploaded: uploadedBytes,
+      coverage: coverage || 0,
+    }
+  }
+
+  private recordBatchDamage(batch: RuntimeUpdateBatch): void {
+    if (!this._configuration) {
+      this.needsFullRedraw = true
+      return
+    }
+    if (batch.reason === 'initial') {
+      this.needsFullRedraw = true
+    }
+    const tileColumns = this.tileColumns
+    const markTile = (row: number, column: number): number | null => {
+      if (row < 0 || column < 0 || tileColumns <= 0) {
+        this.needsFullRedraw = true
+        return null
+      }
+      const tileX = Math.floor(column / TILE_WIDTH_CELLS)
+      const tileY = Math.floor(row / TILE_HEIGHT_CELLS)
+      if (tileX < 0 || tileY < 0) {
+        return null
+      }
+      const index = tileY * tileColumns + tileX
+      this.damageTracker.markTileDirty(index)
+      return index
+    }
+
+    for (const update of batch.updates ?? []) {
+      switch (update.type) {
+        case 'cells': {
+          for (const cell of update.cells) {
+            markTile(cell.row, cell.column)
+          }
+          break
+        }
+        case 'cursor': {
+          const previousTile = this.lastCursorTile
+          const newTile = markTile(update.position.row, update.position.column)
+          if (
+            previousTile !== null &&
+            previousTile !== newTile &&
+            previousTile >= 0
+          ) {
+            this.damageTracker.markTileDirty(previousTile)
+          }
+          if (newTile !== null) {
+            this.lastCursorTile = newTile
+          }
+          break
+        }
+        case 'selection-set':
+        case 'selection-update':
+        case 'selection-clear': {
+          this.damageTracker.overlayChanged = true
+          break
+        }
+        case 'clear':
+        case 'scroll':
+        case 'scroll-region':
+        case 'palette':
+        case 'mode':
+        case 'attributes':
+        case 'bell':
+        case 'cursor-visibility':
+        case 'c1-transmission':
+        case 'dcs-start':
+        case 'dcs-data':
+        case 'dcs-end':
+        case 'sos-pm-apc':
+        case 'response': {
+          this.needsFullRedraw = true
+          break
+        }
+        default:
+          break
+      }
+    }
+  }
+
+  private tileFromIndex(index: number): { x: number; y: number } | null {
+    if (index < 0 || this.tileColumns <= 0) {
+      return null
+    }
+    const x = index % this.tileColumns
+    const y = Math.floor(index / this.tileColumns)
+    return { x, y }
+  }
+
+  private tileIndexForPosition(row: number, column: number): number | null {
+    if (row < 0 || column < 0 || this.tileColumns <= 0) {
+      return null
+    }
+    const tileX = Math.floor(column / TILE_WIDTH_CELLS)
+    const tileY = Math.floor(row / TILE_HEIGHT_CELLS)
+    if (tileX < 0 || tileY < 0) {
+      return null
+    }
+    return tileY * this.tileColumns + tileX
+  }
+
+  private updateTileDimensions(): void {
+    if (!this._configuration) {
+      this.tileColumns = 0
+      this.tileRows = 0
+      this.lastCursorTile = null
+      return
+    }
+    this.tileColumns = Math.max(
+      1,
+      Math.ceil(this._configuration.grid.columns / TILE_WIDTH_CELLS),
+    )
+    this.tileRows = Math.max(
+      1,
+      Math.ceil(this._configuration.grid.rows / TILE_HEIGHT_CELLS),
+    )
+    this.lastCursorTile = null
   }
 }
 

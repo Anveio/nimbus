@@ -1,6 +1,6 @@
 import type { TerminalCell } from '@mana/vt'
 import { describe, expect, test, beforeAll, afterAll, vi } from 'vitest'
-import type { RendererMetrics } from '../../../types'
+import type { RendererMetrics } from '../types'
 import { GlyphAtlas } from './glyph-atlas'
 import { DEFAULT_ATLAS_SIZE } from './constants'
 import { WebglError } from './gl-utils'

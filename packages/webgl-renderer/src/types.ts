@@ -85,6 +85,32 @@ export interface RendererFrameOverlays {
   readonly layers?: Record<string, unknown>
 }
 
+export interface RendererDirtyRegion {
+  readonly rowStart: number
+  readonly rowEnd: number
+  readonly columnStart: number
+  readonly columnEnd: number
+}
+
+export interface RendererFontMetrics {
+  readonly family: string
+  readonly size: number
+  readonly letterSpacing: number
+  readonly lineHeight: number
+}
+
+export interface RendererCellMetrics {
+  readonly width: number
+  readonly height: number
+  readonly baseline: number
+}
+
+export interface RendererMetrics {
+  readonly devicePixelRatio: number
+  readonly font: RendererFontMetrics
+  readonly cell: RendererCellMetrics
+}
+
 export interface RendererAccessibilityProfile {
   readonly highContrast: boolean
   readonly reducedMotion?: boolean
@@ -123,6 +149,8 @@ export interface RendererFrameEvent<TMetadata = Record<string, unknown>> {
   readonly dirtyRegion?: { readonly rows: number; readonly columns: number }
   readonly metadata?: TMetadata
   readonly diagnostics?: RendererDiagnostics
+  readonly updates?: ReadonlyArray<TerminalUpdate>
+  readonly viewport?: { readonly rows: number; readonly columns: number }
 }
 
 export type RuntimePointerEventPhase = 'down' | 'move' | 'up' | 'cancel'

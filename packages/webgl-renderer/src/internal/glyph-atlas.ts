@@ -1,7 +1,6 @@
 import type { TerminalCell } from '@mana/vt'
-import type { RendererMetrics } from '../../../types'
-import { fontString } from '../../../util/fonts'
-import type { GlyphMeta } from '../renderer-types'
+import type { RendererMetrics } from '../types'
+import { fontString } from './fonts'
 import {
   ATLAS_TEXTURE_FORMAT,
   ATLAS_TEXTURE_INTERNAL_FORMAT,
@@ -10,6 +9,23 @@ import {
   MAX_ATLAS_PAGES,
 } from './constants'
 import { WebglError } from './gl-utils'
+
+export interface GlyphMeta {
+  readonly page: number
+  readonly u0: number
+  readonly v0: number
+  readonly u1: number
+  readonly v1: number
+  readonly advance: number
+  readonly bearingX: number
+  readonly bearingY: number
+  readonly width: number
+  readonly height: number
+  readonly textureWidth: number
+  readonly textureHeight: number
+  readonly padding: number
+  readonly isColor: boolean
+}
 
 const GLYPH_PADDING = 0
 
