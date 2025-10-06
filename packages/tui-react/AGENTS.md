@@ -50,6 +50,16 @@ This charter guides how we evolve the React bindings for the Mana terminal stack
 - The `HotkeyContext` captures interpreter motion helpers, selection refs, and IO callbacks, paving the way for configurable bindings.
 - Unit + E2E coverage exercise the new module; future work is to expose a public API for custom key maps.
 
+### 2025-10-10 – Renderer root v1 adoption
+- Rebuilt `<Terminal />` around the spec v1 `createRendererRoot` contract, keeping renderer selection injectable while defaulting to WebGL.
+- Component now auto-manages container provisioning, ResizeObserver-driven `renderer.configure` dispatches, and profile updates without remounting sessions.
+- Added Vitest coverage faking the renderer root/session to guard resize, profile, and disposal flows; future work: hot path input + transport wiring.
+
+### 2025-10-11 – Renderer layering extraction
+- Split `<Terminal />` into composable layers: `RendererRootBoundary` guarantees DOM container → renderer root wiring, while `RendererSessionProvider` owns runtime mounting, configuration, and lifecycle hooks.
+- `<Terminal />` now composes those layers and only supplies the imperative handle; consumers can embed the boundary/provider stack directly when they need lower-level control.
+- Added hooks (`useRendererRoot`, `useRendererSessionContext`) and exported providers to encourage reuse in accessibility overlays and future renderer hosts.
+
 ### 2025-10-02 – Terminal props consolidation + managed transport *(superseded by 2025-10-03 refactor)*
 - Collapsed the `<Terminal />` surface into nested `accessibility`, `styling`, `graphics`, `instrumentation`, and `transport` option blocks. Back-compat shims remain, but new work should target the structured API.
 - Renderer selection now hinges on string backends (`cpu`, `webgl`, `webgpu`) routed through the canvas renderer package; the imperative handle exposes `getRendererBackend()` and frame callbacks ship richer diagnostics via `instrumentation.onFrame`.
