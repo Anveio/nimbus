@@ -17,6 +17,7 @@ type CreateRendererOptions<TRendererConfig> = {
   runtime?: TerminalRuntime
   /** Inject an existing profile; renderer will create a default if none is provided. */
   profile?: TerminalProfile
+  rendererConfig: RendererConfiguration
 } & TRendererConfig
 
 /** Synchronously create a renderer instance. */
@@ -42,36 +43,51 @@ interface RendererInstance<TRendererConfig> {
   readonly profile: TerminalProfile
   /**
    * Get access to the underlying runtime in order to manipulate the interpreter directly,
-   * e.g. `moveCursorLeft`, `moveCursorRight`
+   * e.g. `moveCursorLeft`, `moveCursorRight`. Returns the same object across calls.
    * */
   readonly runtime: TerminalRuntime
+  /**
+   * The most recently applied renderer configuration, if available. Reflects the last `renderer.configure` event dispatched by the host. Use it when re-rendering overlays or mapping pointer input.
+   */
+  readonly configuration?: RendererConfiguration
+  /**
+   * Attaches the renderer to a host surface. Must be called before the renderer can push pixels to the screen. The renderer can accept dispatches prior to a mount. Multiple mount/unmount cycles
+  must preserve runtime and graphics state.
+   * */
   mount(surface: RenderSurface<TRendererConfig>): void
+  /**
+   * Detaches without destroying state, pauses pushing pixels to the screen.
+   * */
   unmount(): void
+  /**
+   * Synchronous fire-and-forget. Renderers queue work and schedule
+  frames as needed. Example: `renderer.dispatch({ type: 'runtime.cursor.move', direction: 'left' })`
+   * */
   dispatch(event: RendererEvent<TRendererConfig>): void
+  /**
+   * Fires whenever pixels are presented and at least once after mounting
+  to a new surface. Remounting the same referential surface does not require an
+  extra frame.
+   * */
   onFrame(
     listener: (event: RendererFrameEvent<TRendererConfig>) => void,
   ): () => void
   /**
-   * Should empty the renderer's buffer
+   * notifies the host when the runtime asks for a new grid (e.g. CSI 8). The host remains the source of truth until it dispatches another configuration.
+   */
+  onResizeRequest?(
+    listener: (event: RendererResizeRequestEvent) => void,
+  ): () => void
+  /**
+   * Resets the renderer's buffer and the underlying interpreter to the initial state, pauses all pixel pushing (calls unmount internally). No more onFrame event handlers will be triggered. Mount can no longer be called as the renderer is now in an unusable state. Used to free up memory and release resources.
    * */
-  reset(): void;
+  free(): void;
   /**
    * Get the internal representation, for observability
    * */
   serializeBuffer?(): Promise<ImageBitmap | Uint8Array>;
 }
 ```
-- `mount` attaches the renderer to a host surface. Multiple mount/unmount cycles
-  must preserve runtime and graphics state.
-- `unmount` detaches without destroying state; subsequent `dispatch` calls are
-  expected to no-op until the renderer is mounted again.
-- `reset` Resets the renderer's buffer and the underlying interpreter to the initial state. Used to free up memory and release resources.
-- `dispatch` is synchronous fire-and-forget. Renderers queue work and schedule
-  frames as needed. Example: `renderer.dispatch({ type: 'runtime.cursor.move', direction: 'left' })`
-- `onFrame` fires whenever pixels are presented and at least once after mounting
-  to a new surface. Remounting the same referential surface does not require an
-  extra frame.
-- `getRuntime` exposes imperative utilities for hosts/tests to directly manipulate the underlying runtime by calling its methods, e.g. `moveCursorLeft`, ` `getRuntime` must return the same object across calls.
 
 
 ## RenderSurface
@@ -87,6 +103,38 @@ type RenderSurface<TRendererConfig> =
 ```
 
 - If a renderer requires a specific surface kind, it must throw from `mount` when an incompatible kind is provided (with a descriptive error).
+
+### Renderer Configuration & DPI Negotiation
+
+Hosts remain the canonical authority for terminal dimensions and pixel geometry. They measure the environment, construct a `RendererConfiguration`, and dispatch it to the renderer.
+
+```ts
+type RendererConfiguration = {
+  grid: { rows: number; columns: number };
+  cssPixels: { width: number; height: number };
+  devicePixelRatio: number;
+  framebufferPixels?: { width: number; height: number };
+  cell: { width: number; height: number; baseline?: number };
+};
+
+interface RendererResizeRequestEvent {
+  rows: number;
+  columns: number;
+  reason: 'remote' | 'host-triggered' | 'initial';
+}
+```
+
+- `grid.rows` and `grid.columns` express the runtime dimensions. Once the host dispatches a configuration, both renderer and runtime treat those values as truth until another configuration is applied.
+- `cssPixels` describe the surface in CSS pixels. Hosts usually obtain these by calling `getBoundingClientRect`.
+- `devicePixelRatio` mirrors the platform DPI (`window.devicePixelRatio` on web). Renderers combine it with `cssPixels` to derive backing resolutions.
+- `framebufferPixels` optionally overrides the backing-store size (e.g. preallocated `OffscreenCanvas`). When omitted, renderers multiply `cssPixels` by `devicePixelRatio`.
+- `cell` contains glyph metrics (width, height, optional baseline) so hosts and renderers agree on overlay placement.
+- Resize requests surface runtime wishes (like CSI 8). Hosts listen via `onResizeRequest`, decide whether they can satisfy the request, and then dispatch a new configuration or leave the current one in place.
+
+The negotiation loop always terminates with the host:
+1. Renderer receives a runtime-initiated resize (or the host decides to change layout) and emits `onResizeRequest` if the runtime asked for new rows/columns.
+2. Host measures available space, computes glyph metrics, and builds a `RendererConfiguration` that reconciles remote intent with local constraints.
+3. Host dispatches `renderer.configure` with the chosen configuration. The renderer applies it immediately and treats the new grid as the ground truth until another configuration arrives.
 
 ## Dispatch Events
 
@@ -139,6 +187,10 @@ type RendererEvent<TRendererConfig> =
   | {
       type: 'runtime.reset'
     }
+  | {
+      type: 'renderer.configure'
+      configuration: RendererConfiguration
+    }
   | { type: 'profile.update'; profile: TerminalProfile }
 ```
 
@@ -148,7 +200,10 @@ clear error. Runtime-prefixed events map directly to
 tune renderer presentation, while input events let hosts forward keystrokes,
 pointer gestures, and clipboard interactions. `runtime.reset` must recreate the
 runtime, clear the framebuffer, and flush printer events before acknowledging
-further work. Renderers may expose events beyond the minimum defined events above.
+further work. `renderer.configure` is the only pathway for
+changing grid dimensions or DPI—hosts dispatch it after reconciling local layout
+and any runtime resize requests. Renderers may expose events beyond the minimum
+defined events above.
 
 ### Profile
 
@@ -231,17 +286,73 @@ How a React-based `<Terminal />` would consume the contract.
 
    The renderer handles the drawing of pixels within the provided mount target.
 
-3. **Forward host state changes.** Whenever theme or accessibility change compose a `TerminalProfile` and dispatch it.
+3. **Apply renderer configuration.** Measure layout, reconcile runtime resize requests, and dispatch `renderer.configure`.
    ```ts
-   // The host environment can expose UI for the user to select the theme, accessibility options, terminal dimensions, etc.
-   const profile = useMemo<TerminalProfile>(() => ({ ...renderer.profile, accessibility, overlays }), [theme, accessibility, overlays]);
+   const applyRendererConfiguration = useCallback(
+     (request?: RendererResizeRequestEvent) => {
+       if (!canvasRef.current) {
+         return;
+       }
+
+       const rect = canvasRef.current.getBoundingClientRect();
+       const devicePixelRatio = window.devicePixelRatio ?? 1;
+       const framebufferWidth = Math.round(rect.width * devicePixelRatio);
+       const framebufferHeight = Math.round(rect.height * devicePixelRatio);
+
+       const configuration: RendererConfiguration = {
+         grid: request
+           ? { rows: request.rows, columns: request.columns }
+           : inferGridFromLayout(rect), // Host-owned helper: pick rows/columns for the available space
+         cssPixels: { width: rect.width, height: rect.height },
+         devicePixelRatio,
+         framebufferPixels: { width: framebufferWidth, height: framebufferHeight },
+         cell: measureCellMetrics(), // Host-owned helper: preflight font metrics once per theme/zoom level
+       };
+
+       renderer.dispatch({
+         type: 'renderer.configure',
+         configuration,
+       });
+     },
+     [renderer],
+   );
+
+   useLayoutEffect(() => {
+     applyRendererConfiguration();
+
+     if (!canvasRef.current) {
+       return;
+     }
+
+     const resizeObserver = new ResizeObserver(() => applyRendererConfiguration());
+     resizeObserver.observe(canvasRef.current);
+
+     const offResizeRequest = renderer.onResizeRequest?.((request) => {
+       applyRendererConfiguration(request);
+     });
+
+     return () => {
+       offResizeRequest?.();
+       resizeObserver.disconnect();
+     };
+   }, [applyRendererConfiguration]);
+   ```
+
+   The host decides whether to honor runtime requests (e.g. CSI 8). If honoring would exceed available space, the host can clamp the grid before dispatching a configuration; until a new configuration is sent, the previous one remains canonical.
+
+4. **Forward host state changes.** Whenever theme or accessibility change, compose a `TerminalProfile` and dispatch it.
+   ```ts
+   const profile = useMemo<TerminalProfile>(
+     () => ({ ...renderer.profile, accessibility, overlays }),
+     [renderer.profile, accessibility, overlays],
+   );
 
    useEffect(() => {
-    renderer.dispatch({ type: 'profile.update', profile });
+     renderer.dispatch({ type: 'profile.update', profile });
    }, [profile]);
    ```
 
-4. **Wire DOM events.** React event handlers translate into `input` dispatches.
+5. **Wire DOM events.** React event handlers translate into `input` dispatches.
 
    ```tsx
    const handleKeyDown = useCallback((event: KeyboardEvent) => {
@@ -257,7 +368,7 @@ How a React-based `<Terminal />` would consume the contract.
    }, []);
    ```
 
-5. **Pipe remote data.** External transports (SSH, local PTY) feed into the renderer through `dispatch({ type: 'runtime.data', data })`.
+6. **Pipe remote data.** External transports (SSH, local PTY) feed into the renderer through `dispatch({ type: 'runtime.data', data })`.
 
    ```ts
    useEffect(() => {
@@ -269,7 +380,7 @@ How a React-based `<Terminal />` would consume the contract.
    }, [sshConnection]);
    ```
 
-6. **Listen for frames and diagnostics.**
+7. **Listen for frames and diagnostics.**
 
    ```ts
    useEffect(() => {
