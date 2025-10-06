@@ -1,4 +1,8 @@
-import type { RendererFrameOverlays, RendererTheme, TerminalProfile } from '../types'
+import type {
+  RendererFrameOverlays,
+  RendererTheme,
+  TerminalProfile,
+} from '../types'
 
 const mergeOverlays = (
   previous: RendererFrameOverlays | undefined,
@@ -57,8 +61,7 @@ export const mergeTerminalProfile = (
             patch.accessibility?.reducedMotion ??
             base.accessibility?.reducedMotion,
           colorScheme:
-            patch.accessibility?.colorScheme ??
-            base.accessibility?.colorScheme,
+            patch.accessibility?.colorScheme ?? base.accessibility?.colorScheme,
         }
       : undefined
 

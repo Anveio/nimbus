@@ -5,7 +5,7 @@ const verbose = process.env.VITEST_VERBOSE === 'true'
 export default defineConfig({
   test: {
     environment: 'jsdom',
-    globals: true,
+    globals: false,
     reporters: verbose ? ['default'] : ['dot'],
     silent: !verbose,
     exclude: ['test/e2e/**'],

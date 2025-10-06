@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   CreateRendererOptions,
   RendererConfiguration,
@@ -8,9 +8,6 @@ import type {
 const presentFrame = vi.fn()
 const configureSession = vi.fn()
 const disposeSession = vi.fn()
-const observersRef: { onFrame?: ((event: any) => void) | null } = {
-  onFrame: null,
-}
 
 class StubCanvas {
   width = 0
@@ -27,28 +24,6 @@ Object.defineProperty(globalThis, 'HTMLCanvasElement', {
   value: StubCanvas,
   configurable: true,
 })
-
-vi.mock('@mana/tui-web-canvas-renderer', () => ({
-  createRendererSession: vi.fn((options) => {
-    observersRef.onFrame = options.observers?.onFrame ?? null
-    return {
-      canvas: options.canvas,
-      backend: 'gpu-webgl',
-      presentFrame: (frame: unknown) => {
-        presentFrame(frame)
-        observersRef.onFrame?.({
-          backend: 'gpu-webgl',
-          timestamp: performance.now(),
-          diagnostics: null,
-          metadata: (frame as { metadata?: unknown }).metadata ?? {},
-        })
-      },
-      configure: configureSession,
-      getDiagnostics: () => null,
-      dispose: disposeSession,
-    }
-  }),
-}))
 
 const { createRenderer } = await import('./index')
 
