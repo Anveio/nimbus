@@ -1,10 +1,10 @@
 # @mana/tui-webgl-renderer
 
 The WebGL renderer owns the Mana VT runtime lifecycle, converts interpreter
-updates into GPU frames, and exposes the canonical `RendererInstance` contract
-from `renderer-contract.md`. Host surfaces supply measurement data and input
-via `renderer.configure` and `runtime.*` dispatches while the renderer manages
-canvas allocation, DPI scaling, glyph atlas upkeep, and diagnostics emission.
+updates into GPU frames, and now exposes the `RendererRoot`/`RendererSession`
+contract described in `renderer-specification-v0.md` (v1). Hosts obtain an
+idempotent root via `createRendererRoot(container)` and mount sessions that
+mediate configuration, input dispatch, and diagnostics.
 
 This package is built on top of the Canvas renderer session primitives to reuse
 battle-tested glyph atlas and damage tracking pipelines. The runtime adapter in
@@ -21,5 +21,5 @@ Key capabilities:
 - Frame callbacks with GPU diagnostics mapped to the renderer-core schema.
 - Optional buffer serialization for pixel-perfect regression snapshots.
 
-See `src/index.ts` for the renderer entry point and `src/internal` for helper
-utilities.
+See `src/index.ts` for the renderer root entry point and `src/internal` for
+helper utilities.

@@ -1,4 +1,4 @@
-import type { RendererEvent, RendererInstance } from '@mana/webgl-renderer'
+import type { RendererEvent, RendererSession } from '@mana/webgl-renderer'
 import type { PointerEvent as ReactPointerEvent, Ref } from 'react'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useSelectionAutoScroll } from './auto-scroll'
@@ -13,7 +13,7 @@ const clamp = (value: number, min: number, max: number): number => {
   return value
 }
 
-type TerminalState = RendererInstance['runtime']['snapshot']
+type TerminalState = RendererSession['runtime']['snapshot']
 type RuntimeSelectionEvent = Extract<
   RendererEvent,
   { type: 'runtime.selection.set' }

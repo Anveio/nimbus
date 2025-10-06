@@ -1,6 +1,6 @@
 # WebGL Renderer Implementation Notes
 
-This renderer targets the contract defined in `packages/tui-renderer-core/docs/renderer-specification-v0.md`. The factory exported from `@mana/webgl-renderer` is asynchronous because shader compilation and GPU context initialisation can be deferred; hosts should `await createRenderer(...)` before calling `mount`.
+This renderer targets the contract defined in `docs/renderer-specification-v0.md` (v1). Hosts integrate via `createRendererRoot(container)`, which yields an idempotent root that mounts sessions and mediates lifecycle hooks. The root API is synchronous; shader compilation and context initialisation happen during the first `mount`.
 
 ## Pointer and clipboard dispatch
 
@@ -13,8 +13,8 @@ The renderer keeps the terminal snapshot authoritative inside the runtime. Each 
 ## Lifecycle behaviour
 
 - `dispatch({ type: 'renderer.configure', ... })` immediately updates the backing buffers and remains authoritative until the next configuration.
-- `mount` validates the host surface, creates or adopts a canvas, and schedules an initial frame.
-- `free` resets GPU resources, clears listeners, and renders the instance unusable. Subsequent calls to `mount` or `dispatch` throw descriptive errors as required by the spec.
+- `createRendererRoot(container).mount(...)` validates the host surface, creates or adopts a canvas, and schedules an initial frame.
+- `free` resets GPU resources, clears listeners, and renders the session unusable. Subsequent calls to `dispatch` throw descriptive errors as required by the spec.
 
 ## Diagnostics
 

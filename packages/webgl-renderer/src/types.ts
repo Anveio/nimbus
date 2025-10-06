@@ -226,7 +226,9 @@ export type RendererEvent<_TRendererConfig = unknown> =
     }
   | { readonly type: 'profile.update'; readonly profile: TerminalProfile }
 
-export type RenderSurface<TRendererConfig = { renderRoot: HTMLElement }> =
+export type RenderSurface<
+  TRendererConfig extends { renderRoot?: unknown } = { renderRoot?: HTMLElement },
+> =
   | { readonly renderRoot: HTMLElement }
   | {
       readonly renderRoot: TRendererConfig extends { renderRoot: infer T }
@@ -234,26 +236,41 @@ export type RenderSurface<TRendererConfig = { renderRoot: HTMLElement }> =
         : never
     }
 
-export interface RendererInstance<TRendererConfig = unknown> {
+export type RendererRootContainer = HTMLElement | OffscreenCanvas
+
+export type RendererMountDescriptor<
+  TRendererConfig extends { renderRoot?: unknown } = { renderRoot?: HTMLElement },
+> = Partial<TRendererConfig> & {
+  readonly surface: RenderSurface<TRendererConfig>
+  readonly configuration: RendererConfiguration
+  readonly profile?: TerminalProfile
+  readonly runtime?: TerminalRuntime
+}
+
+export interface RendererSession<TRendererConfig = unknown> {
   readonly profile: TerminalProfile
   readonly runtime: TerminalRuntime
   readonly configuration?: RendererConfiguration
-  mount(surface: RenderSurface<TRendererConfig>): void
-  unmount(): void
   dispatch(event: RendererEvent<TRendererConfig>): void
   onFrame(listener: (event: RendererFrameEvent) => void): () => void
   onResizeRequest?(
     listener: (event: RendererResizeRequestEvent) => void,
   ): () => void
+  unmount(): void
   free(): void
   serializeBuffer?(): Promise<ImageBitmap | Uint8Array>
 }
 
-export type CreateRendererOptions<TRendererConfig = unknown> = {
-  readonly runtime?: TerminalRuntime
-  readonly profile?: TerminalProfile
-  readonly rendererConfig: RendererConfiguration
-} & Partial<TRendererConfig>
+export interface RendererRoot<
+  TRendererConfig extends { renderRoot?: unknown } = { renderRoot?: HTMLElement },
+> {
+  readonly container: RendererRootContainer
+  readonly currentSession: RendererSession<TRendererConfig> | null
+  mount(
+    descriptor: RendererMountDescriptor<TRendererConfig>,
+  ): RendererSession<TRendererConfig>
+  dispose(): void
+}
 
 export interface WebglRendererConfig {
   readonly contextAttributes?: WebGLContextAttributes
@@ -279,8 +296,8 @@ export interface WebglRendererFrameMetadata extends Record<string, unknown> {
   }
 }
 
-export interface WebglRendererInstance
-  extends RendererInstance<WebglRendererConfig> {
+export interface WebglRendererSession
+  extends RendererSession<WebglRendererConfig> {
   readonly serializeBuffer: () => Promise<Uint8Array>
 }
 

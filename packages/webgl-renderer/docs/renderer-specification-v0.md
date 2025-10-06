@@ -1,10 +1,10 @@
-# Mana Renderer Specification v0
+# Mana Renderer Specification v1
 
 **Status:** Draft normative specification
 
 **Applies to:** Renderer implementations targeting the `mana/vt` runtime and derivatives
 
-**Version:** 0.1.0
+**Version:** 1.0.0
 
 ---
 
@@ -37,49 +37,80 @@ Unless otherwise noted, TypeScript interfaces appear as informative examples tha
 
 A conformant renderer owns the VT runtime lifecycle and controls when frames are produced. The host is authoritative for surface provisioning, renderer configuration, accessibility hints, and user input. Hosts dispatch events to renderers; renderers render frames and may emit resize requests or diagnostics. Renderers MAY queue work internally but MUST respect the semantics of the lifecycle and event interfaces defined below.
 
-## 5. Renderer Factory Contract
 
-### 5.1 `createRenderer`
+> **Version delta:** Specification v1 subsumes the v0 renderer factory contract. Renderers MUST retire the standalone `createRenderer` entry point in favour of `createRendererRoot`.
 
-A renderer MUST expose a `createRenderer` factory. The factory MAY be synchronous or asynchronous but MUST consistently return the same type (either an instance or a promise resolving to an instance). Implementations MUST document which convention they follow.
+## 5. Renderer Root Contract
+
+### 5.1 `createRendererRoot`
+
+Renderer implementations MUST expose a synchronous `createRendererRoot` factory as the canonical entry point for hosts.
 
 ```ts
-type CreateRendererOptions<TRendererConfig> = {
-  /** Inject an existing runtime; renderers fall back to a default when omitted. */
-  runtime?: TerminalRuntime;
-  /** Inject an existing profile; renderer initializes defaults when omitted. */
-  profile?: TerminalProfile;
-  rendererConfig: RendererConfiguration;
-} & TRendererConfig;
+type RendererRootContainer = HTMLElement | OffscreenCanvas;
 
-// Synchronous factory variant
-const createRenderer: <TRendererConfig = {}>(
-  options?: CreateRendererOptions<TRendererConfig>,
-) => RendererInstance<TRendererConfig>;
-
-// Asynchronous factory variant
-const createRendererAsync: <TRendererConfig = {}>(
-  options?: CreateRendererOptions<TRendererConfig>,
-) => Promise<RendererInstance<TRendererConfig>>;
+const createRendererRoot: <TRendererConfig = {}>(
+  container: RendererRootContainer,
+) => RendererRoot<TRendererConfig>;
 ```
 
-Requirements:
+Normative requirements:
 
-1. A renderer MUST document whether its factory is synchronous or asynchronous. Hosts MUST treat the returned value as a promise in the absence of such documentation.
-2. If provided, `runtime` MUST be used as the renderer's backing runtime and MUST NOT be replaced internally.
-3. When `profile` is provided, the renderer MUST initialize the instance using this profile; otherwise, it MUST construct a profile consistent with Section 9.
-4. Renderers MAY extend the options object with additional configuration keys (`TRendererConfig`). Any extension MUST NOT conflict with the fields defined here.
+1. `createRendererRoot` MUST synchronously return a `RendererRoot` instance.
+2. `createRendererRoot` MUST throw a descriptive error when invoked with an unsupported container.
+3. `createRendererRoot` MUST be idempotent for a given container. Repeated calls with the same container MUST return the same `RendererRoot` instance for the lifetime of that container.
+4. Renderers MUST treat the returned root as the sole authority for managing sessions bound to the container.
 
-## 6. Renderer Instance Contract
-
-A conformant renderer instance MUST satisfy the following interface. The TypeScript listing below is normative with respect to property names, method names, and parameter semantics.
+### 5.2 Renderer Root Semantics
 
 ```ts
-interface RendererInstance<TRendererConfig> {
+interface RendererRoot<TRendererConfig> {
+  readonly container: RendererRootContainer;
+  mount(
+    descriptor: RendererMountDescriptor<TRendererConfig>,
+  ): RendererSession<TRendererConfig>;
+  readonly currentSession: RendererSession<TRendererConfig> | null;
+  dispose(): void;
+}
+```
+
+Normative requirements:
+
+1. `container` MUST reference the value supplied to `createRendererRoot`.
+2. `mount(descriptor)` MUST attach the renderer to the container, initialize runtime state, and return a live `RendererSession`.
+3. If a session is already active, `mount` MUST call `unmount()` on the existing session before creating a new one.
+4. `currentSession` MUST reflect the active session, or `null` when no session is mounted.
+5. `dispose()` MUST unmount any active session, release resources associated with the container, and remove the root from the idempotence registry. After disposal, subsequent `createRendererRoot(container)` calls MAY return a new root.
+
+## 6. Renderer Mount Descriptor
+
+`RendererRoot.mount` consumes a descriptor that combines surface, lifecycle, and configuration information.
+
+```ts
+type RendererMountDescriptor<TRendererConfig> = {
+  surface: RenderSurface<TRendererConfig>;
+  configuration: RendererConfiguration;
+  profile?: TerminalProfile;
+  runtime?: TerminalRuntime;
+} & TRendererConfig;
+```
+
+Normative requirements:
+
+1. `surface` MUST satisfy the requirements in Section 8.
+2. If provided, `runtime` MUST be used as the session's backing runtime and MUST NOT be replaced internally.
+3. When `profile` is provided, the session MUST initialize using this profile; otherwise, it MUST construct a profile consistent with Section 10.
+4. Renderers MAY extend the descriptor with additional configuration keys (`TRendererConfig`). Any extension MUST NOT conflict with the fields defined here.
+
+## 7. Renderer Session Contract
+
+A conformant renderer session MUST satisfy the following interface. The TypeScript listing below is normative with respect to property names, method names, and parameter semantics.
+
+```ts
+interface RendererSession<TRendererConfig> {
   readonly profile: TerminalProfile;
   readonly runtime: TerminalRuntime;
   readonly configuration?: RendererConfiguration;
-  mount(surface: RenderSurface<TRendererConfig>): void;
   unmount(): void;
   dispatch(event: RendererEvent<TRendererConfig>): void;
   onFrame(
@@ -95,19 +126,17 @@ interface RendererInstance<TRendererConfig> {
 
 Normative requirements:
 
-- `profile` MUST expose the renderer's current `TerminalProfile`. Implementations MUST keep this reference stable across calls unless the renderer is freed.
-- `runtime` MUST return the active `TerminalRuntime`. The same instance MUST be returned across calls for the lifetime of the renderer, excluding the post-`free` state.
+- `profile` MUST expose the session's current `TerminalProfile`. Implementations MUST keep this reference stable across calls unless the session is freed.
+- `runtime` MUST return the active `TerminalRuntime`. The same instance MUST be returned across calls for the lifetime of the session, excluding the post-`free` state.
 - `configuration` MUST reflect the most recent configuration applied via `renderer.configure` events. Before the first configuration dispatch, `configuration` MAY be `undefined`.
-- `mount(surface)` MUST attach the renderer to the provided surface. If multiple mount/unmount cycles occur, the renderer MUST preserve runtime and graphics state across cycles.
-- `mount(surface)` MUST throw a descriptive error if the provided surface is incompatible (see Section 7).
-- `unmount()` MUST stop drawing to the surface without destroying runtime state.
-- `dispatch(event)` MUST be synchronous and fire-and-forget. Renderers MUST queue any necessary work internally and MUST throw when receiving an unsupported event type.
-- `onFrame(listener)` MUST register the listener and return a disposer that removes it. Renderers MUST invoke `listener` at least once after mounting to a new surface.
-- `onResizeRequest(listener)` MAY be omitted. When implemented, renderers MUST invoke listeners whenever runtime-driven resize requests occur (see Section 8).
-- `free()` MUST reset the renderer's buffers, release resources, and render the instance unusable. After `free()` is called, `mount()` MUST throw if invoked again.
-- `serializeBuffer()` MAY be provided to expose the renderer's buffered frame data for diagnostics. When provided, it MUST resolve with an `ImageBitmap` or `Uint8Array` snapshot.
+- `unmount()` MUST stop drawing to the surface without destroying runtime state. Hosts MAY call `mount` again through the root to resume rendering.
+- `dispatch(event)` MUST be synchronous and fire-and-forget. Sessions MUST queue any necessary work internally and MUST throw when receiving an unsupported event type.
+- `onFrame(listener)` MUST register the listener and return a disposer that removes it. Sessions MUST invoke `listener` at least once after mounting to a new surface.
+- `onResizeRequest(listener)` MAY be omitted. When implemented, sessions MUST invoke listeners whenever runtime-driven resize requests occur (see Section 9).
+- `free()` MUST reset the renderer's buffers, release resources, and render the session unusable for future rendering. After `free()` is called, subsequent calls to `dispatch` or new listener registrations MUST throw. `unmount()` MAY be invoked during teardown but MUST succeed exactly once; further calls MUST throw.
+- `serializeBuffer()` MAY be provided to expose the session's buffered frame data for diagnostics. When provided, it MUST resolve with an `ImageBitmap` or `Uint8Array` snapshot.
 
-## 7. Render Surface Requirements
+## 8. Render Surface Requirements
 
 Hosts provide surfaces that satisfy the following structural contract:
 
@@ -120,12 +149,12 @@ type RenderSurface<TRendererConfig> =
 Normative requirements:
 
 1. Renderers MUST accept an object containing a `renderRoot` key.
-2. Renderers MAY define additional surface variants via `TRendererConfig`. When doing so, they MUST document the accepted shape and MUST reject incompatible surfaces through a thrown error.
-3. Hosts MUST NOT mutate any renderer-owned surface objects once they have been passed to `mount`.
+2. Renderers MAY define additional surface variants via `TRendererConfig`. When doing so, they MUST document the accepted shape and MUST reject incompatible surfaces through a thrown error surfaced by `RendererRoot.mount`.
+3. Hosts MUST NOT mutate any renderer-owned surface objects once they have been passed to `RendererRoot.mount`.
 
-## 8. Configuration and DPI Negotiation
+## 9. Configuration and DPI Negotiation
 
-Hosts remain the canonical authority for geometry, DPI, and cell metrics. Renderers MUST accept `renderer.configure` events containing the following structure:
+Hosts remain the canonical authority for geometry, DPI, and cell metrics. Sessions MUST accept `renderer.configure` events containing the following structure:
 
 ```ts
 type RendererConfiguration = {
@@ -145,14 +174,14 @@ interface RendererResizeRequestEvent {
 
 Normative requirements:
 
-1. Upon receiving `renderer.configure`, the renderer MUST immediately treat `grid.rows` and `grid.columns` as authoritative until another configuration is applied.
-2. Renderers MUST interpret `cssPixels` as the viewport size measured in CSS pixels.
-3. Renderers MUST scale their backing buffers using `devicePixelRatio` when `framebufferPixels` is omitted. When `framebufferPixels` is supplied, renderers MUST use those exact dimensions and MUST NOT override them.
-4. Renderers MUST respect the provided `cell` metrics when mapping overlays or pointer input.
-5. When the runtime requests a resize (e.g., via CSI 8), the renderer SHOULD emit an event through `onResizeRequest`. Hosts MUST reconcile the request with local constraints and respond with a `renderer.configure` dispatch.
-6. Until a new configuration is applied, the previous configuration remains canonical; renderers MUST continue rendering using the last applied configuration.
+1. Upon receiving `renderer.configure`, the session MUST immediately treat `grid.rows` and `grid.columns` as authoritative until another configuration is applied.
+2. Sessions MUST interpret `cssPixels` as the viewport size measured in CSS pixels.
+3. Sessions MUST scale their backing buffers using `devicePixelRatio` when `framebufferPixels` is omitted. When `framebufferPixels` is supplied, sessions MUST use those exact dimensions and MUST NOT override them.
+4. Sessions MUST respect the provided `cell` metrics when mapping overlays or pointer input.
+5. When the runtime requests a resize (e.g., via CSI 8), the session SHOULD emit an event through `onResizeRequest`. Hosts MUST reconcile the request with local constraints and respond with a `renderer.configure` dispatch.
+6. Until a new configuration is applied, the previous configuration remains canonical; sessions MUST continue rendering using the last applied configuration.
 
-## 9. Profile Semantics
+## 10. Profile Semantics
 
 Renderer profiles express theme, accessibility, and overlay hints.
 
@@ -175,14 +204,14 @@ type TerminalProfile = Partial<{
 
 Normative requirements:
 
-1. Renderers MUST merge partial profile updates with the previous state.
-2. Renderers SHOULD assume that any profile update may necessitate a repaint.
+1. Sessions MUST merge partial profile updates with the previous state.
+2. Sessions SHOULD assume that any profile update may necessitate a repaint.
 3. `CursorOverride`, `RendererHighlight`, and overlay layers MUST NOT be mutated by the renderer; they are host-authored data structures.
-4. Renderers MAY expose additional profile namespaces, provided they do not collide with the keys defined above.
+4. Sessions MAY expose additional profile namespaces, provided they do not collide with the keys defined above.
 
-## 10. Dispatch Events
+## 11. Dispatch Events
 
-A conformant renderer MUST accept all of the following dispatch events. The TypeScript union is normative with respect to event names and payload shapes.
+A conformant session MUST accept all of the following dispatch events. The TypeScript union is normative with respect to event names and payload shapes.
 
 ```ts
 type RendererEvent<TRendererConfig> =
@@ -258,15 +287,15 @@ type RendererEvent<TRendererConfig> =
 
 Normative requirements:
 
-1. Renderers MUST support every event variant listed above. Unsupported events MUST trigger a thrown error identifying the unknown type.
+1. Sessions MUST support every event variant listed above. Unsupported events MUST trigger a thrown error identifying the unknown type.
 2. Events prefixed with `runtime.` MUST be forwarded to the underlying `TerminalRuntime` via `dispatchEvent`, `dispatchEvents`, or `write`, preserving order of arrival.
 3. `runtime.reset` MUST recreate the runtime, clear any renderer buffers, and discard pending work before accepting new events.
-4. Renderers MAY extend the event union with additional implementation-specific events but MUST ignore events they do not recognize rather than silently failing.
-5. `renderer.configure` is the only normative pathway for mutating grid dimensions and DPI; renderers MUST NOT allow alternative configuration channels.
+4. Sessions MAY extend the event union with additional implementation-specific events but MUST ignore events they do not recognize rather than silently failing.
+5. `renderer.configure` is the only normative pathway for mutating grid dimensions and DPI; sessions MUST NOT allow alternative configuration channels.
 
-## 11. Frame and Diagnostics Callbacks
+## 12. Frame and Diagnostics Callbacks
 
-Renderers MAY expose frame diagnostics. When provided, the following structures are normative.
+Sessions MAY expose frame diagnostics. When provided, the following structures are normative.
 
 ```ts
 interface RendererFrameEvent<TRendererConfig> {
@@ -300,28 +329,31 @@ interface RendererDiagnostics {
 
 Normative requirements:
 
-1. Renderers MUST invoke all registered frame listeners whenever pixels are presented and at least once after mounting to a new surface.
+1. Sessions MUST invoke all registered frame listeners whenever pixels are presented and at least once after mounting to a new surface.
 2. `timestamp` MUST be based on `performance.now()` or a monotonic equivalent.
 3. When dirty region tracking is supported, `dirtyRegion` MUST describe the rows and columns that changed since the previous frame.
 4. Diagnostic payloads MAY omit fields (by returning `null`) when data is unavailable. Hosts MUST treat absent data as "unknown" rather than an error.
 
-## 12. Host Integration Guidelines (Informative)
+## 13. Host Integration Guidelines (Informative)
 
 The following guidance is non-normative but illustrates best practices for React-based hosts embedding a conformant renderer.
 
 ```ts
-const renderer = await createRenderer({ runtime, profile });
+useLayoutEffect(() => {
+  const canvas = canvasRef.current;
+  if (!canvas) {
+    return;
+  }
 
-const applyRendererConfiguration = useCallback(
-  (request?: RendererResizeRequestEvent) => {
-    if (!canvasRef.current) {
-      return;
-    }
+  const root = createRendererRoot(canvas);
 
-    const rect = canvasRef.current.getBoundingClientRect();
+  const deriveConfiguration = (
+    request?: RendererResizeRequestEvent,
+  ): RendererConfiguration => {
+    const rect = canvas.getBoundingClientRect();
     const devicePixelRatio = window.devicePixelRatio ?? 1;
 
-    const configuration: RendererConfiguration = {
+    return {
       grid: request
         ? { rows: request.rows, columns: request.columns }
         : inferGridFromLayout(rect),
@@ -333,54 +365,52 @@ const applyRendererConfiguration = useCallback(
       },
       cell: measureCellMetrics(),
     };
+  };
 
-    renderer.dispatch({ type: 'renderer.configure', configuration });
-  },
-  [renderer],
-);
+  const session = root.mount({
+    surface: { renderRoot: canvas },
+    configuration: deriveConfiguration(),
+    profile,
+  });
 
-useLayoutEffect(() => {
-  if (!canvasRef.current) {
-    return;
-  }
-  renderer.mount({ renderRoot: canvasRef.current });
-  return () => renderer.unmount();
-}, [renderer]);
+  const resizeObserver = new ResizeObserver(() => {
+    session.dispatch({
+      type: 'renderer.configure',
+      configuration: deriveConfiguration(),
+    });
+  });
+  resizeObserver.observe(canvas);
 
-useLayoutEffect(() => {
-  applyRendererConfiguration();
-
-  if (!canvasRef.current) {
-    return;
-  }
-
-  const resizeObserver = new ResizeObserver(() => applyRendererConfiguration());
-  resizeObserver.observe(canvasRef.current);
-
-  const offResizeRequest = renderer.onResizeRequest?.((request) => {
-    applyRendererConfiguration(request);
+  const offResizeRequest = session.onResizeRequest?.((request) => {
+    session.dispatch({
+      type: 'renderer.configure',
+      configuration: deriveConfiguration(request),
+    });
   });
 
   return () => {
     offResizeRequest?.();
     resizeObserver.disconnect();
+    session.unmount();
   };
-}, [applyRendererConfiguration]);
+}, [profile]);
 ```
 
-Hosts SHOULD mirror this pattern when building integrations in other frameworks: mount once, apply configuration on layout changes, forward input through dispatch events, and subscribe to frame diagnostics for instrumentation.
+Idempotence allows hosts to call `createRendererRoot(canvas)` inside an effect without caching the result explicitly; repeated calls reuse the same root. Hosts SHOULD mirror this pattern in other frameworks: mount once per container, apply configuration on layout changes, forward input through dispatch events, and subscribe to frame diagnostics for instrumentation.
 
-## 13. Conformance Checklist
+## 14. Conformance Checklist
 
-A renderer implementation is conformant if and only if it satisfies all normative statements in Sections 5 through 11. The following checklist summarizes the required behaviors:
+A renderer implementation is conformant if and only if it satisfies all normative statements in Sections 5 through 12. The following checklist summarizes the required behaviors:
 
-1. Expose a documented `createRenderer` factory (sync or async) honoring injected runtime and profile instances.
-2. Provide a renderer instance with properties and methods matching Section 6, including stable references and lifecycle semantics.
-3. Validate `RenderSurface` compatibility at mount time and preserve state across mount/unmount cycles.
-4. Apply `RendererConfiguration` immediately, respect DPI and framebuffer overrides, and surface resize requests.
-5. Accept and act upon every `RendererEvent` variant defined in Section 10.
-6. Emit frame callbacks with monotonic timestamps and optional diagnostics when available.
-7. Implement `free()` to release resources and prevent future mounts.
+1. Expose a documented, synchronous `createRendererRoot` factory that enforces container idempotence.
+2. Provide a `RendererRoot` that manages the active session, enforces single-session semantics, and disposes resources when requested.
+3. Accept `RendererMountDescriptor` objects that honor host-supplied runtime instances, profiles, and renderer configuration extensions.
+4. Produce `RendererSession` instances with lifecycle, dispatch, and diagnostic APIs matching Section 7.
+5. Validate `RenderSurface` compatibility at mount time and preserve state across mount/unmount cycles.
+6. Apply `RendererConfiguration` immediately, respect DPI and framebuffer overrides, and surface resize requests.
+7. Accept and act upon every `RendererEvent` variant defined in Section 11.
+8. Emit frame callbacks with monotonic timestamps and optional diagnostics when available.
+9. Implement `free()` to release resources and prevent future interaction with the session.
 
 Conforming renderers MAY extend the specification in backward-compatible ways (e.g., additional events, diagnostics) provided they do not violate the requirements above.
 

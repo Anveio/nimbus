@@ -17,19 +17,20 @@ import {
 } from './internal/runtime-bridge'
 import { TextSurfaceRenderer } from './internal/text-surface'
 import type {
-  CreateRendererOptions,
   RendererConfiguration,
   RendererDirtyRegion,
   RendererEvent,
   RendererFrameEvent,
-  RendererInstance,
+  RendererMountDescriptor,
   RendererResizeRequestEvent,
+  RendererRoot,
+  RendererRootContainer,
   RenderSurface,
   RuntimeUpdateBatch,
   TerminalProfile,
   WebglRendererConfig,
   WebglRendererFrameMetadata,
-  WebglRendererInstance,
+  WebglRendererSession,
 } from './types'
 
 const DEFAULT_PROFILE: TerminalProfile = {}
@@ -73,14 +74,27 @@ interface FrameState {
   reason: FrameReason
 }
 
-export class WebglRenderer
-  implements WebglRendererInstance, RendererInstance<WebglRendererConfig>
-{
+interface WebglRendererSessionLifecycleHooks {
+  readonly onUnmount?: () => void
+  readonly onFree?: () => void
+}
+
+interface WebglRendererSessionInit {
+  readonly runtime: TerminalRuntime
+  readonly profile: TerminalProfile
+  readonly rendererConfig: WebglRendererConfig
+  readonly surface: RenderSurface<WebglRendererConfig>
+  readonly configuration: RendererConfiguration
+  readonly lifecycle?: WebglRendererSessionLifecycleHooks
+}
+
+class WebglRendererSessionImpl implements WebglRendererSession {
   readonly runtime: TerminalRuntime
 
   private _profile: TerminalProfile
   private _configuration?: RendererConfiguration
-  private readonly rendererConfig: WebglRendererConfig
+  private readonly config: WebglRendererConfig
+  private readonly lifecycle: WebglRendererSessionLifecycleHooks
 
   private surface: SurfaceState | null = null
   private gl: WebGL2RenderingContext | null = null
@@ -106,14 +120,18 @@ export class WebglRenderer
   private tileRows = 0
   private lastCursorTile: number | null = null
 
-  constructor(
-    runtime: TerminalRuntime,
-    profile: TerminalProfile,
-    config: WebglRendererConfig,
-  ) {
-    this.runtime = runtime
-    this._profile = profile
-    this.rendererConfig = { ...DEFAULT_CONFIG, ...config }
+  constructor(init: WebglRendererSessionInit) {
+    this.runtime = init.runtime
+    this._profile = init.profile
+    this.config = { ...DEFAULT_CONFIG, ...init.rendererConfig }
+    this.lifecycle = init.lifecycle ?? {}
+
+    this.dispatch({
+      type: 'renderer.configure',
+      configuration: init.configuration,
+    })
+
+    this.attachSurface(init.surface)
   }
 
   get profile(): TerminalProfile {
@@ -124,7 +142,7 @@ export class WebglRenderer
     return this._configuration
   }
 
-  mount(surface: RenderSurface<WebglRendererConfig>): void {
+  private attachSurface(surface: RenderSurface<WebglRendererConfig>): void {
     if (this.freed) {
       throw new Error('Renderer has been freed and cannot be remounted')
     }
@@ -143,8 +161,8 @@ export class WebglRenderer
       renderRoot instanceof HTMLCanvasElement
     ) {
       canvas = renderRoot
-    } else if (this.rendererConfig.renderRoot instanceof HTMLCanvasElement) {
-      canvas = this.rendererConfig.renderRoot
+    } else if (this.config.renderRoot instanceof HTMLCanvasElement) {
+      canvas = this.config.renderRoot
       renderRoot.append(canvas)
       ownsCanvas = true
     } else {
@@ -174,6 +192,7 @@ export class WebglRenderer
     }
     this.surface = null
     this.disposeGl()
+    this.lifecycle.onUnmount?.()
   }
 
   dispatch(event: RendererEvent<WebglRendererConfig>): void {
@@ -256,6 +275,7 @@ export class WebglRenderer
     this.runtime.reset()
     this.texture = null
     this.freed = true
+    this.lifecycle.onFree?.()
   }
 
   serializeBuffer(): Promise<Uint8Array> {
@@ -276,7 +296,7 @@ export class WebglRenderer
     }
     const { gl, dispose } = createWebglContext({
       canvas,
-      attributes: this.rendererConfig.contextAttributes,
+      attributes: this.config.contextAttributes,
     })
     this.gl = gl
     this.glDispose = dispose
@@ -474,7 +494,7 @@ export class WebglRenderer
     gl.drawArrays(gl.TRIANGLES, 0, 6)
     gl.bindVertexArray(null)
 
-    if (this.rendererConfig.autoFlush) {
+    if (this.config.autoFlush) {
       gl.flush()
     }
 
@@ -763,20 +783,114 @@ export class WebglRenderer
   }
 }
 
-export const createRenderer = async (
-  options: CreateRendererOptions<WebglRendererConfig>,
-): Promise<WebglRendererInstance> => {
-  const runtime = options.runtime ?? createTerminalRuntime({})
-  const profile = options.profile ?? DEFAULT_PROFILE
-  const rendererConfig: WebglRendererConfig = {
-    contextAttributes: options.contextAttributes,
-    autoFlush: options.autoFlush,
-    renderRoot: options.renderRoot,
+class WebglRendererRootImpl implements RendererRoot<WebglRendererConfig> {
+  private _currentSession: WebglRendererSession | null = null
+  private disposed = false
+
+  constructor(readonly container: RendererRootContainer) {}
+
+  get currentSession(): WebglRendererSession | null {
+    return this._currentSession
   }
-  const renderer = new WebglRenderer(runtime, profile, rendererConfig)
-  renderer.dispatch({
-    type: 'renderer.configure',
-    configuration: options.rendererConfig,
-  })
-  return renderer
+
+  mount(
+    descriptor: RendererMountDescriptor<WebglRendererConfig>,
+  ): WebglRendererSession {
+    if (this.disposed) {
+      throw new Error('Renderer root has been disposed')
+    }
+
+    const surface = descriptor.surface ?? this.inferSurface()
+
+    const runtime = descriptor.runtime ?? createTerminalRuntime({})
+    const profile = descriptor.profile ?? DEFAULT_PROFILE
+    const rendererConfig: WebglRendererConfig = {
+      contextAttributes: descriptor.contextAttributes,
+      autoFlush: descriptor.autoFlush,
+      renderRoot: descriptor.renderRoot,
+    }
+
+    const previous = this._currentSession
+    if (previous) {
+      previous.unmount()
+      previous.free()
+    }
+
+    const session = new WebglRendererSessionImpl({
+      runtime,
+      profile,
+      rendererConfig,
+      surface,
+      configuration: descriptor.configuration,
+      lifecycle: {
+        onFree: () => {
+          if (this._currentSession === session) {
+            this._currentSession = null
+          }
+        },
+      },
+    })
+
+    this._currentSession = session
+    return session
+  }
+
+  dispose(): void {
+    if (this.disposed) {
+      return
+    }
+    this.disposed = true
+
+    if (this._currentSession) {
+      this._currentSession.unmount()
+      this._currentSession.free()
+      this._currentSession = null
+    }
+
+    ROOT_REGISTRY.delete(this.container)
+  }
+
+  private inferSurface(): RenderSurface<WebglRendererConfig> {
+    if (
+      typeof HTMLElement !== 'undefined' &&
+      this.container instanceof HTMLElement
+    ) {
+      return { renderRoot: this.container }
+    }
+
+    if (
+      typeof HTMLCanvasElement !== 'undefined' &&
+      this.container instanceof HTMLCanvasElement
+    ) {
+      return { renderRoot: this.container }
+    }
+
+    throw new Error(
+      'Renderer root cannot derive a surface from the supplied container; provide descriptor.surface explicitly.',
+    )
+  }
 }
+
+const ROOT_REGISTRY = new WeakMap<
+  RendererRootContainer,
+  WebglRendererRootImpl
+>()
+
+export const createRendererRoot = (
+  container: RendererRootContainer,
+): RendererRoot<WebglRendererConfig> => {
+  if (!container) {
+    throw new Error('Renderer root container is required')
+  }
+
+  const existing = ROOT_REGISTRY.get(container)
+  if (existing) {
+    return existing
+  }
+
+  const root = new WebglRendererRootImpl(container)
+  ROOT_REGISTRY.set(container, root)
+  return root
+}
+
+export { WebglRendererSessionImpl }

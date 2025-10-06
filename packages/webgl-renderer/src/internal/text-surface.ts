@@ -151,7 +151,10 @@ export class TextSurfaceRenderer {
 
   constructor() {
     this.canvas = createFallbackCanvas()
-    const context = this.canvas.getContext('2d')
+    const context = this.canvas.getContext('2d') as
+      | CanvasRenderingContext2D
+      | OffscreenCanvasRenderingContext2D
+      | null
     if (!context) {
       throw new Error('Unable to acquire 2D context for text surface')
     }
@@ -329,7 +332,8 @@ export class TextSurfaceRenderer {
             cellHeight,
           )
           break
-        case 'b
+        case 'block':
+        default:
           ctx.fillRect(cursorX, cursorY, cellWidth, cellHeight)
           break
       }

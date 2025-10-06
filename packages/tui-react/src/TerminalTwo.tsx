@@ -1,12 +1,21 @@
-import type {
-  RendererConfiguration,
-  RendererInstance,
-  TerminalProfile,
+import {
+  createRendererRoot,
+  type RendererConfiguration,
+  type RendererRoot,
+  type TerminalProfile,
+  type WebglRendererSession,
 } from '@mana/webgl-renderer'
 import type { HTMLAttributes } from 'react'
-import { forwardRef, useCallback, useImperativeHandle, useMemo } from 'react'
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useAutoResize } from './hooks/useAutoResize'
-import { useRendererSession } from './renderer-session'
 import {
   resolveAccessibilityOptions,
   resolveGraphicsOptions,
@@ -21,7 +30,7 @@ const DEFAULT_COLUMNS = 80
 
 export interface TerminalHandle {
   write(data: Uint8Array | string): void
-  getRenderer(): RendererInstance
+  getRenderer(): WebglRendererSession | null
 }
 
 export interface TerminalProps
@@ -52,11 +61,6 @@ export const TerminalTwo = forwardRef<TerminalHandle, TerminalProps>(
     const resolvedStyling = useMemo(
       () => resolveStylingOptions(stylingProp),
       [stylingProp],
-    )
-
-    const resolvedGraphics = useMemo(
-      () => resolveGraphicsOptions(graphicsProp),
-      [graphicsProp],
     )
 
     const {
@@ -120,29 +124,66 @@ export const TerminalTwo = forwardRef<TerminalHandle, TerminalProps>(
       [theme],
     )
 
-    const session = useRendererSession({
-      configuration,
-      profile,
-      creationKey: resolvedGraphics.renderer.backend ?? 'auto',
-    })
+    const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null)
+    const rootRef = useRef<RendererRoot | null>(null)
+    const sessionRef = useRef<WebglRendererSession | null>(null)
+    const configurationRef = useRef(configuration)
+    const profileRef = useRef(profile)
 
-    const { canvasRef, dispatch, renderer } = session
-
-    const write = useCallback(
-      (payload: Uint8Array | string) => {
-        dispatch({ type: 'runtime.data', data: payload })
-      },
-      [dispatch],
-    )
-
-    const getRenderer = useCallback(() => {
-      if (!renderer) {
-        throw new Error('Renderer not yet initialised')
+    useEffect(() => {
+      const element = canvas
+      if (!element) {
+        return
       }
-      return renderer
-    }, [renderer])
 
-    useImperativeHandle(ref, () => ({ write, getRenderer }), [write, getRenderer])
+      const root = createRendererRoot(element)
+      rootRef.current = root
+      const session = root.mount({
+        configuration: configurationRef.current,
+        profile: profileRef.current,
+        surface: { renderRoot: element },
+      })
+      sessionRef.current = session
+
+      return () => {
+        if (sessionRef.current === session) {
+          sessionRef.current = null
+        }
+        if (rootRef.current === root) {
+          rootRef.current = null
+        }
+        root.dispose()
+      }
+    }, [canvas])
+
+    useEffect(() => {
+      if (!sessionRef.current) {
+        return
+      }
+      configurationRef.current = configuration
+      sessionRef.current.dispatch({
+        type: 'renderer.configure',
+        configuration,
+      })
+    }, [configuration])
+
+    useEffect(() => {
+      if (!sessionRef.current) {
+        return
+      }
+      profileRef.current = profile
+      sessionRef.current.dispatch({ type: 'profile.update', profile })
+    }, [profile])
+
+    const write = useCallback((payload: Uint8Array | string) => {
+      sessionRef.current?.dispatch({ type: 'runtime.data', data: payload })
+    }, [])
+
+    useImperativeHandle(
+      ref,
+      () => ({ write, getRenderer: () => sessionRef.current }),
+      [write],
+    )
 
     return (
       <div
@@ -152,7 +193,7 @@ export const TerminalTwo = forwardRef<TerminalHandle, TerminalProps>(
         style={style}
         role={resolvedAccessibility.ariaLabel ? 'presentation' : undefined}
       >
-        <canvas ref={canvasRef} />
+        <canvas ref={setCanvas} />
       </div>
     )
   },

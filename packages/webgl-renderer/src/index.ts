@@ -1,2 +1,2 @@
-export { createRenderer, WebglRenderer } from './renderer'
+export { createRendererRoot } from './renderer'
 export type * from './types'

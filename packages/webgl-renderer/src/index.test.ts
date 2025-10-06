@@ -1,13 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type {
-  CreateRendererOptions,
-  RendererConfiguration,
-  WebglRendererConfig,
-} from './types'
+import type { RendererConfiguration } from './types'
 
 const presentFrame = vi.fn()
-const configureSession = vi.fn()
-const disposeSession = vi.fn()
 
 const createWebglStub = (): WebGL2RenderingContext => {
   const gl = {
@@ -80,7 +74,7 @@ Object.defineProperty(globalThis, 'HTMLCanvasElement', {
   configurable: true,
 })
 
-const { createRenderer } = await import('./index')
+const { createRendererRoot } = await import('./index')
 
 const createConfiguration = (): RendererConfiguration => ({
   grid: { rows: 24, columns: 80 },
@@ -90,11 +84,9 @@ const createConfiguration = (): RendererConfiguration => ({
   cell: { width: 8, height: 12, baseline: 9 },
 })
 
-describe('createRenderer', () => {
+describe('createRendererRoot', () => {
   beforeEach(() => {
     presentFrame.mockClear()
-    configureSession.mockClear()
-    disposeSession.mockClear()
     vi.useFakeTimers()
   })
 
@@ -104,13 +96,15 @@ describe('createRenderer', () => {
 
   it('renders an initial frame after mounting', async () => {
     const configuration = createConfiguration()
-    const renderer = await createRenderer({
-      rendererConfig: configuration,
-    } satisfies CreateRendererOptions<WebglRendererConfig>)
-
+    const container = new StubCanvas() as unknown as HTMLElement
+    const root = createRendererRoot(container)
     const canvas = new StubCanvas() as unknown as HTMLCanvasElement
-    const dispose = renderer.onFrame(presentFrame)
-    renderer.mount({ renderRoot: canvas })
+    const session = root.mount({
+      configuration,
+      surface: { renderRoot: canvas },
+    })
+
+    const dispose = session.onFrame(presentFrame)
     await vi.runAllTimersAsync()
 
     expect(presentFrame).toHaveBeenCalledTimes(1)
@@ -119,19 +113,24 @@ describe('createRenderer', () => {
     }
     expect(frame.metadata?.reason).toBe('initial')
     dispose()
-    renderer.free()
+    session.free()
+    root.dispose()
   })
 
   it('applies runtime updates when data is written', async () => {
     const configuration = createConfiguration()
-    const renderer = await createRenderer({ rendererConfig: configuration })
+    const container = new StubCanvas() as unknown as HTMLElement
+    const root = createRendererRoot(container)
     const canvas = new StubCanvas() as unknown as HTMLCanvasElement
-    const dispose = renderer.onFrame(presentFrame)
-    renderer.mount({ renderRoot: canvas })
+    const session = root.mount({
+      configuration,
+      surface: { renderRoot: canvas },
+    })
+    const dispose = session.onFrame(presentFrame)
     await vi.runAllTimersAsync()
     presentFrame.mockClear()
 
-    renderer.dispatch({ type: 'runtime.data', data: 'hello' })
+    session.dispatch({ type: 'runtime.data', data: 'hello' })
     await vi.runAllTimersAsync()
 
     expect(presentFrame).toHaveBeenCalledTimes(1)
@@ -142,15 +141,20 @@ describe('createRenderer', () => {
     expect((frame.updates?.length ?? 0) > 0).toBe(true)
     expect(frame.metadata?.reason).toBe('apply-updates')
     dispose()
-    renderer.free()
+    session.free()
+    root.dispose()
   })
 
   it('reconfigures the renderer when configuration dispatch is received', async () => {
     const configuration = createConfiguration()
-    const renderer = await createRenderer({ rendererConfig: configuration })
+    const container = new StubCanvas() as unknown as HTMLElement
+    const root = createRendererRoot(container)
     const canvas = new StubCanvas() as unknown as HTMLCanvasElement
-    const dispose = renderer.onFrame(presentFrame)
-    renderer.mount({ renderRoot: canvas })
+    const session = root.mount({
+      configuration,
+      surface: { renderRoot: canvas },
+    })
+    const dispose = session.onFrame(presentFrame)
     await vi.runAllTimersAsync()
     presentFrame.mockClear()
 
@@ -158,7 +162,7 @@ describe('createRenderer', () => {
       ...configuration,
       grid: { rows: 48, columns: 120 },
     }
-    renderer.dispatch({
+    session.dispatch({
       type: 'renderer.configure',
       configuration: nextConfiguration,
     })
@@ -172,6 +176,7 @@ describe('createRenderer', () => {
     expect(frame.metadata?.reason).toBe('sync')
     expect(frame.viewport.rows).toBe(48)
     dispose()
-    renderer.free()
+    session.free()
+    root.dispose()
   })
 })
