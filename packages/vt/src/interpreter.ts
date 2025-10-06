@@ -37,6 +37,7 @@ import {
   type TerminalState,
   type TerminalStateImplementation,
 } from './interpreter-internals/state'
+import { encodeResponsePayload } from './interpreter-internals/response'
 import {
   type C1TransmissionMode,
   type ParserEvent,
@@ -49,7 +50,6 @@ import {
   ASCII_RANGE,
   BIT_MASKS,
   C0_CONTROL_BYTES,
-  C1_CONTROL_BYTES,
   C1_CONTROL_RANGE,
   EXTENDED_ASCII,
 } from './utils/constants'
@@ -787,18 +787,8 @@ export class TerminalInterpreter {
   }
 
   private emitResponse(payload: string): TerminalUpdate[] {
-    const normalised = this.applyC1Transmission(payload)
-    return [{ type: 'response', data: this.encodeResponse(normalised) }]
-  }
-
-  private applyC1Transmission(sequence: string): string {
-    if (this.state.c1Transmission !== '8-bit') {
-      return sequence
-    }
-    return sequence.replaceAll(
-      '\u001B[',
-      String.fromCharCode(C1_CONTROL_BYTES.CSI),
-    )
+    const data = encodeResponsePayload(payload, this.state.c1Transmission)
+    return [{ type: 'response', data }]
   }
 
   private setC1Transmission(mode: C1TransmissionMode): TerminalUpdate[] {
@@ -810,19 +800,6 @@ export class TerminalInterpreter {
     }
     this.state.c1Transmission = mode
     return [{ type: 'c1-transmission', value: mode }]
-  }
-
-  private encodeResponse(sequence: string): Uint8Array {
-    const bytes: number[] = []
-    for (let index = 0; index < sequence.length; index += 1) {
-      const code = sequence.charCodeAt(index)
-      if (code <= EXTENDED_ASCII.BYTE_MAX) {
-        bytes.push(code)
-      } else {
-        bytes.push(QUESTION_MARK)
-      }
-    }
-    return Uint8Array.from(bytes)
   }
 
   private setAnswerbackMessage(message: string): void {
@@ -1408,6 +1385,27 @@ export class TerminalInterpreter {
             value: enable,
           })
           break
+        case 1000:
+          updates.push(...this.setPointerTrackingRequest('button', enable))
+          break
+        case 1002:
+          updates.push(...this.setPointerTrackingRequest('normal', enable))
+          break
+        case 1003:
+          updates.push(...this.setPointerTrackingRequest('any-motion', enable))
+          break
+        case 1004:
+          updates.push(...this.setFocusReporting(enable))
+          break
+        case 1005:
+          updates.push(...this.setPointerEncodingRequest('utf8', enable))
+          break
+        case 1006:
+          updates.push(...this.setPointerEncodingRequest('sgr', enable))
+          break
+        case 2004:
+          updates.push(...this.setBracketedPaste(enable))
+          break
         case 3: // DECCOLM
           updates.push(...this.setColumns(enable ? 132 : 80))
           break
@@ -1518,6 +1516,26 @@ export class TerminalInterpreter {
         return this.state.cursorVisible ? 1 : 2
       case 5:
         return this.state.reverseVideo ? 1 : 2
+      case 1000:
+        return this.state.input.pointer.tracking !== 'off' ? 1 : 2
+      case 1002:
+        return this.state.input.pointer.tracking === 'normal' ||
+          this.state.input.pointer.tracking === 'any-motion'
+          ? 1
+          : 2
+      case 1003:
+        return this.state.input.pointer.tracking === 'any-motion' ? 1 : 2
+      case 1005:
+        return this.state.input.pointer.encoding === 'utf8' ||
+          this.state.input.pointer.encoding === 'sgr'
+          ? 1
+          : 2
+      case 1006:
+        return this.state.input.pointer.encoding === 'sgr' ? 1 : 2
+      case 1004:
+        return this.state.input.focusReporting ? 1 : 2
+      case 2004:
+        return this.state.input.bracketedPaste ? 1 : 2
       default:
         return 0
     }
@@ -1543,6 +1561,120 @@ export class TerminalInterpreter {
     }
     this.state.autoWrap = enabled
     return [{ type: 'mode', mode: 'autowrap', value: enabled }]
+  }
+
+  private setPointerTrackingRequest(
+    mode: 'button' | 'normal' | 'any-motion',
+    enable: boolean,
+  ): TerminalUpdate[] {
+    const requests = this.state.pointerTrackingRequests
+    switch (mode) {
+      case 'button':
+        if (requests.button === enable) {
+          break
+        }
+        requests.button = enable
+        break
+      case 'normal':
+        if (requests.normal === enable) {
+          break
+        }
+        requests.normal = enable
+        break
+      case 'any-motion':
+        if (requests.anyMotion === enable) {
+          break
+        }
+        requests.anyMotion = enable
+        break
+    }
+
+    const nextTracking = this.resolvePointerTracking()
+    if (nextTracking === this.state.input.pointer.tracking) {
+      return []
+    }
+    this.state.input.pointer.tracking = nextTracking
+    return this.emitPointerTrackingUpdate()
+  }
+
+  private resolvePointerTracking(): 'off' | 'button' | 'normal' | 'any-motion' {
+    const requests = this.state.pointerTrackingRequests
+    if (requests.anyMotion) {
+      return 'any-motion'
+    }
+    if (requests.normal) {
+      return 'normal'
+    }
+    if (requests.button) {
+      return 'button'
+    }
+    return 'off'
+  }
+
+  private setPointerEncodingRequest(
+    encoding: 'utf8' | 'sgr',
+    enable: boolean,
+  ): TerminalUpdate[] {
+    const requests = this.state.pointerEncodingRequests
+    if (requests[encoding] === enable) {
+      return []
+    }
+    requests[encoding] = enable
+    const nextEncoding = this.resolvePointerEncoding()
+    if (nextEncoding === this.state.input.pointer.encoding) {
+      return []
+    }
+    this.state.input.pointer.encoding = nextEncoding
+    return this.emitPointerTrackingUpdate()
+  }
+
+  private resolvePointerEncoding(): 'default' | 'utf8' | 'sgr' {
+    const requests = this.state.pointerEncodingRequests
+    if (requests.sgr) {
+      return 'sgr'
+    }
+    if (requests.utf8) {
+      return 'utf8'
+    }
+    return 'default'
+  }
+
+  private emitPointerTrackingUpdate(): TerminalUpdate[] {
+    return [
+      {
+        type: 'pointer-tracking',
+        tracking: this.state.input.pointer.tracking,
+        encoding: this.state.input.pointer.encoding,
+      },
+    ]
+  }
+
+  private setFocusReporting(enabled: boolean): TerminalUpdate[] {
+    if (this.state.input.focusReporting === enabled) {
+      return []
+    }
+    this.state.input.focusReporting = enabled
+    return [
+      {
+        type: 'mode',
+        mode: 'focus-reporting',
+        value: enabled,
+      },
+    ]
+  }
+
+  private setBracketedPaste(enabled: boolean): TerminalUpdate[] {
+    if (this.state.input.bracketedPaste === enabled) {
+      return []
+    }
+    this.state.input.bracketedPaste = enabled
+    return [
+      {
+        type: 'mode',
+        mode: 'bracketed-paste',
+        value: enabled,
+      },
+    ]
   }
 
   private setCursorVisibility(visible: boolean): TerminalUpdate[] {
@@ -2381,6 +2513,21 @@ export class TerminalInterpreter {
         type: 'mode',
         mode: 'cursor-keys-application',
         value: this.state.cursorKeysApplicationMode,
+      },
+      {
+        type: 'mode',
+        mode: 'focus-reporting',
+        value: this.state.input.focusReporting,
+      },
+      {
+        type: 'mode',
+        mode: 'bracketed-paste',
+        value: this.state.input.bracketedPaste,
+      },
+      {
+        type: 'pointer-tracking',
+        tracking: this.state.input.pointer.tracking,
+        encoding: this.state.input.pointer.encoding,
       },
     ]
   }

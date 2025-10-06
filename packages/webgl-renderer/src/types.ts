@@ -2,6 +2,8 @@ import type {
   CursorPosition,
   ParserEvent,
   TerminalAttributes,
+  TerminalPointerButton,
+  TerminalPointerModifierState,
   TerminalRuntime,
   TerminalRuntimeCursorMoveDirection,
   TerminalRuntimeCursorMoveOptions,
@@ -168,20 +170,24 @@ export type RendererEvent<_TRendererConfig = unknown> =
   | { readonly type: 'runtime.text'; readonly value: string }
   | {
       readonly type: 'runtime.pointer'
-      readonly phase: RuntimePointerEventPhase
+      readonly action: RuntimePointerEventPhase
       readonly pointerId: number
+      readonly button: TerminalPointerButton
       readonly buttons: number
       readonly position: { readonly x: number; readonly y: number }
+      readonly cell: { readonly row: number; readonly column: number }
+      readonly modifiers?: TerminalPointerModifierState
     }
   | {
       readonly type: 'runtime.wheel'
       readonly deltaX: number
       readonly deltaY: number
+      readonly cell: { readonly row: number; readonly column: number }
+      readonly modifiers?: TerminalPointerModifierState
     }
-  | { readonly type: 'runtime.copy' }
-  | { readonly type: 'runtime.paste'; readonly data: string }
   | { readonly type: 'runtime.focus' }
   | { readonly type: 'runtime.blur' }
+  | { readonly type: 'runtime.paste'; readonly text: string }
   | {
       readonly type: 'runtime.cursor.set'
       readonly position: CursorPosition

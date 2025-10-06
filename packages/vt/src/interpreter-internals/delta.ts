@@ -41,6 +41,8 @@ export type TerminalUpdate =
         | 'smooth-scroll'
         | 'keypad-application'
         | 'cursor-keys-application'
+        | 'focus-reporting'
+        | 'bracketed-paste'
       readonly value: boolean
     }
   | { readonly type: 'cursor-visibility'; readonly value: boolean }
@@ -51,6 +53,11 @@ export type TerminalUpdate =
       readonly type: 'palette'
       readonly index: number
       readonly color: TerminalColor
+    }
+  | {
+      readonly type: 'pointer-tracking'
+      readonly tracking: 'off' | 'button' | 'normal' | 'any-motion'
+      readonly encoding: 'default' | 'utf8' | 'sgr'
     }
   | {
       readonly type: 'selection-set'

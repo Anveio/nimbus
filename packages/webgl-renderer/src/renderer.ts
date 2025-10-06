@@ -6,9 +6,9 @@ import {
 import { createWebglContext } from './gl/context'
 import { createFullScreenQuad, disposeFullScreenQuad } from './gl/quad'
 import { createProgram } from './gl/shader'
+import { TILE_HEIGHT_CELLS, TILE_WIDTH_CELLS } from './internal/constants'
 import { DamageTracker } from './internal/damage-tracker'
 import { FrameScheduler } from './internal/frame-scheduler'
-import { TILE_HEIGHT_CELLS, TILE_WIDTH_CELLS } from './internal/constants'
 import { createListenerRegistry } from './internal/listener-registry'
 import { mergeTerminalProfile } from './internal/profile'
 import {
@@ -209,23 +209,24 @@ export class WebglRenderer
       return
     }
 
-    const result: RuntimeBridgeResult = applyRendererEventToRuntime(
-      this.runtime,
-      event,
-    )
+    if (event.type.startsWith('runtime.')) {
+      const result: RuntimeBridgeResult = applyRendererEventToRuntime(
+        this.runtime,
+        event,
+      )
 
-    if (result.handled) {
-      if (result.batch) {
-        this.pendingBatches.push(result.batch)
-        this.recordBatchDamage(result.batch)
-        const reason = result.batch.reason ?? 'apply-updates'
-        this.requestFrame(reason)
-      } else {
-        this.requestFrame('sync')
+      if (result.handled) {
+        if (result.batch) {
+          this.pendingBatches.push(result.batch)
+          this.recordBatchDamage(result.batch)
+          const reason = result.batch.reason ?? 'apply-updates'
+          this.requestFrame(reason)
+        } else {
+          this.requestFrame('sync')
+        }
+        return
       }
-      return
     }
-
     throw new Error(
       `Unsupported renderer event type: ${(event as RendererEvent).type}`,
     )
@@ -489,7 +490,9 @@ export class WebglRenderer
       fullUpload,
     )
 
-    const aggregatedUpdates = this.pendingBatches.flatMap((batch) => batch.updates)
+    const aggregatedUpdates = this.pendingBatches.flatMap(
+      (batch) => batch.updates,
+    )
     const gridConfig = this._configuration.grid
 
     const frameEvent: RendererFrameEvent<WebglRendererFrameMetadata> = {
@@ -538,7 +541,7 @@ export class WebglRenderer
   }
 
   private resolveRenderRegions(
-    snapshot: TerminalState,
+    _snapshot: TerminalState,
   ): RendererDirtyRegion[] | null {
     if (this.needsFullRedraw) {
       return null
@@ -584,13 +587,11 @@ export class WebglRenderer
     snapshot: TerminalState,
     regions: RendererDirtyRegion[] | null,
     fullUpload: boolean,
-  ):
-    | {
-        dirtyRegion: { rows: number; columns: number }
-        bytesUploaded: number
-        coverage: number
-      }
-    | null {
+  ): {
+    dirtyRegion: { rows: number; columns: number }
+    bytesUploaded: number
+    coverage: number
+  } | null {
     if (fullUpload) {
       return {
         dirtyRegion: { rows: snapshot.rows, columns: snapshot.columns },
@@ -632,7 +633,10 @@ export class WebglRenderer
       this.getFramebufferWidth(this._configuration!) *
       this.getFramebufferHeight(this._configuration!)
     const pixelsUploaded = uploadedBytes / 4
-    const coverage = Math.min(1, totalPixels === 0 ? 0 : pixelsUploaded / totalPixels)
+    const coverage = Math.min(
+      1,
+      totalPixels === 0 ? 0 : pixelsUploaded / totalPixels,
+    )
     return {
       dirtyRegion: {
         rows: uniqueRows.size,

@@ -498,6 +498,169 @@ describe('TerminalInterpreter basic behaviour', () => {
     expect(state.cursor.column).toBe(1)
   })
 
+  it('tracks DECSET pointer modes and encodings', () => {
+    const parser = createParser()
+    const interpreter = createInterpreter()
+    const updates: TerminalUpdate[][] = []
+    const sink = new InterpreterSink(interpreter, updates)
+
+    parser.write('\u001B[?1000h', sink)
+    let pointerUpdate = updates
+      .flat()
+      .find(
+        (update): update is Extract<TerminalUpdate, { type: 'pointer-tracking' }> =>
+          update.type === 'pointer-tracking',
+      )
+    expect(pointerUpdate?.tracking).toBe('button')
+    expect(interpreter.snapshot.input.pointer.tracking).toBe('button')
+
+    updates.length = 0
+    parser.write('\u001B[?1003h', sink)
+    pointerUpdate = updates
+      .flat()
+      .find(
+        (update): update is Extract<TerminalUpdate, { type: 'pointer-tracking' }> =>
+          update.type === 'pointer-tracking',
+      )
+    expect(pointerUpdate?.tracking).toBe('any-motion')
+    expect(interpreter.snapshot.input.pointer.tracking).toBe('any-motion')
+
+    updates.length = 0
+    parser.write('\u001B[?1003l', sink)
+    pointerUpdate = updates
+      .flat()
+      .find(
+        (update): update is Extract<TerminalUpdate, { type: 'pointer-tracking' }> =>
+          update.type === 'pointer-tracking',
+      )
+    expect(pointerUpdate?.tracking).toBe('button')
+    expect(interpreter.snapshot.input.pointer.tracking).toBe('button')
+
+    updates.length = 0
+    parser.write('\u001B[?1005h', sink)
+    pointerUpdate = updates
+      .flat()
+      .find(
+        (update): update is Extract<TerminalUpdate, { type: 'pointer-tracking' }> =>
+          update.type === 'pointer-tracking',
+      )
+    expect(pointerUpdate?.encoding).toBe('utf8')
+    expect(interpreter.snapshot.input.pointer.encoding).toBe('utf8')
+
+    updates.length = 0
+    parser.write('\u001B[?1006h', sink)
+    pointerUpdate = updates
+      .flat()
+      .find(
+        (update): update is Extract<TerminalUpdate, { type: 'pointer-tracking' }> =>
+          update.type === 'pointer-tracking',
+      )
+    expect(pointerUpdate?.encoding).toBe('sgr')
+    expect(interpreter.snapshot.input.pointer.encoding).toBe('sgr')
+
+    updates.length = 0
+    parser.write('\u001B[?1006l', sink)
+    pointerUpdate = updates
+      .flat()
+      .find(
+        (update): update is Extract<TerminalUpdate, { type: 'pointer-tracking' }> =>
+          update.type === 'pointer-tracking',
+      )
+    expect(pointerUpdate?.encoding).toBe('utf8')
+    expect(interpreter.snapshot.input.pointer.encoding).toBe('utf8')
+
+    updates.length = 0
+    parser.write('\u001B[?1005l', sink)
+    pointerUpdate = updates
+      .flat()
+      .find(
+        (update): update is Extract<TerminalUpdate, { type: 'pointer-tracking' }> =>
+          update.type === 'pointer-tracking',
+      )
+    expect(pointerUpdate?.encoding).toBe('default')
+    expect(interpreter.snapshot.input.pointer.encoding).toBe('default')
+  })
+
+  it('toggles focus reporting via DECSET 1004', () => {
+    const parser = createParser()
+    const interpreter = createInterpreter()
+    const updates: TerminalUpdate[][] = []
+    const sink = new InterpreterSink(interpreter, updates)
+
+    parser.write('\u001B[?1004h', sink)
+    let focusUpdate = updates
+      .flat()
+      .find(
+        (update): update is Extract<TerminalUpdate, { type: 'mode' }> =>
+          update.type === 'mode' && update.mode === 'focus-reporting',
+      )
+    expect(focusUpdate?.value).toBe(true)
+    expect(interpreter.snapshot.input.focusReporting).toBe(true)
+
+    updates.length = 0
+    parser.write('\u001B[?1004l', sink)
+    focusUpdate = updates
+      .flat()
+      .find(
+        (update): update is Extract<TerminalUpdate, { type: 'mode' }> =>
+          update.type === 'mode' && update.mode === 'focus-reporting',
+      )
+    expect(focusUpdate?.value).toBe(false)
+    expect(interpreter.snapshot.input.focusReporting).toBe(false)
+  })
+
+  it('toggles bracketed paste via DECSET 2004', () => {
+    const parser = createParser()
+    const interpreter = createInterpreter()
+    const updates: TerminalUpdate[][] = []
+    const sink = new InterpreterSink(interpreter, updates)
+
+    parser.write('\u001B[?2004h', sink)
+    let pasteUpdate = updates
+      .flat()
+      .find(
+        (update): update is Extract<TerminalUpdate, { type: 'mode' }> =>
+          update.type === 'mode' && update.mode === 'bracketed-paste',
+      )
+    expect(pasteUpdate?.value).toBe(true)
+    expect(interpreter.snapshot.input.bracketedPaste).toBe(true)
+
+    updates.length = 0
+    parser.write('\u001B[?2004l', sink)
+    pasteUpdate = updates
+      .flat()
+      .find(
+        (update): update is Extract<TerminalUpdate, { type: 'mode' }> =>
+          update.type === 'mode' && update.mode === 'bracketed-paste',
+      )
+    expect(pasteUpdate?.value).toBe(false)
+    expect(interpreter.snapshot.input.bracketedPaste).toBe(false)
+  })
+
+  it('reports input mode states via DECRPM', () => {
+    const { updates } = run(
+      '\u001B[?1000h\u001B[?1000$p\u001B[?1004h\u001B[?1004$p\u001B[?2004h\u001B[?2004$p',
+    )
+
+    const responses = updates
+      .flat()
+      .filter(
+        (update): update is Extract<TerminalUpdate, { type: 'response' }> =>
+          update.type === 'response',
+      )
+      .map((update) => normaliseDeviceAttributes(update.data))
+
+    expect(responses).toContainEqual(
+      Array.from('?1000;1$y').map((char) => char.charCodeAt(0)),
+    )
+    expect(responses).toContainEqual(
+      Array.from('?1004;1$y').map((char) => char.charCodeAt(0)),
+    )
+    expect(responses).toContainEqual(
+      Array.from('?2004;1$y').map((char) => char.charCodeAt(0)),
+    )
+  })
+
   it('honours cursor visibility toggles', () => {
     const { interpreter } = run('\x1b[?25l\x1b[?25h')
     const state = interpreter.snapshot

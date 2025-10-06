@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { TerminalSelection } from './interpreter'
+import type { TerminalSelection, TerminalUpdate } from './interpreter'
 import {
   createTerminalRuntime,
   type TerminalRuntimeCursorMoveOptions,
@@ -22,6 +22,16 @@ const createSelection = (
   kind: 'normal',
   status: 'idle',
 })
+
+const normaliseResponse = (data: Uint8Array): string =>
+  Array.from(data)
+    .map((byte) => (byte === 0x9b ? '\u001B[' : String.fromCharCode(byte)))
+    .join('')
+
+const isResponseUpdate = (
+  update: TerminalUpdate,
+): update is Extract<TerminalUpdate, { type: 'response' }> =>
+  update.type === 'response'
 
 describe('TerminalRuntime host events', () => {
   it('moves the cursor via cursor.move events', () => {
@@ -177,6 +187,93 @@ describe('TerminalRuntime host events', () => {
     expect(updates.length).toBeGreaterThan(0)
     expect(runtime.snapshot.cursor.column).toBe(1)
     expect(runtime.snapshot.selection).not.toBeNull()
+  })
+
+  it('emits SGR mouse reports when pointer tracking is enabled', () => {
+    const runtime = createTerminalRuntime()
+    runtime.write('\u001B[?1000h\u001B[?1006h')
+
+    const updates = runtime.dispatchEvent({
+      type: 'pointer',
+      action: 'down',
+      button: 'left',
+      buttons: 1,
+      position: { row: 5, column: 10 },
+    })
+
+    const response = updates.find(isResponseUpdate)
+    expect(response).toBeDefined()
+    if (response?.type === 'response') {
+      expect(normaliseResponse(response.data)).toBe('\u001B[<0;10;5M')
+    }
+  })
+
+  it('emits wheel reports respecting modifier masks', () => {
+    const runtime = createTerminalRuntime()
+    runtime.write('\u001B[?1000h\u001B[?1006h')
+
+    const updates = runtime.dispatchEvent({
+      type: 'wheel',
+      deltaY: -1,
+      deltaX: 0,
+      position: { row: 3, column: 2 },
+      modifiers: { ctrl: true },
+    })
+
+    const response = updates.find(isResponseUpdate)
+    expect(response).toBeDefined()
+    if (response?.type === 'response') {
+      expect(normaliseResponse(response.data)).toBe('\u001B[<80;2;3M')
+    }
+  })
+
+  it('emits focus reports when the mode is enabled', () => {
+    const runtime = createTerminalRuntime()
+    runtime.write('\u001B[?1004h')
+
+    const focusUpdates = runtime.dispatchEvent({ type: 'focus' })
+    const focusResponse = focusUpdates.find(isResponseUpdate)
+    expect(focusResponse).toBeDefined()
+    if (focusResponse?.type === 'response') {
+      expect(normaliseResponse(focusResponse.data)).toBe('\u001B[I')
+    }
+
+    const blurUpdates = runtime.dispatchEvent({ type: 'blur' })
+    const blurResponse = blurUpdates.find(isResponseUpdate)
+    expect(blurResponse).toBeDefined()
+    if (blurResponse?.type === 'response') {
+      expect(normaliseResponse(blurResponse.data)).toBe('\u001B[O')
+    }
+  })
+
+  it('wraps paste payloads with bracketed paste guards when enabled', () => {
+    const runtime = createTerminalRuntime()
+    runtime.write('\u001B[?2004h')
+
+    const updates = runtime.dispatchEvent({ type: 'paste', data: 'abc' })
+    const responses = updates
+      .filter(isResponseUpdate)
+      .map((update) => normaliseResponse(update.data))
+
+    expect(responses).toContain('\u001B[200~')
+    expect(responses).toContain('\u001B[201~')
+    const text = runtime.snapshot.buffer[0]!
+      .slice(0, 3)
+      .map((cell) => cell.char)
+      .join('')
+    expect(text).toBe('abc')
+  })
+
+  it('omits bracketed paste guards when mode is disabled', () => {
+    const runtime = createTerminalRuntime()
+
+    const updates = runtime.dispatchEvent({ type: 'paste', data: 'xyz' })
+    expect(updates.some((update) => update.type === 'response')).toBe(false)
+    const text = runtime.snapshot.buffer[0]!
+      .slice(0, 3)
+      .map((cell) => cell.char)
+      .join('')
+    expect(text).toBe('xyz')
   })
 })
 

@@ -58,7 +58,7 @@ const translateKeyEvent = (event: RendererEvent): string | null => {
   return null
 }
 
-const forwardRuntimeEvent = (
+const dispatchEventToRuntime = (
   runtime: TerminalRuntime,
   hostEvent: TerminalRuntimeEvent,
 ): ReadonlyArray<TerminalUpdate> => runtime.dispatchEvent(hostEvent)
@@ -99,18 +99,78 @@ export const applyRendererEventToRuntime = (
         handled: true,
       }
     }
-    case 'runtime.pointer':
-    case 'runtime.wheel':
-    case 'runtime.copy':
-    case 'runtime.paste':
+    case 'runtime.pointer': {
+      const action = event.action === 'cancel' ? 'up' : event.action
+      const updates = dispatchEventToRuntime(runtime, {
+        type: 'pointer',
+        action,
+        button: event.button,
+        buttons: event.buttons,
+        position: {
+          row: Math.max(1, Math.trunc(event.cell.row)),
+          column: Math.max(1, Math.trunc(event.cell.column)),
+        },
+        modifiers: event.modifiers,
+      })
+      return {
+        batch: {
+          snapshot: runtime.snapshot,
+          updates,
+          reason: 'apply-updates',
+        },
+        handled: true,
+      }
+    }
+    case 'runtime.wheel': {
+      const updates = dispatchEventToRuntime(runtime, {
+        type: 'wheel',
+        deltaX: event.deltaX,
+        deltaY: event.deltaY,
+        position: {
+          row: Math.max(1, Math.trunc(event.cell.row)),
+          column: Math.max(1, Math.trunc(event.cell.column)),
+        },
+        modifiers: event.modifiers,
+      })
+      return {
+        batch: {
+          snapshot: runtime.snapshot,
+          updates,
+          reason: 'apply-updates',
+        },
+        handled: true,
+      }
+    }
     case 'runtime.focus':
     case 'runtime.blur': {
-      // Pointer and clipboard events currently require host-level handling.
-      // Once TerminalRuntime exposes dedicated events we will forward them.
-      return { batch: null, handled: true }
+      const updates = dispatchEventToRuntime(runtime, {
+        type: event.type === 'runtime.focus' ? 'focus' : 'blur',
+      })
+      return {
+        batch: {
+          snapshot: runtime.snapshot,
+          updates,
+          reason: 'apply-updates',
+        },
+        handled: true,
+      }
+    }
+    case 'runtime.paste': {
+      const updates = dispatchEventToRuntime(runtime, {
+        type: 'paste',
+        data: event.text,
+      })
+      return {
+        batch: {
+          snapshot: runtime.snapshot,
+          updates,
+          reason: 'apply-updates',
+        },
+        handled: true,
+      }
     }
     case 'runtime.cursor.set': {
-      const updates = forwardRuntimeEvent(runtime, {
+      const updates = dispatchEventToRuntime(runtime, {
         type: 'cursor.set',
         position: event.position,
         options: event.options,
@@ -125,7 +185,7 @@ export const applyRendererEventToRuntime = (
       }
     }
     case 'runtime.cursor.move': {
-      const updates = forwardRuntimeEvent(runtime, {
+      const updates = dispatchEventToRuntime(runtime, {
         type: 'cursor.move',
         direction: event.direction,
         options: event.options,
@@ -140,7 +200,7 @@ export const applyRendererEventToRuntime = (
       }
     }
     case 'runtime.selection.set': {
-      const updates = forwardRuntimeEvent(runtime, {
+      const updates = dispatchEventToRuntime(runtime, {
         type: 'selection.set',
         selection: event.selection,
       })
@@ -154,7 +214,7 @@ export const applyRendererEventToRuntime = (
       }
     }
     case 'runtime.selection.update': {
-      const updates = forwardRuntimeEvent(runtime, {
+      const updates = dispatchEventToRuntime(runtime, {
         type: 'selection.update',
         selection: event.selection,
       })
@@ -168,7 +228,9 @@ export const applyRendererEventToRuntime = (
       }
     }
     case 'runtime.selection.clear': {
-      const updates = forwardRuntimeEvent(runtime, { type: 'selection.clear' })
+      const updates = dispatchEventToRuntime(runtime, {
+        type: 'selection.clear',
+      })
       return {
         batch: {
           snapshot: runtime.snapshot,
@@ -179,7 +241,7 @@ export const applyRendererEventToRuntime = (
       }
     }
     case 'runtime.selection.replace': {
-      const updates = forwardRuntimeEvent(runtime, {
+      const updates = dispatchEventToRuntime(runtime, {
         type: 'selection.replace',
         replacement: event.replacement,
         selection: event.selection ?? undefined,

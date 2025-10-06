@@ -161,6 +161,9 @@ export interface TerminalFeatures {
   readonly primaryDeviceAttributes: string
   readonly secondaryDeviceAttributes: string | null
   readonly supportsNationalReplacementCharsets: boolean
+  readonly supportsPointerTracking: boolean
+  readonly supportsFocusReporting: boolean
+  readonly supportsBracketedPaste: boolean
 }
 
 export interface TerminalCapabilities {

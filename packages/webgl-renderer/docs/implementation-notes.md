@@ -4,7 +4,7 @@ This renderer targets the contract defined in `packages/tui-renderer-core/docs/r
 
 ## Pointer and clipboard dispatch
 
-The current `@mana/vt` runtime does not yet expose typed events for pointer gestures, wheel scrolling, or clipboard signalling. The renderer therefore treats the `runtime.pointer`, `runtime.wheel`, `runtime.copy`, `runtime.paste`, `runtime.focus`, and `runtime.blur` dispatches as handled within the renderer layer (to remain spec-compliant) but does not forward them into the runtime. Selection overlays and accessibility layers still receive those gestures via the host APIs. Once the runtime introduces the corresponding hooks we will forward the events directly and remove this divergence.
+Pointer, wheel, focus, and paste events now feed directly into `@mana/vt` so that the runtime can honour DEC private modes (1000/1002/1003, 1004, 2004). Renderers are responsible for supplying cell-relative coordinates and modifier state so that the runtime can synthesise the appropriate control sequences (legacy, UTF-8, or SGR encodings). Copy remains a host-level concern because the interpreter only tracks OSC 52 writes; renderer layers should continue to expose selections to platform clipboards.
 
 ## Render pipeline summary
 

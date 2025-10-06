@@ -25,6 +25,9 @@ const SPEC_FEATURES: Record<ParserSpec, TerminalFeatures> = {
     primaryDeviceAttributes: '\u001B[?62;1;2;6;7;8;9c',
     secondaryDeviceAttributes: '\u001B[>62;1;2c',
     supportsNationalReplacementCharsets: false,
+    supportsPointerTracking: true,
+    supportsFocusReporting: true,
+    supportsBracketedPaste: true,
   },
   vt220: {
     initialRows: 24,
@@ -42,6 +45,9 @@ const SPEC_FEATURES: Record<ParserSpec, TerminalFeatures> = {
     primaryDeviceAttributes: '\u001B[?62;1;2;6;7;8;9c',
     secondaryDeviceAttributes: '\u001B[>62;1;2c',
     supportsNationalReplacementCharsets: true,
+    supportsPointerTracking: true,
+    supportsFocusReporting: true,
+    supportsBracketedPaste: true,
   },
   vt320: {
     initialRows: 24,
@@ -59,6 +65,9 @@ const SPEC_FEATURES: Record<ParserSpec, TerminalFeatures> = {
     primaryDeviceAttributes: '\u001B[?62;1;2;6;7;8;9c',
     secondaryDeviceAttributes: '\u001B[>62;1;2c',
     supportsNationalReplacementCharsets: true,
+    supportsPointerTracking: true,
+    supportsFocusReporting: true,
+    supportsBracketedPaste: true,
   },
   vt420: {
     initialRows: 24,
@@ -76,6 +85,9 @@ const SPEC_FEATURES: Record<ParserSpec, TerminalFeatures> = {
     primaryDeviceAttributes: '\u001B[?62;1;2;6;7;8;9c',
     secondaryDeviceAttributes: '\u001B[>62;1;2c',
     supportsNationalReplacementCharsets: true,
+    supportsPointerTracking: true,
+    supportsFocusReporting: true,
+    supportsBracketedPaste: true,
   },
   vt520: {
     initialRows: 24,
@@ -93,6 +105,9 @@ const SPEC_FEATURES: Record<ParserSpec, TerminalFeatures> = {
     primaryDeviceAttributes: '\u001B[?62;1;2;6;7;8;9c',
     secondaryDeviceAttributes: '\u001B[>62;1;2c',
     supportsNationalReplacementCharsets: true,
+    supportsPointerTracking: true,
+    supportsFocusReporting: true,
+    supportsBracketedPaste: true,
   },
   vt525: {
     initialRows: 24,
@@ -110,6 +125,9 @@ const SPEC_FEATURES: Record<ParserSpec, TerminalFeatures> = {
     primaryDeviceAttributes: '\u001B[?62;1;2;6;7;8;9c',
     secondaryDeviceAttributes: '\u001B[>62;1;2c',
     supportsNationalReplacementCharsets: true,
+    supportsPointerTracking: true,
+    supportsFocusReporting: true,
+    supportsBracketedPaste: true,
   },
 }
 
@@ -146,6 +164,12 @@ const mergeFeatures = (
     supportsNationalReplacementCharsets:
       overlay.supportsNationalReplacementCharsets ??
       base.supportsNationalReplacementCharsets,
+    supportsPointerTracking:
+      overlay.supportsPointerTracking ?? base.supportsPointerTracking,
+    supportsFocusReporting:
+      overlay.supportsFocusReporting ?? base.supportsFocusReporting,
+    supportsBracketedPaste:
+      overlay.supportsBracketedPaste ?? base.supportsBracketedPaste,
   }
 }
 

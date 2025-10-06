@@ -51,18 +51,41 @@ describe('applyRendererEventToRuntime', () => {
     expect(result.batch?.reason).toBe('apply-updates')
   })
 
-  it('marks pointer events as handled even though the runtime ignores them', () => {
+  it('forwards pointer events to the runtime even when tracking is disabled', () => {
     const runtime = createRendererRuntime()
 
     const result = applyRendererEventToRuntime(runtime, {
       type: 'runtime.pointer',
-      phase: 'move',
+      action: 'move',
       pointerId: 1,
       buttons: 0,
+      button: 'none',
       position: { x: 0, y: 0 },
+      cell: { row: 1, column: 1 },
     })
 
     expect(result.handled).toBe(true)
-    expect(result.batch).toBeNull()
+    expect(result.batch?.updates ?? []).toHaveLength(0)
+  })
+
+  it('forwards paste events to the runtime', () => {
+    const runtime = createRendererRuntime()
+    const result = applyRendererEventToRuntime(runtime, {
+      type: 'runtime.paste',
+      text: 'echo paste',
+    })
+
+    expect(result.handled).toBe(true)
+    expect(result.batch?.updates.length ?? 0).toBeGreaterThan(0)
+  })
+
+  it('forwards focus events to the runtime', () => {
+    const runtime = createRendererRuntime()
+    const result = applyRendererEventToRuntime(runtime, {
+      type: 'runtime.focus',
+    })
+
+    expect(result.handled).toBe(true)
+    expect(result.batch?.updates ?? []).toHaveLength(0)
   })
 })

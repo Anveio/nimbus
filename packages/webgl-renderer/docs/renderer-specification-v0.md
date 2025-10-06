@@ -198,16 +198,34 @@ type RendererEvent<TRendererConfig> =
   | { type: 'runtime.text'; value: string }
   | {
       type: 'runtime.pointer';
-      phase: 'down' | 'move' | 'up' | 'cancel';
+      action: 'down' | 'move' | 'up' | 'cancel';
       pointerId: number;
+      button: 'left' | 'middle' | 'right' | 'aux1' | 'aux2' | 'none';
       buttons: number;
       position: { x: number; y: number };
+      cell: { row: number; column: number };
+      modifiers?: {
+        shift?: boolean;
+        alt?: boolean;
+        meta?: boolean;
+        ctrl?: boolean;
+      };
     }
-  | { type: 'runtime.wheel'; deltaX: number; deltaY: number }
-  | { type: 'runtime.copy' }
-  | { type: 'runtime.paste'; data: string }
+  | {
+      type: 'runtime.wheel';
+      deltaX: number;
+      deltaY: number;
+      cell: { row: number; column: number };
+      modifiers?: {
+        shift?: boolean;
+        alt?: boolean;
+        meta?: boolean;
+        ctrl?: boolean;
+      };
+    }
   | { type: 'runtime.focus' }
   | { type: 'runtime.blur' }
+  | { type: 'runtime.paste'; text: string }
   | {
       type: 'runtime.cursor.set';
       position: CursorPosition;

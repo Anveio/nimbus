@@ -9,6 +9,7 @@ import type {
   TerminalAttributes,
   TerminalState,
 } from './interpreter-internals/state'
+import { encodeResponsePayload } from './interpreter-internals/response'
 import { createParser } from './parser'
 import type {
   Parser,
@@ -43,6 +44,38 @@ export interface TerminalRuntimeCursorMoveOptions {
   readonly selectionAnchor?: SelectionPoint | null
   readonly clampToLineEnd?: boolean
   readonly clampToContentRow?: boolean
+}
+
+export interface TerminalPointerModifierState {
+  readonly shift?: boolean
+  readonly alt?: boolean
+  readonly meta?: boolean
+  readonly ctrl?: boolean
+}
+
+export type TerminalPointerButton =
+  | 'left'
+  | 'middle'
+  | 'right'
+  | 'aux1'
+  | 'aux2'
+  | 'none'
+
+export interface TerminalRuntimePointerEvent {
+  readonly type: 'pointer'
+  readonly action: 'down' | 'up' | 'move'
+  readonly button: TerminalPointerButton
+  readonly buttons?: number
+  readonly position: { readonly row: number; readonly column: number }
+  readonly modifiers?: TerminalPointerModifierState
+}
+
+export interface TerminalRuntimeWheelEvent {
+  readonly type: 'wheel'
+  readonly deltaY: number
+  readonly deltaX?: number
+  readonly position: { readonly row: number; readonly column: number }
+  readonly modifiers?: TerminalPointerModifierState
 }
 
 export type TerminalRuntimeEvent =
@@ -96,6 +129,11 @@ export type TerminalRuntimeEvent =
       readonly selection?: TerminalSelection | null
       readonly attributesOverride?: TerminalAttributes
     }
+  | TerminalRuntimePointerEvent
+  | TerminalRuntimeWheelEvent
+  | { readonly type: 'focus' }
+  | { readonly type: 'blur' }
+  | { readonly type: 'paste'; readonly data: string }
   /**
    * Directly injects a single parser event. Reserved for advanced hosts and
    * test harnesses that already understand ECMA-48 semantics.
@@ -244,6 +282,16 @@ class TerminalRuntimeImpl implements TerminalRuntime {
           selection: event.selection ?? undefined,
           attributesOverride: event.attributesOverride,
         })
+      case 'pointer':
+        return this.handlePointerEvent(event)
+      case 'wheel':
+        return this.handleWheelEvent(event)
+      case 'focus':
+        return this.handleFocusEvent(true)
+      case 'blur':
+        return this.handleFocusEvent(false)
+      case 'paste':
+        return this.handlePasteEvent(event.data)
       case 'parser.dispatch':
         return this.dispatchParserEvent(event.event)
       case 'parser.batch':
@@ -317,6 +365,414 @@ class TerminalRuntimeImpl implements TerminalRuntime {
       default:
         return []
     }
+  }
+
+  private handlePointerEvent(event: TerminalRuntimePointerEvent): TerminalUpdate[] {
+    if (!this.supportsPointerTracking()) {
+      return []
+    }
+
+    const pointerState = this.snapshot.input.pointer
+    if (pointerState.tracking === 'off') {
+      return []
+    }
+
+    if (event.action === 'move') {
+      if (pointerState.tracking === 'button') {
+        return []
+      }
+      const activeButtons = event.buttons ?? 0
+      if (pointerState.tracking === 'normal' && activeButtons === 0) {
+        return []
+      }
+    }
+
+    const bytes = this.encodePointerReport(event, pointerState.encoding)
+    if (!bytes) {
+      return []
+    }
+    return this.emitHostBytes(bytes)
+  }
+
+  private handleWheelEvent(event: TerminalRuntimeWheelEvent): TerminalUpdate[] {
+    if (!this.supportsPointerTracking()) {
+      return []
+    }
+    const pointerState = this.snapshot.input.pointer
+    if (pointerState.tracking === 'off') {
+      return []
+    }
+
+    const sequences: TerminalUpdate[] = []
+    const vertical = Math.sign(event.deltaY ?? 0)
+    const horizontal = Math.sign(event.deltaX ?? 0)
+
+    if (vertical !== 0) {
+      const report = this.encodeWheelReport(
+        vertical < 0 ? 'up' : 'down',
+        event,
+        pointerState.encoding,
+      )
+      if (report) {
+        sequences.push(...this.emitHostBytes(report))
+      }
+    }
+
+    if (horizontal !== 0) {
+      const report = this.encodeWheelReport(
+        horizontal < 0 ? 'left' : 'right',
+        event,
+        pointerState.encoding,
+      )
+      if (report) {
+        sequences.push(...this.emitHostBytes(report))
+      }
+    }
+
+    return sequences
+  }
+
+  private handleFocusEvent(focused: boolean): TerminalUpdate[] {
+    if (!this.supportsFocusReporting()) {
+      return []
+    }
+    const sequence = focused ? '\u001B[I' : '\u001B[O'
+    if (!this.snapshot.input.focusReporting) {
+      return []
+    }
+    return this.emitHostSequence(sequence)
+  }
+
+  private handlePasteEvent(data: string): TerminalUpdate[] {
+    if (data.length === 0) {
+      return []
+    }
+
+    const updates: TerminalUpdate[] = []
+    const supportsBracketed = this.supportsBracketedPaste()
+    const bracketedEnabled =
+      supportsBracketed && this.snapshot.input.bracketedPaste
+
+    if (bracketedEnabled) {
+      updates.push(...this.emitHostSequence('\u001B[200~'))
+    }
+
+    updates.push(...this.processWrite(data))
+
+    if (bracketedEnabled) {
+      updates.push(...this.emitHostSequence('\u001B[201~'))
+    }
+
+    return updates
+  }
+
+  private supportsPointerTracking(): boolean {
+    return this._interpreter.capabilities.features.supportsPointerTracking
+  }
+
+  private supportsFocusReporting(): boolean {
+    return this._interpreter.capabilities.features.supportsFocusReporting
+  }
+
+  private supportsBracketedPaste(): boolean {
+    return this._interpreter.capabilities.features.supportsBracketedPaste
+  }
+
+  private emitHostSequence(sequence: string): TerminalUpdate[] {
+    const mode = this.snapshot.c1Transmission
+    const data = encodeResponsePayload(sequence, mode)
+    return [{ type: 'response', data }]
+  }
+
+  private emitHostBytes(bytes: Uint8Array): TerminalUpdate[] {
+    return [{ type: 'response', data: bytes }]
+  }
+
+  private encodePointerReport(
+    event: TerminalRuntimePointerEvent,
+    encoding: 'default' | 'utf8' | 'sgr',
+  ): Uint8Array | null {
+    const column = this.clampPointerCoordinate(event.position.column, encoding)
+    const row = this.clampPointerCoordinate(event.position.row, encoding)
+    const modifiers = this.computePointerModifierMask(event.modifiers)
+    const primaryButton = this.resolvePrimaryPointerButton(event.button, event.buttons)
+
+    switch (encoding) {
+      case 'sgr':
+        return this.encodePointerReportSgr(event, modifiers, primaryButton, column, row)
+      case 'utf8':
+        return this.encodePointerReportUtf8(event, modifiers, primaryButton, column, row)
+      default:
+        return this.encodePointerReportDefault(event, modifiers, primaryButton, column, row)
+    }
+  }
+
+  private encodePointerReportDefault(
+    event: TerminalRuntimePointerEvent,
+    modifierMask: number,
+    primaryButton: number | null,
+    column: number,
+    row: number,
+  ): Uint8Array | null {
+    const base = this.computePointerBaseCode(event, primaryButton, modifierMask, false)
+    if (base === null) {
+      return null
+    }
+    const prefix = this.getCsiPrefixBytes()
+    const payload = new Uint8Array(prefix.length + 4)
+    payload.set(prefix, 0)
+    payload[prefix.length] = 0x4d
+    payload[prefix.length + 1] = 32 + base
+    payload[prefix.length + 2] = 32 + Math.min(column, 223)
+    payload[prefix.length + 3] = 32 + Math.min(row, 223)
+    return payload
+  }
+
+  private encodePointerReportUtf8(
+    event: TerminalRuntimePointerEvent,
+    modifierMask: number,
+    primaryButton: number | null,
+    column: number,
+    row: number,
+  ): Uint8Array | null {
+    const base = this.computePointerBaseCode(event, primaryButton, modifierMask, false)
+    if (base === null) {
+      return null
+    }
+    const prefix = this.getCsiPrefixBytes()
+    const cbBytes = this.encodeUtf8(32 + base)
+    const columnBytes = this.encodeUtf8(32 + column)
+    const rowBytes = this.encodeUtf8(32 + row)
+    const payload = new Uint8Array(
+      prefix.length + 1 + cbBytes.length + columnBytes.length + rowBytes.length,
+    )
+    payload.set(prefix, 0)
+    let offset = prefix.length
+    payload[offset] = 0x4d
+    offset += 1
+    payload.set(cbBytes, offset)
+    offset += cbBytes.length
+    payload.set(columnBytes, offset)
+    offset += columnBytes.length
+    payload.set(rowBytes, offset)
+    return payload
+  }
+
+  private encodePointerReportSgr(
+    event: TerminalRuntimePointerEvent,
+    modifierMask: number,
+    primaryButton: number | null,
+    column: number,
+    row: number,
+  ): Uint8Array | null {
+    const base = this.computePointerBaseCode(event, primaryButton, modifierMask, true)
+    if (base === null) {
+      return null
+    }
+    const release = event.action === 'up'
+    const final = release ? 'm' : 'M'
+    const sequence = `\u001B[<${base};${column};${row}${final}`
+    const mode = this.snapshot.c1Transmission
+    return encodeResponsePayload(sequence, mode)
+  }
+
+  private encodeWheelReport(
+    direction: 'up' | 'down' | 'left' | 'right',
+    event: TerminalRuntimeWheelEvent,
+    encoding: 'default' | 'utf8' | 'sgr',
+  ): Uint8Array | null {
+    const modifierMask = this.computePointerModifierMask(event.modifiers)
+    const column = this.clampPointerCoordinate(event.position.column, encoding)
+    const row = this.clampPointerCoordinate(event.position.row, encoding)
+    const directionCode = this.resolveWheelCode(direction)
+
+    switch (encoding) {
+      case 'sgr': {
+        const sequence = `\u001B[<${modifierMask + directionCode};${column};${row}M`
+        return encodeResponsePayload(sequence, this.snapshot.c1Transmission)
+      }
+      case 'utf8': {
+        const prefix = this.getCsiPrefixBytes()
+        const buttonBytes = this.encodeUtf8(32 + modifierMask + directionCode)
+        const columnBytes = this.encodeUtf8(32 + column)
+        const rowBytes = this.encodeUtf8(32 + row)
+        const payload = new Uint8Array(
+          prefix.length + 1 + buttonBytes.length + columnBytes.length + rowBytes.length,
+        )
+        payload.set(prefix, 0)
+        let offset = prefix.length
+        payload[offset] = 0x4d
+        offset += 1
+        payload.set(buttonBytes, offset)
+        offset += buttonBytes.length
+        payload.set(columnBytes, offset)
+        offset += columnBytes.length
+        payload.set(rowBytes, offset)
+        return payload
+      }
+      default: {
+        const prefix = this.getCsiPrefixBytes()
+        const payload = new Uint8Array(prefix.length + 4)
+        payload.set(prefix, 0)
+        payload[prefix.length] = 0x4d
+        payload[prefix.length + 1] = 32 + modifierMask + directionCode
+        payload[prefix.length + 2] = 32 + Math.min(column, 223)
+        payload[prefix.length + 3] = 32 + Math.min(row, 223)
+        return payload
+      }
+    }
+  }
+
+  private computePointerBaseCode(
+    event: TerminalRuntimePointerEvent,
+    primaryButton: number | null,
+    modifierMask: number,
+    isSgr: boolean,
+  ): number | null {
+    switch (event.action) {
+      case 'down': {
+        const buttonIndex =
+          this.resolveButtonIndex(event.button) ?? primaryButton ?? 0
+        return modifierMask + buttonIndex
+      }
+      case 'up': {
+        if (isSgr) {
+          const buttonIndex =
+            this.resolveButtonIndex(event.button) ?? primaryButton ?? 0
+          return modifierMask + buttonIndex
+        }
+        return modifierMask + 3
+      }
+      case 'move': {
+        const active = primaryButton ?? 3
+        return modifierMask + 32 + active
+      }
+      default:
+        return null
+    }
+  }
+
+  private resolveButtonIndex(button: TerminalPointerButton): number | null {
+    switch (button) {
+      case 'left':
+        return 0
+      case 'middle':
+        return 1
+      case 'right':
+        return 2
+      case 'aux1':
+        return 3
+      case 'aux2':
+        return 4
+      default:
+        return null
+    }
+  }
+
+  private resolvePrimaryPointerButton(
+    button: TerminalPointerButton,
+    pressedMask?: number,
+  ): number | null {
+    const explicit = this.resolveButtonIndex(button)
+    if (explicit !== null) {
+      return explicit
+    }
+    if (!pressedMask || pressedMask === 0) {
+      return null
+    }
+    return this.extractFirstPressedButton(pressedMask)
+  }
+
+  private extractFirstPressedButton(mask: number): number | null {
+    if (mask === 0) {
+      return null
+    }
+    for (let index = 0; index < 8; index += 1) {
+      if (mask & (1 << index)) {
+        return index
+      }
+    }
+    return null
+  }
+
+  private computePointerModifierMask(
+    modifiers: TerminalPointerModifierState | undefined,
+  ): number {
+    if (!modifiers) {
+      return 0
+    }
+    let mask = 0
+    if (modifiers.shift) {
+      mask |= 4
+    }
+    if (modifiers.alt || modifiers.meta) {
+      mask |= 8
+    }
+    if (modifiers.ctrl) {
+      mask |= 16
+    }
+    return mask
+  }
+
+  private resolveWheelCode(direction: 'up' | 'down' | 'left' | 'right'): number {
+    switch (direction) {
+      case 'up':
+        return 64
+      case 'down':
+        return 65
+      case 'left':
+        return 66
+      case 'right':
+        return 67
+      default:
+        return 64
+    }
+  }
+
+  private getCsiPrefixBytes(): number[] {
+    if (this.snapshot.c1Transmission === '8-bit') {
+      return [0x9b]
+    }
+    return [0x1b, 0x5b]
+  }
+
+  private encodeUtf8(value: number): number[] {
+    if (value <= 0x7f) {
+      return [value]
+    }
+    if (value <= 0x7ff) {
+      return [0xc0 | (value >> 6), 0x80 | (value & 0x3f)]
+    }
+    if (value <= 0xffff) {
+      return [
+        0xe0 | (value >> 12),
+        0x80 | ((value >> 6) & 0x3f),
+        0x80 | (value & 0x3f),
+      ]
+    }
+    return [
+      0xf0 | (value >> 18),
+      0x80 | ((value >> 12) & 0x3f),
+      0x80 | ((value >> 6) & 0x3f),
+      0x80 | (value & 0x3f),
+    ]
+  }
+
+  private clampPointerCoordinate(
+    value: number,
+    encoding: 'default' | 'utf8' | 'sgr',
+  ): number {
+    const min = 1
+    if (!Number.isFinite(value)) {
+      return min
+    }
+    if (encoding === 'default') {
+      return Math.max(min, Math.min(Math.round(value), 223))
+    }
+    if (encoding === 'utf8') {
+      return Math.max(min, Math.min(Math.round(value), 65535))
+    }
+    return Math.max(min, Math.round(value))
   }
 
   private normalizeCursorOptions(

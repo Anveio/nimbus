@@ -90,6 +90,14 @@ export interface TerminalState {
     controller: boolean
     autoPrint: boolean
   }
+  input: {
+    pointer: {
+      tracking: 'off' | 'button' | 'normal' | 'any-motion'
+      encoding: 'default' | 'utf8' | 'sgr'
+    }
+    focusReporting: boolean
+    bracketedPaste: boolean
+  }
 }
 
 /** @internal */
@@ -99,6 +107,15 @@ export interface TerminalStateImplementation extends TerminalState {
   smoothScroll: boolean
   autoRepeat: boolean
   protectedMode: 'off' | 'dec'
+  pointerTrackingRequests: {
+    button: boolean
+    normal: boolean
+    anyMotion: boolean
+  }
+  pointerEncodingRequests: {
+    utf8: boolean
+    sgr: boolean
+  }
 }
 
 const cloneColor = (color: TerminalColor): TerminalColor => {
@@ -213,6 +230,23 @@ export const createInitialState = (
     printer: {
       controller: false,
       autoPrint: false,
+    },
+    input: {
+      pointer: {
+        tracking: 'off',
+        encoding: 'default',
+      },
+      focusReporting: false,
+      bracketedPaste: false,
+    },
+    pointerTrackingRequests: {
+      button: false,
+      normal: false,
+      anyMotion: false,
+    },
+    pointerEncodingRequests: {
+      utf8: false,
+      sgr: false,
     },
   }
 }

@@ -34,6 +34,10 @@ export type {
   TerminalRuntime,
   TerminalRuntimeCursorMoveDirection,
   TerminalRuntimeCursorMoveOptions,
+  TerminalPointerButton,
+  TerminalPointerModifierState,
+  TerminalRuntimePointerEvent,
+  TerminalRuntimeWheelEvent,
   TerminalRuntimeEvent as TerminalRuntimeHostEvent,
   TerminalRuntimeOptions,
 } from './runtime'
