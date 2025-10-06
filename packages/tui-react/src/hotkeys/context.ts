@@ -1,5 +1,8 @@
-import type { SelectionPoint, TerminalState, TerminalUpdate } from '@mana/vt'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
+import type {
+  SelectionPoint,
+  TerminalState,
+} from '../terminal-types'
 
 export type ShortcutGuideReason = 'hotkey' | 'imperative'
 
@@ -9,21 +12,20 @@ export interface MoveCursorOptions {
 }
 
 export interface HotkeyInterpreter {
-  readonly moveCursorLeft: (options: MoveCursorOptions) => TerminalUpdate[]
-  readonly moveCursorRight: (options: MoveCursorOptions) => TerminalUpdate[]
-  readonly moveCursorUp: (options: MoveCursorOptions) => TerminalUpdate[]
-  readonly moveCursorDown: (options: MoveCursorOptions) => TerminalUpdate[]
-  readonly moveCursorLineStart: (options: MoveCursorOptions) => TerminalUpdate[]
-  readonly moveCursorLineEnd: (options: MoveCursorOptions) => TerminalUpdate[]
-  readonly moveCursorWordLeft: (options: MoveCursorOptions) => TerminalUpdate[]
-  readonly moveCursorWordRight: (options: MoveCursorOptions) => TerminalUpdate[]
+  readonly moveCursorLeft: (options: MoveCursorOptions) => boolean
+  readonly moveCursorRight: (options: MoveCursorOptions) => boolean
+  readonly moveCursorUp: (options: MoveCursorOptions) => boolean
+  readonly moveCursorDown: (options: MoveCursorOptions) => boolean
+  readonly moveCursorLineStart: (options: MoveCursorOptions) => boolean
+  readonly moveCursorLineEnd: (options: MoveCursorOptions) => boolean
+  readonly moveCursorWordLeft: (options: MoveCursorOptions) => boolean
+  readonly moveCursorWordRight: (options: MoveCursorOptions) => boolean
   readonly getSnapshot: () => TerminalState
 }
 
 export interface HotkeyContext {
   readonly interpreter: HotkeyInterpreter
   readonly performLocalErase: (direction: 'backspace' | 'delete') => boolean
-  readonly applyUpdates: (updates: TerminalUpdate[]) => void
   readonly encodeKeyEvent: (
     event: ReactKeyboardEvent<HTMLDivElement>,
   ) => Uint8Array | null

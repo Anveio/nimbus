@@ -14,35 +14,28 @@ export type {
   TerminalAttributes,
   TerminalCell,
   TerminalColor,
+  TerminalInterpreter,
   TerminalSelection,
   TerminalState,
   TerminalUpdate,
 } from './interpreter'
-export {
-  areSelectionsEqual,
-  clampSelectionRange,
-  createInterpreter,
-  getSelectionBounds,
-  getSelectionRange,
-  getSelectionRowSegment,
-  getSelectionRowSegments,
-  isSelectionCollapsed,
-  TerminalInterpreter,
-} from './interpreter'
-export { createParser } from './parser'
+
 export type {
+  TerminalPointerButton,
+  TerminalPointerModifierState,
   TerminalRuntime,
   TerminalRuntimeCursorMoveDirection,
   TerminalRuntimeCursorMoveOptions,
-  TerminalPointerButton,
-  TerminalPointerModifierState,
-  TerminalRuntimePointerEvent,
-  TerminalRuntimeWheelEvent,
   TerminalRuntimeEvent as TerminalRuntimeHostEvent,
   TerminalRuntimeOptions,
+  TerminalRuntimePointerEvent,
+  TerminalRuntimeWheelEvent,
+} from './runtime'
+export {
+  createTerminalRuntime,
+  parser,
 } from './runtime'
 
-export { createTerminalRuntime, parser } from './runtime'
 export type {
   ByteFlag,
   C1HandlingMode,
@@ -61,4 +54,5 @@ export type {
   TerminalEmulator,
   TerminalFeatures,
 } from './types'
+
 export type { PrinterController } from './utils/printer'

@@ -1,22 +1,26 @@
-import type {
-  SelectionPoint,
-  TerminalInterpreter,
-  TerminalSelection,
-  TerminalUpdate,
-} from '@mana/vt'
-import { isSelectionCollapsed } from '@mana/vt'
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  type MutableRefObject,
-} from 'react'
-import type { PointerEvent as ReactPointerEvent } from 'react'
+import type { RendererEvent, RendererInstance } from '@mana/webgl-renderer'
+import type { PointerEvent as ReactPointerEvent, Ref } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useSelectionAutoScroll } from './auto-scroll'
 
-const clamp = (value: number, min: number, max: number): number =>
-  Math.max(min, Math.min(max, value))
+const clamp = (value: number, min: number, max: number): number => {
+  if (value < min) {
+    return min
+  }
+  if (value > max) {
+    return max
+  }
+  return value
+}
+
+type TerminalState = RendererInstance['runtime']['snapshot']
+type RuntimeSelectionEvent = Extract<
+  RendererEvent,
+  { type: 'runtime.selection.set' }
+>
+
+type TerminalSelection = RuntimeSelectionEvent['selection']
+type SelectionPoint = TerminalSelection['anchor']
 
 export const createLinearSelection = (
   row: number,
@@ -55,7 +59,9 @@ const createPointerSelectionState = (): PointerSelectionState => ({
 interface PointerMetrics {
   readonly row: number
   readonly column: number
+  readonly offsetX: number
   readonly offsetY: number
+  readonly rectWidth: number
   readonly rectHeight: number
 }
 
@@ -78,21 +84,52 @@ const resolvePointerMetrics = (
   return {
     row,
     column,
+    offsetX,
     offsetY,
+    rectWidth: rect.width,
     rectHeight: rect.height,
   }
 }
 
+type PointerButton = Extract<
+  RendererEvent,
+  { type: 'runtime.pointer' }
+>['button']
+
+const mapPointerButton = (button: number): PointerButton => {
+  switch (button) {
+    case 0:
+      return 'left'
+    case 1:
+      return 'middle'
+    case 2:
+      return 'right'
+    case 3:
+      return 'aux1'
+    case 4:
+      return 'aux2'
+    default:
+      return 'none'
+  }
+}
+
+const extractModifierState = (event: ReactPointerEvent<HTMLCanvasElement>) => ({
+  shift: event.shiftKey || undefined,
+  alt: event.altKey || event.metaKey || undefined,
+  meta: event.metaKey || undefined,
+  ctrl: event.ctrlKey || undefined,
+})
+
 export interface UseTerminalSelectionOptions {
-  readonly interpreter: TerminalInterpreter
-  readonly applyUpdates: (updates: TerminalUpdate[]) => void
+  readonly dispatch: (event: RendererEvent) => void
+  readonly getSnapshot: () => TerminalState
   readonly viewport: { readonly rows: number; readonly columns: number }
   readonly metrics: { readonly cellWidth: number; readonly cellHeight: number }
   readonly focusTerminal: () => void
 }
 
 export interface UseTerminalSelectionResult {
-  readonly keyboardSelectionAnchorRef: MutableRefObject<SelectionPoint | null>
+  readonly keyboardSelectionAnchorRef: Ref<SelectionPoint | null>
   readonly pointerHandlers: {
     readonly onPointerDown: (
       event: ReactPointerEvent<HTMLCanvasElement>,
@@ -116,8 +153,7 @@ export interface UseTerminalSelectionResult {
 export const useTerminalSelection = (
   options: UseTerminalSelectionOptions,
 ): UseTerminalSelectionResult => {
-  const { interpreter, applyUpdates, viewport, metrics, focusTerminal } =
-    options
+  const { dispatch, getSnapshot, viewport, metrics, focusTerminal } = options
 
   const keyboardSelectionAnchorRef = useRef<SelectionPoint | null>(null)
   const pointerSelectionRef = useRef<PointerSelectionState>(
@@ -130,13 +166,22 @@ export const useTerminalSelection = (
     autoScroll.stop()
   }, [autoScroll])
 
+  const dispatchSelectionEvent = useCallback(
+    (
+      type: 'runtime.selection.set' | 'runtime.selection.update',
+      selection: TerminalSelection,
+    ) => {
+      dispatch({ type, selection })
+    },
+    [dispatch],
+  )
+
   const setSelection = useCallback(
     (
       selection: TerminalSelection,
       capture?: { pointerId: number; target: HTMLCanvasElement },
     ) => {
-      const updates = interpreter.setSelection(selection)
-      applyUpdates(updates)
+      dispatchSelectionEvent('runtime.selection.set', selection)
       keyboardSelectionAnchorRef.current = null
       pointerSelectionRef.current = {
         pointerId: capture?.pointerId ?? pointerSelectionRef.current.pointerId,
@@ -147,20 +192,19 @@ export const useTerminalSelection = (
         capture.target.setPointerCapture(capture.pointerId)
       }
     },
-    [applyUpdates, interpreter],
+    [dispatchSelectionEvent],
   )
 
   const updateSelection = useCallback(
     (selection: TerminalSelection) => {
-      const updates = interpreter.updateSelection(selection)
-      applyUpdates(updates)
+      dispatchSelectionEvent('runtime.selection.update', selection)
       keyboardSelectionAnchorRef.current = null
       pointerSelectionRef.current = {
         ...pointerSelectionRef.current,
         lastSelection: selection,
       }
     },
-    [applyUpdates, interpreter],
+    [dispatchSelectionEvent],
   )
 
   const endPointerSelection = useCallback(
@@ -188,6 +232,27 @@ export const useTerminalSelection = (
     [autoScroll],
   )
 
+  const dispatchPointerEvent = useCallback(
+    (
+      event: ReactPointerEvent<HTMLCanvasElement>,
+      action: 'down' | 'move' | 'up' | 'cancel',
+      cell: { row: number; column: number },
+      offset: { offsetX: number; offsetY: number },
+    ) => {
+      dispatch({
+        type: 'runtime.pointer',
+        action,
+        pointerId: event.pointerId,
+        button: mapPointerButton(event.button),
+        buttons: event.buttons ?? 0,
+        position: { x: offset.offsetX, y: offset.offsetY },
+        cell: { row: cell.row + 1, column: cell.column + 1 },
+        modifiers: extractModifierState(event),
+      })
+    },
+    [dispatch],
+  )
+
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>) => {
       if (event.button !== 0) {
@@ -196,18 +261,29 @@ export const useTerminalSelection = (
       event.preventDefault()
       focusTerminal()
 
-      const { row, column } = resolvePointerMetrics(
+      const metricsInfo = resolvePointerMetrics(
         event,
         viewport.rows,
         viewport.columns,
         metrics.cellWidth,
         metrics.cellHeight,
       )
+      const { row, column, offsetX, offsetY } = metricsInfo
+
+      dispatchPointerEvent(event, 'down', { row, column }, { offsetX, offsetY })
+
       const timestamp = Date.now()
-      const clampedColumn = interpreter.clampCursorColumn(row, column)
       const selection: TerminalSelection = {
-        anchor: { row, column: clampedColumn, timestamp },
-        focus: { row, column: clampedColumn, timestamp },
+        anchor: {
+          row: metricsInfo.row,
+          column: metricsInfo.column,
+          timestamp,
+        },
+        focus: {
+          row: metricsInfo.row,
+          column: metricsInfo.column,
+          timestamp,
+        },
         kind: event.shiftKey ? 'rectangular' : 'normal',
         status: 'dragging',
       }
@@ -217,8 +293,8 @@ export const useTerminalSelection = (
       })
     },
     [
+      dispatchPointerEvent,
       focusTerminal,
-      interpreter,
       metrics.cellHeight,
       metrics.cellWidth,
       setSelection,
@@ -234,16 +310,24 @@ export const useTerminalSelection = (
         return
       }
       event.preventDefault()
-      const { row, column, offsetY, rectHeight } = resolvePointerMetrics(
+
+      const metricsInfo = resolvePointerMetrics(
         event,
         viewport.rows,
         viewport.columns,
         metrics.cellWidth,
         metrics.cellHeight,
       )
+      const { row, column, offsetX, offsetY } = metricsInfo
+
+      dispatchPointerEvent(event, 'move', { row, column }, { offsetX, offsetY })
 
       const direction: -1 | 0 | 1 =
-        offsetY < 0 ? -1 : offsetY > rectHeight ? 1 : 0
+        metricsInfo.offsetY < 0
+          ? -1
+          : metricsInfo.offsetY > metricsInfo.rectHeight
+            ? 1
+            : 0
       if (direction === 0) {
         autoScroll.stop()
       } else {
@@ -253,7 +337,8 @@ export const useTerminalSelection = (
             autoScroll.stop()
             return
           }
-          const active = interpreter.snapshot.selection ?? state.lastSelection
+          const snapshot = getSnapshot()
+          const active = snapshot.selection ?? state.lastSelection
           if (!active) {
             return
           }
@@ -278,11 +363,13 @@ export const useTerminalSelection = (
         })
       }
 
-      const timestamp = Date.now()
-      const clampedColumn = interpreter.clampCursorColumn(row, column)
       const selection: TerminalSelection = {
         anchor: pointerState.anchor,
-        focus: { row, column: clampedColumn, timestamp },
+        focus: {
+          row: metricsInfo.row,
+          column: metricsInfo.column,
+          timestamp: Date.now(),
+        },
         kind: pointerState.lastSelection?.kind ?? 'normal',
         status: 'dragging',
       }
@@ -290,7 +377,8 @@ export const useTerminalSelection = (
     },
     [
       autoScroll,
-      interpreter,
+      dispatchPointerEvent,
+      getSnapshot,
       metrics.cellHeight,
       metrics.cellWidth,
       updateSelection,
@@ -308,8 +396,8 @@ export const useTerminalSelection = (
       if (pointerState.pointerId !== event.pointerId) {
         return
       }
-      const activeSelection =
-        interpreter.snapshot.selection ?? pointerState.lastSelection
+      const snapshot = getSnapshot()
+      const activeSelection = snapshot.selection ?? pointerState.lastSelection
       if (activeSelection) {
         const finalized: TerminalSelection = {
           ...activeSelection,
@@ -319,46 +407,59 @@ export const useTerminalSelection = (
             timestamp: Date.now(),
           },
         }
-        updateSelection(finalized)
+        dispatchSelectionEvent('runtime.selection.update', finalized)
       }
       endPointerSelection(
-        interpreter.snapshot.selection,
+        snapshot.selection,
         event.pointerId,
         event.currentTarget,
       )
     },
-    [endPointerSelection, interpreter, updateSelection],
+    [dispatchSelectionEvent, endPointerSelection, getSnapshot],
   )
 
   const handlePointerUp = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>) => {
       event.preventDefault()
+
+      const metricsInfo = resolvePointerMetrics(
+        event,
+        viewport.rows,
+        viewport.columns,
+        metrics.cellWidth,
+        metrics.cellHeight,
+      )
+      const { row, column, offsetX, offsetY } = metricsInfo
+
+      dispatchPointerEvent(event, 'up', { row, column }, { offsetX, offsetY })
+
       finalizeSelection(event, 'idle')
-      const selection = interpreter.snapshot.selection
-      if (!selection || isSelectionCollapsed(selection)) {
-        const { row, column } = resolvePointerMetrics(
-          event,
-          viewport.rows,
-          viewport.columns,
-          metrics.cellWidth,
-          metrics.cellHeight,
-        )
-        const clampedColumn = interpreter.clampCursorColumn(row, column)
-        const updates = interpreter.moveCursorTo(
-          { row, column: clampedColumn },
-          {
-            extendSelection: false,
-            clampToLineEnd: true,
-            clampToContentRow: true,
+
+      const snapshot = getSnapshot()
+      const selection = snapshot.selection
+      if (!selection || selection.anchor === selection.focus) {
+        dispatch({
+          type: 'runtime.selection.clear',
+        })
+        dispatch({
+          type: 'runtime.cursor.set',
+          position: {
+            row: metricsInfo.row,
+            column: metricsInfo.column,
           },
-        )
-        applyUpdates(updates)
+          options: {
+            clampToContentRow: true,
+            clampToLineEnd: true,
+            extendSelection: false,
+          },
+        })
       }
     },
     [
-      applyUpdates,
+      dispatch,
+      dispatchPointerEvent,
       finalizeSelection,
-      interpreter,
+      getSnapshot,
       metrics.cellHeight,
       metrics.cellWidth,
       viewport.columns,
@@ -369,6 +470,23 @@ export const useTerminalSelection = (
   const handlePointerCancel = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>) => {
       event.preventDefault()
+
+      const metricsInfo = resolvePointerMetrics(
+        event,
+        viewport.rows,
+        viewport.columns,
+        metrics.cellWidth,
+        metrics.cellHeight,
+      )
+      const { row, column, offsetX, offsetY } = metricsInfo
+
+      dispatchPointerEvent(
+        event,
+        'cancel',
+        { row, column },
+        { offsetX, offsetY },
+      )
+
       autoScroll.stop()
       const pointerState = pointerSelectionRef.current
       if (pointerState.pointerId !== event.pointerId) {
@@ -380,29 +498,33 @@ export const useTerminalSelection = (
         event.currentTarget,
       )
     },
-    [autoScroll, endPointerSelection],
+    [
+      autoScroll,
+      dispatchPointerEvent,
+      endPointerSelection,
+      metrics.cellHeight,
+      metrics.cellWidth,
+      viewport.columns,
+      viewport.rows,
+    ],
   )
 
   const clearSelection = useCallback(() => {
-    const updates = interpreter.clearSelection()
-    applyUpdates(updates)
+    dispatch({ type: 'runtime.selection.clear' })
     keyboardSelectionAnchorRef.current = null
-  }, [applyUpdates, interpreter])
+  }, [dispatch])
 
   const replaceSelectionWithText = useCallback(
     (selection: TerminalSelection | null, replacement: string) => {
-      const updates = interpreter.editSelection({
-        selection: selection ?? undefined,
+      dispatch({
+        type: 'runtime.selection.replace',
         replacement,
+        selection: selection ?? undefined,
       })
-      if (updates.length === 0) {
-        return false
-      }
-      applyUpdates(updates)
       keyboardSelectionAnchorRef.current = null
       return true
     },
-    [applyUpdates, interpreter],
+    [dispatch],
   )
 
   useEffect(

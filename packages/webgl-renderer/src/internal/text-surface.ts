@@ -1,16 +1,16 @@
 import type {
+  TerminalCell,
+  TerminalColor,
+  TerminalSelection,
+  TerminalState,
+} from '@mana/vt'
+import type {
   RendererConfiguration,
   RendererDirtyRegion,
   RendererFrameOverlays,
   RendererTheme,
   TerminalProfile,
 } from '../types'
-import type {
-  TerminalCell,
-  TerminalColor,
-  TerminalSelection,
-  TerminalState,
-} from '@mana/vt'
 
 const createFallbackCanvas = (): HTMLCanvasElement | OffscreenCanvas => {
   if (typeof OffscreenCanvas !== 'undefined') {
@@ -39,7 +39,7 @@ const createFallbackCanvas = (): HTMLCanvasElement | OffscreenCanvas => {
     beginPath: () => {},
     closePath: () => {},
     clip: () => {},
-    measureText: () => ({ width: 0 } as TextMetrics),
+    measureText: () => ({ width: 0 }) as TextMetrics,
     canvas: undefined as unknown as HTMLCanvasElement,
   } as unknown as CanvasRenderingContext2D
 
@@ -74,7 +74,6 @@ const terminalColorToCss = (
       const palette = theme.palette.extended?.[color.index]
       return palette ?? theme.foreground
     }
-    case 'default':
     default:
       return theme.foreground
   }
@@ -144,7 +143,9 @@ export interface RenderResult {
 
 export class TextSurfaceRenderer {
   private readonly canvas: HTMLCanvasElement | OffscreenCanvas
-  private readonly ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
+  private readonly ctx:
+    | CanvasRenderingContext2D
+    | OffscreenCanvasRenderingContext2D
   private width = 1
   private height = 1
 
@@ -227,9 +228,13 @@ export class TextSurfaceRenderer {
         ctx.fillRect(x, yTop, cellWidth, cellHeight)
       }
 
-      ctx.font = buildFontString(configuration, cell.attr.bold, cell.attr.italic)
+      ctx.font = buildFontString(
+        configuration,
+        cell.attr.bold,
+        cell.attr.italic,
+      )
       ctx.fillStyle = selected
-        ? theme.selection?.foreground ?? theme.background
+        ? (theme.selection?.foreground ?? theme.background)
         : terminalColorToCss(cell.attr.foreground, theme)
       ctx.fillText(cell.char, x, y)
     }
@@ -278,7 +283,16 @@ export class TextSurfaceRenderer {
     const selection = overlays.selection ?? snapshot.selection ?? null
 
     if (!regions || regions.length === 0) {
-      paintRegion(0, snapshot.rows, 0, snapshot.columns, cellWidth, cellHeight, baseline, selection)
+      paintRegion(
+        0,
+        snapshot.rows,
+        0,
+        snapshot.columns,
+        cellWidth,
+        cellHeight,
+        baseline,
+        selection,
+      )
     } else {
       for (const region of regions) {
         paintRegion(
@@ -308,10 +322,14 @@ export class TextSurfaceRenderer {
           ctx.fillRect(cursorX, cursorY + cellHeight - 2, cellWidth, 2)
           break
         case 'bar':
-          ctx.fillRect(cursorX, cursorY, Math.max(1, cellWidth * 0.15), cellHeight)
+          ctx.fillRect(
+            cursorX,
+            cursorY,
+            Math.max(1, cellWidth * 0.15),
+            cellHeight,
+          )
           break
-        case 'block':
-        default:
+        case 'b
           ctx.fillRect(cursorX, cursorY, cellWidth, cellHeight)
           break
       }

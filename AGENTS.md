@@ -58,10 +58,9 @@ The workspace runs on Node 24 with npm. Each package is a shippable unit followi
 
 # Testing
 - Unit: Vitest for logic (parser fixtures, diff reducers, React hooks). Property-based tests where state spaces explode.
-- End-to-End: We use Playwright for anything that pushes pixels to the screen (tui-react, tui-web-canvas-renderer) and apps (apps/web-demo). Every behavioral change demands a scenario. All statements in specifications MUST have a test scenario. Run the full suite (`npm run test`) before declaring victory.
-- Type Discipline: `npm run typecheck` gates every deliverable.
-- Build Smoke Test: run `npm run build` before committing so every change lands atomically.
-- Spec Currency: When behavior shifts, update the spec document first (see package-level `AGENTS.md`), then tests, then code.
+- End-to-End: We use Playwright for anything that pushes pixels to the screen (tui-react, tui-web-canvas-renderer) and apps (apps/web-demo). Every behavioral change demands a scenario. All statements in specifications MUST have a test scenario.
+- After completing a task, run `npm run typecheck`, `npm run build`, and `npm run test` before declaring victory.
+- Spec Currency: When behavior shifts, update the relevant spec documents first (see package-level `AGENTS.md`), then tests, then code.
 
 # Toolchain Rituals
 - Package manager + runner: npm (`npm install`, `npm run test`, `npm run typecheck`).

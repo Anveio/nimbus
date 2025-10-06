@@ -44,6 +44,7 @@
   },
   "dependencies": {
     "@mana/tui-web-canvas-renderer": "^0.0.1",
+    "@mana/webgl-renderer": "^0.0.1",
     "@mana/vt": "^0.0.1"
   },
   "peerDependencies": {

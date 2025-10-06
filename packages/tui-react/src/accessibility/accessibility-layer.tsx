@@ -1,5 +1,3 @@
-import type { TerminalSelection, TerminalState } from '@mana/vt'
-import { getSelectionRowSegments } from '@mana/vt'
 import type { HTMLAttributes, JSX, ReactNode } from 'react'
 import {
   Fragment,
@@ -12,6 +10,8 @@ import {
   useState,
 } from 'react'
 import type { ShortcutGuideReason } from '../hotkeys'
+import type { TerminalSelection, TerminalState } from '../terminal-types'
+import { getSelectionRowSegments } from '../terminal-types'
 export type TerminalStatusLevel = 'info' | 'warning' | 'error'
 
 export interface TerminalStatusMessage {
@@ -159,7 +159,6 @@ export interface ShortcutGuideConfig {
 
 export interface AccessibilityAdapterOptions {
   readonly snapshot: TerminalState
-  readonly snapshotRevision: number
   readonly instructions?: ReactNode
   readonly shortcutGuide?: ShortcutGuideConfig | false
   readonly onShortcutGuideToggle?: (
@@ -398,7 +397,6 @@ export const useTerminalAccessibilityAdapter = (
 ): TerminalAccessibilityAdapter => {
   const {
     snapshot,
-    snapshotRevision,
     instructions = DEFAULT_INSTRUCTIONS,
     shortcutGuide: shortcutGuideProp = {},
     onShortcutGuideToggle,
@@ -409,22 +407,22 @@ export const useTerminalAccessibilityAdapter = (
 
   const selectionIndex = useMemo(
     () => createSelectionIndex(snapshot.selection ?? null, snapshot.columns),
-    [snapshotRevision, snapshot.selection, snapshot.columns],
+    [snapshot.selection, snapshot.columns],
   )
 
   const transcriptRows = useMemo(
     () => createTranscriptRows(snapshot, transcriptId, selectionIndex),
-    [snapshotRevision, snapshot, transcriptId, selectionIndex],
+    [snapshot, transcriptId, selectionIndex],
   )
 
   const activeDescendantId = useMemo(
     () => resolveActiveCellId(snapshot, transcriptId),
-    [snapshotRevision, snapshot, transcriptId],
+    [snapshot, transcriptId],
   )
 
   const caretStatusText = useMemo(
     () => createCaretStatusText(snapshot, selectionIndex.cells.size > 0),
-    [snapshotRevision, snapshot, selectionIndex],
+    [snapshot, selectionIndex],
   )
 
   const [status, setStatus] = useState<

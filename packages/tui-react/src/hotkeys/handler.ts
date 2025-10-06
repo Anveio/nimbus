@@ -1,6 +1,5 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { HotkeyContext, HotkeyResult } from './context'
-import type { TerminalUpdate } from '@mana/vt'
 
 const noopResult: HotkeyResult = { handled: false }
 
@@ -100,10 +99,10 @@ export const handleTerminalHotkey = (
     const isWordMotion =
       !isLineMotion && (event.altKey || (event.ctrlKey && !event.metaKey))
 
-    let updates: TerminalUpdate[] = []
+    let handled = false
     switch (key) {
       case 'ArrowLeft':
-        updates = isLineMotion
+        handled = isLineMotion
           ? context.interpreter.moveCursorLineStart({
               extendSelection: shouldExtendSelection,
               selectionAnchor: anchorPoint,
@@ -119,7 +118,7 @@ export const handleTerminalHotkey = (
               })
         break
       case 'ArrowRight':
-        updates = isLineMotion
+        handled = isLineMotion
           ? context.interpreter.moveCursorLineEnd({
               extendSelection: shouldExtendSelection,
               selectionAnchor: anchorPoint,
@@ -135,13 +134,13 @@ export const handleTerminalHotkey = (
               })
         break
       case 'ArrowUp':
-        updates = context.interpreter.moveCursorUp({
+        handled = context.interpreter.moveCursorUp({
           extendSelection: shouldExtendSelection,
           selectionAnchor: anchorPoint,
         })
         break
       case 'ArrowDown':
-        updates = context.interpreter.moveCursorDown({
+        handled = context.interpreter.moveCursorDown({
           extendSelection: shouldExtendSelection,
           selectionAnchor: anchorPoint,
         })
@@ -150,8 +149,7 @@ export const handleTerminalHotkey = (
         break
     }
 
-    if (updates.length > 0) {
-      context.applyUpdates(updates)
+    if (handled) {
       context.keyboardSelectionAnchorRef.current = shouldExtendSelection
         ? anchorPoint
         : null
