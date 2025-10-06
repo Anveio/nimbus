@@ -18,6 +18,11 @@ const RendererSessionContext = createContext<RendererSessionContextValue>(
 
 export const RendererSessionContextProvider = RendererSessionContext.Provider
 
+/**
+ * Exposes the active renderer session and runtime provisioned by
+ * `RendererSessionProvider`. Using the hook outside that provider signals a
+ * layering error, so callers always receive non-stale handles.
+ */
 export const useRendererSessionContext = <
   TRendererConfig extends { renderRoot?: unknown } = WebglRendererConfig,
 >(): RendererSessionContextValue<TRendererConfig> => {

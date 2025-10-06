@@ -7,6 +7,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "test", "test/e2e", "vitest.setup.ts", "../../types"],
+  "include": ["src", "test", "test"],
   "exclude": ["node_modules"]
 }

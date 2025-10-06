@@ -1,4 +1,4 @@
-import { RendererSession } from '@mana/webgl-renderer'
+import type { RendererSession } from '@mana/webgl-renderer'
 
 export type ShortcutGuideReason = 'hotkey' | 'imperative'
 

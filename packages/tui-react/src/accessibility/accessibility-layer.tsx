@@ -10,7 +10,7 @@ import {
   useState,
 } from 'react'
 import type { ShortcutGuideReason } from '../hotkeys'
-import { RendererSession } from '@mana/webgl-renderer'
+import type { RendererSession } from '@mana/webgl-renderer'
 export type TerminalStatusLevel = 'info' | 'warning' | 'error'
 
 export interface TerminalStatusMessage {

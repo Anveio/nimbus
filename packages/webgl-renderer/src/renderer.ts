@@ -878,7 +878,7 @@ const ROOT_REGISTRY = new WeakMap<
 
 export const createRendererRoot = (
   container: RendererRootContainer,
-): RendererRoot<WebglRendererConfig> => {
+) => {
   if (!container) {
     throw new Error('Renderer root container is required')
   }

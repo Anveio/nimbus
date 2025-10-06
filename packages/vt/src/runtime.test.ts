@@ -257,8 +257,7 @@ describe('TerminalRuntime host events', () => {
 
     expect(responses).toContain('\u001B[200~')
     expect(responses).toContain('\u001B[201~')
-    const text = runtime.snapshot.buffer[0]!
-      .slice(0, 3)
+    const text = runtime.snapshot.buffer[0]!.slice(0, 3)
       .map((cell) => cell.char)
       .join('')
     expect(text).toBe('abc')
@@ -269,8 +268,7 @@ describe('TerminalRuntime host events', () => {
 
     const updates = runtime.dispatchEvent({ type: 'paste', data: 'xyz' })
     expect(updates.some((update) => update.type === 'response')).toBe(false)
-    const text = runtime.snapshot.buffer[0]!
-      .slice(0, 3)
+    const text = runtime.snapshot.buffer[0]!.slice(0, 3)
       .map((cell) => cell.char)
       .join('')
     expect(text).toBe('xyz')

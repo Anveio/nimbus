@@ -367,7 +367,9 @@ class TerminalRuntimeImpl implements TerminalRuntime {
     }
   }
 
-  private handlePointerEvent(event: TerminalRuntimePointerEvent): TerminalUpdate[] {
+  private handlePointerEvent(
+    event: TerminalRuntimePointerEvent,
+  ): TerminalUpdate[] {
     if (!this.supportsPointerTracking()) {
       return []
     }
@@ -495,15 +497,36 @@ class TerminalRuntimeImpl implements TerminalRuntime {
     const column = this.clampPointerCoordinate(event.position.column, encoding)
     const row = this.clampPointerCoordinate(event.position.row, encoding)
     const modifiers = this.computePointerModifierMask(event.modifiers)
-    const primaryButton = this.resolvePrimaryPointerButton(event.button, event.buttons)
+    const primaryButton = this.resolvePrimaryPointerButton(
+      event.button,
+      event.buttons,
+    )
 
     switch (encoding) {
       case 'sgr':
-        return this.encodePointerReportSgr(event, modifiers, primaryButton, column, row)
+        return this.encodePointerReportSgr(
+          event,
+          modifiers,
+          primaryButton,
+          column,
+          row,
+        )
       case 'utf8':
-        return this.encodePointerReportUtf8(event, modifiers, primaryButton, column, row)
+        return this.encodePointerReportUtf8(
+          event,
+          modifiers,
+          primaryButton,
+          column,
+          row,
+        )
       default:
-        return this.encodePointerReportDefault(event, modifiers, primaryButton, column, row)
+        return this.encodePointerReportDefault(
+          event,
+          modifiers,
+          primaryButton,
+          column,
+          row,
+        )
     }
   }
 
@@ -514,7 +537,12 @@ class TerminalRuntimeImpl implements TerminalRuntime {
     column: number,
     row: number,
   ): Uint8Array | null {
-    const base = this.computePointerBaseCode(event, primaryButton, modifierMask, false)
+    const base = this.computePointerBaseCode(
+      event,
+      primaryButton,
+      modifierMask,
+      false,
+    )
     if (base === null) {
       return null
     }
@@ -535,7 +563,12 @@ class TerminalRuntimeImpl implements TerminalRuntime {
     column: number,
     row: number,
   ): Uint8Array | null {
-    const base = this.computePointerBaseCode(event, primaryButton, modifierMask, false)
+    const base = this.computePointerBaseCode(
+      event,
+      primaryButton,
+      modifierMask,
+      false,
+    )
     if (base === null) {
       return null
     }
@@ -565,7 +598,12 @@ class TerminalRuntimeImpl implements TerminalRuntime {
     column: number,
     row: number,
   ): Uint8Array | null {
-    const base = this.computePointerBaseCode(event, primaryButton, modifierMask, true)
+    const base = this.computePointerBaseCode(
+      event,
+      primaryButton,
+      modifierMask,
+      true,
+    )
     if (base === null) {
       return null
     }
@@ -597,7 +635,11 @@ class TerminalRuntimeImpl implements TerminalRuntime {
         const columnBytes = this.encodeUtf8(32 + column)
         const rowBytes = this.encodeUtf8(32 + row)
         const payload = new Uint8Array(
-          prefix.length + 1 + buttonBytes.length + columnBytes.length + rowBytes.length,
+          prefix.length +
+            1 +
+            buttonBytes.length +
+            columnBytes.length +
+            rowBytes.length,
         )
         payload.set(prefix, 0)
         let offset = prefix.length
@@ -714,7 +756,9 @@ class TerminalRuntimeImpl implements TerminalRuntime {
     return mask
   }
 
-  private resolveWheelCode(direction: 'up' | 'down' | 'left' | 'right'): number {
+  private resolveWheelCode(
+    direction: 'up' | 'down' | 'left' | 'right',
+  ): number {
     switch (direction) {
       case 'up':
         return 64

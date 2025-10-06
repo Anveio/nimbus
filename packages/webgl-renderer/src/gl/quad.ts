@@ -15,14 +15,7 @@ export const createFullScreenQuad = (
     throw new Error('Failed to create vertex buffer')
   }
 
-  const vertices = new Float32Array([
-    -1, -1,
-    1, -1,
-    -1, 1,
-    -1, 1,
-    1, -1,
-    1, 1,
-  ])
+  const vertices = new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1])
 
   gl.bindVertexArray(vao)
   gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer)

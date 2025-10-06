@@ -6,29 +6,30 @@ import {
   type WebglRendererConfig,
 } from '@mana/webgl-renderer'
 import type {
-  TerminalManagedContainerProps,
   TerminalRendererFactory,
 } from './renderer-contract'
 import { RendererRootProvider } from './renderer-root-context'
 
-export interface RendererRootBoundaryProps<
-  TRendererConfig extends { renderRoot?: unknown } = WebglRendererConfig,
-> {
-  readonly rendererFactory?: TerminalRendererFactory<TRendererConfig>
-  readonly containerProps?: TerminalManagedContainerProps
+export interface RendererRootBoundaryProps {
+  readonly rendererFactory?: TerminalRendererFactory
   readonly children?: ReactNode
 }
 
+/**
+ * Ensures a host container element exists before creating a renderer root.
+ * The boundary owns the outer `<div>` and publishes the resulting
+ * `RendererRoot` via context so deeper layers can safely mount sessions.
+ */
 const RendererRootBoundaryInner = <
   TRendererConfig extends { renderRoot?: unknown } = WebglRendererConfig,
 >(
-  props: RendererRootBoundaryProps<TRendererConfig>,
+  props: RendererRootBoundaryProps,
   ref: ForwardedRef<HTMLDivElement>,
 ) => {
-  const { rendererFactory, containerProps, children } = props
+  const { rendererFactory, children } = props
 
   const containerRef = useRef<HTMLDivElement | null>(null)
-  const [renderRoot, setRenderRoot] = useState<RendererRoot<TRendererConfig> | null>(
+  const [renderRoot, setRenderRoot] = useState<RendererRoot | null>(
     null,
   )
 
@@ -38,7 +39,7 @@ const RendererRootBoundaryInner = <
       return
     }
 
-    const factory = rendererFactory ?? (createRendererRoot as TerminalRendererFactory<TRendererConfig>)
+    const factory = rendererFactory ?? createRendererRoot
     const root = factory(container)
     setRenderRoot(root)
 
@@ -47,22 +48,9 @@ const RendererRootBoundaryInner = <
     }
   }, [rendererFactory])
 
-  return (
-    <div
-      {...containerProps}
-      ref={(node) => {
-        containerRef.current = node
-        if (typeof ref === 'function') {
-          ref(node)
-        } else if (ref) {
-          ;(ref as { current: HTMLDivElement | null }).current = node
-        }
-      }}
-    >
-      {renderRoot ? (
+  return (renderRoot ? (
         <RendererRootProvider value={renderRoot}>{children}</RendererRootProvider>
-      ) : null}
-    </div>
+      ) : null
   )
 }
 

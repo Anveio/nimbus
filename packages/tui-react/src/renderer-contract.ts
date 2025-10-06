@@ -4,72 +4,56 @@ import type {
   RendererFrameEvent,
   RendererResizeRequestEvent,
   RendererRoot,
+  RendererRootContainer,
   RendererSession,
   TerminalProfile,
   WebglRendererConfig,
+  WebglRendererSession,
 } from '@mana/webgl-renderer'
-import type { TerminalRuntime } from '@mana/vt'
-import type { HTMLAttributes, ReactNode } from 'react'
+import type {
+  CanvasHTMLAttributes,
+  HTMLAttributes,
+  ReactNode,
+} from 'react'
 
-export type TerminalRendererFactory<
-  TRendererConfig extends { renderRoot?: unknown } = WebglRendererConfig,
-> = (container: HTMLElement) => RendererRoot<TRendererConfig>
+export type TerminalRendererFactory = (container: HTMLElement) => RendererRoot
 
-export type TerminalManagedContainerProps = Omit<
-  HTMLAttributes<HTMLDivElement>,
-  'children' | 'dangerouslySetInnerHTML'
->
-
-export interface TerminalSurfaceContext<
-  TRendererConfig extends { renderRoot?: unknown } = WebglRendererConfig,
-> {
-  readonly container: HTMLElement
-  readonly rendererConfig?: Partial<TRendererConfig>
+export interface TerminalSurfaceContext {
+  readonly renderRoot: RendererRootContainer
+  readonly rendererConfig?: Partial<WebglRendererConfig>
 }
 
-export type TerminalSurfaceStrategy<
-  TRendererConfig extends { renderRoot?: unknown } = WebglRendererConfig,
-> = (
-  context: TerminalSurfaceContext<TRendererConfig>,
-) => RenderSurface<TRendererConfig>
+export type TerminalSurfaceStrategy = (
+  context: TerminalSurfaceContext,
+) => RenderSurface
 
-export interface TerminalConfigurationContext<
-  TRendererConfig extends { renderRoot?: unknown } = WebglRendererConfig,
-> {
+export interface TerminalConfigurationContext{
   readonly container: HTMLElement
-  readonly surface: RenderSurface<TRendererConfig>
+  readonly surface: RenderSurface
 }
 
-export type TerminalConfigurationStrategy<
-  TRendererConfig extends { renderRoot?: unknown } = WebglRendererConfig,
-> = (
-  context: TerminalConfigurationContext<TRendererConfig>,
+export type TerminalConfigurationStrategy = (
+  context: TerminalConfigurationContext,
 ) => RendererConfiguration
 
-export interface TerminalSessionHandle<
-  TRendererConfig extends { renderRoot?: unknown } = WebglRendererConfig,
-> {
-  getRendererRoot(): RendererRoot<TRendererConfig> | null
-  getSession(): RendererSession<TRendererConfig> | null
-  getRuntime(): TerminalRuntime | null
+export interface TerminalSessionHandle {
+  getRendererRoot(): RendererRoot | null
+  getSession(): RendererSession | null
+  getRuntime(): WebglRendererSession['runtime'] | null
 }
 
-export interface RendererSessionProviderProps<
-  TRendererConfig extends { renderRoot?: unknown } = WebglRendererConfig,
-> {
-  readonly rendererConfig?: Partial<TRendererConfig>
-  readonly runtime?: TerminalRuntime
+export interface RendererSessionProviderProps{
+  readonly rendererConfig?: Partial<WebglRendererConfig>
+  readonly runtime?: WebglRendererSession['runtime']
   readonly profile?: TerminalProfile
-  readonly deriveConfiguration: TerminalConfigurationStrategy<TRendererConfig>
-  readonly surface?: TerminalSurfaceStrategy<TRendererConfig>
+  readonly deriveConfiguration: TerminalConfigurationStrategy
+  readonly surface?: TerminalSurfaceStrategy
   readonly onFrame?: (event: RendererFrameEvent) => void
   readonly onResizeRequest?: (event: RendererResizeRequestEvent) => void
   readonly children?: ReactNode
 }
 
-export interface TerminalProps<
-  TRendererConfig extends { renderRoot?: unknown } = WebglRendererConfig,
-> extends RendererSessionProviderProps<TRendererConfig> {
-  readonly rendererFactory?: TerminalRendererFactory<TRendererConfig>
-  readonly containerProps?: TerminalManagedContainerProps
+export interface TerminalProps extends RendererSessionProviderProps {
+  readonly rendererFactory?: TerminalRendererFactory
+  readonly renderRootProps?: CanvasHTMLAttributes<HTMLCanvasElement>
 }

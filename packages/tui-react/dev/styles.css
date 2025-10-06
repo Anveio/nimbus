@@ -1,0 +1,96 @@
+:root {
+  color-scheme: dark;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #050608;
+  color: #f8fafc;
+}
+
+body,
+html {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: inherit;
+  color: inherit;
+}
+
+body {
+  display: grid;
+  place-items: stretch;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 2rem;
+  gap: 1.5rem;
+  box-sizing: border-box;
+}
+
+.app-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 720px;
+}
+
+.app-title {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.app-subtitle {
+  margin: 0;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.app-code {
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  background: rgba(148, 163, 184, 0.15);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.375rem;
+  color: #f8fafc;
+}
+
+.app-terminal {
+  flex: 1;
+  min-height: 400px;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(15, 23, 42, 0.8);
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.35);
+  padding: 1rem;
+  box-sizing: border-box;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.app-terminal-container {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.app-terminal-canvas {
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  display: block;
+  border-radius: 0.5rem;
+  outline: none;
+  background: #000;
+}
+
+.app-terminal-canvas:focus {
+  box-shadow: 0 0 0 2px #38bdf8;
+}

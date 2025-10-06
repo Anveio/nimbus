@@ -227,7 +227,9 @@ export type RendererEvent<_TRendererConfig = unknown> =
   | { readonly type: 'profile.update'; readonly profile: TerminalProfile }
 
 export type RenderSurface<
-  TRendererConfig extends { renderRoot?: unknown } = { renderRoot?: HTMLElement },
+  TRendererConfig extends { renderRoot?: unknown } = {
+    renderRoot: RendererRootContainer
+  },
 > =
   | { readonly renderRoot: HTMLElement }
   | {
@@ -236,10 +238,12 @@ export type RenderSurface<
         : never
     }
 
-export type RendererRootContainer = HTMLElement | OffscreenCanvas
+export type RendererRootContainer = HTMLCanvasElement
 
 export type RendererMountDescriptor<
-  TRendererConfig extends { renderRoot?: unknown } = { renderRoot?: HTMLElement },
+  TRendererConfig extends { renderRoot?: unknown } = {
+    renderRoot: RendererRootContainer
+  },
 > = Partial<TRendererConfig> & {
   readonly surface: RenderSurface<TRendererConfig>
   readonly configuration: RendererConfiguration
@@ -262,9 +266,11 @@ export interface RendererSession<TRendererConfig = unknown> {
 }
 
 export interface RendererRoot<
-  TRendererConfig extends { renderRoot?: unknown } = { renderRoot?: HTMLElement },
+  TRendererConfig extends { renderRoot?: unknown } = {
+    renderRoot: RendererRootContainer
+  },
 > {
-  readonly container: RendererRootContainer
+  readonly container: TRendererConfig['renderRoot']
   readonly currentSession: RendererSession<TRendererConfig> | null
   mount(
     descriptor: RendererMountDescriptor<TRendererConfig>,
@@ -275,7 +281,7 @@ export interface RendererRoot<
 export interface WebglRendererConfig {
   readonly contextAttributes?: WebGLContextAttributes
   readonly autoFlush?: boolean
-  readonly renderRoot?: HTMLCanvasElement
+  readonly renderRoot: HTMLCanvasElement
 }
 
 export interface WebglRendererFrameMetadata extends Record<string, unknown> {

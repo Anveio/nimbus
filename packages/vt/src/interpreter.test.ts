@@ -508,7 +508,9 @@ describe('TerminalInterpreter basic behaviour', () => {
     let pointerUpdate = updates
       .flat()
       .find(
-        (update): update is Extract<TerminalUpdate, { type: 'pointer-tracking' }> =>
+        (
+          update,
+        ): update is Extract<TerminalUpdate, { type: 'pointer-tracking' }> =>
           update.type === 'pointer-tracking',
       )
     expect(pointerUpdate?.tracking).toBe('button')
@@ -519,7 +521,9 @@ describe('TerminalInterpreter basic behaviour', () => {
     pointerUpdate = updates
       .flat()
       .find(
-        (update): update is Extract<TerminalUpdate, { type: 'pointer-tracking' }> =>
+        (
+          update,
+        ): update is Extract<TerminalUpdate, { type: 'pointer-tracking' }> =>
           update.type === 'pointer-tracking',
       )
     expect(pointerUpdate?.tracking).toBe('any-motion')
@@ -530,7 +534,9 @@ describe('TerminalInterpreter basic behaviour', () => {
     pointerUpdate = updates
       .flat()
       .find(
-        (update): update is Extract<TerminalUpdate, { type: 'pointer-tracking' }> =>
+        (
+          update,
+        ): update is Extract<TerminalUpdate, { type: 'pointer-tracking' }> =>
           update.type === 'pointer-tracking',
       )
     expect(pointerUpdate?.tracking).toBe('button')
@@ -541,7 +547,9 @@ describe('TerminalInterpreter basic behaviour', () => {
     pointerUpdate = updates
       .flat()
       .find(
-        (update): update is Extract<TerminalUpdate, { type: 'pointer-tracking' }> =>
+        (
+          update,
+        ): update is Extract<TerminalUpdate, { type: 'pointer-tracking' }> =>
           update.type === 'pointer-tracking',
       )
     expect(pointerUpdate?.encoding).toBe('utf8')
@@ -552,7 +560,9 @@ describe('TerminalInterpreter basic behaviour', () => {
     pointerUpdate = updates
       .flat()
       .find(
-        (update): update is Extract<TerminalUpdate, { type: 'pointer-tracking' }> =>
+        (
+          update,
+        ): update is Extract<TerminalUpdate, { type: 'pointer-tracking' }> =>
           update.type === 'pointer-tracking',
       )
     expect(pointerUpdate?.encoding).toBe('sgr')
@@ -563,7 +573,9 @@ describe('TerminalInterpreter basic behaviour', () => {
     pointerUpdate = updates
       .flat()
       .find(
-        (update): update is Extract<TerminalUpdate, { type: 'pointer-tracking' }> =>
+        (
+          update,
+        ): update is Extract<TerminalUpdate, { type: 'pointer-tracking' }> =>
           update.type === 'pointer-tracking',
       )
     expect(pointerUpdate?.encoding).toBe('utf8')
@@ -574,7 +586,9 @@ describe('TerminalInterpreter basic behaviour', () => {
     pointerUpdate = updates
       .flat()
       .find(
-        (update): update is Extract<TerminalUpdate, { type: 'pointer-tracking' }> =>
+        (
+          update,
+        ): update is Extract<TerminalUpdate, { type: 'pointer-tracking' }> =>
           update.type === 'pointer-tracking',
       )
     expect(pointerUpdate?.encoding).toBe('default')

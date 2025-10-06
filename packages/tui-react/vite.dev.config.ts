@@ -2,7 +2,7 @@ import path from 'node:path'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
-const entry = path.resolve(__dirname, 'src/index.ts')
+const entry = path.resolve(__dirname, 'src/test/setup/.ts')
 
 export default defineConfig({
   plugins: [react({ include: /\.(js|jsx|ts|tsx)$/ })],
