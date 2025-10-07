@@ -1,6 +1,9 @@
 import type { MutableRefObject } from 'react'
-import type { SelectionPoint } from '@mana/vt'
-import type { RendererEvent, RendererSession } from '@mana/webgl-renderer'
+import type {
+  RendererEvent,
+  RendererSession,
+  SelectionPoint,
+} from '@mana/webgl-renderer'
 
 export type ShortcutGuideReason = 'hotkey' | 'imperative'
 

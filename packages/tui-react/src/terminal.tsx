@@ -27,7 +27,10 @@ import {
   handleTerminalHotkey,
 } from './hotkeys'
 import type { HotkeyRendererEvent } from './hotkeys'
-import type { SelectionPoint, TerminalSelection } from '@mana/vt'
+import type {
+  SelectionPoint,
+  TerminalSelection,
+} from '@mana/webgl-renderer'
 
 /**
  * Bridges the forwarded `TerminalSessionHandle` to the active renderer root,

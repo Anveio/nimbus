@@ -15,7 +15,7 @@
   },
   "scripts": {
     "clean": "git clean -xfd .",
-    "build": "vite build",
+    "build": "vite build --config vite.production.config.ts",
     "dev": "vite",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "vitest run --reporter=dot --silent",
@@ -45,7 +45,6 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@mana/tui-web-canvas-renderer": "^0.0.1",
     "@mana/webgl-renderer": "^0.0.1"
   },
   "peerDependencies": {

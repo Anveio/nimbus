@@ -294,4 +294,4 @@ export interface RuntimeUpdateBatch {
   readonly reason: 'initial' | 'sync' | 'apply-updates' | 'manual'
 }
 
-export type { TerminalRuntimeEvent }
+export type { TerminalRuntimeEvent, TerminalRuntime }

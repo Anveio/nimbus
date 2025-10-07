@@ -7,7 +7,7 @@ import type {
 import type {
   SelectionPoint,
   TerminalRuntimeCursorMoveDirection,
-} from '@mana/vt'
+} from '@mana/webgl-renderer'
 
 const noopResult: HotkeyResult = { handled: false }
 

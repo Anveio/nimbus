@@ -20,7 +20,6 @@ import type {
   WebglRendererConfig,
   WebglRendererRootOptions,
 } from '@mana/webgl-renderer'
-import type { TerminalRuntime } from '@mana/vt'
 import { Terminal } from './terminal'
 
 type FrameListener = Parameters<RendererSession['onFrame']>[0]
@@ -57,7 +56,7 @@ const createSessionHarness = (): SessionHarness => {
 
   const session: RendererSession = {
     profile: {},
-    runtime: {} as TerminalRuntime,
+    runtime: {} as WebglRenderer.TerminalRuntime,
     configuration: undefined,
     dispatch: dispatch as RendererSession['dispatch'],
     onFrame: onFrameMock as RendererSession['onFrame'],

@@ -16,8 +16,8 @@ import {
   type RendererRoot,
   type WebglRendererRootOptions,
 } from '@mana/webgl-renderer'
-import { createTerminalRuntime } from '@mana/vt'
-import type { TerminalRuntime } from '@mana/vt'
+import { createTerminalRuntime } from '@mana/webgl-renderer'
+import type { TerminalRuntime } from '@mana/webgl-renderer'
 import type { RendererSessionProviderProps } from './renderer-contract'
 import { RendererRootProvider } from './renderer-root-context'
 import { useRendererSurface } from './renderer-surface-context'
@@ -122,7 +122,6 @@ export const RendererSessionProvider = (
     rendererConfigRef.current = rendererConfig
     runtimeRef.current = rendererConfig?.runtime ?? null
     profileRef.current = rendererConfig?.profile
-    previousProfileRef.current = rendererConfig?.profile
   }, [rendererConfig])
 
   const computeConfiguration = useCallback((): RendererConfiguration => {

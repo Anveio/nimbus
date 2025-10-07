@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { SelectionPoint, TerminalSelection } from '@mana/vt'
-import type { RendererSession } from '@mana/webgl-renderer'
+import type {
+  RendererSession,
+  SelectionPoint,
+  TerminalSelection,
+} from '@mana/webgl-renderer'
 import type { HotkeyContext } from './context'
 import { handleTerminalHotkey } from './handler'
 
