@@ -1,34 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react'
 import type { JSX } from 'react'
 import { Terminal } from '..'
-import type {
-  TerminalConfigurationStrategy,
-  TerminalSessionHandle,
-} from '..'
+import type { TerminalSessionHandle } from '..'
 import './styles.css'
-
-const deriveConfiguration: TerminalConfigurationStrategy = ({ container }) => {
-  const rect = container.getBoundingClientRect()
-  const width = rect.width || 800
-  const height = rect.height || 480
-  const cell = { width: 8, height: 16, baseline: 13 }
-  const columns = Math.max(2, Math.floor(width / cell.width))
-  const rows = Math.max(2, Math.floor(height / cell.height))
-  const devicePixelRatio = window.devicePixelRatio || 1
-  const cssPixels = { width, height }
-  const framebufferPixels = {
-    width: Math.round(width * devicePixelRatio),
-    height: Math.round(height * devicePixelRatio),
-  }
-
-  return {
-    grid: { columns, rows },
-    cssPixels,
-    framebufferPixels,
-    devicePixelRatio,
-    cell,
-  }
-}
 
 declare global {
   interface Window {
@@ -87,7 +61,6 @@ export function App(): JSX.Element {
       <section className="app-terminal">
         <Terminal
           ref={terminalRef}
-          deriveConfiguration={deriveConfiguration}
           renderRootProps={renderRootProps}
         />
       </section>

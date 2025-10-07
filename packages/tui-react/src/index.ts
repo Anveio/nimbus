@@ -1,10 +1,7 @@
 export { Terminal } from './terminal'
 export type {
   RendererSessionProviderProps,
-  TerminalConfigurationContext,
-  TerminalConfigurationStrategy,
   TerminalProps,
-  TerminalRendererFactory,
   TerminalSessionHandle,
 } from './renderer-contract'
 export { RendererSessionProvider } from './renderer-session-provider'

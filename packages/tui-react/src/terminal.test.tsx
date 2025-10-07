@@ -8,6 +8,7 @@ import {
   it,
   vi,
 } from 'vitest'
+import * as WebglRenderer from '@mana/webgl-renderer'
 import type {
   RendererConfiguration,
   RendererFrameEvent,
@@ -21,11 +22,6 @@ import type {
 } from '@mana/webgl-renderer'
 import type { TerminalRuntime } from '@mana/vt'
 import { Terminal } from './terminal'
-import type {
-  TerminalConfigurationStrategy,
-  TerminalProps,
-  TerminalRendererFactory,
-} from './renderer-contract'
 
 type FrameListener = Parameters<RendererSession['onFrame']>[0]
 type ResizeRequestListener = Parameters<NonNullable<RendererSession['onResizeRequest']>>[0]
@@ -88,7 +84,7 @@ const createSessionHarness = (): SessionHarness => {
 }
 
 type RendererHarness = {
-  factory: ReturnType<typeof vi.fn<TerminalRendererFactory>>
+  factory: ReturnType<typeof vi.fn<typeof WebglRenderer.createRendererRoot>>
   mount: ReturnType<typeof vi.fn<() => RendererSession>>
   dispose: ReturnType<typeof vi.fn<() => void>>
   container: () => RendererRootContainer | null
@@ -101,7 +97,7 @@ const createRendererHarness = (session: RendererSession): RendererHarness => {
   let currentContainer: RendererRootContainer | null = null
   let lastOptions: WebglRendererRootOptions | null = null
 
-  const factoryImpl: TerminalRendererFactory = (
+  const factoryImpl: typeof WebglRenderer.createRendererRoot = (
     container,
     options,
   ) => {
@@ -136,15 +132,39 @@ const createRendererHarness = (session: RendererSession): RendererHarness => {
 
 const configuration: RendererConfiguration = {
   grid: { rows: 24, columns: 80 },
-  cssPixels: { width: 800, height: 600 },
-  devicePixelRatio: 2,
-  framebufferPixels: { width: 1600, height: 1200 },
-  cell: { width: 8, height: 16, baseline: 14 },
+  cssPixels: { width: 640, height: 384 },
+  devicePixelRatio: 1,
+  framebufferPixels: { width: 640, height: 384 },
+  cell: { width: 8, height: 16, baseline: 12 },
 }
 
 const ansiPalette = Array.from({ length: 16 }, (_, index) =>
   index % 2 === 0 ? '#000000' : '#ffffff',
 )
+
+const actualCreateRendererRoot = WebglRenderer.createRendererRoot
+const createRendererRootSpy = vi.spyOn(WebglRenderer, 'createRendererRoot')
+
+const originalCanvasGetBoundingClientRect =
+  HTMLCanvasElement.prototype.getBoundingClientRect
+const devicePixelRatioDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  'devicePixelRatio',
+)
+
+const mockCanvasRect = () => ({
+  width: configuration.cssPixels.width,
+  height: configuration.cssPixels.height,
+  top: 0,
+  left: 0,
+  bottom: configuration.cssPixels.height,
+  right: configuration.cssPixels.width,
+  x: 0,
+  y: 0,
+  toJSON() {
+    return {}
+  },
+}) as DOMRect
 
 class ResizeObserverMock {
   readonly observe = vi.fn()
@@ -169,34 +189,42 @@ beforeEach(() => {
       resizeObservers.push(instance)
       return instance
     })
+  HTMLCanvasElement.prototype.getBoundingClientRect = mockCanvasRect
+  createRendererRootSpy.mockImplementation(actualCreateRendererRoot)
+  Object.defineProperty(window, 'devicePixelRatio', {
+    value: configuration.devicePixelRatio,
+    configurable: true,
+  })
 })
 
 afterEach(() => {
   vi.clearAllMocks()
   delete (globalThis as { ResizeObserver?: unknown }).ResizeObserver
   resizeObservers.length = 0
+  HTMLCanvasElement.prototype.getBoundingClientRect =
+    originalCanvasGetBoundingClientRect
+  if (devicePixelRatioDescriptor) {
+    Object.defineProperty(window, 'devicePixelRatio', devicePixelRatioDescriptor)
+  } else {
+    delete (window as unknown as { devicePixelRatio?: number }).devicePixelRatio
+  }
+  createRendererRootSpy.mockReset()
+  createRendererRootSpy.mockImplementation(actualCreateRendererRoot)
 })
 
 describe('<Terminal />', () => {
   it('creates a managed container and mounts the renderer', () => {
     const sessionHarness = createSessionHarness()
     const rendererHarness = createRendererHarness(sessionHarness.session)
-    const deriveConfiguration: TerminalProps['deriveConfiguration'] = ({ container }) => {
-      expect(container).toBeInstanceOf(HTMLCanvasElement)
-      return configuration
-    }
+    createRendererRootSpy.mockImplementation(rendererHarness.factory)
 
     const { container: host } = render(
-      <Terminal
-        rendererFactory={rendererHarness.factory}
-        deriveConfiguration={
-          deriveConfiguration as unknown as TerminalConfigurationStrategy
-        }
-      />,
+      <Terminal />,
     )
 
     const managed = host.querySelector('canvas') as HTMLCanvasElement
 
+    expect(createRendererRootSpy).toHaveBeenCalledTimes(1)
     expect(rendererHarness.factory).toHaveBeenCalledTimes(1)
     expect(rendererHarness.container()).toBe(managed)
     expect(rendererHarness.mount).toHaveBeenCalledTimes(1)
@@ -212,12 +240,7 @@ describe('<Terminal />', () => {
   it('dispatches configuration updates on resize and resize requests', () => {
     const sessionHarness = createSessionHarness()
     const rendererHarness = createRendererHarness(sessionHarness.session)
-    const deriveConfiguration = vi.fn<TerminalProps['deriveConfiguration']>(
-      ({ container }) => {
-        expect(container).toBeInstanceOf(HTMLCanvasElement)
-        return configuration
-      },
-    )
+    createRendererRootSpy.mockImplementation(rendererHarness.factory)
     const onFrame = vi.fn((event: RendererFrameEvent) => {
       return event
     })
@@ -227,10 +250,6 @@ describe('<Terminal />', () => {
 
     render(
       <Terminal
-        rendererFactory={rendererHarness.factory}
-        deriveConfiguration={
-          deriveConfiguration as unknown as TerminalConfigurationStrategy
-        }
         onFrame={onFrame}
         onResizeRequest={onResizeRequest}
       />,
@@ -272,9 +291,7 @@ describe('<Terminal />', () => {
   it('updates profile without remounting the renderer', () => {
     const sessionHarness = createSessionHarness()
     const rendererHarness = createRendererHarness(sessionHarness.session)
-    const deriveConfiguration = vi.fn<TerminalProps['deriveConfiguration']>(
-      () => configuration,
-    )
+    createRendererRootSpy.mockImplementation(rendererHarness.factory)
 
     const profileA: TerminalProfile = {
       theme: {
@@ -294,13 +311,7 @@ describe('<Terminal />', () => {
     }
 
     const { rerender } = render(
-      <Terminal
-        rendererFactory={rendererHarness.factory}
-        deriveConfiguration={
-          deriveConfiguration as unknown as TerminalConfigurationStrategy
-        }
-        profile={profileA}
-      />,
+      <Terminal rendererConfig={{ profile: profileA }} />,
     )
 
     expect(rendererHarness.mount).toHaveBeenCalledTimes(1)
@@ -312,13 +323,7 @@ describe('<Terminal />', () => {
     sessionHarness.dispatch.mockClear()
 
     rerender(
-      <Terminal
-        rendererFactory={rendererHarness.factory}
-        deriveConfiguration={
-          deriveConfiguration as unknown as TerminalConfigurationStrategy
-        }
-        profile={profileB}
-      />,
+      <Terminal rendererConfig={{ profile: profileB }} />,
     )
 
     expect(rendererHarness.mount).toHaveBeenCalledTimes(1)
@@ -331,17 +336,10 @@ describe('<Terminal />', () => {
   it('disposes the renderer root on unmount', () => {
     const sessionHarness = createSessionHarness()
     const rendererHarness = createRendererHarness(sessionHarness.session)
-    const deriveConfiguration = vi.fn<TerminalProps['deriveConfiguration']>(
-      () => configuration,
-    )
+    createRendererRootSpy.mockImplementation(rendererHarness.factory)
 
     const { unmount } = render(
-      <Terminal
-        rendererFactory={rendererHarness.factory}
-        deriveConfiguration={
-          deriveConfiguration as unknown as TerminalConfigurationStrategy
-        }
-      />,
+      <Terminal />,
     )
 
     expect(rendererHarness.dispose).not.toHaveBeenCalled()

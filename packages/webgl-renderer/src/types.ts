@@ -260,6 +260,8 @@ export interface RendererRoot<TRendererConfig = unknown> {
 export interface WebglRendererConfig {
   readonly contextAttributes?: WebGLContextAttributes
   readonly autoFlush?: boolean
+  readonly runtime?: TerminalRuntime
+  readonly profile?: TerminalProfile
 }
 
 export type WebglRendererRootOptions =

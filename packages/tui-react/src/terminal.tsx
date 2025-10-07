@@ -7,7 +7,6 @@ import type {
   RefAttributes,
 } from 'react'
 import type {
-  RendererSessionProviderProps,
   TerminalProps,
   TerminalSessionHandle,
 } from './renderer-contract'
@@ -15,7 +14,6 @@ import { useRendererRoot } from './renderer-root-context'
 import { RendererSessionProvider } from './renderer-session-provider'
 import { RendererSurface } from './renderer-surface'
 import { useRendererSessionContext } from './renderer-session-context'
-import type { WebglRendererConfig } from '@mana/webgl-renderer'
 
 /**
  * Bridges the forwarded `TerminalSessionHandle` to the active renderer root,
@@ -65,21 +63,11 @@ const TerminalInner = (
   props: TerminalProps,
   ref: ForwardedRef<TerminalSessionHandle>,
 ): JSX.Element => {
-  const {
-    rendererFactory,
-    children,
-    renderRootProps,
-    ...sessionProps
-  } = props
-
-  const sessionProviderProps = {
-    ...sessionProps,
-    rendererFactory,
-  } as RendererSessionProviderProps
+  const { children, renderRootProps, ...sessionProps } = props
 
   return (
     <RendererSurface renderRootProps={renderRootProps}>
-      <RendererSessionProvider {...sessionProviderProps}>
+      <RendererSessionProvider {...sessionProps}>
         <TerminalHandleBinder ref={ref}>{children}</TerminalHandleBinder>
       </RendererSessionProvider>
     </RendererSurface>
