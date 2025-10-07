@@ -39,7 +39,6 @@ pipe. `<Terminal />` must calculate these values before dispatching:
 | `KeyboardEvent` | `runtime.key` / `runtime.text` | Continue to use the hotkey handler + IME pipeline. |
 | `PointerEvent` (`pointerdown`, `pointermove`, `pointerup`, `pointercancel`) | `runtime.pointer` | Provide `action`, `button`, `buttons`, and `cell` coordinates (1-based), plus modifier flags. |
 | `WheelEvent` | `runtime.wheel` | Supply signed `deltaX/deltaY`, pointer cell, modifiers. |
-| Focus gain/loss | `runtime.focus` / `runtime.blur` | Fire when the accessibility container receives or loses focus. |
 | Clipboard paste | `runtime.paste` | Send the plain-text payload; the runtime emits bracketed paste guards when enabled. |
 | Selection + cursor gestures | `runtime.selection.*` / `runtime.cursor.*` | Already implemented; ensure event union updates stay in sync. |
 
@@ -63,7 +62,7 @@ Renderer sessions forward host events to `TerminalRuntime`, which returns batche
 
 - `updates`: apply via `presentFrame({ snapshot, updates, reason: 'apply-updates' })`.
 - `response`: send to the transport (`instrumentation.emitData`) so the remote host
-  receives DEC mouse clicks, focus reports, or bracketed paste sequences.
+  receives DEC mouse clicks or bracketed paste sequences.
 - `mode` / `pointer-tracking`: update overlays or instrumentation as desired (e.g. show
   when applications request mouse capture).
 
@@ -79,9 +78,7 @@ Renderer sessions forward host events to `TerminalRuntime`, which returns batche
    - Handle wheel events on the accessibility layer or canvas and dispatch
      `runtime.wheel` with the computed metadata.
 
-3. **Focus + clipboard**
-   - Forward focus/blur events from `TerminalAccessibilityLayer` to the renderer via
-     `runtime.focus`/`runtime.blur`.
+3. **Clipboard**
    - Replace the current paste path (local echo + transport write) with
      `runtime.paste`, letting the runtime emit bracketed guards when enabled.
 

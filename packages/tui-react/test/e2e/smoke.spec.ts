@@ -20,7 +20,7 @@ test.describe('TUI React harness', () => {
       state: 'visible',
     })
 
-    const canvas = await page.waitForSelector(canvasSelector)
+    const canvas = page.locator(canvasSelector)
     await expect(canvas).toBeVisible()
 
     const backend = await page.waitForFunction(() => {

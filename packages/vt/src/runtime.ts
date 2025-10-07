@@ -131,8 +131,6 @@ export type TerminalRuntimeEvent =
     }
   | TerminalRuntimePointerEvent
   | TerminalRuntimeWheelEvent
-  | { readonly type: 'focus' }
-  | { readonly type: 'blur' }
   | { readonly type: 'paste'; readonly data: string }
   /**
    * Directly injects a single parser event. Reserved for advanced hosts and
@@ -286,10 +284,6 @@ class TerminalRuntimeImpl implements TerminalRuntime {
         return this.handlePointerEvent(event)
       case 'wheel':
         return this.handleWheelEvent(event)
-      case 'focus':
-        return this.handleFocusEvent(true)
-      case 'blur':
-        return this.handleFocusEvent(false)
       case 'paste':
         return this.handlePasteEvent(event.data)
       case 'parser.dispatch':
@@ -434,17 +428,6 @@ class TerminalRuntimeImpl implements TerminalRuntime {
     return sequences
   }
 
-  private handleFocusEvent(focused: boolean): TerminalUpdate[] {
-    if (!this.supportsFocusReporting()) {
-      return []
-    }
-    const sequence = focused ? '\u001B[I' : '\u001B[O'
-    if (!this.snapshot.input.focusReporting) {
-      return []
-    }
-    return this.emitHostSequence(sequence)
-  }
-
   private handlePasteEvent(data: string): TerminalUpdate[] {
     if (data.length === 0) {
       return []
@@ -470,10 +453,6 @@ class TerminalRuntimeImpl implements TerminalRuntime {
 
   private supportsPointerTracking(): boolean {
     return this._interpreter.capabilities.features.supportsPointerTracking
-  }
-
-  private supportsFocusReporting(): boolean {
-    return this._interpreter.capabilities.features.supportsFocusReporting
   }
 
   private supportsBracketedPaste(): boolean {

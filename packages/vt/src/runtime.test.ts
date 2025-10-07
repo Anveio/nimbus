@@ -227,25 +227,6 @@ describe('TerminalRuntime host events', () => {
     }
   })
 
-  it('emits focus reports when the mode is enabled', () => {
-    const runtime = createTerminalRuntime()
-    runtime.write('\u001B[?1004h')
-
-    const focusUpdates = runtime.dispatchEvent({ type: 'focus' })
-    const focusResponse = focusUpdates.find(isResponseUpdate)
-    expect(focusResponse).toBeDefined()
-    if (focusResponse?.type === 'response') {
-      expect(normaliseResponse(focusResponse.data)).toBe('\u001B[I')
-    }
-
-    const blurUpdates = runtime.dispatchEvent({ type: 'blur' })
-    const blurResponse = blurUpdates.find(isResponseUpdate)
-    expect(blurResponse).toBeDefined()
-    if (blurResponse?.type === 'response') {
-      expect(normaliseResponse(blurResponse.data)).toBe('\u001B[O')
-    }
-  })
-
   it('wraps paste payloads with bracketed paste guards when enabled', () => {
     const runtime = createTerminalRuntime()
     runtime.write('\u001B[?2004h')

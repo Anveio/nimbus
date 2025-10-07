@@ -185,8 +185,6 @@ export type RendererEvent<_TRendererConfig = unknown> =
       readonly cell: { readonly row: number; readonly column: number }
       readonly modifiers?: TerminalPointerModifierState
     }
-  | { readonly type: 'runtime.focus' }
-  | { readonly type: 'runtime.blur' }
   | { readonly type: 'runtime.paste'; readonly text: string }
   | {
       readonly type: 'runtime.cursor.set'

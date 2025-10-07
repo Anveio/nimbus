@@ -11,6 +11,7 @@ import {
 } from 'react'
 import type { ShortcutGuideReason } from '../hotkeys'
 import type { RendererSession } from '@mana/webgl-renderer'
+import type { SelectionPoint, TerminalSelection } from '@mana/vt'
 export type TerminalStatusLevel = 'info' | 'warning' | 'error'
 
 export interface TerminalStatusMessage {
@@ -261,6 +262,106 @@ const DEFAULT_INSTRUCTIONS: ReactNode = (
   </div>
 )
 
+interface SelectionSegment {
+  readonly row: number
+  readonly startColumn: number
+  readonly endColumn: number
+}
+
+const clampCaret = (value: number, columns: number): number => {
+  if (columns <= 0) {
+    return 0
+  }
+  if (value < 0) {
+    return 0
+  }
+  if (value > columns) {
+    return columns
+  }
+  return value
+}
+
+const compareSelectionPoints = (
+  a: SelectionPoint,
+  b: SelectionPoint,
+): number => {
+  if (a.row !== b.row) {
+    return a.row - b.row
+  }
+  if (a.column !== b.column) {
+    return a.column - b.column
+  }
+  return a.timestamp - b.timestamp
+}
+
+const resolveSelectionSegments = (
+  selection: TerminalSelection,
+  columns: number,
+): SelectionSegment[] => {
+  if (columns <= 0) {
+    return []
+  }
+
+  const anchorRow = clamp(selection.anchor.row, 0, Number.MAX_SAFE_INTEGER)
+  const focusRow = clamp(selection.focus.row, 0, Number.MAX_SAFE_INTEGER)
+
+  if (selection.kind === 'rectangular') {
+    const minRow = Math.min(anchorRow, focusRow)
+    const maxRow = Math.max(anchorRow, focusRow)
+    const startCaret = clampCaret(
+      Math.min(selection.anchor.column, selection.focus.column),
+      columns,
+    )
+    const endCaret = clampCaret(
+      Math.max(selection.anchor.column, selection.focus.column),
+      columns,
+    )
+    if (startCaret >= endCaret) {
+      return []
+    }
+    const segments: SelectionSegment[] = []
+    for (let row = minRow; row <= maxRow; row += 1) {
+      segments.push({
+        row,
+        startColumn: startCaret,
+        endColumn: endCaret - 1,
+      })
+    }
+    return segments
+  }
+
+  const anchorPoint: SelectionPoint = {
+    row: anchorRow,
+    column: selection.anchor.column,
+    timestamp: selection.anchor.timestamp,
+  }
+  const focusPoint: SelectionPoint = {
+    row: focusRow,
+    column: selection.focus.column,
+    timestamp: selection.focus.timestamp,
+  }
+
+  const [start, end] =
+    compareSelectionPoints(anchorPoint, focusPoint) <= 0
+      ? [anchorPoint, focusPoint]
+      : [focusPoint, anchorPoint]
+
+  const segments: SelectionSegment[] = []
+  for (let row = start.row; row <= end.row; row += 1) {
+    const caretStart = clampCaret(row === start.row ? start.column : 0, columns)
+    const caretEnd = clampCaret(row === end.row ? end.column : columns, columns)
+    if (caretStart >= caretEnd) {
+      continue
+    }
+    segments.push({
+      row,
+      startColumn: caretStart,
+      endColumn: caretEnd - 1,
+    })
+  }
+  return segments
+}
+
 const createSelectionIndex = (
   selection: TerminalSelection | null | undefined,
   columns: number,
@@ -268,7 +369,7 @@ const createSelectionIndex = (
   if (!selection) {
     return { cells: new Set(), rowExtents: new Map() }
   }
-  const segments = getSelectionRowSegments(selection, columns)
+  const segments = resolveSelectionSegments(selection, columns)
   if (segments.length === 0) {
     return { cells: new Set(), rowExtents: new Map() }
   }
@@ -379,13 +480,16 @@ const createCaretStatusText = (
   const column = clamp(focusPoint.column, 0, Math.max(0, snapshot.columns - 1))
   const base = `Row ${row + 1}, column ${column + 1}`
   if (hasSelection && snapshot.selection) {
-    const selectionSegments = getSelectionRowSegments(
+    const selectionSegments = resolveSelectionSegments(
       snapshot.selection,
       snapshot.columns,
     )
-    const cellsSelected = selectionSegments.reduce((total, segment) => {
-      return total + (segment.endColumn - segment.startColumn + 1)
-    }, 0)
+    const cellsSelected = selectionSegments.reduce<number>(
+      (total, segment) => {
+        return total + (segment.endColumn - segment.startColumn + 1)
+      },
+      0,
+    )
     return `${base}. ${cellsSelected} cell${cellsSelected === 1 ? '' : 's'} selected.`
   }
   return base

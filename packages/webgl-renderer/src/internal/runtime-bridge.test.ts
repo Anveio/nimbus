@@ -78,14 +78,4 @@ describe('applyRendererEventToRuntime', () => {
     expect(result.handled).toBe(true)
     expect(result.batch?.updates.length ?? 0).toBeGreaterThan(0)
   })
-
-  it('forwards focus events to the runtime', () => {
-    const runtime = createRendererRuntime()
-    const result = applyRendererEventToRuntime(runtime, {
-      type: 'runtime.focus',
-    })
-
-    expect(result.handled).toBe(true)
-    expect(result.batch?.updates ?? []).toHaveLength(0)
-  })
 })

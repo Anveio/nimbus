@@ -141,20 +141,6 @@ export const applyRendererEventToRuntime = (
         handled: true,
       }
     }
-    case 'runtime.focus':
-    case 'runtime.blur': {
-      const updates = dispatchEventToRuntime(runtime, {
-        type: event.type === 'runtime.focus' ? 'focus' : 'blur',
-      })
-      return {
-        batch: {
-          snapshot: runtime.snapshot,
-          updates,
-          reason: 'apply-updates',
-        },
-        handled: true,
-      }
-    }
     case 'runtime.paste': {
       const updates = dispatchEventToRuntime(runtime, {
         type: 'paste',

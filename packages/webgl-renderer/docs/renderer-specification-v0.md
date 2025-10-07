@@ -244,8 +244,6 @@ type RendererEvent<TRendererConfig> =
         ctrl?: boolean;
       };
     }
-  | { type: 'runtime.focus' }
-  | { type: 'runtime.blur' }
   | { type: 'runtime.paste'; text: string }
   | {
       type: 'runtime.cursor.set';

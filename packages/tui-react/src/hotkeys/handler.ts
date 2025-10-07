@@ -1,5 +1,13 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
-import type { HotkeyContext, HotkeyResult } from './context'
+import type {
+  HotkeyContext,
+  HotkeyRendererEvent,
+  HotkeyResult,
+} from './context'
+import type {
+  SelectionPoint,
+  TerminalRuntimeCursorMoveDirection,
+} from '@mana/vt'
 
 const noopResult: HotkeyResult = { handled: false }
 
@@ -12,6 +20,18 @@ const isArrowKey = (key: string) =>
   key === 'ArrowDown' ||
   key === 'ArrowLeft' ||
   key === 'ArrowRight'
+
+const createRendererKeyEvent = (
+  event: ReactKeyboardEvent<HTMLDivElement>,
+): HotkeyRendererEvent => ({
+  type: 'runtime.key',
+  key: event.key,
+  code: event.code,
+  alt: event.altKey,
+  ctrl: event.ctrlKey,
+  meta: event.metaKey,
+  shift: event.shiftKey,
+})
 
 export const handleTerminalHotkey = (
   event: ReactKeyboardEvent<HTMLDivElement>,
@@ -51,120 +71,117 @@ export const handleTerminalHotkey = (
     return noopResult
   }
 
-  if (key === 'Enter' && !context.onData) {
-    context.write('\r\n')
-    context.clearSelection()
-    return createResult({ preventDefault: true })
-  }
-
+  const snapshot = context.runtime.snapshot
   const arrowKey = isArrowKey(key)
   const shouldExtendSelection = event.shiftKey && arrowKey
-  const snapshot = context.runtime.getSnapshot()
-  const previousCursor = snapshot.cursor
-  const anchorPoint = shouldExtendSelection
-    ? (context.keyboardSelectionAnchorRef.current ?? {
-        row: previousCursor.row,
-        column: previousCursor.column,
-        timestamp: Date.now(),
-      })
-    : null
 
-  let handledViaLocalErase = false
+  if (key === 'Enter') {
+    if (snapshot.selection) {
+      context.clearSelection()
+    }
+    context.keyboardSelectionAnchorRef.current = null
+    return createResult({
+      preventDefault: true,
+      rendererEvents: [createRendererKeyEvent(event)],
+    })
+  }
+
   if (!event.altKey && !event.ctrlKey && !event.metaKey) {
     if (key === 'Backspace') {
-      handledViaLocalErase = context.performLocalErase('backspace')
+      const handledViaLocalErase = context.performLocalErase('backspace')
       if (handledViaLocalErase) {
-        const bytes = context.encodeKeyEvent(event)
-        if (bytes) {
-          context.emitData(bytes, { skipLocalEcho: true })
-        }
         context.keyboardSelectionAnchorRef.current = null
-        return createResult({ preventDefault: true })
+        if (snapshot.selection) {
+          context.clearSelection()
+        }
+        return createResult({
+          preventDefault: true,
+          skipLocalEcho: true,
+          rendererEvents: [createRendererKeyEvent(event)],
+        })
       }
     } else if (key === 'Delete') {
-      handledViaLocalErase = context.performLocalErase('delete')
+      const handledViaLocalErase = context.performLocalErase('delete')
       if (handledViaLocalErase) {
-        const bytes = context.encodeKeyEvent(event)
-        if (bytes) {
-          context.emitData(bytes, { skipLocalEcho: true })
-        }
         context.keyboardSelectionAnchorRef.current = null
-        return createResult({ preventDefault: true })
+        if (snapshot.selection) {
+          context.clearSelection()
+        }
+        return createResult({
+          preventDefault: true,
+          skipLocalEcho: true,
+          rendererEvents: [createRendererKeyEvent(event)],
+        })
       }
     }
   }
 
   if (arrowKey) {
+    const previousCursor = snapshot.cursor
+    if (shouldExtendSelection) {
+      const currentAnchor = context.keyboardSelectionAnchorRef.current
+      context.keyboardSelectionAnchorRef.current =
+        currentAnchor ?? {
+          row: previousCursor.row,
+          column: previousCursor.column,
+          timestamp: Date.now(),
+        }
+    } else {
+      context.keyboardSelectionAnchorRef.current = null
+      if (snapshot.selection) {
+        context.clearSelection()
+      }
+    }
+
+    const selectionAnchor = context.keyboardSelectionAnchorRef.current
     const isLineMotion = event.metaKey
     const isWordMotion =
       !isLineMotion && (event.altKey || (event.ctrlKey && !event.metaKey))
 
-    let handled = false
-    switch (key) {
-      case 'ArrowLeft':
-        handled = isLineMotion
-          ? context.runtime.moveCursorLineStart({
-              extendSelection: shouldExtendSelection,
-              selectionAnchor: anchorPoint,
-            })
-          : isWordMotion
-            ? context.runtime.moveCursorWordLeft({
-                extendSelection: shouldExtendSelection,
-                selectionAnchor: anchorPoint,
-              })
-            : context.runtime.moveCursorLeft({
-                extendSelection: shouldExtendSelection,
-                selectionAnchor: anchorPoint,
-              })
-        break
-      case 'ArrowRight':
-        handled = isLineMotion
-          ? context.runtime.moveCursorLineEnd({
-              extendSelection: shouldExtendSelection,
-              selectionAnchor: anchorPoint,
-            })
-          : isWordMotion
-            ? context.runtime.moveCursorWordRight({
-                extendSelection: shouldExtendSelection,
-                selectionAnchor: anchorPoint,
-              })
-            : context.runtime.moveCursorRight({
-                extendSelection: shouldExtendSelection,
-                selectionAnchor: anchorPoint,
-              })
-        break
-      case 'ArrowUp':
-        handled = context.runtime.moveCursorUp({
-          extendSelection: shouldExtendSelection,
-          selectionAnchor: anchorPoint,
-        })
-        break
-      case 'ArrowDown':
-        handled = context.runtime.moveCursorDown({
-          extendSelection: shouldExtendSelection,
-          selectionAnchor: anchorPoint,
-        })
-        break
-      default:
-        break
-    }
-
-    if (handled) {
-      context.keyboardSelectionAnchorRef.current = shouldExtendSelection
-        ? anchorPoint
-        : null
-
-      const bytes = context.encodeKeyEvent(event)
-      if (bytes) {
-        context.emitData(bytes, { skipLocalEcho: true })
+    const direction: TerminalRuntimeCursorMoveDirection | null = (() => {
+      switch (key) {
+        case 'ArrowLeft':
+          if (isLineMotion) {
+            return 'line-start'
+          }
+          if (isWordMotion) {
+            return 'word-left'
+          }
+          return 'left'
+        case 'ArrowRight':
+          if (isLineMotion) {
+            return 'line-end'
+          }
+          if (isWordMotion) {
+            return 'word-right'
+          }
+          return 'right'
+        case 'ArrowUp':
+          return 'up'
+        case 'ArrowDown':
+          return 'down'
+        default:
+          return null
       }
-      return createResult({ preventDefault: true })
-    }
-  }
+    })()
 
-  const bytes = context.encodeKeyEvent(event)
-  if (!bytes) {
-    return noopResult
+    if (!direction) {
+      return noopResult
+    }
+
+    return createResult({
+      preventDefault: true,
+      rendererEvents: [
+        {
+          type: 'runtime.cursor.move',
+          direction,
+          options: {
+            extendSelection: shouldExtendSelection,
+            selectionAnchor: shouldExtendSelection ? selectionAnchor : null,
+          },
+        },
+      ],
+    })
   }
 
   const selectionExists = Boolean(snapshot.selection)
@@ -176,6 +193,8 @@ export const handleTerminalHotkey = (
     context.keyboardSelectionAnchorRef.current = null
   }
 
-  context.emitData(bytes)
-  return createResult({ preventDefault: true })
+  return createResult({
+    preventDefault: true,
+    rendererEvents: [createRendererKeyEvent(event)],
+  })
 }
