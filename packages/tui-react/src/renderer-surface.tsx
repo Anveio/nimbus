@@ -10,10 +10,7 @@ import type {
   ReactNode,
   RefAttributes,
 } from 'react'
-import type {
-  RendererRootContainer,
-  WebglRendererConfig,
-} from '@mana/webgl-renderer'
+import type { RendererRootContainer } from '@mana/webgl-renderer'
 import {
   RendererSurfaceContextProvider,
   useRendererSurface,
@@ -87,11 +84,8 @@ const RendererSurfaceBase = forwardRef(RendererSurfaceInner)
 
 RendererSurfaceBase.displayName = 'RendererSurface'
 
-export const RendererSurface = RendererSurfaceBase as <
-  TRendererConfig extends { renderRoot?: unknown } = WebglRendererConfig,
->(
-  props: RendererSurfaceProps &
-    RefAttributes<HTMLCanvasElement>,
+export const RendererSurface = RendererSurfaceBase as (
+  props: RendererSurfaceProps & RefAttributes<HTMLCanvasElement>,
 ) => ReactNode
 
 export const useRendererSurfaceRoot = useRendererSurface

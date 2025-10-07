@@ -6,9 +6,7 @@ export type {
   TerminalProps,
   TerminalRendererFactory,
   TerminalSessionHandle,
-  TerminalSurfaceStrategy,
 } from './renderer-contract'
-export { RendererRootBoundary } from './renderer-root-boundary'
 export { RendererSessionProvider } from './renderer-session-provider'
 export {
   RendererSurface,

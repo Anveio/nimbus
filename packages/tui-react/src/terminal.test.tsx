@@ -15,9 +15,9 @@ import type {
   RendererRoot,
   RendererRootContainer,
   RendererSession,
-  RendererMountDescriptor,
   TerminalProfile,
   WebglRendererConfig,
+  WebglRendererRootOptions,
 } from '@mana/webgl-renderer'
 import type { TerminalRuntime } from '@mana/vt'
 import { Terminal } from './terminal'
@@ -88,33 +88,33 @@ const createSessionHarness = (): SessionHarness => {
 }
 
 type RendererHarness = {
-  factory: ReturnType<typeof vi.fn<TerminalRendererFactory<WebglRendererConfig>>>
-  mount: ReturnType<
-    typeof vi.fn<(descriptor: RendererMountDescriptor<WebglRendererConfig>) => RendererSession>
-  >
+  factory: ReturnType<typeof vi.fn<TerminalRendererFactory>>
+  mount: ReturnType<typeof vi.fn<() => RendererSession>>
   dispose: ReturnType<typeof vi.fn<() => void>>
   container: () => RendererRootContainer | null
+  options: () => WebglRendererRootOptions | null
 }
 
 const createRendererHarness = (session: RendererSession): RendererHarness => {
-  const mount = vi.fn(
-    (_: RendererMountDescriptor<WebglRendererConfig>) => session,
-  )
+  const mount = vi.fn(() => session)
   const dispose = vi.fn<() => void>(() => {})
   let currentContainer: RendererRootContainer | null = null
+  let lastOptions: WebglRendererRootOptions | null = null
 
-  const factoryImpl: TerminalRendererFactory<WebglRendererConfig> = (
+  const factoryImpl: TerminalRendererFactory = (
     container,
+    options,
   ) => {
     currentContainer = container
+    lastOptions = options
 
     const root: RendererRoot<WebglRendererConfig> = {
       container,
       get currentSession() {
         return session
       },
-      mount: ((descriptor) => {
-        mount(descriptor)
+      mount: (() => {
+        mount()
         return session
       }) as RendererRoot<WebglRendererConfig>['mount'],
       dispose: dispose as RendererRoot<WebglRendererConfig>['dispose'],
@@ -130,6 +130,7 @@ const createRendererHarness = (session: RendererSession): RendererHarness => {
     mount,
     dispose,
     container: () => currentContainer,
+    options: () => lastOptions,
   }
 }
 
@@ -181,28 +182,27 @@ describe('<Terminal />', () => {
     const sessionHarness = createSessionHarness()
     const rendererHarness = createRendererHarness(sessionHarness.session)
     const deriveConfiguration: TerminalProps['deriveConfiguration'] = ({ container }) => {
-      expect(container).toBeInstanceOf(HTMLElement)
+      expect(container).toBeInstanceOf(HTMLCanvasElement)
       return configuration
     }
 
     const { container: host } = render(
       <Terminal
-        rendererFactory={
-          rendererHarness.factory as unknown as TerminalRendererFactory<
-            WebglRendererConfig
-          >
-        }
+        rendererFactory={rendererHarness.factory}
         deriveConfiguration={
-          deriveConfiguration as unknown as TerminalConfigurationStrategy<WebglRendererConfig>
+          deriveConfiguration as unknown as TerminalConfigurationStrategy
         }
       />,
     )
 
-    const managed = host.firstElementChild as HTMLElement
+    const managed = host.querySelector('canvas') as HTMLCanvasElement
 
     expect(rendererHarness.factory).toHaveBeenCalledTimes(1)
     expect(rendererHarness.container()).toBe(managed)
     expect(rendererHarness.mount).toHaveBeenCalledTimes(1)
+    const options = rendererHarness.options()
+    expect(options?.configuration).toEqual(configuration)
+    expect(options?.runtime).toBeDefined()
     expect(resizeObservers).toHaveLength(1)
     expect(resizeObservers[0]?.observe).toHaveBeenCalledWith(managed)
     expect(sessionHarness.unmount).not.toHaveBeenCalled()
@@ -214,7 +214,7 @@ describe('<Terminal />', () => {
     const rendererHarness = createRendererHarness(sessionHarness.session)
     const deriveConfiguration = vi.fn<TerminalProps['deriveConfiguration']>(
       ({ container }) => {
-        expect(container).toBeDefined()
+        expect(container).toBeInstanceOf(HTMLCanvasElement)
         return configuration
       },
     )
@@ -227,13 +227,9 @@ describe('<Terminal />', () => {
 
     render(
       <Terminal
-        rendererFactory={
-          rendererHarness.factory as unknown as TerminalRendererFactory<
-            WebglRendererConfig
-          >
-        }
+        rendererFactory={rendererHarness.factory}
         deriveConfiguration={
-          deriveConfiguration as unknown as TerminalConfigurationStrategy<WebglRendererConfig>
+          deriveConfiguration as unknown as TerminalConfigurationStrategy
         }
         onFrame={onFrame}
         onResizeRequest={onResizeRequest}
@@ -299,13 +295,9 @@ describe('<Terminal />', () => {
 
     const { rerender } = render(
       <Terminal
-        rendererFactory={
-          rendererHarness.factory as unknown as TerminalRendererFactory<
-            WebglRendererConfig
-          >
-        }
+        rendererFactory={rendererHarness.factory}
         deriveConfiguration={
-          deriveConfiguration as unknown as TerminalConfigurationStrategy<WebglRendererConfig>
+          deriveConfiguration as unknown as TerminalConfigurationStrategy
         }
         profile={profileA}
       />,
@@ -321,13 +313,9 @@ describe('<Terminal />', () => {
 
     rerender(
       <Terminal
-        rendererFactory={
-          rendererHarness.factory as unknown as TerminalRendererFactory<
-            WebglRendererConfig
-          >
-        }
+        rendererFactory={rendererHarness.factory}
         deriveConfiguration={
-          deriveConfiguration as unknown as TerminalConfigurationStrategy<WebglRendererConfig>
+          deriveConfiguration as unknown as TerminalConfigurationStrategy
         }
         profile={profileB}
       />,
@@ -349,13 +337,9 @@ describe('<Terminal />', () => {
 
     const { unmount } = render(
       <Terminal
-        rendererFactory={
-          rendererHarness.factory as unknown as TerminalRendererFactory<
-            WebglRendererConfig
-          >
-        }
+        rendererFactory={rendererHarness.factory}
         deriveConfiguration={
-          deriveConfiguration as unknown as TerminalConfigurationStrategy<WebglRendererConfig>
+          deriveConfiguration as unknown as TerminalConfigurationStrategy
         }
       />,
     )

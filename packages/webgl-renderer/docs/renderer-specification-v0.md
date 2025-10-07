@@ -47,10 +47,17 @@ A conformant renderer owns the VT runtime lifecycle and controls when frames are
 Renderer implementations MUST expose a synchronous `createRendererRoot` factory as the canonical entry point for hosts.
 
 ```ts
-type RendererRootContainer = HTMLElement | OffscreenCanvas;
+type RendererRootContainer = HTMLCanvasElement;
+
+interface RendererRootOptions<TRendererConfig> {
+  configuration: RendererConfiguration;
+  profile?: TerminalProfile;
+  runtime?: TerminalRuntime;
+} & TRendererConfig;
 
 const createRendererRoot: <TRendererConfig = {}>(
   container: RendererRootContainer,
+  options: RendererRootOptions<TRendererConfig>,
 ) => RendererRoot<TRendererConfig>;
 ```
 
@@ -59,16 +66,15 @@ Normative requirements:
 1. `createRendererRoot` MUST synchronously return a `RendererRoot` instance.
 2. `createRendererRoot` MUST throw a descriptive error when invoked with an unsupported container.
 3. `createRendererRoot` MUST be idempotent for a given container. Repeated calls with the same container MUST return the same `RendererRoot` instance for the lifetime of that container.
-4. Renderers MUST treat the returned root as the sole authority for managing sessions bound to the container.
+4. When `createRendererRoot` is called again for a container that already has a root, the implementation MUST merge the supplied options into the existing root before returning it. New values MUST replace prior values for the corresponding keys. Omitted keys MUST preserve their previous values.
+5. Renderers MUST treat the returned root as the sole authority for managing sessions bound to the container.
 
 ### 5.2 Renderer Root Semantics
 
 ```ts
 interface RendererRoot<TRendererConfig> {
   readonly container: RendererRootContainer;
-  mount(
-    descriptor: RendererMountDescriptor<TRendererConfig>,
-  ): RendererSession<TRendererConfig>;
+  mount(): RendererSession<TRendererConfig>;
   readonly currentSession: RendererSession<TRendererConfig> | null;
   dispose(): void;
 }
@@ -77,30 +83,22 @@ interface RendererRoot<TRendererConfig> {
 Normative requirements:
 
 1. `container` MUST reference the value supplied to `createRendererRoot`.
-2. `mount(descriptor)` MUST attach the renderer to the container, initialize runtime state, and return a live `RendererSession`.
+2. `mount()` MUST attach the renderer to the container, initialize runtime state using the most recent options provided to `createRendererRoot`, and return a live `RendererSession`.
 3. If a session is already active, `mount` MUST call `unmount()` on the existing session before creating a new one.
 4. `currentSession` MUST reflect the active session, or `null` when no session is mounted.
-5. `dispose()` MUST unmount any active session, release resources associated with the container, and remove the root from the idempotence registry. After disposal, subsequent `createRendererRoot(container)` calls MAY return a new root.
+5. `dispose()` MUST unmount any active session, release resources associated with the container, and remove the root from the idempotence registry. After disposal, subsequent `createRendererRoot(container, options)` calls MAY return a new root.
 
 ## 6. Renderer Mount Descriptor
 
-`RendererRoot.mount` consumes a descriptor that combines surface, lifecycle, and configuration information.
-
-```ts
-type RendererMountDescriptor<TRendererConfig> = {
-  surface: RenderSurface<TRendererConfig>;
-  configuration: RendererConfiguration;
-  profile?: TerminalProfile;
-  runtime?: TerminalRuntime;
-} & TRendererConfig;
-```
+`createRendererRoot(container, options)` captures the configuration needed to initialise renderer sessions.
 
 Normative requirements:
 
-1. `surface` MUST satisfy the requirements in Section 8.
+1. `configuration` MUST honour the requirements in Section 8.
 2. If provided, `runtime` MUST be used as the session's backing runtime and MUST NOT be replaced internally.
 3. When `profile` is provided, the session MUST initialize using this profile; otherwise, it MUST construct a profile consistent with Section 10.
-4. Renderers MAY extend the descriptor with additional configuration keys (`TRendererConfig`). Any extension MUST NOT conflict with the fields defined here.
+4. Renderers MAY extend the options object with additional configuration keys (`TRendererConfig`). Any extension MUST NOT conflict with the fields defined here.
+5. Renderers MUST treat the container as the authoritative render surface. Implementations MUST NOT require hosts to provide an additional surface descriptor.
 
 ## 7. Renderer Session Contract
 
@@ -138,19 +136,13 @@ Normative requirements:
 
 ## 8. Render Surface Requirements
 
-Hosts provide surfaces that satisfy the following structural contract:
-
-```ts
-type RenderSurface<TRendererConfig> =
-  | { renderRoot: HTMLElement }
-  | { renderRoot: TRendererConfig['renderRoot'] };
-```
+The renderer root container doubles as the active render surface. Hosts MUST supply an `HTMLCanvasElement`. Renderers MAY extend the accepted container types via `TRendererConfig`, but they MUST document the supported variants and reject unsupported containers through a thrown error surfaced by `createRendererRoot`.
 
 Normative requirements:
 
-1. Renderers MUST accept an object containing a `renderRoot` key.
-2. Renderers MAY define additional surface variants via `TRendererConfig`. When doing so, they MUST document the accepted shape and MUST reject incompatible surfaces through a thrown error surfaced by `RendererRoot.mount`.
-3. Hosts MUST NOT mutate any renderer-owned surface objects once they have been passed to `RendererRoot.mount`.
+1. Renderers MUST adopt the supplied container as the definitive render surface.
+2. Renderers MAY expose additional initialisation flags within `TRendererConfig` to tweak surface behaviour (e.g., WebGL context attributes) but MUST NOT require hosts to provide auxiliary surface objects.
+3. Hosts MUST NOT mutate renderer-owned surface state (context attributes, GL handles, etc.) once control has been transferred via `createRendererRoot`.
 
 ## 9. Configuration and DPI Negotiation
 
@@ -345,8 +337,6 @@ useLayoutEffect(() => {
     return;
   }
 
-  const root = createRendererRoot(canvas);
-
   const deriveConfiguration = (
     request?: RendererResizeRequestEvent,
   ): RendererConfiguration => {
@@ -367,11 +357,12 @@ useLayoutEffect(() => {
     };
   };
 
-  const session = root.mount({
-    surface: { renderRoot: canvas },
+  const root = createRendererRoot(canvas, {
     configuration: deriveConfiguration(),
     profile,
   });
+
+  const session = root.mount();
 
   const resizeObserver = new ResizeObserver(() => {
     session.dispatch({
@@ -396,7 +387,7 @@ useLayoutEffect(() => {
 }, [profile]);
 ```
 
-Idempotence allows hosts to call `createRendererRoot(canvas)` inside an effect without caching the result explicitly; repeated calls reuse the same root. Hosts SHOULD mirror this pattern in other frameworks: mount once per container, apply configuration on layout changes, forward input through dispatch events, and subscribe to frame diagnostics for instrumentation.
+Idempotence allows hosts to call `createRendererRoot(canvas, options)` inside an effect without caching the result explicitly; repeated calls reuse the same root and update its options. Hosts SHOULD mirror this pattern in other frameworks: mount once per container, apply configuration on layout changes, forward input through dispatch events, and subscribe to frame diagnostics for instrumentation.
 
 ## 14. Conformance Checklist
 
@@ -404,9 +395,9 @@ A renderer implementation is conformant if and only if it satisfies all normativ
 
 1. Expose a documented, synchronous `createRendererRoot` factory that enforces container idempotence.
 2. Provide a `RendererRoot` that manages the active session, enforces single-session semantics, and disposes resources when requested.
-3. Accept `RendererMountDescriptor` objects that honor host-supplied runtime instances, profiles, and renderer configuration extensions.
+3. Honour host-supplied runtime instances, profiles, and renderer configuration extensions provided through `createRendererRoot(container, options)`.
 4. Produce `RendererSession` instances with lifecycle, dispatch, and diagnostic APIs matching Section 7.
-5. Validate `RenderSurface` compatibility at mount time and preserve state across mount/unmount cycles.
+5. Validate container compatibility at creation time and preserve state across mount/unmount cycles.
 6. Apply `RendererConfiguration` immediately, respect DPI and framebuffer overrides, and surface resize requests.
 7. Accept and act upon every `RendererEvent` variant defined in Section 11.
 8. Emit frame callbacks with monotonic timestamps and optional diagnostics when available.

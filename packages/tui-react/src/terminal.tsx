@@ -11,7 +11,6 @@ import type {
   TerminalProps,
   TerminalSessionHandle,
 } from './renderer-contract'
-import { RendererRootBoundary } from './renderer-root-boundary'
 import { useRendererRoot } from './renderer-root-context'
 import { RendererSessionProvider } from './renderer-session-provider'
 import { RendererSurface } from './renderer-surface'
@@ -73,20 +72,17 @@ const TerminalInner = (
     ...sessionProps
   } = props
 
-  const sessionProviderProps = sessionProps as RendererSessionProviderProps
+  const sessionProviderProps = {
+    ...sessionProps,
+    rendererFactory,
+  } as RendererSessionProviderProps
 
   return (
-    <RendererRootBoundary
-      rendererFactory={rendererFactory}
-    >
-      <RendererSurface
-        renderRootProps={renderRootProps}
-      >
-        <RendererSessionProvider {...sessionProviderProps}>
-          <TerminalHandleBinder ref={ref}>{children}</TerminalHandleBinder>
-        </RendererSessionProvider>
-      </RendererSurface>
-    </RendererRootBoundary>
+    <RendererSurface renderRootProps={renderRootProps}>
+      <RendererSessionProvider {...sessionProviderProps}>
+        <TerminalHandleBinder ref={ref}>{children}</TerminalHandleBinder>
+      </RendererSessionProvider>
+    </RendererSurface>
   )
 }
 

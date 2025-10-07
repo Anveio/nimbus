@@ -226,30 +226,15 @@ export type RendererEvent<_TRendererConfig = unknown> =
     }
   | { readonly type: 'profile.update'; readonly profile: TerminalProfile }
 
-export type RenderSurface<
-  TRendererConfig extends { renderRoot?: unknown } = {
-    renderRoot: RendererRootContainer
-  },
-> =
-  | { readonly renderRoot: HTMLElement }
-  | {
-      readonly renderRoot: TRendererConfig extends { renderRoot: infer T }
-        ? T
-        : never
-    }
-
 export type RendererRootContainer = HTMLCanvasElement
 
-export type RendererMountDescriptor<
-  TRendererConfig extends { renderRoot?: unknown } = {
-    renderRoot: RendererRootContainer
-  },
-> = Partial<TRendererConfig> & {
-  readonly surface: RenderSurface<TRendererConfig>
-  readonly configuration: RendererConfiguration
-  readonly profile?: TerminalProfile
-  readonly runtime?: TerminalRuntime
-}
+export type RendererRootOptions<TRendererConfig = Record<string, unknown>> =
+  Readonly<{
+    configuration: RendererConfiguration
+    profile?: TerminalProfile
+    runtime?: TerminalRuntime
+  }> &
+    Readonly<TRendererConfig>
 
 export interface RendererSession<TRendererConfig = unknown> {
   readonly profile: TerminalProfile
@@ -265,24 +250,20 @@ export interface RendererSession<TRendererConfig = unknown> {
   serializeBuffer?(): Promise<ImageBitmap | Uint8Array>
 }
 
-export interface RendererRoot<
-  TRendererConfig extends { renderRoot?: unknown } = {
-    renderRoot: RendererRootContainer
-  },
-> {
-  readonly container: TRendererConfig['renderRoot']
+export interface RendererRoot<TRendererConfig = unknown> {
+  readonly container: RendererRootContainer
   readonly currentSession: RendererSession<TRendererConfig> | null
-  mount(
-    descriptor: RendererMountDescriptor<TRendererConfig>,
-  ): RendererSession<TRendererConfig>
+  mount(): RendererSession<TRendererConfig>
   dispose(): void
 }
 
 export interface WebglRendererConfig {
   readonly contextAttributes?: WebGLContextAttributes
   readonly autoFlush?: boolean
-  readonly renderRoot: HTMLCanvasElement
 }
+
+export type WebglRendererRootOptions =
+  RendererRootOptions<WebglRendererConfig>
 
 export interface WebglRendererFrameMetadata extends Record<string, unknown> {
   readonly reason?:

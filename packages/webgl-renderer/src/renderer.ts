@@ -21,11 +21,10 @@ import type {
   RendererDirtyRegion,
   RendererEvent,
   RendererFrameEvent,
-  RendererMountDescriptor,
   RendererResizeRequestEvent,
   RendererRoot,
   RendererRootContainer,
-  RenderSurface,
+  WebglRendererRootOptions,
   RuntimeUpdateBatch,
   TerminalProfile,
   WebglRendererConfig,
@@ -65,9 +64,7 @@ type FrameReason =
   | 'manual'
 
 interface SurfaceState {
-  readonly root: HTMLElement
   readonly canvas: HTMLCanvasElement
-  readonly ownsCanvas: boolean
 }
 
 interface FrameState {
@@ -83,7 +80,7 @@ interface WebglRendererSessionInit {
   readonly runtime: TerminalRuntime
   readonly profile: TerminalProfile
   readonly rendererConfig: WebglRendererConfig
-  readonly surface: RenderSurface<WebglRendererConfig>
+  readonly canvas: HTMLCanvasElement
   readonly configuration: RendererConfiguration
   readonly lifecycle?: WebglRendererSessionLifecycleHooks
 }
@@ -131,7 +128,7 @@ class WebglRendererSessionImpl implements WebglRendererSession {
       configuration: init.configuration,
     })
 
-    this.attachSurface(init.surface)
+    this.attachSurface(init.canvas)
   }
 
   get profile(): TerminalProfile {
@@ -142,37 +139,11 @@ class WebglRendererSessionImpl implements WebglRendererSession {
     return this._configuration
   }
 
-  private attachSurface(surface: RenderSurface<WebglRendererConfig>): void {
+  private attachSurface(canvas: HTMLCanvasElement): void {
     if (this.freed) {
       throw new Error('Renderer has been freed and cannot be remounted')
     }
-    const renderRoot = surface.renderRoot
-    if (
-      typeof HTMLElement !== 'undefined' &&
-      !(renderRoot instanceof HTMLElement)
-    ) {
-      throw new Error('Renderer surface must provide an HTMLElement renderRoot')
-    }
-
-    let canvas: HTMLCanvasElement | null = null
-    let ownsCanvas = false
-    if (
-      typeof HTMLCanvasElement !== 'undefined' &&
-      renderRoot instanceof HTMLCanvasElement
-    ) {
-      canvas = renderRoot
-    } else if (this.config.renderRoot instanceof HTMLCanvasElement) {
-      canvas = this.config.renderRoot
-      renderRoot.append(canvas)
-      ownsCanvas = true
-    } else {
-      canvas = document.createElement('canvas')
-      renderRoot.append(canvas)
-      ownsCanvas = true
-    }
-
-    this.surface = { root: renderRoot, canvas, ownsCanvas }
-
+    this.surface = { canvas }
     this.initializeGl(canvas)
 
     if (this._configuration) {
@@ -186,9 +157,6 @@ class WebglRendererSessionImpl implements WebglRendererSession {
   unmount(): void {
     if (!this.surface) {
       return
-    }
-    if (this.surface.ownsCanvas) {
-      this.surface.canvas.remove()
     }
     this.surface = null
     this.disposeGl()
@@ -783,31 +751,49 @@ class WebglRendererSessionImpl implements WebglRendererSession {
   }
 }
 
+interface NormalizedRootOptions {
+  readonly configuration: RendererConfiguration
+  readonly runtime: TerminalRuntime
+  readonly profile: TerminalProfile
+  readonly rendererConfig: WebglRendererConfig
+}
+
 class WebglRendererRootImpl implements RendererRoot<WebglRendererConfig> {
   private _currentSession: WebglRendererSession | null = null
   private disposed = false
+  private options: NormalizedRootOptions
 
-  constructor(readonly container: RendererRootContainer) {}
+  constructor(
+    readonly container: RendererRootContainer,
+    options: WebglRendererRootOptions,
+  ) {
+    this.options = this.prepareOptions(options)
+  }
+
+  updateOptions(options: WebglRendererRootOptions): void {
+    if (this.disposed) {
+      throw new Error('Renderer root has been disposed')
+    }
+    this.options = this.prepareOptions(options, this.options)
+  }
 
   get currentSession(): WebglRendererSession | null {
     return this._currentSession
   }
 
-  mount(
-    descriptor: RendererMountDescriptor<WebglRendererConfig>,
-  ): WebglRendererSession {
+  mount(): WebglRendererSession {
     if (this.disposed) {
       throw new Error('Renderer root has been disposed')
     }
 
-    const surface = descriptor.surface ?? this.inferSurface()
-
-    const runtime = descriptor.runtime ?? createTerminalRuntime({})
-    const profile = descriptor.profile ?? DEFAULT_PROFILE
-    const rendererConfig: WebglRendererConfig = {
-      contextAttributes: descriptor.contextAttributes,
-      autoFlush: descriptor.autoFlush,
-      renderRoot: descriptor.renderRoot,
+    const container = this.container
+    if (
+      typeof HTMLCanvasElement !== 'undefined' &&
+      !(container instanceof HTMLCanvasElement)
+    ) {
+      throw new Error(
+        'Renderer root requires an HTMLCanvasElement container.',
+      )
     }
 
     const previous = this._currentSession
@@ -817,11 +803,11 @@ class WebglRendererRootImpl implements RendererRoot<WebglRendererConfig> {
     }
 
     const session = new WebglRendererSessionImpl({
-      runtime,
-      profile,
-      rendererConfig,
-      surface,
-      configuration: descriptor.configuration,
+      runtime: this.options.runtime,
+      profile: this.options.profile,
+      rendererConfig: this.options.rendererConfig,
+      canvas: container,
+      configuration: this.options.configuration,
       lifecycle: {
         onFree: () => {
           if (this._currentSession === session) {
@@ -833,6 +819,33 @@ class WebglRendererRootImpl implements RendererRoot<WebglRendererConfig> {
 
     this._currentSession = session
     return session
+  }
+
+  private prepareOptions(
+    next: WebglRendererRootOptions,
+    previous?: NormalizedRootOptions,
+  ): NormalizedRootOptions {
+    const runtime =
+      next.runtime ?? previous?.runtime ?? createTerminalRuntime({})
+    const profile = next.profile ?? previous?.profile ?? DEFAULT_PROFILE
+    const autoFlush =
+      next.autoFlush ??
+      previous?.rendererConfig.autoFlush ??
+      DEFAULT_CONFIG.autoFlush
+    const contextAttributes =
+      next.contextAttributes ?? previous?.rendererConfig.contextAttributes
+
+    const rendererConfig: WebglRendererConfig = {
+      autoFlush,
+      contextAttributes,
+    }
+
+    return {
+      configuration: next.configuration,
+      runtime,
+      profile,
+      rendererConfig,
+    }
   }
 
   dispose(): void {
@@ -849,26 +862,6 @@ class WebglRendererRootImpl implements RendererRoot<WebglRendererConfig> {
 
     ROOT_REGISTRY.delete(this.container)
   }
-
-  private inferSurface(): RenderSurface<WebglRendererConfig> {
-    if (
-      typeof HTMLElement !== 'undefined' &&
-      this.container instanceof HTMLElement
-    ) {
-      return { renderRoot: this.container }
-    }
-
-    if (
-      typeof HTMLCanvasElement !== 'undefined' &&
-      this.container instanceof HTMLCanvasElement
-    ) {
-      return { renderRoot: this.container }
-    }
-
-    throw new Error(
-      'Renderer root cannot derive a surface from the supplied container; provide descriptor.surface explicitly.',
-    )
-  }
 }
 
 const ROOT_REGISTRY = new WeakMap<
@@ -878,17 +871,28 @@ const ROOT_REGISTRY = new WeakMap<
 
 export const createRendererRoot = (
   container: RendererRootContainer,
-) => {
+  options: WebglRendererRootOptions,
+): RendererRoot<WebglRendererConfig> => {
   if (!container) {
     throw new Error('Renderer root container is required')
+  }
+  if (!options) {
+    throw new Error('Renderer root options are required')
+  }
+  if (
+    typeof HTMLCanvasElement !== 'undefined' &&
+    !(container instanceof HTMLCanvasElement)
+  ) {
+    throw new Error('Renderer root requires an HTMLCanvasElement container.')
   }
 
   const existing = ROOT_REGISTRY.get(container)
   if (existing) {
+    existing.updateOptions(options)
     return existing
   }
 
-  const root = new WebglRendererRootImpl(container)
+  const root = new WebglRendererRootImpl(container, options)
   ROOT_REGISTRY.set(container, root)
   return root
 }

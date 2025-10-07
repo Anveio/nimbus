@@ -96,13 +96,11 @@ describe('createRendererRoot', () => {
 
   it('renders an initial frame after mounting', async () => {
     const configuration = createConfiguration()
-    const container = new StubCanvas() as unknown as HTMLElement
-    const root = createRendererRoot(container)
-    const canvas = new StubCanvas() as unknown as HTMLCanvasElement
-    const session = root.mount({
+    const container = new StubCanvas() as unknown as HTMLCanvasElement
+    const root = createRendererRoot(container, {
       configuration,
-      surface: { renderRoot: canvas },
     })
+    const session = root.mount()
 
     const dispose = session.onFrame(presentFrame)
     await vi.runAllTimersAsync()
@@ -119,13 +117,11 @@ describe('createRendererRoot', () => {
 
   it('applies runtime updates when data is written', async () => {
     const configuration = createConfiguration()
-    const container = new StubCanvas() as unknown as HTMLElement
-    const root = createRendererRoot(container)
-    const canvas = new StubCanvas() as unknown as HTMLCanvasElement
-    const session = root.mount({
+    const container = new StubCanvas() as unknown as HTMLCanvasElement
+    const root = createRendererRoot(container, {
       configuration,
-      surface: { renderRoot: canvas },
     })
+    const session = root.mount()
     const dispose = session.onFrame(presentFrame)
     await vi.runAllTimersAsync()
     presentFrame.mockClear()
@@ -147,13 +143,11 @@ describe('createRendererRoot', () => {
 
   it('reconfigures the renderer when configuration dispatch is received', async () => {
     const configuration = createConfiguration()
-    const container = new StubCanvas() as unknown as HTMLElement
-    const root = createRendererRoot(container)
-    const canvas = new StubCanvas() as unknown as HTMLCanvasElement
-    const session = root.mount({
+    const container = new StubCanvas() as unknown as HTMLCanvasElement
+    const root = createRendererRoot(container, {
       configuration,
-      surface: { renderRoot: canvas },
     })
+    const session = root.mount()
     const dispose = session.onFrame(presentFrame)
     await vi.runAllTimersAsync()
     presentFrame.mockClear()

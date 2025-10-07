@@ -56,7 +56,7 @@ This charter guides how we evolve the React bindings for the Mana terminal stack
 - Added Vitest coverage faking the renderer root/session to guard resize, profile, and disposal flows; future work: hot path input + transport wiring.
 
 ### 2025-10-11 – Renderer layering extraction
-- Split `<Terminal />` into composable layers: `RendererRootBoundary` guarantees DOM container → renderer root wiring, while `RendererSessionProvider` owns runtime mounting, configuration, and lifecycle hooks.
+- Split `<Terminal />` into composable layers: `RendererSessionProvider` now provisions the renderer root directly, owns runtime mounting, configuration, and lifecycle hooks, while the surface and handle layers stay decoupled for ergonomics.
 - Added `RendererSurface` to render or adopt the concrete DOM node that renderers mount to, keeping surface concerns isolated from session orchestration.
 - `<Terminal />` now composes those layers and only supplies the imperative handle; consumers can embed the boundary/surface/provider stack directly when they need lower-level control.
 - Added hooks (`useRendererRoot`, `useRendererSessionContext`) and exported providers to encourage reuse in accessibility overlays and future renderer hosts.

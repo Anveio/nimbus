@@ -1,12 +1,7 @@
 import { createContext, useContext } from 'react'
-import type {
-  RendererRootContainer,
-  WebglRendererConfig,
-} from '@mana/webgl-renderer'
+import type { RendererRootContainer } from '@mana/webgl-renderer'
 
-interface RendererSurfaceContextValue<
-  TRendererConfig extends { renderRoot?: unknown } = WebglRendererConfig,
-> {
+interface RendererSurfaceContextValue {
   readonly renderRoot: RendererRootContainer | null
 }
 
@@ -24,10 +19,8 @@ export const RendererSurfaceContextProvider = RendererSurfaceContext.Provider
  * Throws when accessed outside the surface boundary so consumers never act on
  * a `null` canvas.
  */
-export const useRendererSurface = <
-  TRendererConfig extends { renderRoot?: unknown } = WebglRendererConfig,
->(): RendererRootContainer => {
-  const context = useContext(RendererSurfaceContext) as RendererSurfaceContextValue<TRendererConfig>
+export const useRendererSurface = (): RendererRootContainer => {
+  const context = useContext(RendererSurfaceContext)
   if (!context.renderRoot) {
     throw new Error('Renderer surface is not available in the current React tree.')
   }

@@ -1,5 +1,4 @@
 import type {
-  RenderSurface,
   RendererConfiguration,
   RendererFrameEvent,
   RendererResizeRequestEvent,
@@ -8,6 +7,7 @@ import type {
   RendererSession,
   TerminalProfile,
   WebglRendererConfig,
+  WebglRendererRootOptions,
   WebglRendererSession,
 } from '@mana/webgl-renderer'
 import type {
@@ -16,20 +16,13 @@ import type {
   ReactNode,
 } from 'react'
 
-export type TerminalRendererFactory = (container: HTMLElement) => RendererRoot
+export type TerminalRendererFactory = (
+  container: RendererRootContainer,
+  options: WebglRendererRootOptions,
+) => RendererRoot<WebglRendererConfig>
 
-export interface TerminalSurfaceContext {
-  readonly renderRoot: RendererRootContainer
-  readonly rendererConfig?: Partial<WebglRendererConfig>
-}
-
-export type TerminalSurfaceStrategy = (
-  context: TerminalSurfaceContext,
-) => RenderSurface
-
-export interface TerminalConfigurationContext{
-  readonly container: HTMLElement
-  readonly surface: RenderSurface
+export interface TerminalConfigurationContext {
+  readonly container: RendererRootContainer
 }
 
 export type TerminalConfigurationStrategy = (
@@ -43,11 +36,11 @@ export interface TerminalSessionHandle {
 }
 
 export interface RendererSessionProviderProps{
+  readonly rendererFactory?: TerminalRendererFactory
   readonly rendererConfig?: Partial<WebglRendererConfig>
   readonly runtime?: WebglRendererSession['runtime']
   readonly profile?: TerminalProfile
   readonly deriveConfiguration: TerminalConfigurationStrategy
-  readonly surface?: TerminalSurfaceStrategy
   readonly onFrame?: (event: RendererFrameEvent) => void
   readonly onResizeRequest?: (event: RendererResizeRequestEvent) => void
   readonly children?: ReactNode

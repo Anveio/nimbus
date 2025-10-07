@@ -1,6 +1,6 @@
 # WebGL Renderer Implementation Notes
 
-This renderer targets the contract defined in `docs/renderer-specification-v0.md` (v1). Hosts integrate via `createRendererRoot(container)`, which yields an idempotent root that mounts sessions and mediates lifecycle hooks. The root API is synchronous; shader compilation and context initialisation happen during the first `mount`.
+This renderer targets the contract defined in `docs/renderer-specification-v0.md` (v1). Hosts integrate via `createRendererRoot(container, options)`, which yields an idempotent root that captures initial configuration, runtime, and profile state before mounting sessions. The root API is synchronous; shader compilation and context initialisation happen during the first `mount`.
 
 ## Pointer and clipboard dispatch
 
@@ -13,7 +13,7 @@ The renderer keeps the terminal snapshot authoritative inside the runtime. Each 
 ## Lifecycle behaviour
 
 - `dispatch({ type: 'renderer.configure', ... })` immediately updates the backing buffers and remains authoritative until the next configuration.
-- `createRendererRoot(container).mount(...)` validates the host surface, creates or adopts a canvas, and schedules an initial frame.
+- `createRendererRoot(container, options)` validates the host surface, stores the options, and `mount()` schedules an initial frame using that state.
 - `free` resets GPU resources, clears listeners, and renders the session unusable. Subsequent calls to `dispatch` throw descriptive errors as required by the spec.
 
 ## Diagnostics

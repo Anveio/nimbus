@@ -1,14 +1,9 @@
 import { createContext, useContext } from 'react'
-import type {
-  RendererSession,
-  WebglRendererConfig,
-} from '@mana/webgl-renderer'
+import type { RendererSession } from '@mana/webgl-renderer'
 import type { TerminalRuntime } from '@mana/vt'
 
-export interface RendererSessionContextValue<
-  TRendererConfig extends { renderRoot?: unknown } = WebglRendererConfig,
-> {
-  readonly session: RendererSession<TRendererConfig> | null
+export interface RendererSessionContextValue {
+  readonly session: RendererSession | null
   readonly runtime: TerminalRuntime | null
 }
 
@@ -23,8 +18,6 @@ export const RendererSessionContextProvider = RendererSessionContext.Provider
  * `RendererSessionProvider`. Using the hook outside that provider signals a
  * layering error, so callers always receive non-stale handles.
  */
-export const useRendererSessionContext = <
-  TRendererConfig extends { renderRoot?: unknown } = WebglRendererConfig,
->(): RendererSessionContextValue<TRendererConfig> => {
-  return useContext(RendererSessionContext) as RendererSessionContextValue<TRendererConfig>
+export const useRendererSessionContext = (): RendererSessionContextValue => {
+  return useContext(RendererSessionContext)
 }

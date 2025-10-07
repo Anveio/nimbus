@@ -7,84 +7,75 @@ import {
   useState,
 } from 'react'
 import type { JSX, ReactNode } from 'react'
-import type {
-  RenderSurface,
+import {
+  createRendererRoot,
   RendererConfiguration,
-  RendererMountDescriptor,
-  RendererRootContainer,
   RendererSession,
   TerminalProfile,
   WebglRendererConfig,
+  type RendererRoot,
+  type WebglRendererRootOptions,
 } from '@mana/webgl-renderer'
 import { createTerminalRuntime } from '@mana/vt'
 import type { TerminalRuntime } from '@mana/vt'
 import type {
   RendererSessionProviderProps,
-  TerminalSurfaceStrategy,
+  TerminalRendererFactory,
 } from './renderer-contract'
-import { useRendererRoot } from './renderer-root-context'
+import { RendererRootProvider } from './renderer-root-context'
 import { useRendererSurface } from './renderer-surface-context'
 import {
   RendererSessionContextProvider,
   type RendererSessionContextValue,
 } from './renderer-session-context'
 
-const defaultSurfaceStrategy: TerminalSurfaceStrategy = ({ renderRoot }) => ({
-  renderRoot,
-})
-
-const assertHTMLElement = (
-  container: RendererRootContainer | undefined | null,
-): container is HTMLElement => {
-  return typeof HTMLElement !== 'undefined' && container instanceof HTMLElement
-}
-
 /**
- * Mounts and manages a renderer session once both the host container and
- * render root are available. It wires runtime selection, configuration
- * dispatch, resize observers, and exposes session/runtime handles via context.
+ * Mounts and manages a renderer session once the host `HTMLCanvasElement`
+ * becomes available. It wires runtime selection, configuration dispatch,
+ * resize observers, and publishes the renderer root plus session/runtime
+ * handles via context.
  */
-export const RendererSessionProvider = <
-  TRendererConfig extends { renderRoot?: unknown } = WebglRendererConfig,
->(
+export const RendererSessionProvider = (
   props: RendererSessionProviderProps,
 ): JSX.Element | null => {
   const {
+    rendererFactory,
     rendererConfig,
     runtime,
     profile,
     deriveConfiguration,
-    surface,
     onFrame,
     onResizeRequest,
     children,
   } = props
 
-  const root = useRendererRoot()
-  const renderRoot = useRendererSurface()
+  const canvas = useRendererSurface()
 
-  const rendererConfigRef = useRef(rendererConfig)
-  const surfaceStrategyRef = useRef<TerminalSurfaceStrategy>(
-    (surface ?? (defaultSurfaceStrategy as TerminalSurfaceStrategy)),
+  const rendererFactoryRef = useRef<TerminalRendererFactory | null>(
+    rendererFactory ?? null,
+  )
+  const rendererConfigRef = useRef<Partial<WebglRendererConfig> | undefined>(
+    rendererConfig,
   )
   const configurationStrategyRef = useRef(deriveConfiguration)
   const runtimeRef = useRef<TerminalRuntime | null>(runtime ?? null)
   const profileRef = useRef<TerminalProfile | undefined>(profile)
   const previousProfileRef = useRef<TerminalProfile | undefined>(undefined)
+  const rootRef = useRef<RendererRoot<WebglRendererConfig> | null>(null)
   const sessionRef = useRef<RendererSession | null>(null)
 
+  const [rootState, setRootState] = useState<RendererRoot<WebglRendererConfig> | null>(null)
   const [sessionState, setSessionState] = useState<RendererSession | null>(
     null,
   )
 
   useEffect(() => {
-    rendererConfigRef.current = rendererConfig
-  }, [rendererConfig])
+    rendererFactoryRef.current = rendererFactory ?? null
+  }, [rendererFactory])
 
   useEffect(() => {
-    surfaceStrategyRef.current =
-      surface ?? (defaultSurfaceStrategy as TerminalSurfaceStrategy)
-  }, [surface])
+    rendererConfigRef.current = rendererConfig
+  }, [rendererConfig])
 
   useEffect(() => {
     configurationStrategyRef.current = deriveConfiguration
@@ -100,65 +91,46 @@ export const RendererSessionProvider = <
     profileRef.current = profile
   }, [profile])
 
-  const computeSurface = useCallback((): RenderSurface => {
-    const container = root.container
-    if (!assertHTMLElement(container)) {
-      throw new Error('Renderer session provider requires an HTMLElement or HTMLCanvasElement container.')
-    }
-    return surfaceStrategyRef.current({
-      renderRoot,
-      rendererConfig: rendererConfigRef.current,
-    })
-  }, [root, renderRoot])
-
   const computeConfiguration = useCallback(
-    (
-      container: HTMLElement,
-      surfaceDescriptor: RenderSurface,
-    ): RendererConfiguration => {
+    (): RendererConfiguration => {
       return configurationStrategyRef.current({
-        container,
-        surface: surfaceDescriptor,
+        container: canvas,
       })
     },
-    [],
+    [canvas],
   )
 
   const dispatchConfiguration = useCallback(() => {
     const session = sessionRef.current
-    const container = root.container
-    if (!session || !assertHTMLElement(container)) {
+    if (!session) {
       return
     }
-    const surfaceDescriptor = computeSurface()
-    const configuration = computeConfiguration(container, surfaceDescriptor)
+    const configuration = computeConfiguration()
     session.dispatch({ type: 'renderer.configure', configuration })
-  }, [computeConfiguration, computeSurface, root])
+  }, [computeConfiguration])
 
   useLayoutEffect(() => {
-    const container = root.container
-    if (!assertHTMLElement(container)) {
-      throw new Error('Renderer session provider requires an HTMLElement container.')
-    }
-
-    const surfaceDescriptor = computeSurface()
     const runtimeInstance = runtimeRef.current ?? createTerminalRuntime()
     runtimeRef.current = runtimeInstance
 
-    const configuration = computeConfiguration(container, surfaceDescriptor)
+    const configuration = computeConfiguration()
 
-    const descriptor = Object.assign(
+    const options = Object.assign(
       {},
       rendererConfigRef.current ?? {},
       {
-        surface: surfaceDescriptor,
         configuration,
         runtime: runtimeInstance,
       },
       profileRef.current ? { profile: profileRef.current } : {},
-    ) as RendererMountDescriptor
+    ) as WebglRendererRootOptions
 
-    const session = root.mount(descriptor)
+    const factory = rendererFactoryRef.current ?? createRendererRoot
+    const root = factory(canvas, options)
+    rootRef.current = root
+    setRootState(root)
+
+    const session = root.mount()
     sessionRef.current = session
     setSessionState(session)
 
@@ -174,8 +146,12 @@ export const RendererSessionProvider = <
         activeSession.unmount()
         activeSession.free()
       }
+      rootRef.current = null
+      setSessionState(null)
+      setRootState(null)
+      root.dispose()
     }
-  }, [computeConfiguration, computeSurface, root])
+  }, [canvas, computeConfiguration, rendererFactory])
 
   useEffect(() => {
     if (!sessionState) {
@@ -204,11 +180,6 @@ export const RendererSessionProvider = <
   }, [sessionState, onResizeRequest, dispatchConfiguration])
 
   useEffect(() => {
-    const container = root.container
-    if (!assertHTMLElement(container)) {
-      return
-    }
-
     if (!sessionState) {
       return
     }
@@ -221,12 +192,12 @@ export const RendererSessionProvider = <
       dispatchConfiguration()
     })
 
-    observer.observe(container)
+    observer.observe(canvas)
 
     return () => {
       observer.disconnect()
     }
-  }, [sessionState, dispatchConfiguration, root])
+  }, [sessionState, dispatchConfiguration, canvas])
 
   useEffect(() => {
     const session = sessionState
@@ -249,13 +220,15 @@ export const RendererSessionProvider = <
     [sessionState, runtime],
   )
 
-  if (!sessionState) {
+  if (!rootState || !sessionState) {
     return null
   }
 
   return (
-    <RendererSessionContextProvider value={contextValue}>
-      {children}
-    </RendererSessionContextProvider>
+    <RendererRootProvider value={rootState}>
+      <RendererSessionContextProvider value={contextValue}>
+        {children}
+      </RendererSessionContextProvider>
+    </RendererRootProvider>
   )
 }

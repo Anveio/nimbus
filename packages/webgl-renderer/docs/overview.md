@@ -3,8 +3,8 @@
 The WebGL renderer owns the Mana VT runtime lifecycle, converts interpreter
 updates into GPU frames, and now exposes the `RendererRoot`/`RendererSession`
 contract described in `renderer-specification-v0.md` (v1). Hosts obtain an
-idempotent root via `createRendererRoot(container)` and mount sessions that
-mediate configuration, input dispatch, and diagnostics.
+idempotent root via `createRendererRoot(container, options)` and mount sessions
+that mediate configuration, input dispatch, and diagnostics.
 
 This package is built on top of the Canvas renderer session primitives to reuse
 battle-tested glyph atlas and damage tracking pipelines. The runtime adapter in
