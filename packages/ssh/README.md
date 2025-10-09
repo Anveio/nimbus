@@ -8,6 +8,16 @@ This package manages the SSH state machine, handles cryptographic operations, an
 
 This strict separation of concerns allows for maximum testability, flexibility, and extensibility. It is consumed by higher-level packages (like `@mana/web`) to provide a complete client solution.
 
+## Runtime dependencies
+
+The core constructor (`createClientSession`) is runtime agnostic: it has no built-in knowledge of sockets, timers, or platforms. Instead, callers must inject the environment-specific primitives (`clock`, `randomBytes`, `crypto`, host-key policy, etc.) through the `SshClientConfig`. Most consumers should rely on the runtime-aware adapters that do this wiring automatically:
+
+- `@mana/ssh/client/web` – browser/worker defaults
+- `@mana/ssh/client/node` – Node 18+ defaults
+- future runtimes (Deno, Bun, servers) will expose similar entry points
+
+Importing the top-level package in environments where those dependencies are not provided will fail; pick the adapter that matches your runtime or supply the primitives explicitly.
+
 ## Current Status
 
 - ✅ RFC 4253 §4–§7 identification exchange and algorithm negotiation, including ext-info handling

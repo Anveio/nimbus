@@ -6,6 +6,7 @@ import {
 import { AsyncEventQueue } from './internal/async-event-queue'
 import { BinaryReader } from './internal/binary/binary-reader'
 import { BinaryWriter } from './internal/binary/binary-writer'
+import { encodeMpint } from './internal/binary/mpint'
 import {
   type AesGcmDirectionState,
   decryptAesGcm,
@@ -299,6 +300,13 @@ export type ClientIntent =
   | { readonly type: 'close-channel'; readonly channelId: ChannelId }
   | { readonly type: 'disconnect'; readonly reason?: DisconnectOptions }
 
+export interface ClientPublicKeyReadyEvent {
+  readonly type: 'client-public-key-ready'
+  readonly algorithm: string
+  readonly publicKey: Uint8Array
+  readonly comment?: string
+}
+
 export type SshEvent =
   | { readonly type: 'identification-sent'; readonly clientId: string }
   | {
@@ -312,6 +320,7 @@ export type SshEvent =
       readonly type: 'keys-established'
       readonly algorithms: NegotiatedAlgorithms
     }
+  | ClientPublicKeyReadyEvent
   | {
       readonly type: 'outbound-data'
       readonly payload: Uint8Array
@@ -1405,10 +1414,10 @@ class ClientSessionImpl implements SshSession {
     switch (negotiated.kex) {
       case 'curve25519-sha256@libssh.org':
       case 'curve25519-sha256':
-        this.#startCurve25519Exchange()
+        this.#startCurve25519Exchange(negotiated.kex)
         break
       case 'diffie-hellman-group14-sha256':
-        this.#startGroup14Exchange()
+        this.#startGroup14Exchange(negotiated.kex)
         break
       default:
         throw new SshNotImplementedError(
@@ -1417,7 +1426,7 @@ class ClientSessionImpl implements SshSession {
     }
   }
 
-  #startCurve25519Exchange(): void {
+  #startCurve25519Exchange(algorithm: string): void {
     const seed = this.#config.randomBytes(32)
     if (seed.length !== 32) {
       throw new SshInvariantViolation('curve25519 requires 32 bytes of entropy')
@@ -1429,6 +1438,8 @@ class ClientSessionImpl implements SshSession {
       privateScalar,
       clientPublic,
     }
+
+    this.#emitClientPublicKeyReady(algorithm, clientPublic)
 
     const writer = new BinaryWriter()
     writer.writeUint8(SSH_MSG_KEXDH_INIT)
@@ -1443,7 +1454,7 @@ class ClientSessionImpl implements SshSession {
     this.#sendPacket(payload)
   }
 
-  #startGroup14Exchange(): void {
+  #startGroup14Exchange(algorithm: string): void {
     const entropy = this.#config.randomBytes(32)
     if (entropy.length === 0) {
       throw new SshInvariantViolation(
@@ -1461,6 +1472,9 @@ class ClientSessionImpl implements SshSession {
       exponent,
       clientPublic,
     }
+
+    const publicKeyBytes = encodeMpint(clientPublic)
+    this.#emitClientPublicKeyReady(algorithm, publicKeyBytes)
 
     const writer = new BinaryWriter()
     writer.writeUint8(SSH_MSG_KEXDH_INIT)
@@ -2453,6 +2467,23 @@ class ClientSessionImpl implements SshSession {
     })
   }
 
+  #emitClientPublicKeyReady(
+    algorithm: string,
+    publicKey: Uint8Array,
+    comment?: string,
+  ): void {
+    if (this.#closed) {
+      return
+    }
+    const copy = new Uint8Array(publicKey)
+    this.#emit({
+      type: 'client-public-key-ready',
+      algorithm,
+      publicKey: copy,
+      comment,
+    })
+  }
+
   #emit(event: SshEvent): void {
     if (this.#closed) {
       return
@@ -2491,6 +2522,18 @@ class ClientSessionImpl implements SshSession {
   }
 }
 
+/**
+ * Create a new SSH client session using the supplied configuration.
+ *
+ * The session itself is runtime-agnostic: it never touches sockets, timers,
+ * or globals beyond the `SshClientConfig` you provide. Callers must inject
+ * environment-specific primitives (clock, randomness, crypto provider,
+ * host-key policy, diagnostics) through the config. Higher-level adapters
+ * such as `@mana/ssh/client/web` and `@mana/ssh/client/node` assemble those
+ * defaults on your behalf; when using this constructor directly be sure to
+ * supply equivalents explicitly (e.g. `crypto.getRandomValues` in browsers,
+ * `crypto.randomBytes`/`crypto.webcrypto` in Node).
+ */
 export function createClientSession(config: SshClientConfig): SshSession {
   return new ClientSessionImpl(config)
 }

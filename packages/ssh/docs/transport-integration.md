@@ -6,7 +6,7 @@ This note codifies how the SSH engine composes with transports (e.g. the Phase�
 
 `@mana/ssh` exposes runtime-specific helpers that wrap the core `createClientSession` API:
 
-- `@mana/ssh/client/web` – browser/worker default wiring (`connectSSH`, `createWebTransport`).
+- `@mana/ssh/client/web` – browser/worker default wiring (`connectSSH`; callers provide a `TransportBinding`).
 - `@mana/ssh/client/node` – Node 18+ runtime wiring (`connectSSH`).
 - Both build on shared primitives from `src/client/shared`.
 
@@ -22,9 +22,17 @@ interface TransportBinding {
   onError?(listener: (error: unknown) => void): (() => void) | void
 }
 
+interface ClientPublicKeyReadyEvent {
+  readonly type: 'client-public-key-ready'
+  readonly algorithm: string
+  readonly publicKey: Uint8Array
+  readonly comment?: string
+}
+
 interface ConnectCallbacks {
   onEvent?(event: SshEvent): void
   onDiagnostic?(record: DiagnosticRecord): void
+  onClientPublicKeyReady?(event: ClientPublicKeyReadyEvent): void
 }
 
 interface RuntimeConnectOptions {
@@ -56,6 +64,7 @@ The runtime adapters inject defaults for:
 - `randomBytes`: `crypto.getRandomValues` (browser) / `crypto.randomBytes` (node).
 - `crypto`: WebCrypto (`globalThis.crypto` / `crypto.webcrypto`).
 - `hostKeys`: IndexedDB-backed persistence in browsers (configurable via `hostKeyConfig`), in-memory TOFU for Node.
+- `client-public-key-ready`: emitted via `callbacks.onClientPublicKeyReady` (and the general `onEvent` stream) whenever the engine prepares a client authentication key so transports or hosts can propagate it (e.g., AWS Instance Connect). The runtime calls the specialised callback first, then forwards the same event object through `onEvent`, so consumers can mix-and-match without missing notifications.
 - `resume`: optional callbacks that will orchestrate token persistence once the SSH core begins emitting resume metadata.
 - `diagnostics`: forwards into `callbacks.onDiagnostic` when provided.
 
@@ -81,7 +90,64 @@ A transport wrapper (WebSocket, QUIC, fixed TCP) must:
 - Propagate close/error conditions, allowing the SSH layer to emit diagnostics and shut down cleanly.
 - Surface a `HostIdentity` (`host`, `port`) so host key evaluation and diagnostics mirror the actual peer.
 
-`createWebTransport(socket: WebSocket)` demonstrates how the browser adapter normalises DOM `MessageEvent` payloads into `Uint8Array` before forwarding them to the session and returns disposer functions that detach each event listener.
+When targeting browsers, wire DOM primitives into a `TransportBinding` before invoking `connectSSH`. A WebSocket example:
+
+```ts
+// @mana/ssh/client/web exports the TransportBinding type alias.
+import type { WebTransportBinding } from '@mana/ssh/client/web'
+
+export function createWebSocketTransport(socket: WebSocket): WebTransportBinding {
+  socket.binaryType = 'arraybuffer'
+  return {
+    send(payload) {
+      socket.send(payload)
+    },
+    onData(listener) {
+      const handler = (event: MessageEvent) => {
+        const data = event.data
+        if (data instanceof ArrayBuffer) {
+          listener(new Uint8Array(data))
+          return
+        }
+        if (ArrayBuffer.isView(data)) {
+          const view = data as ArrayBufferView
+          listener(
+            new Uint8Array(view.buffer, view.byteOffset, view.byteLength),
+          )
+          return
+        }
+        if (typeof data === 'string') {
+          listener(new TextEncoder().encode(data))
+        }
+      }
+      socket.addEventListener('message', handler)
+      return () => socket.removeEventListener('message', handler)
+    },
+    onClose(listener) {
+      if (!listener) {
+        return
+      }
+      const handler = (event: CloseEvent) => {
+        listener({ reason: event.reason, code: event.code })
+      }
+      socket.addEventListener('close', handler)
+      return () => socket.removeEventListener('close', handler)
+    },
+    onError(listener) {
+      if (!listener) {
+        return
+      }
+      const handler = (event: Event) => {
+        listener((event as { error?: unknown }).error ?? event)
+      }
+      socket.addEventListener('error', handler)
+      return () => socket.removeEventListener('error', handler)
+    },
+  }
+}
+```
+
+Other transports (Fetch streams, SharedArrayBuffer pipes, QUIC channels) follow the same shape: deliver octets through `onData`, surface lifecycle events, and push outbound buffers via `send`.
 
 ### Host Key Persistence Options
 

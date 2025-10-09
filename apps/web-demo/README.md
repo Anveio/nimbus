@@ -20,6 +20,18 @@ This package hosts the interactive browser demo for the Mana stack. It renders a
 | `npm run test:e2e:headed` | Runs the same Playwright suite with a headed browser. |
 | `npm run test:e2e:ui` | Opens Playwright’s interactive test runner UI. |
 
+## Cleaning up demo infrastructure
+
+If you provision the AWS demo stacks, tear them down when you’re finished to avoid stray instances or buckets. From `apps/web-demo`:
+
+```bash
+npm run infra:testing-destroy               # remove the testing stack
+npm run infra:destroy                       # remove the dev stack
+npm run infra:cleanup-tagged -- --wait      # sweep any remaining tagged stacks
+```
+
+Run `npm run infra:cleanup-tagged -- --dry-run` first if you want a preview of what will be deleted. All helper scripts tag resources with `mana:*` keys so cleanup is deterministic.
+
 ## Connecting to a real host
 
 The current demo echoes data locally, but the structured props make it simple to connect to a real host.

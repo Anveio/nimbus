@@ -31,63 +31,6 @@ export interface WebConnectOptions {
   }
 }
 
-export function createWebTransport(socket: WebSocket): WebTransportBinding {
-  socket.binaryType = 'arraybuffer'
-  return {
-    send(payload) {
-      socket.send(payload)
-    },
-    onData(listener) {
-      const handler = (event: MessageEvent) => {
-        const data = event.data
-        if (data instanceof ArrayBuffer) {
-          listener(new Uint8Array(data))
-          return
-        }
-        if (ArrayBuffer.isView(data)) {
-          const view = data as ArrayBufferView
-          listener(
-            new Uint8Array(view.buffer, view.byteOffset, view.byteLength),
-          )
-          return
-        }
-        if (typeof data === 'string') {
-          listener(new TextEncoder().encode(data))
-          return
-        }
-      }
-      socket.addEventListener('message', handler)
-      return () => {
-        socket.removeEventListener('message', handler)
-      }
-    },
-    onClose(listener) {
-      if (!listener) {
-        return
-      }
-      const handler = (event: CloseEvent) => {
-        listener({ reason: event.reason, code: event.code })
-      }
-      socket.addEventListener('close', handler)
-      return () => {
-        socket.removeEventListener('close', handler)
-      }
-    },
-    onError(listener) {
-      if (!listener) {
-        return
-      }
-      const handler = (event: Event) => {
-        listener((event as { error?: unknown }).error ?? event)
-      }
-      socket.addEventListener('error', handler)
-      return () => {
-        socket.removeEventListener('error', handler)
-      }
-    },
-  }
-}
-
 export async function connectSSH(
   options: WebConnectOptions,
 ): Promise<ConnectedSession> {

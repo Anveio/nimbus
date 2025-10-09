@@ -7,12 +7,15 @@ This guide explains how to stand up a real Amazon Linux 2023 host for terminal t
 - IAM permission to call `ec2-instance-connect:SendSSHPublicKey` (granted to the AWS principal executing the helper script).
 - AWS CLI configured (`aws configure`).
 - Node.js ≥ 18 (already required by the repo).
+- Node.js ≥ 24 (all infra scripts run native TypeScript via `tsx` and rely on modern Node features).
 - Existing EC2 key pair **name** in the target region (or create one with `aws ec2 create-key-pair`).
 - Your public IP address (e.g. `curl https://checkip.amazonaws.com`).
 - An active AWS profile (export `AWS_PROFILE=<name>` or rely on `default`) with a configured default region. Run `aws sso login --profile <name>` or export credentials before invoking the infra helpers.
 
 ## First-time setup: bootstrap the CDK environment
 The infra helpers detect missing bootstrap resources and run `cdk bootstrap` automatically the first time you deploy. We default the CloudFormation execution role to `arn:aws:iam::aws:policy/AdministratorAccess`; override via `MANA_CDK_EXECUTION_POLICIES` (comma-separated ARNs) if your org prefers a custom policy. If your credentials can’t assume the administrator role, run the printed command after logging into that permission set.
+
+Every automation assumes you’ll clean up when you’re done. Tagging, teardown scripts, and bootstrap auto-detection are there to make hygiene frictionless—lean on them so environments never linger.
 
 ## Deploy
 From the monorepo root (after `npm install`):
@@ -48,28 +51,7 @@ npm run infra:testing-deploy
 The testing wrapper refreshes `.mana/testing-instance.json` with the stack metadata after every successful deploy. Destroy the stack with `npm run infra:testing-destroy`.
 
 ## Request an ephemeral key (EC2 Instance Connect)
-We do **not** manage long-lived SSH keys. Instead, issue a temporary ED25519 credential just-in-time:
-
-```bash
-aws configure get region || export AWS_REGION=<TARGET_REGION>
-npm run infra -- --filter @mana/web-demo -- --publish-key -- --pretty > /tmp/mana-dev-ssh.json
-```
-
-The command:
-- Generates a one-off key pair (never written to disk by default).
-- Calls `ec2-instance-connect:SendSSHPublicKey` for the Mana EC2 instance.
-- Emits JSON (to stdout) containing the OpenSSH private key, the authorized key, expiration timestamp (60 seconds), and SSH target metadata. Errors and guidance print to stderr.
-
-Persist the private key to a **secure, short-lived** file to connect:
-
-```bash
-PRIVATE_KEY_PATH=/tmp/mana-dev-ssh.key
-jq -r '.privateKey' /tmp/mana-dev-ssh.json > "$PRIVATE_KEY_PATH"
-chmod 600 "$PRIVATE_KEY_PATH"
-ssh -i "$PRIVATE_KEY_PATH" "$(jq -r '.user' /tmp/mana-dev-ssh.json)"@"$(jq -r '.publicDnsName' /tmp/mana-dev-ssh.json)"
-```
-
-> Instance Connect credentials expire 60 seconds after issuance. If the login window closes, request a fresh key.
+Ephemeral keys are issued through the browser demo experience. Use the web UI to request access when you need to reach the dev host; the CLI helper has been intentionally retired.
 
 ## Run the live Instance Connect test
 The infra package ships a Vitest suite that calls the real `SendSSHPublicKey` API. It is **skipped by default**. To opt in:
@@ -79,13 +61,6 @@ The infra package ships a Vitest suite that calls the real `SendSSHPublicKey` AP
 3. Execute `npm run test -- --filter @mana/web-demo-infra-dev-ssh` or call `npm run test` from `apps/web-demo/infra/dev-ssh`.
 
 The test reuses the cached metadata, generates an ephemeral ED25519 key, and fails fast if AWS rejects the call.
-
-## Connect
-```bash
-ssh -i "$PRIVATE_KEY_PATH" mana@<PUBLIC_DNS>
-```
-
-> The bootstrap script seeds `/etc/motd` and creates the `mana` user. No manual edits to `authorized_keys` are required; always use the Instance Connect helper above.
 
 ## Wire into the proxy
 Set environment variables for the WebSocket proxy or other transports:

@@ -1,6 +1,7 @@
 import {
   type AlgorithmCatalog,
   createClientSession,
+  type ClientPublicKeyReadyEvent,
   type DiagnosticRecord,
   type DiagnosticsSink,
   type HostIdentity,
@@ -29,6 +30,7 @@ export interface TransportBinding {
 export interface ConnectCallbacks {
   onEvent?(event: SshEvent): void
   onDiagnostic?(record: DiagnosticRecord): void
+  onClientPublicKeyReady?(payload: ClientPublicKeyReadyEvent): void
 }
 
 export interface RuntimeConnectOptions {
@@ -115,6 +117,9 @@ export async function connectWithRuntime(
   const disposers: Array<() => void> = []
 
   const handleEvent = (event: SshEvent) => {
+    if (event.type === 'client-public-key-ready') {
+      callbacks?.onClientPublicKeyReady?.(event)
+    }
     callbacks?.onEvent?.(event)
     if (event.type === 'outbound-data') {
       flushOutbound(session, transport)

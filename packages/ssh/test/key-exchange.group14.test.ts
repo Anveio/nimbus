@@ -203,6 +203,7 @@ describe('RFC 4419 §3 diffie-hellman-group14-sha256 key exchange', () => {
       'kex-init-sent',
       'kex-init-received',
       'outbound-data',
+      'client-public-key-ready',
       'outbound-data',
     ])
 

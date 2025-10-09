@@ -23,7 +23,7 @@ interface CliOptions {
 }
 
 function parseArgs(argv: string[]): CliOptions {
-  const options: CliOptions = {}
+  const options: Mutable<CliOptions> = {}
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
@@ -144,4 +144,8 @@ async function main() {
   }
 }
 
-await main()
+void main().catch((error) => {
+  const message = error instanceof Error ? error.message : String(error)
+  process.stderr.write(`${message}\n`)
+  process.exit(1)
+})

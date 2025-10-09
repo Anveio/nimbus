@@ -59,6 +59,7 @@ describe('ClientSessionImpl Phase 1 handshake', () => {
       'kex-init-sent',
       'kex-init-received',
       'outbound-data',
+      'client-public-key-ready',
       'outbound-data',
     ])
 

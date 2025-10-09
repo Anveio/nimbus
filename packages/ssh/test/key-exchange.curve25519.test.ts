@@ -184,6 +184,7 @@ describe('RFC 5656 §4.1 curve25519 key exchange', () => {
       'kex-init-sent',
       'kex-init-received',
       'outbound-data',
+      'client-public-key-ready',
       'outbound-data',
     ])
 
@@ -277,6 +278,7 @@ describe('RFC 5656 §4.1 curve25519 key exchange', () => {
       'kex-init-sent',
       'kex-init-received',
       'outbound-data',
+      'client-public-key-ready',
       'outbound-data',
     ])
     const expectedClientKexPayload = buildClientKexInitPayload(

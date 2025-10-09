@@ -18,7 +18,7 @@ interface CliOptions {
 }
 
 function parseArgs(argv: string[]): CliOptions {
-  const options: CliOptions = {}
+  const options: Mutable<CliOptions> = {}
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
     if (arg === '--owner') {
