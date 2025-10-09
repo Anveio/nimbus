@@ -1,88 +1,83 @@
 # Mana
 
-Mana is a zero-dependency, standards-compliant, universally embeddable, high performance terminal with SSH remoting capabilities.
+Mana is a zero-dependency, standards-compliant, universally embeddable terminal stack. The project embraces strict layering so that runtimes, renderers, and host frameworks can be swapped without touching each other.
 
-## Layer map
-- Parser and interpreter: `@mana/vt`
-- Renderer backends: `@mana/tui-web-canvas-renderer` today, SVG/WebGL/native next
-- React bindings: `@mana/tui-react`
-- SSH protocol core + targets: `@mana/ssh` with `client/web`, `client/node`, and `server/node`
-- WebSocket transport suite: `@mana/websocket` (browser + Node clients, reference server atop `@mana/ssh`)
-- Batteries-included browser SDK: `@mana/web`
-- Demo and infra: `apps/web-demo`, `apps/proxy-server`, `apps/simulated-instance`
-- Planned app:
-  - `apps/electron-demo` – Electron desktop shell that can bind to local PTYs or remote SSH via the websocket bridge
+```
+            +-----------------------------+
+            |    Batteries-Included SDKs  |
+            |    (@mana/react, ...)       |
+            +---------------▲-------------+
+                            │ renderer contracts
+            +---------------┴-------------+
+            |     Renderer Layer          |
+            |  (@mana/webgl-renderer,     |
+            |   @mana/cpu-canvas-renderer,|
+            |   @mana/svg-renderer, …)    |
+            +---------------▲-------------+
+                            │ runtime contracts
+            +---------------┴-------------+
+            |        VT Core              |
+            |          (@mana/vt)         |
+            +---------------▲-------------+
+                            │ transports
+            +---------------┴-------------+
+            |   Protocol / Transport      |
+            |    (@mana/ssh, websocket)   |
+            +-----------------------------+
+```
 
-Status legend: Delivered = in main, In progress = active work, Planned = design/backlog.
+## Vision
+- **Composable terminals** — swap runtimes or renderers at will, even at runtime, to match platform constraints (WebGL vs CPU vs SVG) or host preferences.
+- **Framework-friendly** — ship batteries-included adapters for React first, with Angular/Vue on deck, all backed by the same renderer contracts.
+- **Spec fidelity** — keep VT parsing/interpreting pure and deterministic while letting hosts layer UX affordances.
+- **Open ecosystem** — document the contracts so third-party VT engines or renderers can plug in without private knowledge.
 
-## Codec and glyph support
-| Capability | Layer | Status | Notes |
-| --- | --- | --- | --- |
-| 7-bit ASCII stream handling | Parser, interpreter | Delivered | ECMA-48 ground/escape/CSI states emit Print/Execute events.
-| 8-bit control acceptance | Parser | Delivered | `acceptEightBitControls` default aligns with modern emulators.
-| UTF-8 decoding | Parser | In progress | TextEncoder wiring landed; validation fixtures expanding.
-| ISO-2022 charset shifts | Parser | Planned | Charset tables and shift states queued after VT320 work.
-| Wide (CJK) glyph layout | Interpreter, renderer | In progress | Cell width tracking present; paint metrics under test.
-| Combining marks | Renderer | Planned | Glyph composition pipeline planned for canvas renderer.
-| Emoji fallback | Renderer | Planned | Font fallback and metrics cache on renderer roadmap.
-| Sixel and inline graphics | Parser, renderer | Planned | Decoder hooks will reuse DCS streaming events.
+## Package Taxonomy
 
-## Emulator and spec profiles
-| Target | Scope | Status | Notes |
-| --- | --- | --- | --- |
-| DEC VT100 | Parser, interpreter | In progress | Core CSI/DECSET paths live; DECCOLM handling pending.
-| DEC VT220 | Parser, interpreter | In progress | Parser tables follow ECMA-48; interpreter coverage expanding.
-| DEC VT320 / VT420 | Parser, interpreter | Planned | Capability descriptors scaffolded for upcoming releases.
-| DEC VT500 series | Parser | Planned | Transition tables extensible; profiles not encoded yet.
-| xterm (modern) | Parser, interpreter | In progress | Quirk overlay hooks exist; palette and OSC extensions underway.
-| kitty | Interpreter, renderer | Planned | Selection and graphics parity tracked against kitty specs.
-| Ghostty | Renderer | Planned | Selection pipeline modelled on Ghostty behaviour notes.
+| Layer | Packages | Notes |
+| --- | --- | --- |
+| VT Core | `@mana/vt` | Parser + interpreter. Emits immutable snapshots/diffs. |
+| Renderer Layer | `@mana/webgl-renderer` (today) · `@mana/cpu-canvas-renderer` (planned) · `@mana/svg-renderer` (planned) | All conform to a shared renderer root/session contract; abstract away VT details from hosts. |
+| Host Adapters | `@mana/react` (currently `packages/tui-react`) · `@mana/angular` (planned) · `@mana/vue` (planned) | Batteries-included components/hooks per framework. Import renderers only through the renderer API. |
+| Protocol & Transport | `@mana/ssh`, `@mana/websocket`, `@mana/web` | SSH state machine, WebSocket policies, browser SDK composition. |
+| Apps & Tools | `apps/web-demo`, `apps/proxy-server`, `apps/simulated-instance`, `apps/electron-demo` (planned) | Reference experiences, infra bridges, deterministic fixtures. |
 
-## Control and quirk handling
-| Quirk | Config surface | Status | Notes |
-| --- | --- | --- | --- |
-| C1 handling mode | `c1Handling` (`spec`, `escaped`, `execute`, `ignore`) | Delivered | Runtime-selectable per session.
-| 7-bit vs 8-bit sequences | `acceptEightBitControls` toggle | Delivered | Enabled by default; disable for legacy hosts.
-| CSI guard rails | Parser state machine | Delivered | Parameter overflow and cancel flows covered by tests.
-| OSC length caps | `stringLimits` config | Delivered | Per-channel limits cancel payloads safely.
-| DCS passthrough | Parser events | Delivered | Hook/Put/Unhook events stream binary payloads.
-| Palette updates (OSC 4/104) | Interpreter, renderer | In progress | Deltas emitted; renderer applying updates this cycle.
-| Selection deltas | Interpreter, React, renderer | In progress | Interpreter emits updates; React and canvas wiring underway.
-| Clipboard (OSC 52) | Interpreter, host | Planned | Spec references stored; host integration pending.
+## Layer Contracts
+1. **Renderer ↔ VT** — Renderer packages receive `TerminalRuntime` handles, diffs, and renderer events through a documented API. They must not depend on host frameworks.
+2. **Host ↔ Renderer** — Hosts instantiate renderer roots via `createRendererRoot`, dispatch renderer events, and read frame callbacks. Host packages never import `@mana/vt` directly; they rely on renderer exports.
+3. **Transport ↔ Host** — Transport packages (e.g. `@mana/ssh`, `@mana/websocket`) deliver byte streams to host adapters, which forward them to the renderer/runtime. As long as transports emit spec-compliant VT byte streams, any runtime that honours the contract will behave identically—allowing SSH implementations and VT engines to evolve independently.
 
-## Rendering and UX targets
+## Batteries-Included Hosts
+- `@mana/react` (current `packages/tui-react`) — provides `<Terminal />`, accessibility overlays, hotkey pipeline, and renderer session orchestration.
+- Future: `@mana/angular`, `@mana/vue` — will mirror the React API surface while leveraging the same renderer contracts.
+
+## Renderer Roadmap
+| Renderer | Status | Highlights |
+| --- | --- | --- |
+| `@mana/webgl-renderer` | Active | GPU glyph cache, damage tracking, accessibility overlays. |
+| `@mana/cpu-canvas-renderer` | Planned | Deterministic fallback, SSR-friendly previews. |
+| `@mana/svg-renderer` | Planned | Server-side rendering, high accessibility, printable output. |
+
+## Runtime Roadmap
 | Capability | Status | Notes |
 | --- | --- | --- |
-| Canvas renderer (`@mana/tui-web-canvas-renderer`) | Delivered | Lifecycle contract exported; palette and selection polish ongoing.
-| SVG renderer | Planned | Will implement shared renderer interface for accessibility focus.
-| WebGL / offscreen renderer | Planned | Targeting high FPS and diagnostics instrumentation.
-| React `<Terminal />` component | In progress | Zero-boilerplate API rewrite scheduled in current sprint.
-| React Native adapter | Planned | Will reuse controller/host abstractions.
-| Accessibility overlays | Planned | ARIA and live region support scoped in demo backlog.
+| ECMA-48 core (VT100/220) | Active | DECSET, cursor, scroll regions covered; DECCOLM nearing completion. |
+| Modern emulator quirks (xterm/kitty/Ghostty) | In flight | Overlay system supports per-emulator behaviour. |
+| Graphics (Sixel, iTerm2 images) | Planned | DCS streaming hooks ready; decoders forthcoming. |
 
-## SSH protocol and transport
-| Capability | Status | Notes |
-| --- | --- | --- |
-| SSH key exchange and cipher suite | In progress | Identification + negotiation + curve25519/group14 KEX landed; cipher activation next.
-| Channel and window management | Planned | Scheduled after key exchange milestone.
-| Browser WebSocket transport | Planned | `@mana/websocket` will ship browser/node clients and a Node server that delegate to the matching `@mana/ssh` builds.
-| Web host SDK (`@mana/web`) | Planned | Will compose transport, renderer, telemetry, and lifecycle policies.
-| Alternate transports (HTTP/3, QUIC, SSE) | Planned | API contracts drafted; awaiting protocol baseline.
-| Proxy bridge (`apps/proxy-server`) | Delivered | WebSocket <-> TCP relay for development and tests.
-| Simulated host (`apps/simulated-instance`) | Delivered | Amazon Linux 2023 SSH target via Finch/Docker.
+## Developer Experience
+- `npm run dev -- --filter apps/web-demo` — spin up the demo app.
+- `npm run build --workspace=@mana/tui-react` — produce the browser-ready React bundle using `vite.production.config.ts`.
+- `npm run test -- --filter @mana/tui-react` — Vitest + Playwright suites.
+- `npm run test -- --filter @mana/vt` — parser/interpreter property tests.
+- Real SSH target: see [docs/aws-dev-target.md](docs/aws-dev-target.md) for a CDK stack that provisions an ephemeral Amazon Linux instance (costs pennies; destroy when finished).
+- Helpers:
+  - `npm run infra:dev-ssh:deploy` — deploy the dev EC2 instance (see docs for required context).
+  - `npm run infra:dev-ssh:destroy` — tear the stack down when you’re done.
 
-## Tooling and verification
-| Area | Status | Notes |
-| --- | --- | --- |
-| Property-based parser tests | Delivered | Fast-check coverage for classifier and CSI flows.
-| Pixel regression harness | Delivered | Node-canvas + pixelmatch baseline; palette cases queued.
-| React component tests | Delivered | Vitest + Testing Library cover render lifecycle.
-| E2E typing smoke tests | Delivered | Playwright scripts exercise the demo app.
-| Performance diagnostics | Planned | Renderer FPS/draw instrumentation tracked in backlog.
+## Contributing Workflow
+- Adhere to package contracts; modify APIs only after updating specs and agents.
+- Keep doc sources (`README.md`, package `AGENTS.md`) current with architectural decisions.
+- Use the layered abstraction to isolate work: VT, renderer, host, and transports each move independently as long as contracts stay green.
 
-## Quick start
-```
-npm install
-npm run dev -- --filter apps/web-demo
-npm run test
-```
+We’re building for the long term: take the time to make each layer clean, unit-tested, and swappable. When users need a drop-in WebGL terminal, a CPU fallback, or a bespoke renderer, Mana should already have paved the path.

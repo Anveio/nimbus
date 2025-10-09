@@ -9,7 +9,8 @@ This charter guides how we evolve the React bindings for the Mana terminal stack
 
 ## Boundaries & Dependencies
 - Owns React-specific controllers, hooks, and components located in `packages/tui-react`.
-- Depends on `@mana/vt` for terminal semantics and on renderer packages (e.g. `@mana/tui-web-canvas-renderer`) for drawing.
+- Depends on renderer packages (e.g. `@mana/webgl-renderer`, `@mana/cpu-canvas-renderer`) for runtime access. **Never import `@mana/vt` directly**—all VT primitives flow through the renderer contract.
+- Hosts may depend on transport packages (e.g. `@mana/ssh`, `@mana/websocket`) to obtain VT-compliant byte streams, but transport orchestration remains outside this package.
 - Never inline transport, crypto, or DOM-global hacks.
 
 ## Design Pillars
@@ -27,11 +28,12 @@ This charter guides how we evolve the React bindings for the Mana terminal stack
 - Spec-first workflow: Update or author package-level specs (e.g. controller lifecycle, selection semantics) prior to modifying code/tests.
 
 ## Active Focus / Backlog Signals
-- Finalise the opinionated `<Terminal />` component that owns parser/interpreter/renderer wiring while remaining renderer-swappable.
+- Finish the renderer-agnostic `<Terminal />` composition so swapping `@mana/webgl-renderer`, `@mana/cpu-canvas-renderer`, or future renderer packages requires zero host changes.
 - Harden keyboard + pointer selection parity (Shift/Option/Meta semantics, word jump rules) and ensure interpreter deltas map to renderer selection overlays.
 - Auto-resize via ResizeObserver and font metrics, exposing row/column info through the imperative handle and diagnostics channel.
 - Extend host/clipboard APIs for OSC 52, bracketed paste, mouse tracking, and connection diagnostics.
 - Surface theming utilities and accessibility toggles (high-contrast, caret styles) without forcing downstream DOM manipulation.
+- Document and enforce “Advanced renderer/runtime swapping” so casual consumers stay on defaults while power users find the hooks.
 
 ## Collaboration Rituals
 1. Confirm whether a request belongs in React bindings, renderer implementation, or VT core before coding.
@@ -75,6 +77,10 @@ This charter guides how we evolve the React bindings for the Mana terminal stack
 - Swapped the package build to Vite library mode (ESM + CJS + bundled declarations) and published the output from `dist/`.
 - Added a package-scoped Playwright + axe harness that bundles a React test surface via Vite, feeding smoke & accessibility checks through `npm run test:e2e`.
 - Unified the npm script surface so `npm run test` fans out to Vitest and Playwright, mirroring the renderer package’s patterns.
+
+### 2025-10-12 – Renderer contract alignment
+- All VT primitives now flow through renderer exports. `<Terminal />` refuses direct `@mana/vt` imports, guaranteeing renderer/runtimes remain swappable.
+- `RendererSessionProvider` consumes `createTerminalRuntime` via the renderer layer, simplifying future multi-runtime experiments.
 
 ### 2025-09-30 – Charter refresh
 Reframed the React agent charter around mandate, boundaries, and testing doctrine; promoted the `<Terminal />` rewrite, selection parity, and auto-resize as active backlog signals.
