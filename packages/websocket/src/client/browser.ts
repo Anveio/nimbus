@@ -28,6 +28,11 @@ export interface BrowserSshBridgeOptions
   readonly closeChannelOnDispose?: boolean
   readonly disposeReason?: string
   readonly onConnectionDiagnostic?: (event: DiagnosticEvent) => void
+  readonly onGeneratedPublicKey?: (info: {
+    algorithm: string
+    publicKey: Uint8Array
+    openssh: string
+  }) => void
 }
 
 export interface BrowserSshSession {
@@ -85,11 +90,22 @@ export async function openSshSession(
     throw new Error('SSH username is required for public key authentication')
   }
 
-  const identityConfig =
+  let identityConfig =
     sshOptions.identity ?? {
-      mode: 'generated',
+      mode: 'generated' as const,
       username: init.user.username,
     }
+
+  if (identityConfig.mode === 'generated') {
+    const existing = identityConfig.onPublicKey
+    identityConfig = {
+      ...identityConfig,
+      onPublicKey(info) {
+        sshOptions.onGeneratedPublicKey?.(info)
+        existing?.(info)
+      },
+    }
+  }
 
   try {
     const ssh = await connectSsh({
