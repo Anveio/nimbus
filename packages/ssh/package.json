@@ -25,6 +25,7 @@
   },
   "sideEffects": false,
   "exports": {
+    ".": null,
     "./client/web": {
       "types": "./dist/client/web.d.ts",
       "import": "./dist/client/web.js",

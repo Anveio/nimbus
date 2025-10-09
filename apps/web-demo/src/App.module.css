@@ -1,42 +1,299 @@
 .container {
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  min-height: 100vh;
-  background: #0d1117;
-  color: #c9d1d9;
-  font-family: "Fira Code", Menlo, monospace;
-  padding: 24px;
+  gap: 24px;
+  background: radial-gradient(circle at 20% 20%, rgba(56, 139, 253, 0.15), transparent 55%),
+    radial-gradient(circle at 80% 10%, rgba(255, 107, 129, 0.12), transparent 60%),
+    #0b1017;
+  color: #e6edf3;
+  font-family: "Fira Code", Menlo, Consolas, monospace;
+  padding: 32px;
   box-sizing: border-box;
+}
+
+.statusBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .heading {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
-.terminalWrapper {
+.statusGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(21, 28, 38, 0.8);
+  border: 1px solid rgba(99, 131, 188, 0.25);
+  border-radius: 999px;
+  padding: 6px 14px;
+}
+
+.statusLabel {
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(230, 237, 243, 0.65);
+}
+
+.statusBadge {
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.statusBadge_idle {
+  background: rgba(108, 172, 255, 0.12);
+  border-color: rgba(108, 172, 255, 0.35);
+  color: #8ab4ff;
+}
+
+.statusBadge_connecting {
+  background: rgba(255, 179, 71, 0.12);
+  border-color: rgba(255, 179, 71, 0.35);
+  color: #ffb347;
+}
+
+.statusBadge_connected {
+  background: rgba(46, 204, 113, 0.12);
+  border-color: rgba(46, 204, 113, 0.35);
+  color: #5fe39d;
+}
+
+.statusBadge_error {
+  background: rgba(255, 102, 102, 0.12);
+  border-color: rgba(255, 102, 102, 0.35);
+  color: #ff8080;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  background: rgba(15, 20, 30, 0.85);
+  border: 1px solid rgba(99, 131, 188, 0.25);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(4, 10, 20, 0.55);
+}
+
+.fieldGroup {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(230, 237, 243, 0.65);
+}
+
+.input,
+.textarea {
+  background: rgba(11, 17, 26, 0.9);
+  border: 1px solid rgba(99, 131, 188, 0.35);
+  border-radius: 10px;
+  color: #e6edf3;
+  font-family: inherit;
+  font-size: 0.95rem;
+  padding: 10px 12px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input:focus,
+.textarea:focus {
+  outline: none;
+  border-color: rgba(108, 172, 255, 0.75);
+  box-shadow: 0 0 0 2px rgba(108, 172, 255, 0.25);
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.buttonRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.buttonPrimary,
+.buttonSecondary,
+.buttonGhost {
+  border: none;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 10px 18px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease,
+    background 0.15s ease, border 0.15s ease;
+}
+
+.buttonPrimary {
+  background: linear-gradient(135deg, #3b82f6, #60a5fa);
+  color: #0b1017;
+  box-shadow: 0 10px 30px rgba(59, 130, 246, 0.25);
+}
+
+.buttonPrimary:disabled {
+  cursor: progress;
+  opacity: 0.7;
+  box-shadow: none;
+}
+
+.buttonPrimary:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 36px rgba(59, 130, 246, 0.35);
+}
+
+.buttonSecondary {
+  background: rgba(27, 38, 55, 0.9);
+  color: #d1dcf3;
+  border: 1px solid rgba(99, 131, 188, 0.35);
+}
+
+.buttonSecondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.buttonSecondary:not(:disabled):hover {
+  transform: translateY(-1px);
+  background: rgba(34, 46, 67, 0.95);
+}
+
+.buttonGhost {
+  background: transparent;
+  color: rgba(230, 237, 243, 0.75);
+  border: 1px solid rgba(99, 131, 188, 0.2);
+  padding: 6px 12px;
+}
+
+.buttonGhost:hover {
+  border-color: rgba(99, 131, 188, 0.4);
+  color: rgba(230, 237, 243, 0.95);
+}
+
+.error {
+  margin: 0;
+  padding: 10px 12px;
+  background: rgba(255, 102, 102, 0.12);
+  border: 1px solid rgba(255, 102, 102, 0.4);
+  border-radius: 10px;
+  color: #ffb0b0;
+  font-size: 0.9rem;
+}
+
+.card {
+  background: rgba(15, 20, 30, 0.9);
+  border: 1px solid rgba(99, 131, 188, 0.25);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cardHeader {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cardTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(230, 237, 243, 0.8);
+}
+
+.cardSubtitle {
+  font-size: 0.9rem;
+  color: rgba(230, 237, 243, 0.6);
+}
+
+.cardCode {
+  font-family: inherit;
+  background: rgba(11, 17, 26, 0.9);
+  border-radius: 12px;
+  border: 1px solid rgba(99, 131, 188, 0.2);
+  padding: 14px;
+  word-break: break-all;
+  font-size: 0.9rem;
+  color: rgba(173, 208, 255, 0.95);
+}
+
+.cardHint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(173, 208, 255, 0.6);
+}
+
+.logPanel {
   flex: 1;
   display: flex;
-  justify-content: center;
-  align-items: stretch;
-  border-radius: 12px;
-  background: rgba(13, 17, 23, 0.8);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(88, 166, 255, 0.25);
-  padding: 16px;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(15, 20, 30, 0.85);
+  border: 1px solid rgba(99, 131, 188, 0.25);
+  border-radius: 16px;
+  padding: 20px;
+  min-height: 260px;
 }
 
-.terminalSurface {
-  flex: 1;
-  outline: none;
-  border-radius: 8px;
-  overflow: hidden;
+.logHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.helpText {
+.logContent {
   margin: 0;
-  color: rgba(201, 209, 217, 0.7);
-  font-size: 0.95rem;
+  flex: 1;
+  overflow: auto;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: rgba(230, 237, 243, 0.85);
+  background: rgba(8, 12, 20, 0.6);
+  border-radius: 12px;
+  padding: 14px;
+  border: 1px solid rgba(99, 131, 188, 0.15);
+}
+
+@media (max-width: 720px) {
+  .container {
+    padding: 24px 16px;
+  }
+
+  .statusBar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .form {
+    padding: 20px;
+  }
 }
