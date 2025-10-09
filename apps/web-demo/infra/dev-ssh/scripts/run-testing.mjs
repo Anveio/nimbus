@@ -11,6 +11,8 @@ const __dirname = path.dirname(__filename)
 const stackDir = path.resolve(__dirname, '..')
 
 const KNOWN_COMMANDS = new Set(['deploy', 'destroy', 'synth', 'diff'])
+const CDK_APP =
+  'npx ts-node --project tsconfig.json bin/testing-instance-connect.ts'
 
 async function resolvePublicIp() {
   return new Promise((resolve, reject) => {
@@ -57,17 +59,35 @@ function collectContextKeys(args) {
   return keys
 }
 
+function runUpdateCache(mode) {
+  const result = spawnSync(
+    'npx',
+    [
+      'tsx',
+      path.join(stackDir, 'scripts', 'update-testing-cache.ts'),
+      mode === 'write' ? '--write' : '--clear',
+    ],
+    {
+      cwd: stackDir,
+      stdio: 'inherit',
+      env: process.env,
+    },
+  )
+  if (result.error) {
+    console.error(result.error)
+    process.exit(result.status ?? 1)
+  }
+  if ((result.status ?? 0) !== 0) {
+    process.exit(result.status ?? 1)
+  }
+}
+
 async function main() {
   const rawArgs = process.argv.slice(2)
 
-  const publishIndex = rawArgs.findIndex(
-    (arg) => arg === '--publish-key' || arg === 'publish-key',
-  )
-  if (publishIndex !== -1) {
-    const passthrough = [
-      ...rawArgs.slice(0, publishIndex),
-      ...rawArgs.slice(publishIndex + 1),
-    ]
+  const refreshIndex = rawArgs.indexOf('--refresh-cache')
+  if (refreshIndex !== -1) {
+    rawArgs.splice(refreshIndex, 1)
     let envMeta
     try {
       envMeta = await ensureCdkEnv()
@@ -75,30 +95,15 @@ async function main() {
       console.error(error instanceof Error ? error.message : String(error))
       process.exit(1)
     }
-    if (command === 'deploy' || command === 'destroy' || command === 'diff') {
-      try {
-        await ensureCdkBootstrap(envMeta)
-      } catch (error) {
-        console.error(error instanceof Error ? error.message : String(error))
-        process.exit(1)
-      }
+    try {
+      await ensureCdkBootstrap(envMeta)
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error))
+      process.exit(1)
     }
-    const result = spawnSync(
-      'npx',
-      ['tsx', path.join(stackDir, 'scripts', 'publish-key.ts'), ...passthrough],
-      {
-        cwd: stackDir,
-        stdio: 'inherit',
-        env: process.env,
-      },
-    )
-    if (result.error) {
-      console.error(result.error)
-      process.exit(result.status ?? 1)
-    }
-    process.exit(result.status ?? 0)
+    runUpdateCache('write')
+    return
   }
-
   let command = 'synth'
   const passthrough = []
 
@@ -122,29 +127,17 @@ async function main() {
   }
 
   const providedContextKeys = collectContextKeys(passthrough)
-
   const contextArgs = []
 
-  if (!providedContextKeys.has('keyName')) {
-    const keyName = process.env.MANA_DEV_SSH_KEY_NAME ?? process.env.MANA_DEFAULT_KEY_NAME
-    if (!keyName) {
-      console.error(
-        'Missing key pair context. Set MANA_DEV_SSH_KEY_NAME or pass --context keyName=<pair-name>.',
-      )
-      process.exit(1)
-    }
-    contextArgs.push('--context', `keyName=${keyName}`)
-  }
-
   if (!providedContextKeys.has('allowedIp')) {
-    let allowedIp = process.env.MANA_DEV_SSH_ALLOWED_IP
+    let allowedIp = process.env.MANA_TESTING_ALLOWED_IP ?? process.env.MANA_DEV_SSH_ALLOWED_IP
     if (!allowedIp) {
       try {
         const ip = await resolvePublicIp()
         allowedIp = `${ip}/32`
       } catch (error) {
         console.error(
-          `Unable to determine public IP automatically. Set MANA_DEV_SSH_ALLOWED_IP or pass --context allowedIp=...\n${error instanceof Error ? error.message : String(error)}`,
+          `Unable to determine public IP automatically. Set MANA_TESTING_ALLOWED_IP or pass --context allowedIp=...\n${error instanceof Error ? error.message : String(error)}`,
         )
         process.exit(1)
       }
@@ -153,8 +146,33 @@ async function main() {
   }
 
   if (!providedContextKeys.has('stackName')) {
-    const stackName = process.env.MANA_DEV_SSH_STACK_NAME ?? 'mana-dev-ssh-instance'
+    const stackName =
+      process.env.MANA_TESTING_STACK_NAME ?? 'mana-dev-ssh-testing'
     contextArgs.push('--context', `stackName=${stackName}`)
+  }
+
+  if (!providedContextKeys.has('arch')) {
+    const arch =
+      process.env.MANA_TESTING_ARCH ??
+      process.env.MANA_DEV_SSH_ARCH ??
+      undefined
+    if (arch) {
+      contextArgs.push('--context', `arch=${arch}`)
+    }
+  }
+
+  const cdkArgs = [
+    '--app',
+    CDK_APP,
+    command,
+    ...contextArgs,
+    ...passthrough,
+  ]
+
+  if (command === 'deploy') {
+    cdkArgs.push('--require-approval', 'never')
+  } else if (command === 'destroy') {
+    cdkArgs.push('--force')
   }
 
   let envMeta
@@ -174,14 +192,6 @@ async function main() {
     }
   }
 
-  const cdkArgs = [command, ...contextArgs, ...passthrough]
-
-  if (command === 'deploy') {
-    cdkArgs.push('--require-approval', 'never')
-  } else if (command === 'destroy') {
-    cdkArgs.push('--force')
-  }
-
   const result = spawnSync('npx', ['cdk', ...cdkArgs], {
     cwd: stackDir,
     stdio: 'inherit',
@@ -192,7 +202,17 @@ async function main() {
     console.error(result.error)
     process.exit(result.status ?? 1)
   }
-  process.exit(result.status ?? 0)
+
+  const status = result.status ?? 0
+  if (status !== 0) {
+    process.exit(status)
+  }
+
+  if (command === 'deploy') {
+    runUpdateCache('write')
+  } else if (command === 'destroy') {
+    runUpdateCache('clear')
+  }
 }
 
 await main()

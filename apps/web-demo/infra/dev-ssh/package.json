@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc",
     "lint": "biome lint .",
+    "test": "vitest run",
     "deploy": "cdk deploy",
     "destroy": "cdk destroy",
     "synth": "cdk synth"
@@ -14,11 +15,15 @@
     "@aws-sdk/client-cloudformation": "^3.744.0",
     "@aws-sdk/client-ec2": "^3.744.0",
     "@aws-sdk/client-ec2-instance-connect": "^3.744.0",
+    "@aws-sdk/client-ssm": "^3.744.0",
+    "@aws-sdk/client-sts": "^3.744.0",
+    "@smithy/shared-ini-file-loader": "^4.3.0",
     "aws-cdk-lib": "^2.178.0",
     "constructs": "^10.4.2",
     "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
   }
 }

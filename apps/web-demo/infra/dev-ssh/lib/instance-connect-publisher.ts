@@ -17,7 +17,16 @@ const DEFAULT_STACK_NAME = 'mana-dev-ssh-instance'
 const DEFAULT_OS_USER = 'mana'
 const INSTANCE_CONNECT_TTL_MS = 60_000
 
-interface PublishOptions {
+export interface InstanceTarget {
+  readonly stackName: string
+  readonly region: string
+  readonly instanceId: string
+  readonly availabilityZone: string
+  readonly publicDnsName: string | undefined
+  readonly stackTags: Record<string, string>
+}
+
+export interface PublishOptions {
   readonly stackName?: string
   readonly region?: string
   readonly instanceId?: string
@@ -25,10 +34,7 @@ interface PublishOptions {
   readonly comment?: string
 }
 
-interface PublishResult {
-  readonly instanceId: string
-  readonly availabilityZone: string
-  readonly publicDnsName: string | undefined
+export interface PublishResult extends InstanceTarget {
   readonly sshPublicKey: string
   readonly privateKey: string
   readonly expiresAt: string
@@ -105,7 +111,7 @@ function buildOpenSshKeyPair(comment: string) {
   }
 }
 
-function resolveRegion(option?: string) {
+export function resolveRegion(option?: string) {
   return (
     option ??
     process.env.AWS_REGION ??
@@ -115,62 +121,56 @@ function resolveRegion(option?: string) {
   )
 }
 
-async function resolveInstanceMetadata(
-  params: Required<Pick<PublishOptions, 'region'>> & {
+export async function resolveInstanceTarget(
+  params: {
+    readonly region: string
     readonly stackName: string
     readonly instanceIdHint?: string
   },
-) {
+): Promise<InstanceTarget> {
   const cloudFormation = new CloudFormationClient({ region: params.region })
 
+  let stack
   if (params.instanceIdHint) {
-    return params.instanceIdHint
+    stack = (
+      await cloudFormation.send(
+        new DescribeStacksCommand({ StackName: params.stackName }),
+      )
+    ).Stacks?.[0]
+  } else {
+    const describeStacks = await cloudFormation.send(
+      new DescribeStacksCommand({ StackName: params.stackName }),
+    )
+    stack = describeStacks.Stacks?.[0]
   }
 
-  const describeStacks = await cloudFormation.send(
-    new DescribeStacksCommand({ StackName: params.stackName }),
-  )
-
-  const stack = describeStacks.Stacks?.[0]
   if (!stack) {
     throw new Error(
       `Stack ${params.stackName} not found. Deploy the stack before requesting an Instance Connect key.`,
     )
   }
 
-  const instanceIdOutput = stack.Outputs?.find(
-    (output) => output.OutputKey === 'InstanceId',
-  )
-  const instanceId = instanceIdOutput?.OutputValue
+  const stackTags: Record<string, string> = {}
+  if (stack.Tags) {
+    for (const tag of stack.Tags) {
+      if (tag.Key) {
+        stackTags[tag.Key] = tag.Value ?? ''
+      }
+    }
+  }
+
+  const instanceId =
+    params.instanceIdHint ??
+    stack.Outputs?.find((output) => output.OutputKey === 'InstanceId')
+      ?.OutputValue
+
   if (!instanceId) {
     throw new Error(
       `Stack ${params.stackName} does not expose an InstanceId output.`,
     )
   }
-  return instanceId
-}
 
-export async function publishEphemeralKey(
-  options: PublishOptions = {},
-): Promise<PublishResult> {
-  const region = resolveRegion(options.region)
-  if (!region) {
-    throw new Error(
-      'Unable to determine AWS region. Set AWS_REGION or pass region explicitly.',
-    )
-  }
-
-  const stackName = options.stackName ?? process.env.MANA_DEV_SSH_STACK_NAME ?? DEFAULT_STACK_NAME
-  const osUser = options.osUser ?? DEFAULT_OS_USER
-  const comment = options.comment ?? ''
-
-  const instanceId = await resolveInstanceMetadata({
-    region,
-    stackName,
-    instanceIdHint: options.instanceId,
-  })
-
-  const ec2 = new EC2Client({ region })
+  const ec2 = new EC2Client({ region: params.region })
   const describeInstances = await ec2.send(
     new DescribeInstancesCommand({ InstanceIds: [instanceId] }),
   )
@@ -196,13 +196,46 @@ export async function publishEphemeralKey(
 
   const publicDnsName = instance.PublicDnsName?.length ? instance.PublicDnsName : undefined
 
+  return {
+    stackName: params.stackName,
+    region: params.region,
+    instanceId,
+    availabilityZone,
+    publicDnsName,
+    stackTags,
+  }
+}
+
+export async function publishEphemeralKey(
+  options: PublishOptions = {},
+): Promise<PublishResult> {
+  const region = resolveRegion(options.region)
+  if (!region) {
+    throw new Error(
+      'Unable to determine AWS region. Set AWS_REGION or pass region explicitly.',
+    )
+  }
+
+  const stackName =
+    options.stackName ??
+    process.env.MANA_DEV_SSH_STACK_NAME ??
+    DEFAULT_STACK_NAME
+  const osUser = options.osUser ?? DEFAULT_OS_USER
+  const comment = options.comment ?? ''
+
+  const target = await resolveInstanceTarget({
+    region,
+    stackName,
+    instanceIdHint: options.instanceId,
+  })
+
   const keyPair = buildOpenSshKeyPair(comment)
 
   const instanceConnect = new EC2InstanceConnectClient({ region })
   await instanceConnect.send(
     new SendSSHPublicKeyCommand({
-      InstanceId: instanceId,
-      AvailabilityZone: availabilityZone,
+      InstanceId: target.instanceId,
+      AvailabilityZone: target.availabilityZone,
       InstanceOSUser: osUser,
       SSHPublicKey: keyPair.authorizedKey,
     }),
@@ -211,9 +244,7 @@ export async function publishEphemeralKey(
   const expiresAt = new Date(Date.now() + INSTANCE_CONNECT_TTL_MS).toISOString()
 
   return {
-    instanceId,
-    availabilityZone,
-    publicDnsName,
+    ...target,
     sshPublicKey: keyPair.authorizedKey,
     privateKey: keyPair.privateKey,
     expiresAt,

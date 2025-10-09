@@ -17,22 +17,24 @@ import { CfnOutput } from 'aws-cdk-lib'
 import { Construct } from 'constructs'
 import { applyManaTags } from './tags'
 
-interface DevSshStackProps extends StackProps {}
+interface TestingInstanceConnectStackProps extends StackProps {}
 
-export class DevSshStack extends Stack {
-  constructor(scope: Construct, id: string, props?: DevSshStackProps) {
+const DEFAULT_TESTING_USER = 'mana-integ'
+
+export class TestingInstanceConnectStack extends Stack {
+  constructor(
+    scope: Construct,
+    id: string,
+    props?: TestingInstanceConnectStackProps,
+  ) {
     super(scope, id, props)
 
     applyManaTags(this, {
-      purpose: 'instance-connect-dev',
+      purpose: 'instance-connect-testing',
+      additionalTags: {
+        'mana:testing-stack': 'true',
+      },
     })
-
-    const keyName = this.node.tryGetContext('keyName') as string | undefined
-    if (!keyName) {
-      throw new Error(
-        'Context variable "keyName" is required. Supply via: cdk deploy --context keyName=your-key-pair',
-      )
-    }
 
     const allowedIp =
       (this.node.tryGetContext('allowedIp') as string | undefined) ??
@@ -58,15 +60,15 @@ export class DevSshStack extends Stack {
         ? Vpc.fromLookup(this, 'SpecifiedVpc', { vpcId })
         : Vpc.fromLookup(this, 'DefaultVpc', { isDefault: true })
 
-    const securityGroup = new SecurityGroup(this, 'DevSshSecurityGroup', {
+    const securityGroup = new SecurityGroup(this, 'TestingSecurityGroup', {
       vpc,
-      description: 'Mana dev SSH security group',
+      description: 'Mana testing SSH security group',
       allowAllOutbound: true,
     })
     securityGroup.addIngressRule(
       Peer.ipv4(allowedIp),
       Port.tcp(22),
-      'Allow SSH from developer workstation',
+      'Allow SSH from testing workstation',
     )
 
     const amiSsmParameter =
@@ -74,7 +76,6 @@ export class DevSshStack extends Stack {
         ? '/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64'
         : '/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64'
 
-    // Pull the standard AL2023 image via SSM so we ride the latest non ECS-optimized AMI and keep EIC preinstalled.
     const machineImage = MachineImage.fromSsmParameter(amiSsmParameter, {
       os: OperatingSystemType.LINUX,
     })
@@ -82,28 +83,27 @@ export class DevSshStack extends Stack {
     const userData = UserData.forLinux()
     userData.addCommands('set -euxo pipefail')
     const bootstrapScript = readFileSync(
-      path.join(__dirname, 'user-data.sh'),
+      path.join(__dirname, 'testing-user-data.sh'),
       'utf8',
     )
     userData.addCommands(`cat <<'EOF' >/tmp/bootstrap.sh
 ${bootstrapScript}
 EOF
 chmod +x /tmp/bootstrap.sh
-/tmp/bootstrap.sh`)
+MANA_TESTING_USER=${DEFAULT_TESTING_USER} /tmp/bootstrap.sh`)
 
-    const instance = new Instance(this, 'DevSshInstance', {
+    const instance = new Instance(this, 'TestingInstance', {
       vpc,
       vpcSubnets: { subnetType: SubnetType.PUBLIC },
       instanceType,
       machineImage,
       securityGroup,
-      keyName,
       userData,
     })
 
     new CfnOutput(this, 'InstanceId', {
       value: instance.instanceId,
-      description: 'EC2 instance ID',
+      description: 'EC2 instance ID used for integration tests',
     })
 
     new CfnOutput(this, 'PublicDnsName', {
@@ -114,6 +114,11 @@ chmod +x /tmp/bootstrap.sh
     new CfnOutput(this, 'PublicIp', {
       value: instance.instancePublicIp ?? '0.0.0.0',
       description: 'Public IP address for SSH',
+    })
+
+    new CfnOutput(this, 'TestingUser', {
+      value: DEFAULT_TESTING_USER,
+      description: 'Linux user configured for integration tests',
     })
   }
 }

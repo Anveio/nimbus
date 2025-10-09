@@ -18,7 +18,14 @@
     "infra:deploy": "node infra/dev-ssh/scripts/run.mjs deploy",
     "infra:destroy": "node infra/dev-ssh/scripts/run.mjs destroy",
     "infra:synth": "node infra/dev-ssh/scripts/run.mjs synth",
-    "infra:publish-key": "node infra/dev-ssh/scripts/run.mjs --publish-key"
+    "infra:publish-key": "node infra/dev-ssh/scripts/run.mjs --publish-key",
+    "infra:testing": "node infra/dev-ssh/scripts/run-testing.mjs",
+    "infra:testing-deploy": "node infra/dev-ssh/scripts/run-testing.mjs deploy",
+    "infra:testing-destroy": "node infra/dev-ssh/scripts/run-testing.mjs destroy",
+    "infra:testing-synth": "node infra/dev-ssh/scripts/run-testing.mjs synth",
+    "infra:testing-refresh-cache": "node infra/dev-ssh/scripts/run-testing.mjs --refresh-cache",
+    "infra:cleanup-tagged": "npx tsx infra/dev-ssh/scripts/cleanup-tagged-resources.ts",
+    "infra:bootstrap": "node infra/dev-ssh/scripts/bootstrap.mjs"
   },
   "dependencies": {
     "@mana/tui-react": "^0.0.1",

@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib'
-import { DevSshStack } from '../lib/dev-ssh-stack'
+import { TestingInstanceConnectStack } from '../lib/testing-instance-connect-stack'
 
 const app = new cdk.App()
 
 const stackName =
-  app.node.tryGetContext('stackName') ?? 'mana-dev-ssh-instance'
+  app.node.tryGetContext('stackName') ?? 'mana-dev-ssh-testing'
 
 const env: cdk.Environment | undefined =
   process.env.CDK_DEFAULT_ACCOUNT && process.env.CDK_DEFAULT_REGION
@@ -15,8 +15,8 @@ const env: cdk.Environment | undefined =
       }
     : undefined
 
-new DevSshStack(app, stackName, {
+new TestingInstanceConnectStack(app, stackName, {
   description:
-    'Mana dev SSH target (ephemeral) - provides an EC2 instance configured for terminal testing.',
+    'Mana testing EC2 instance dedicated to integration tests for Instance Connect.',
   env,
 })
