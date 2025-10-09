@@ -66,14 +66,20 @@ Mana is a zero-dependency, standards-compliant, universally embeddable terminal 
 | Graphics (Sixel, iTerm2 images) | Planned | DCS streaming hooks ready; decoders forthcoming. |
 
 ## Developer Experience
-- `npm run dev -- --filter apps/web-demo` — spin up the demo app.
-- `npm run build --workspace=@mana/tui-react` — produce the browser-ready React bundle using `vite.production.config.ts`.
-- `npm run test -- --filter @mana/tui-react` — Vitest + Playwright suites.
-- `npm run test -- --filter @mana/vt` — parser/interpreter property tests.
-- Real SSH target: see [docs/aws-dev-target.md](docs/aws-dev-target.md) for a CDK stack that provisions an ephemeral Amazon Linux instance (costs pennies; destroy when finished).
-- Helpers:
-  - `npm run infra:dev-ssh:deploy` — deploy the dev EC2 instance (see docs for required context).
-  - `npm run infra:dev-ssh:destroy` — tear the stack down when you’re done.
+1. Install baseline tooling
+   - Node.js 24 via `nvm install 24 && nvm use 24` (or your preferred installer).
+   - AWS CLI v2 (`brew install awscli`, `sudo apt install awscli`, or AWS MSI). Verify with `aws --version`, then run `aws configure` (or `aws configure sso`) so CDK has credentials.
+   - Optional: `npm install -g aws-cdk` or use `npx cdk` (our scripts call `npx` by default).
+2. Bootstrap the repo
+   - `npm install`
+   - `npm run dev -- --filter apps/web-demo` — spin up the demo app.
+   - `npm run build --workspace=@mana/tui-react` — produce the browser-ready React bundle using `vite.production.config.ts`.
+   - `npm run test -- --filter @mana/tui-react` — Vitest + Playwright suites.
+   - `npm run test -- --filter @mana/vt` — parser/interpreter property tests.
+3. Optional infrastructure helpers
+   - Real SSH target: see [docs/aws-dev-target.md](docs/aws-dev-target.md) for CDK details.
+   - `npm run infra:dev-ssh:deploy -- --context keyName=<ec2-key-name> --context allowedIp=<ip/32>` — deploy dev EC2 instance.
+   - `npm run infra:dev-ssh:destroy -- --context keyName=<...> --context allowedIp=<...>` — tear down the stack when finished.
 
 ## Contributing Workflow
 - Adhere to package contracts; modify APIs only after updating specs and agents.
