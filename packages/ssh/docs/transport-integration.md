@@ -163,10 +163,44 @@ The Phase‑2 websocket client needs PTY setup, shell startup, and exec flows. T
 
 - `session.command({ type: 'request-channel', request: ChannelRequestPayload })` to emit `SSH_MSG_CHANNEL_REQUEST` for `pty-req`, `shell`, and `exec`.
 - `SshEvent` variants:
-  - `channel-request` (success/failure with the originating payload).
-  - `channel-exit-status` and `channel-exit-signal` (emitted immediately when the server notifies exit conditions).
+- `channel-request` (success/failure with the originating payload).
+- `channel-exit-status` and `channel-exit-signal` (emitted immediately when the server notifies exit conditions).
 
 Transports/watchers should observe these events to resolve promises exposed to UI layers and to terminate renderer pipelines promptly when the remote process exits.
+
+## Client Identity Options
+
+By default the runtime generates a transient Ed25519 keypair for each session. The forthcoming public-key authentication flow exposes a discriminated `SshIdentityConfig` so hosts can either accept that default or provide an existing identity:
+
+```ts
+type SshIdentityConfig =
+  | {
+      mode: 'generated'
+      algorithm?: 'ed25519'
+      onPublicKey?(info: {
+        algorithm: string
+        publicKey: Uint8Array
+        openssh: string
+      }): void
+    }
+  | {
+      mode: 'provided'
+      algorithm: 'ed25519'
+      material:
+        | { kind: 'raw'; publicKey: Uint8Array; privateKey: Uint8Array }
+        | { kind: 'signer'; publicKey: Uint8Array; sign(payload: Uint8Array): Promise<Uint8Array> | Uint8Array }
+        | { kind: 'openssh'; publicKey: string; privateKey: string; sign?: (payload: Uint8Array) => Promise<Uint8Array> | Uint8Array }
+        | { kind: 'openssh'; publicKey: string; sign(payload: Uint8Array): Promise<Uint8Array> | Uint8Array }
+    }
+```
+
+- **Generated** identities keep the private key in-memory for the life of the session and emit the OpenSSH-formatted public line so callers can forward it to services such as AWS EC2 Instance Connect before authentication proceeds.
+- **Provided** identities support three delivery mechanisms:
+  - `raw`: callers provide the public key and Ed25519 seed (or full private vector), allowing the runtime to sign challenges locally.
+  - `signer`: callers keep the private half encapsulated (HSM, WebAuthn, remote signer) and supply a `sign` function that returns Ed25519 signatures.
+  - `openssh`: callers provide the standard OpenSSH-formatted public key; they may attach an encrypted or plain private blob for local signing, or omit it and rely on a `sign` callback.
+
+If neither a usable private key nor a signer is supplied the runtime will raise a configuration error when public-key authentication is attempted.
 
 ## Resume (Transport-Owned)
 

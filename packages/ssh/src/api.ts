@@ -95,6 +95,56 @@ export interface HostKeyStore {
   ): Promise<void> | void
 }
 
+export interface GeneratedPublicKeyInfo {
+  readonly algorithm: string
+  readonly publicKey: Uint8Array
+  readonly openssh: string
+}
+
+export type IdentitySign = (
+  payload: Uint8Array,
+) => Promise<Uint8Array> | Uint8Array
+
+export interface GeneratedIdentityConfig {
+  readonly mode: 'generated'
+  readonly algorithm?: 'ed25519'
+  onPublicKey?(info: GeneratedPublicKeyInfo): void
+}
+
+export type Ed25519IdentityMaterial =
+  | {
+      readonly kind: 'raw'
+      readonly publicKey: Uint8Array
+      readonly privateKey: Uint8Array
+    }
+  | {
+      readonly kind: 'signer'
+      readonly publicKey: Uint8Array
+      readonly sign: IdentitySign
+    }
+  | {
+      readonly kind: 'openssh'
+      readonly publicKey: string
+      readonly privateKey: string
+      readonly sign?: IdentitySign
+    }
+  | {
+      readonly kind: 'openssh'
+      readonly publicKey: string
+      readonly privateKey?: undefined
+      readonly sign: IdentitySign
+    }
+
+export interface ProvidedIdentityConfig {
+  readonly mode: 'provided'
+  readonly algorithm: 'ed25519'
+  readonly material: Ed25519IdentityMaterial
+}
+
+export type SshIdentityConfig =
+  | GeneratedIdentityConfig
+  | ProvidedIdentityConfig
+
 export interface ChannelPolicy {
   readonly maxConcurrentChannels?: number
   readonly initialWindowSize?: number
@@ -166,6 +216,7 @@ export interface SshClientConfig {
   readonly guards?: EngineGuards
   readonly hostIdentity?: HostIdentity
   readonly crypto?: Crypto
+  readonly identity?: SshIdentityConfig
 }
 
 export interface NegotiationSummary {

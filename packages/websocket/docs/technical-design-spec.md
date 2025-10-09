@@ -547,6 +547,18 @@ const ch = await conn.openSession({
 process.stdin.on('data', (d) => ch.send(d));
 ch.on('data', (d) => process.stdout.write(d));
 ```
+
+#### Identity wiring
+
+Browser and Node clients forward the SSH identity configuration to `@mana/ssh`. Consumers may:
+
+- omit `ssh.identity` to let the runtime generate an ephemeral Ed25519 key and surface the OpenSSH-formatted public key through `onClientPublicKeyReady`.
+- provide `ssh.identity = { mode: 'provided', algorithm: 'ed25519', material: … }` with one of:
+  - `kind: 'raw'` (public + private `Uint8Array` seeds),
+  - `kind: 'signer'` (public key plus signing callback for HSM/web-authn scenarios),
+  - `kind: 'openssh'` (OpenSSH-formatted strings, optionally with a signing callback when the private blob is not disclosed).
+
+If neither a usable private key nor a signer is present, the websocket adapter raises a configuration error before attempting USERAUTH. Future algorithms (RSA/ECDSA) will follow the same discriminated shape.
 15) Runtime Notes
 
 Web: cannot add arbitrary headers to the WS upgrade; place auth in hello. You also cannot programmatically disable compression; the server decides during upgrade.

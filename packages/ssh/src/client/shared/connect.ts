@@ -7,6 +7,7 @@ import {
   type HostIdentity,
   type HostKeyStore,
   type IdentificationConfig,
+  type SshIdentityConfig,
   type SshClientConfig,
   type SshEvent,
   type SshSession,
@@ -51,6 +52,7 @@ export type RuntimeConfigOverrides = {
   auth?: SshClientConfig['auth']
   channels?: SshClientConfig['channels']
   guards?: SshClientConfig['guards']
+  identity?: SshIdentityConfig
 }
 
 export interface ConnectedSession {
@@ -101,6 +103,7 @@ export function buildClientConfig(
     auth: overrides.auth,
     channels: overrides.channels,
     guards: overrides.guards,
+    identity: overrides.identity,
     hostIdentity,
     crypto: cryptoProvider,
   }

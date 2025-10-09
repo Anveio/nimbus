@@ -1,16 +1,18 @@
-import type { DiagnosticsSink, HostKeyStore } from '../../api'
+import type {
+  DiagnosticsSink,
+  HostKeyStore,
+  SshIdentityConfig,
+} from '../../api'
 import {
-  buildClientConfig,
   type ConnectCallbacks,
   type ConnectedSession,
   connectWithRuntime,
-  createDefaultAlgorithmCatalog,
-  createDefaultIdentification,
   createMemoryHostKeyStore,
   type RuntimeConfigOverrides,
   type RuntimeConnectOptions,
-  type TransportBinding,
+  type TransportBinding
 } from '../shared/connect'
+import { resolveIdentityConfig } from '../shared/identity'
 import { createIndexedDbHostKeyStore } from './host-key-store'
 
 export interface WebTransportBinding extends TransportBinding {}
@@ -22,6 +24,7 @@ export interface WebConnectOptions {
   callbacks?: ConnectCallbacks
   hostKeys?: HostKeyStore
   diagnostics?: DiagnosticsSink
+  identity?: SshIdentityConfig
   hostKeyConfig?: {
     readonly persistence?: 'indexeddb' | 'memory' | 'disabled'
     readonly databaseName?: string
@@ -76,6 +79,12 @@ export async function connectSSH(
   if (diagnostics && !configOverrides.diagnostics) {
     configOverrides.diagnostics = diagnostics
   }
+  const identityOption =
+    configOverrides.identity ?? options.identity ?? undefined
+  configOverrides.identity = await resolveIdentityConfig(
+    cryptoProvider,
+    identityOption,
+  )
 
   return connectWithRuntime(
     {
@@ -86,14 +95,6 @@ export async function connectSSH(
     },
     environment,
   )
-}
-
-export {
-  buildClientConfig,
-  createDefaultAlgorithmCatalog,
-  createDefaultIdentification,
-  createMemoryHostKeyStore,
-  createIndexedDbHostKeyStore,
 }
 
 export * from '../../api'

@@ -1,5 +1,9 @@
 import { randomBytes as nodeRandomBytes, webcrypto } from 'node:crypto'
-import type { DiagnosticsSink, HostKeyStore } from '../../api'
+import type {
+  DiagnosticsSink,
+  HostKeyStore,
+  SshIdentityConfig,
+} from '../../api'
 import {
   buildClientConfig,
   type ConnectCallbacks,
@@ -12,6 +16,7 @@ import {
   type RuntimeConnectOptions,
   type TransportBinding,
 } from '../shared/connect'
+import { resolveIdentityConfig } from '../shared/identity'
 
 export interface NodeTransportBinding extends TransportBinding {}
 
@@ -22,6 +27,7 @@ export interface NodeConnectOptions {
   callbacks?: ConnectCallbacks
   hostKeys?: HostKeyStore
   diagnostics?: DiagnosticsSink
+  identity?: SshIdentityConfig
 }
 
 export async function connectSSH(
@@ -45,6 +51,12 @@ export async function connectSSH(
   if (diagnostics && !configOverrides.diagnostics) {
     configOverrides.diagnostics = diagnostics
   }
+  const identityOption =
+    configOverrides.identity ?? options.identity ?? undefined
+  configOverrides.identity = await resolveIdentityConfig(
+    cryptoProvider,
+    identityOption,
+  )
 
   return connectWithRuntime(
     {
@@ -55,13 +67,6 @@ export async function connectSSH(
     },
     environment,
   )
-}
-
-export {
-  buildClientConfig,
-  createDefaultAlgorithmCatalog,
-  createDefaultIdentification,
-  createMemoryHostKeyStore,
 }
 
 export * from '../../api'
