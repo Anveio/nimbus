@@ -9,27 +9,26 @@ This guide explains how to stand up a real Amazon Linux 2023 host for terminal t
 - Existing EC2 key pair **name** in the target region (or create one with `aws ec2 create-key-pair`).
 - Your public IP address (e.g. `curl https://checkip.amazonaws.com`).
 
-## Bootstrap
-```bash
-cd infra/aws/dev-ssh
-npm install
-```
-
 ## Deploy
+From the monorepo root (after `npm install`):
+
 ```bash
-npx cdk deploy \
-  --context keyName=<YOUR_KEY_PAIR_NAME> \
-  --context allowedIp=<YOUR_PUBLIC_IP/32> \
-  --context stackName=mana-dev-ssh
+export MANA_DEV_SSH_KEY_NAME=<YOUR_KEY_PAIR_NAME>    # run once per session
+npm run infra -- --filter @mana/web-demo -- --deploy
 ```
 
-Optional context:
+The script automatically detects your current public IP and restricts the security group to it. To override contexts manually, set:
 
-| Key | Default | Notes |
-| --- | --- | --- |
-| `instanceType` | `t3.micro` | Override for different sizing. |
-| `arch` | `x86_64` | Use `arm64` for Graviton (ensure key type matches). |
-| `vpcId` | default VPC | Use specific VPC if required. |
+| Environment | Purpose |
+| --- | --- |
+| `MANA_DEV_SSH_ALLOWED_IP` | Custom CIDR (e.g. `203.0.113.4/32`). |
+| `MANA_DEV_SSH_STACK_NAME` | Override stack name (`mana-dev-ssh-instance` by default). |
+
+To inspect the synthesized template without deploying:
+
+```bash
+npm run infra -- --filter @mana/web-demo
+```
 
 Outputs include the instance ID, public DNS, and IP.
 
@@ -38,7 +37,7 @@ Outputs include the instance ID, public DNS, and IP.
 ssh -i <PATH_TO_PRIVATE_KEY> mana@<PUBLIC_DNS>
 ```
 
-> The bootstrap script seeds `/etc/motd` and creates the `mana` user. Update `infra/aws/dev-ssh/lib/user-data.sh` with your public key **or** push a key after launch using `aws ec2-instance-connect send-ssh-public-key`.
+> The bootstrap script seeds `/etc/motd` and creates the `mana` user. Update `apps/web-demo/infra/dev-ssh/lib/user-data.sh` with your public key **or** push a key after launch using `aws ec2-instance-connect send-ssh-public-key`.
 
 ## Wire into the proxy
 Set environment variables for the WebSocket proxy or other transports:
@@ -52,7 +51,7 @@ export MANA_SSH_KEY_PATH=<PATH_TO_PRIVATE_KEY>
 
 ## Tear Down
 ```bash
-npx cdk destroy --context keyName=<...> --context allowedIp=<...>
+npm run infra -- --filter @mana/web-demo -- --destroy
 ```
 
 Always destroy instances when you’re done to avoid extra cost.

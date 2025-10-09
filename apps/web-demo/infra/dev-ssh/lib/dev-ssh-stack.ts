@@ -15,11 +15,12 @@ import {
   Vpc,
 } from 'aws-cdk-lib/aws-ec2'
 import { CfnOutput } from 'aws-cdk-lib'
+import { Construct } from 'constructs'
 
 interface DevSshStackProps extends StackProps {}
 
 export class DevSshStack extends Stack {
-  constructor(scope: Stack, id: string, props?: DevSshStackProps) {
+  constructor(scope: Construct, id: string, props?: DevSshStackProps) {
     super(scope, id, props)
 
     const keyName = this.node.tryGetContext('keyName') as string | undefined

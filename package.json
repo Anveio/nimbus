@@ -4,7 +4,7 @@
   "workspaces": [
     "packages/*",
     "apps/*",
-    "infra/aws/*"
+    "apps/*/infra/*"
   ],
   "engines": {
     "node": "^24.0.0",
@@ -18,9 +18,7 @@
     "lint": "turbo lint --output-logs=errors-only --log-order=grouped --summarize && manypkg check",
     "lint:fix": "turbo lint:fix --output-logs=errors-only --log-order=grouped --summarize",
     "test": "turbo test --parallel --output-logs=errors-only --log-order=grouped --summarize",
-    "infra:dev-ssh:deploy": "npm run deploy --workspace infra/aws/dev-ssh",
-    "infra:dev-ssh:destroy": "npm run destroy --workspace infra/aws/dev-ssh",
-    "infra:dev-ssh:synth": "npm run synth --workspace infra/aws/dev-ssh",
+    "infra": "turbo run infra --output-logs=errors-only --log-order=grouped --summarize",
     "format": "biome format --write .",
     "typecheck": "turbo typecheck --output-logs=errors-only --log-order=grouped --summarize"
   },

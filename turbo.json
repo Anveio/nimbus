@@ -35,6 +35,9 @@
     },
     "clean": {
       "cache": false
+    },
+    "infra": {
+      "cache": false
     }
   }
 }

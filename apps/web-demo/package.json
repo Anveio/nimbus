@@ -13,7 +13,11 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",
     "lint": "biome lint .",
-    "lint:fix": "biome lint --fix . && biome format --write ."
+    "lint:fix": "biome lint --fix . && biome format --write .",
+    "infra": "node infra/dev-ssh/scripts/run.mjs",
+    "infra:deploy": "node infra/dev-ssh/scripts/run.mjs deploy",
+    "infra:destroy": "node infra/dev-ssh/scripts/run.mjs destroy",
+    "infra:synth": "node infra/dev-ssh/scripts/run.mjs synth"
   },
   "dependencies": {
     "@mana/tui-react": "^0.0.1",
