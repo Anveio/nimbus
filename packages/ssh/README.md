@@ -10,13 +10,13 @@ This strict separation of concerns allows for maximum testability, flexibility, 
 
 ## Runtime dependencies
 
-The core constructor (`createClientSession`) is runtime agnostic: it has no built-in knowledge of sockets, timers, or platforms. Instead, callers must inject the environment-specific primitives (`clock`, `randomBytes`, `crypto`, host-key policy, etc.) through the `SshClientConfig`. Most consumers should rely on the runtime-aware adapters that do this wiring automatically:
+The core constructor (`createClientSession`) is runtime agnostic: it has no built-in knowledge of sockets, timers, or platforms. Instead, callers must inject the environment-specific primitives (`clock`, `randomBytes`, `crypto`, host-key policy, identity, etc.) through the `SshClientConfig`. Most consumers should rely on the runtime-aware adapters that do this wiring automatically:
 
 - `@mana/ssh/client/web` – browser/worker defaults
 - `@mana/ssh/client/node` – Node 18+ defaults
 - future runtimes (Deno, Bun, servers) will expose similar entry points
 
-Importing the top-level package in environments where those dependencies are not provided will fail; pick the adapter that matches your runtime or supply the primitives explicitly.
+Importing the top-level package in environments where those dependencies are not provided will fail; pick the adapter that matches your runtime or supply the primitives explicitly. Public-key authentication requires a username and signing material—runtime adapters generate an ephemeral Ed25519 keypair by default and emit the OpenSSH-formatted public key so hosts can pass it to EC2 Instance Connect or similar services before authentication completes.
 
 ## Current Status
 

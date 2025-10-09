@@ -32,7 +32,6 @@ interface ClientPublicKeyReadyEvent {
 interface ConnectCallbacks {
   onEvent?(event: SshEvent): void
   onDiagnostic?(record: DiagnosticRecord): void
-  onClientPublicKeyReady?(event: ClientPublicKeyReadyEvent): void
 }
 
 interface RuntimeConnectOptions {
@@ -64,7 +63,6 @@ The runtime adapters inject defaults for:
 - `randomBytes`: `crypto.getRandomValues` (browser) / `crypto.randomBytes` (node).
 - `crypto`: WebCrypto (`globalThis.crypto` / `crypto.webcrypto`).
 - `hostKeys`: IndexedDB-backed persistence in browsers (configurable via `hostKeyConfig`), in-memory TOFU for Node.
-- `client-public-key-ready`: emitted via `callbacks.onClientPublicKeyReady` (and the general `onEvent` stream) whenever the engine prepares a client authentication key so transports or hosts can propagate it (e.g., AWS Instance Connect). The runtime calls the specialised callback first, then forwards the same event object through `onEvent`, so consumers can mix-and-match without missing notifications.
 - `resume`: optional callbacks that will orchestrate token persistence once the SSH core begins emitting resume metadata.
 - `diagnostics`: forwards into `callbacks.onDiagnostic` when provided.
 
@@ -201,6 +199,8 @@ type SshIdentityConfig =
   - `openssh`: callers provide the standard OpenSSH-formatted public key; they may attach an encrypted or plain private blob for local signing, or omit it and rely on a `sign` callback.
 
 If neither a usable private key nor a signer is supplied the runtime will raise a configuration error when public-key authentication is attempted.
+
+> Test harnesses can disable automatic service negotiation by setting `guards.disableAutoUserAuth = true` in the `SshClientConfig`. Production transports should leave this guard unset so the adapter generates a request immediately after `NEWKEYS`.
 
 ## Resume (Transport-Owned)
 

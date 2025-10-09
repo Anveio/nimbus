@@ -79,12 +79,17 @@ export async function connectSSH(
   if (diagnostics && !configOverrides.diagnostics) {
     configOverrides.diagnostics = diagnostics
   }
-  const identityOption =
-    configOverrides.identity ?? options.identity ?? undefined
-  configOverrides.identity = await resolveIdentityConfig(
-    cryptoProvider,
-    identityOption,
-  )
+  if (!configOverrides.identity) {
+    if (!options.identity) {
+      throw new Error(
+        'connectSSH requires options.identity with username information for public key authentication',
+      )
+    }
+    configOverrides.identity = await resolveIdentityConfig(
+      cryptoProvider,
+      options.identity,
+    )
+  }
 
   return connectWithRuntime(
     {

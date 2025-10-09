@@ -7,7 +7,7 @@ import {
   type HostIdentity,
   type HostKeyStore,
   type IdentificationConfig,
-  type SshIdentityConfig,
+  type ResolvedIdentity,
   type SshClientConfig,
   type SshEvent,
   type SshSession,
@@ -31,7 +31,6 @@ export interface TransportBinding {
 export interface ConnectCallbacks {
   onEvent?(event: SshEvent): void
   onDiagnostic?(record: DiagnosticRecord): void
-  onClientPublicKeyReady?(payload: ClientPublicKeyReadyEvent): void
 }
 
 export interface RuntimeConnectOptions {
@@ -52,7 +51,7 @@ export type RuntimeConfigOverrides = {
   auth?: SshClientConfig['auth']
   channels?: SshClientConfig['channels']
   guards?: SshClientConfig['guards']
-  identity?: SshIdentityConfig
+  identity?: ResolvedIdentity
 }
 
 export interface ConnectedSession {
@@ -93,6 +92,10 @@ export function buildClientConfig(
   if (!cryptoProvider) {
     throw new SshInvariantViolation('Crypto provider is required')
   }
+  const identity = overrides.identity
+  if (!identity) {
+    throw new SshInvariantViolation('Client identity is required')
+  }
   return {
     clock,
     randomBytes,
@@ -103,7 +106,7 @@ export function buildClientConfig(
     auth: overrides.auth,
     channels: overrides.channels,
     guards: overrides.guards,
-    identity: overrides.identity,
+    identity,
     hostIdentity,
     crypto: cryptoProvider,
   }
@@ -120,9 +123,6 @@ export async function connectWithRuntime(
   const disposers: Array<() => void> = []
 
   const handleEvent = (event: SshEvent) => {
-    if (event.type === 'client-public-key-ready') {
-      callbacks?.onClientPublicKeyReady?.(event)
-    }
     callbacks?.onEvent?.(event)
     if (event.type === 'outbound-data') {
       flushOutbound(session, transport)

@@ -552,7 +552,7 @@ ch.on('data', (d) => process.stdout.write(d));
 
 Browser and Node clients forward the SSH identity configuration to `@mana/ssh`. Consumers may:
 
-- omit `ssh.identity` to let the runtime generate an ephemeral Ed25519 key and surface the OpenSSH-formatted public key through `onClientPublicKeyReady`.
+- omit `ssh.identity` to let the runtime generate a Ed25519 key.
 - provide `ssh.identity = { mode: 'provided', algorithm: 'ed25519', material: … }` with one of:
   - `kind: 'raw'` (public + private `Uint8Array` seeds),
   - `kind: 'signer'` (public key plus signing callback for HSM/web-authn scenarios),

@@ -64,11 +64,12 @@ The helper performs runtime wiring (crypto, RNG, host key persistence) and retur
 | `identification` | Client banner + optional local metadata | Must satisfy RFC 4253 §4.2 |
 | `algorithms: AlgorithmCatalog` | Ordered preferences for KEX, ciphers, MACs, host keys, compression, extensions | Defaults prefer modern suites; registries validate identifiers against RFC 4250 |
 | `hostKeys: HostKeyStore` | Policy for verifying server keys (TOFU, SSHFP/DNSSEC, X.509, OpenSSH KRL) | Exposes callbacks for persistence and policy prompts. Provide this to fully manage trust decisions yourself. |
+| `identity: ResolvedIdentity` | Username + signing routine for public-key authentication | Runtime adapters generate an Ed25519 identity (and emit the OpenSSH public key) by default. Supply a provided key when integrating HSMs or delegated signing. |
 | `hostKeyConfig?` | `{ persistence?: 'indexeddb' \| 'memory' \| 'disabled'; databaseName?: string; storeName?: string; trustOnFirstUse?: boolean; indexedDB?: IDBFactory }` | Web-only convenience object controlling the built-in persistence. Defaults to IndexedDB TOFU. Set `persistence` to `'disabled'` when wiring a custom `hostKeys` store. |
 | `auth: AuthenticationStrategy` | Orchestrates RFC 4252 flows (password, public-key, keyboard-interactive, GSS) | Keeps interactive UX outside core |
 | `channels?: ChannelPolicy` | Limits and feature toggles for RFC 4254 channels and vendor extras | Controls window sizing, concurrency, port forwarding enablement |
 | `diagnostics?: DiagnosticsSink` | Structured logging hooks | No side-effects unless host subscribes |
-| `guards?: EngineGuards` | Policy flags (e.g., `allowSha1Signatures`, `enableDropbearCompat`) | Fail closed by default |
+| `guards?: EngineGuards` | Policy flags (e.g., `allowSha1Signatures`, `enableDropbearCompat`, `disableAutoUserAuth`) | Fail closed by default |
 
 ### `SshSession`
 

@@ -133,15 +133,6 @@ function App(): JSX.Element {
           },
           {
             callbacks: {
-              onClientPublicKeyReady(event) {
-                const base64 = window.btoa(
-                  String.fromCharCode(...event.publicKey),
-                )
-                setPublicKey({ algorithm: event.algorithm, base64 })
-                appendLog(
-                  `[ssh] client-public-key-ready (${event.algorithm}) — forward to AWS Instance Connect once the signed URL is available.`,
-                )
-              },
               onEvent(evt) {
                 if (evt.type === 'warning') {
                   appendLog(`[ssh warn] ${evt.message}`)

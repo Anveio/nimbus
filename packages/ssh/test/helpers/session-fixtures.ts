@@ -11,6 +11,7 @@ import type {
   SshClientConfig,
   SshEvent,
   SshSession,
+  ResolvedIdentity,
 } from '../../src/api'
 
 import { BinaryWriter } from '../../src/internal/binary/binary-writer'
@@ -41,6 +42,17 @@ const DEFAULT_IDENTIFICATION: IdentificationConfig = {
 }
 
 const UNKNOWN_DECISION: HostKeyDecision = { outcome: 'unknown' as const }
+
+const TEST_IDENTITY: ResolvedIdentity = {
+  username: 'tester',
+  algorithm: 'ssh-ed25519',
+  publicKey: new Uint8Array(32),
+  openssh:
+    'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+  async sign(): Promise<Uint8Array> {
+    return new Uint8Array(64)
+  },
+}
 
 class EphemeralHostKeyStore implements HostKeyStore {
   async evaluate(): Promise<HostKeyDecision> {
@@ -100,6 +112,7 @@ export function createTestClientConfig(
     algorithms: overrides.algorithms ?? TEST_ALGORITHMS,
     hostKeys: overrides.hostKeys ?? new EphemeralHostKeyStore(),
     hostIdentity: overrides.hostIdentity ?? { host: 'test.example', port: 22 },
+    identity: overrides.identity ?? TEST_IDENTITY,
   }
 
   if (overrides.auth) {

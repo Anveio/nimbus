@@ -1,41 +1,40 @@
-import type {
-  GeneratedIdentityConfig,
-  GeneratedPublicKeyInfo,
-  IdentitySign,
-  ProvidedIdentityConfig,
-  SshIdentityConfig,
+import {
+  type GeneratedIdentityConfig,
+  type GeneratedPublicKeyInfo,
+  type ResolvedIdentity,
+  type SshIdentityConfig,
 } from '../../api'
-import { SshNotImplementedError } from '../../errors'
+import { BinaryReader } from '../../internal/binary/binary-reader'
+import { BinaryWriter } from '../../internal/binary/binary-writer'
+import { SshInvariantViolation, SshNotImplementedError } from '../../errors'
 
-type GeneratedIdentityHooks = {
-  readonly onPublicKey?: GeneratedIdentityConfig['onPublicKey']
-}
+const ED25519_ALGORITHM = 'ssh-ed25519'
 
 export async function resolveIdentityConfig(
   crypto: Crypto,
-  identity: SshIdentityConfig | undefined,
-): Promise<ProvidedIdentityConfig> {
-  if (!identity || identity.mode === 'generated') {
-    const hooks =
-      identity?.mode === 'generated'
-        ? { onPublicKey: identity.onPublicKey, algorithm: identity.algorithm }
-        : { onPublicKey: undefined, algorithm: undefined }
-    const algorithm = hooks.algorithm ?? 'ed25519'
-    return generateIdentityByAlgorithm(crypto, algorithm, {
-      onPublicKey: hooks.onPublicKey,
-    })
+  identity: SshIdentityConfig,
+): Promise<ResolvedIdentity> {
+  if (!identity) {
+    throw new SshInvariantViolation('SSH identity (with username) is required')
   }
-  return identity
+  switch (identity.mode) {
+    case 'generated':
+      return generateIdentity(crypto, identity)
+    case 'provided':
+      return resolveProvidedIdentity(crypto, identity)
+    default:
+      throw new SshNotImplementedError('Unsupported identity mode')
+  }
 }
 
-async function generateIdentityByAlgorithm(
+async function generateIdentity(
   crypto: Crypto,
-  algorithm: string,
-  hooks: GeneratedIdentityHooks,
-): Promise<ProvidedIdentityConfig> {
+  config: GeneratedIdentityConfig,
+): Promise<ResolvedIdentity> {
+  const algorithm = config.algorithm ?? 'ed25519'
   switch (algorithm) {
     case 'ed25519':
-      return generateEd25519Identity(crypto, hooks)
+      return generateEd25519Identity(crypto, config)
     default:
       throw new SshNotImplementedError(
         `Generated identity for algorithm ${algorithm} is not supported yet`,
@@ -45,8 +44,8 @@ async function generateIdentityByAlgorithm(
 
 async function generateEd25519Identity(
   crypto: Crypto,
-  hooks: GeneratedIdentityHooks,
-): Promise<ProvidedIdentityConfig> {
+  config: GeneratedIdentityConfig,
+): Promise<ResolvedIdentity> {
   if (!crypto.subtle?.generateKey) {
     throw new SshNotImplementedError(
       'Ed25519 identity generation requires WebCrypto SubtleCrypto support',
@@ -58,67 +57,155 @@ async function generateEd25519Identity(
     ['sign', 'verify'],
   )
   if (!isCryptoKeyPair(keyPair)) {
-    throw new Error('Failed to generate Ed25519 key pair')
+    throw new SshInvariantViolation('WebCrypto failed to generate Ed25519 key pair')
   }
-
   const publicKeyRaw = await crypto.subtle.exportKey('raw', keyPair.publicKey)
   const publicKey = new Uint8Array(publicKeyRaw)
-  const sign: IdentitySign = async (payload) => {
-    const data = toArrayBuffer(payload)
-    const signature = await crypto.subtle.sign('Ed25519', keyPair.privateKey, data)
-    return new Uint8Array(signature)
-  }
-
   const openssh = encodeOpenSshEd25519(publicKey)
   const info: GeneratedPublicKeyInfo = {
     algorithm: 'ed25519',
     publicKey,
     openssh,
   }
-  hooks.onPublicKey?.(info)
-
+  config.onPublicKey?.(info)
   return {
-    mode: 'provided',
-    algorithm: 'ed25519',
-    material: {
-      kind: 'signer',
-      publicKey,
-      sign,
+    username: config.username,
+    algorithm: ED25519_ALGORITHM,
+    publicKey,
+    openssh,
+    sign(payload) {
+      return signWithCryptoKey(crypto, keyPair.privateKey, payload)
     },
   }
 }
 
-function isCryptoKeyPair(
-  candidate: CryptoKeyPair | CryptoKey,
-): candidate is CryptoKeyPair {
+async function resolveProvidedIdentity(
+  crypto: Crypto,
+  identity: SshIdentityConfig & { mode: 'provided' },
+): Promise<ResolvedIdentity> {
+  const algorithm = identity.algorithm
+  switch (algorithm) {
+    case 'ed25519':
+      return resolveProvidedEd25519Identity(crypto, identity)
+    default:
+      throw new SshNotImplementedError(
+        `Provided identity for algorithm ${algorithm} is not supported yet`,
+      )
+  }
+}
+
+async function resolveProvidedEd25519Identity(
+  crypto: Crypto,
+  identity: SshIdentityConfig & { mode: 'provided'; algorithm: 'ed25519' },
+): Promise<ResolvedIdentity> {
+  const material = identity.material
+  if (material.kind === 'signer') {
+    return {
+      username: identity.username,
+      algorithm: ED25519_ALGORITHM,
+      publicKey: new Uint8Array(material.publicKey),
+      openssh: encodeOpenSshEd25519(material.publicKey),
+      sign: material.sign,
+    }
+  }
+  if (material.kind === 'raw') {
+    const privateKey = await importEd25519PrivateKey(crypto, material.privateKey)
+    const publicKey = new Uint8Array(material.publicKey)
+    return {
+      username: identity.username,
+      algorithm: ED25519_ALGORITHM,
+      publicKey,
+      openssh: encodeOpenSshEd25519(publicKey),
+      sign(payload) {
+        return signWithCryptoKey(crypto, privateKey, payload)
+      },
+    }
+  }
+  if (material.kind === 'openssh') {
+    const publicKey = decodeOpenSshEd25519(material.publicKey)
+    if (!material.sign) {
+      throw new SshInvariantViolation(
+        'openssh identity requires a sign implementation when private material is not provided',
+      )
+    }
+    return {
+      username: identity.username,
+      algorithm: ED25519_ALGORITHM,
+      publicKey,
+      openssh: material.publicKey,
+      sign: material.sign,
+    }
+  }
+  throw new SshNotImplementedError('Unsupported Ed25519 identity material')
+}
+
+function isCryptoKeyPair(value: unknown): value is CryptoKeyPair {
   return (
-    typeof candidate === 'object' &&
-    candidate !== null &&
-    'privateKey' in candidate &&
-    'publicKey' in candidate
+    typeof value === 'object' &&
+    value !== null &&
+    'privateKey' in value &&
+    'publicKey' in value
   )
 }
 
-function encodeOpenSshEd25519(publicKey: Uint8Array): string {
-  const algorithm = new TextEncoder().encode('ssh-ed25519')
-  const totalLength = 4 + algorithm.length + 4 + publicKey.length
-  const buffer = new Uint8Array(totalLength)
-  let offset = 0
-  offset = writeUint32BE(buffer, offset, algorithm.length)
-  buffer.set(algorithm, offset)
-  offset += algorithm.length
-  offset = writeUint32BE(buffer, offset, publicKey.length)
-  buffer.set(publicKey, offset)
-  const base64 = toBase64(buffer)
-  return `ssh-ed25519 ${base64}`
+async function signWithCryptoKey(
+  crypto: Crypto,
+  key: CryptoKey,
+  payload: Uint8Array,
+): Promise<Uint8Array> {
+  const buffer = toArrayBuffer(payload)
+  const signature = await crypto.subtle.sign('Ed25519', key, buffer)
+  return new Uint8Array(signature)
 }
 
-function writeUint32BE(target: Uint8Array, offset: number, value: number): number {
-  target[offset] = (value >>> 24) & 0xff
-  target[offset + 1] = (value >>> 16) & 0xff
-  target[offset + 2] = (value >>> 8) & 0xff
-  target[offset + 3] = value & 0xff
-  return offset + 4
+async function importEd25519PrivateKey(
+  crypto: Crypto,
+  input: Uint8Array,
+): Promise<CryptoKey> {
+  const keyBytes = new Uint8Array(input)
+  if (!crypto.subtle?.importKey) {
+    throw new SshNotImplementedError(
+      'Ed25519 identity import requires WebCrypto SubtleCrypto support',
+    )
+  }
+  try {
+    return await crypto.subtle.importKey(
+      'raw',
+      toArrayBuffer(keyBytes),
+      { name: 'Ed25519' },
+      false,
+      ['sign'],
+    )
+  } catch (error) {
+    throw new SshInvariantViolation(
+      `Failed to import Ed25519 private key: ${String(error)}`,
+    )
+  }
+}
+
+function encodeOpenSshEd25519(publicKey: Uint8Array): string {
+  const writer = new BinaryWriter()
+  writer.writeString(ED25519_ALGORITHM)
+  writer.writeUint32(publicKey.length)
+  writer.writeBytes(publicKey)
+  return `${ED25519_ALGORITHM} ${toBase64(writer.toUint8Array())}`
+}
+
+function decodeOpenSshEd25519(openssh: string): Uint8Array {
+  const trimmed = openssh.trim()
+  const [algorithm, base64] = trimmed.split(/\s+/, 2)
+  if (algorithm !== ED25519_ALGORITHM || !base64) {
+    throw new SshInvariantViolation('Unsupported OpenSSH public key format')
+  }
+  const data = fromBase64(base64)
+  const reader = new BinaryReader(data)
+  const alg = reader.readString()
+  if (alg !== ED25519_ALGORITHM) {
+    throw new SshInvariantViolation('Mismatched OpenSSH public key algorithm')
+  }
+  const keyLength = reader.readUint32()
+  const publicKey = reader.readBytes(keyLength)
+  return new Uint8Array(publicKey)
 }
 
 function toBase64(data: Uint8Array): string {
@@ -135,20 +222,28 @@ function toBase64(data: Uint8Array): string {
   throw new Error('Base64 encoding not supported in this environment')
 }
 
+function fromBase64(value: string): Uint8Array {
+  if (typeof Buffer !== 'undefined') {
+    return new Uint8Array(Buffer.from(value, 'base64'))
+  }
+  if (typeof atob === 'function') {
+    const binary = atob(value)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i) & 0xff
+    }
+    return bytes
+  }
+  throw new Error('Base64 decoding not supported in this environment')
+}
+
 function toArrayBuffer(payload: Uint8Array): ArrayBuffer {
   if (
     payload.byteOffset === 0 &&
     payload.byteLength === payload.buffer.byteLength &&
-    isArrayBuffer(payload.buffer)
+    payload.buffer instanceof ArrayBuffer
   ) {
     return payload.buffer
   }
   return payload.slice().buffer
-}
-
-function isArrayBuffer(value: unknown): value is ArrayBuffer {
-  return (
-    typeof ArrayBuffer !== 'undefined' &&
-    value instanceof ArrayBuffer
-  )
 }

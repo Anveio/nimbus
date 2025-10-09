@@ -15,7 +15,9 @@ const encoder = new TextEncoder()
 
 describe('ClientSessionImpl Phase 1 handshake', () => {
   it('emits identification and outbound data immediately on creation', () => {
-    const session = createClientSession(createTestClientConfig())
+    const session = createClientSession(
+      createTestClientConfig({ guards: { disableAutoUserAuth: true } }),
+    )
 
     const first = session.nextEvent()
     expect(first).toEqual({
@@ -37,7 +39,9 @@ describe('ClientSessionImpl Phase 1 handshake', () => {
   })
 
   it('processes server identification lines, sends KEXINIT, and parses server KEXINIT', async () => {
-    const session = createClientSession(createTestClientConfig())
+    const session = createClientSession(
+      createTestClientConfig({ guards: { disableAutoUserAuth: true } }),
+    )
     // drain initial events
     session.nextEvent()
     session.nextEvent()
@@ -89,7 +93,9 @@ describe('ClientSessionImpl Phase 1 handshake', () => {
   })
 
   it('rejects server identification strings longer than 255 characters', () => {
-    const session = createClientSession(createTestClientConfig())
+    const session = createClientSession(
+      createTestClientConfig({ guards: { disableAutoUserAuth: true } }),
+    )
     session.nextEvent()
     session.nextEvent()
     session.flushOutbound()

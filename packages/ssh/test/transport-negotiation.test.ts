@@ -39,6 +39,7 @@ describe('RFC 4253 §7 algorithm negotiation', () => {
     const session = createClientSession(
       createTestClientConfig({
         algorithms,
+        guards: { disableAutoUserAuth: true },
       }),
     )
 

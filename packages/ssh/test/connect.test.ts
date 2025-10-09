@@ -11,6 +11,13 @@ import { webcrypto as nodeCrypto } from 'node:crypto'
 
 const cryptoProvider = (globalThis.crypto ?? nodeCrypto) as Crypto
 
+const TEST_IDENTITY = {
+  username: 'tester',
+  algorithm: 'ssh-ed25519',
+  publicKey: new Uint8Array(32),
+  sign: vi.fn(async () => new Uint8Array(64)),
+}
+
 function createEnvironment(): RuntimeEnvironment {
   return {
     now: () => 0,
@@ -61,7 +68,13 @@ describe('connectWithRuntime', () => {
     }
 
     const connection = await connectWithRuntime(
-      { transport, callbacks },
+      {
+        transport,
+        callbacks,
+        configOverrides: {
+          identity: TEST_IDENTITY,
+        },
+      },
       createEnvironment(),
     )
 

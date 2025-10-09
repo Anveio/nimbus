@@ -169,6 +169,7 @@ describe('RFC 4419 §3 diffie-hellman-group14-sha256 key exchange', () => {
         randomBytes,
         algorithms,
         crypto: createBypassSignatureCrypto(),
+        guards: { disableAutoUserAuth: true },
       }),
     )
 

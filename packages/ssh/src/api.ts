@@ -33,6 +33,7 @@ export type SessionPhase =
   | 'identification'
   | 'negotiating'
   | 'kex'
+  | 'authenticating'
   | 'authenticated'
   | 'connected'
   | 'closed'
@@ -59,6 +60,7 @@ export interface EngineGuards {
   readonly allowSha1Signatures?: boolean
   readonly enableDropbearCompat?: boolean
   readonly maxPayloadBytes?: number
+  readonly disableAutoUserAuth?: boolean
 }
 
 export interface HostIdentity {
@@ -107,6 +109,7 @@ export type IdentitySign = (
 
 export interface GeneratedIdentityConfig {
   readonly mode: 'generated'
+  readonly username: string
   readonly algorithm?: 'ed25519'
   onPublicKey?(info: GeneratedPublicKeyInfo): void
 }
@@ -125,18 +128,12 @@ export type Ed25519IdentityMaterial =
   | {
       readonly kind: 'openssh'
       readonly publicKey: string
-      readonly privateKey: string
-      readonly sign?: IdentitySign
-    }
-  | {
-      readonly kind: 'openssh'
-      readonly publicKey: string
-      readonly privateKey?: undefined
       readonly sign: IdentitySign
     }
 
 export interface ProvidedIdentityConfig {
   readonly mode: 'provided'
+  readonly username: string
   readonly algorithm: 'ed25519'
   readonly material: Ed25519IdentityMaterial
 }
@@ -144,6 +141,14 @@ export interface ProvidedIdentityConfig {
 export type SshIdentityConfig =
   | GeneratedIdentityConfig
   | ProvidedIdentityConfig
+
+export interface ResolvedIdentity {
+  readonly username: string
+  readonly algorithm: string
+  readonly publicKey: Uint8Array
+  readonly openssh?: string
+  sign(payload: Uint8Array): Promise<Uint8Array> | Uint8Array
+}
 
 export interface ChannelPolicy {
   readonly maxConcurrentChannels?: number
@@ -216,7 +221,7 @@ export interface SshClientConfig {
   readonly guards?: EngineGuards
   readonly hostIdentity?: HostIdentity
   readonly crypto?: Crypto
-  readonly identity?: SshIdentityConfig
+  readonly identity: ResolvedIdentity
 }
 
 export interface NegotiationSummary {
@@ -460,10 +465,17 @@ export interface SshSession {
 const ASCII_ENCODER = new TextEncoder()
 const ASCII_DECODER = new TextDecoder('utf-8', { fatal: false })
 const SSH_MSG_DISCONNECT = 1
+const SSH_MSG_SERVICE_REQUEST = 5
+const SSH_MSG_SERVICE_ACCEPT = 6
 const SSH_MSG_KEXINIT = 20
 const SSH_MSG_NEWKEYS = 21
 const SSH_MSG_KEXDH_INIT = 30
 const SSH_MSG_KEXDH_REPLY = 31
+const SSH_MSG_USERAUTH_REQUEST = 50
+const SSH_MSG_USERAUTH_FAILURE = 51
+const SSH_MSG_USERAUTH_SUCCESS = 52
+const SSH_MSG_USERAUTH_BANNER = 53
+const SSH_MSG_USERAUTH_PK_OK = 60
 const SSH_MSG_GLOBAL_REQUEST = 80
 const SSH_MSG_CHANNEL_OPEN = 90
 const SSH_MSG_CHANNEL_OPEN_CONFIRMATION = 91
@@ -564,6 +576,11 @@ function encodeStringField(data: Uint8Array): Uint8Array {
   writer.writeUint32(data.length)
   writer.writeBytes(data)
   return writer.toUint8Array()
+}
+
+function writeBinaryString(writer: BinaryWriter, data: Uint8Array): void {
+  writer.writeUint32(data.length)
+  writer.writeBytes(data)
 }
 
 function encodeMpintField(value: bigint): Uint8Array {
@@ -683,6 +700,10 @@ class ClientSessionImpl implements SshSession {
   #channels = new Map<ChannelId, ChannelState>()
   #nextChannelId = 0
 
+  #identity: ResolvedIdentity
+  #serviceAccepted = false
+  #authCompleted = false
+
   constructor(config: SshClientConfig) {
     this.#config = config
     this.events = this.#eventQueue
@@ -697,6 +718,7 @@ class ClientSessionImpl implements SshSession {
     this.#clientIdentificationLine = stripLineEnding(
       config.identification.clientId,
     )
+    this.#identity = config.identity
     this.#cipherClientToServer = createPlainCipherState()
     this.#cipherServerToClient = createPlainCipherState()
     this.#sendIdentification()
@@ -1105,6 +1127,21 @@ class ClientSessionImpl implements SshSession {
         return
       case SSH_MSG_KEXDH_REPLY:
         this.#handleKeyExchangeReply(reader)
+        return
+      case SSH_MSG_SERVICE_ACCEPT:
+        this.#handleServiceAccept(reader)
+        return
+      case SSH_MSG_USERAUTH_SUCCESS:
+        this.#handleUserAuthSuccess()
+        return
+      case SSH_MSG_USERAUTH_FAILURE:
+        this.#handleUserAuthFailure(reader)
+        return
+      case SSH_MSG_USERAUTH_BANNER:
+        this.#handleUserAuthBanner(reader)
+        return
+      case SSH_MSG_USERAUTH_PK_OK:
+        this.#handleUserAuthPkOk(reader)
         return
       case SSH_MSG_GLOBAL_REQUEST:
         this.#handleGlobalRequest(reader)
@@ -1840,13 +1877,150 @@ class ClientSessionImpl implements SshSession {
     this.#awaitingServerNewKeys = false
     this.#activatePendingServerCipher()
     if (!this.#closed && this.#phase !== 'failed') {
-      this.#phase = 'authenticated'
+      if (this.#config.guards?.disableAutoUserAuth) {
+        this.#phase = 'authenticated'
+      } else {
+        this.#phase = 'authenticating'
+        this.#beginAuthentication()
+      }
     }
     this.#recordDiagnostic(
       'info',
       'newkeys-received',
       'Server confirmed key transition',
     )
+  }
+
+  #beginAuthentication(): void {
+    if (this.#authCompleted || this.#closed) {
+      return
+    }
+    this.#recordDiagnostic(
+      'info',
+      'auth-service-request',
+      'Requesting ssh-userauth service',
+    )
+    const writer = new BinaryWriter()
+    writer.writeUint8(SSH_MSG_SERVICE_REQUEST)
+    writer.writeString('ssh-userauth')
+    this.#sendPacket(writer.toUint8Array())
+  }
+
+  #handleServiceAccept(reader: BinaryReader): void {
+    const service = reader.readString()
+    this.#serviceAccepted = true
+    this.#recordDiagnostic(
+      'info',
+      'auth-service-accept',
+      `Server accepted service ${service}`,
+    )
+    this.#sendUserAuthRequest()
+  }
+
+  #sendUserAuthRequest(): void {
+    this.#queueTask(async () => {
+      try {
+        const payload = await this.#buildUserAuthRequestPayload()
+        const packet = await this.#wrapPacket(payload)
+        this.#enqueueOutbound(packet, this.#currentCipherLabel())
+        this.#recordDiagnostic(
+          'info',
+          'auth-publickey-request',
+          'Sent public key authentication request',
+          {
+            username: this.#identity.username,
+            algorithm: this.#identity.algorithm,
+          },
+        )
+      } catch (error) {
+        this.#recordDiagnostic(
+          'error',
+          'auth-publickey-build-failed',
+          'Failed to prepare public key authentication request',
+          error,
+        )
+        this.close({
+          code: 1,
+          description: 'Failed to prepare authentication request',
+        })
+      }
+    })
+  }
+
+  async #buildUserAuthRequestPayload(): Promise<Uint8Array> {
+    const sessionId = this.#sessionId
+    if (!sessionId) {
+      throw new SshInvariantViolation(
+        'Cannot send USERAUTH_REQUEST before session identifier is established',
+      )
+    }
+    const identity = this.#identity
+    const message = new BinaryWriter()
+    message.writeUint8(SSH_MSG_USERAUTH_REQUEST)
+    message.writeString(identity.username)
+    message.writeString('ssh-connection')
+    message.writeString('publickey')
+    message.writeBoolean(true)
+    message.writeString(identity.algorithm)
+    writeBinaryString(message, identity.publicKey)
+
+    const unsignedPayload = message.toUint8Array()
+    const signWriter = new BinaryWriter()
+    signWriter.writeBytes(sessionId)
+    signWriter.writeBytes(unsignedPayload)
+    const signatureBytes = await Promise.resolve(identity.sign(signWriter.toUint8Array()))
+    const signatureWriter = new BinaryWriter()
+    signatureWriter.writeString(identity.algorithm)
+    writeBinaryString(signatureWriter, signatureBytes)
+    writeBinaryString(message, signatureWriter.toUint8Array())
+    return message.toUint8Array()
+  }
+
+  #handleUserAuthSuccess(): void {
+    this.#authCompleted = true
+    this.#phase = 'authenticated'
+    this.#recordDiagnostic(
+      'info',
+      'auth-success',
+      'Public key authentication succeeded',
+    )
+    this.#emit({ type: 'auth-success' })
+  }
+
+  #handleUserAuthFailure(reader: BinaryReader): void {
+    const methods = reader.readNameList()
+    const partial = reader.readBoolean()
+    this.#recordDiagnostic(
+      'error',
+      'auth-failure',
+      'Public key authentication failed',
+      {
+        methods,
+        partial,
+      },
+    )
+    this.#emit({ type: 'auth-failure', methodsLeft: methods, partial })
+    this.#phase = 'failed'
+    this.close({ code: 1, description: 'Authentication failed' })
+  }
+
+  #handleUserAuthBanner(reader: BinaryReader): void {
+    const message = reader.readString()
+    const language = reader.readString()
+    this.#emit({ type: 'auth-banner', message, language })
+  }
+
+  #handleUserAuthPkOk(reader: BinaryReader): void {
+    const algorithm = reader.readString()
+    const _blob = reader.readRemaining()
+    this.#recordDiagnostic(
+      'info',
+      'auth-publickey-ok',
+      'Server acknowledged public key',
+      { algorithm },
+    )
+    // Some servers expect a follow-up request with a signature. Resend to be safe.
+    this.#sendUserAuthRequest()
   }
 
   #sendPacket(payload: Uint8Array): void {

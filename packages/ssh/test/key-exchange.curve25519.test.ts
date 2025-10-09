@@ -148,6 +148,7 @@ describe('RFC 5656 §4.1 curve25519 key exchange', () => {
         hostKeys,
         randomBytes,
         crypto: createBypassSignatureCrypto(),
+        guards: { disableAutoUserAuth: true },
       }),
     )
 
@@ -253,6 +254,7 @@ describe('RFC 5656 §4.1 curve25519 key exchange', () => {
         hostKeys,
         randomBytes,
         crypto: createBypassSignatureCrypto(),
+        guards: { disableAutoUserAuth: true },
       }),
     )
 
@@ -310,6 +312,7 @@ describe('RFC 5656 §4.1 curve25519 key exchange', () => {
 
     session.receive(buildNewKeysPacket())
     await session.waitForIdle()
+    expect(session.inspect().phase).toBe('authenticated')
     drainSessionEvents(session)
 
     const clientPrivate = clampScalar(CURVE25519_CLIENT_SCALAR)
