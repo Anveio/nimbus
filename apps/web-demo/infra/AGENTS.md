@@ -8,12 +8,14 @@ This charter guides how we evolve the web demo's infrastructure helpers. The goa
 3. **Single-command cleanup** – every resource provisioned by our scripts must be releaseable with one command (`npm run infra -- --filter @mana/web-demo -- --destroy`) to avoid zombie instances or leaked costs.
 
 ## Current Scope
-- `apps/web-demo/infra/dev-ssh`: CDK stack (Amazon Linux 2023 EC2 instance + security group) consumed by `npm run infra ...`.
+- `apps/web-demo/infra/dev-ssh`: CDK stack (general-purpose Amazon Linux 2023 EC2 instance with EC2 Instance Connect enabled) consumed by `npm run infra ...`.
 - `scripts/run.mjs`: wrapper that resolves context parameters, opens security groups to the caller’s IP, and forwards commands to `npx cdk`.
+- `scripts/publish-key.ts`: utility that generates an ephemeral ED25519 key, signs an Instance Connect request, and returns the temporary credential material as JSON.
 
 ## Guidelines
 - **Local defaults**: leverage environment variables (`MANA_DEV_SSH_*`) so developers rarely pass `--context` flags manually.
 - **CI overrides**: document required environment variables in `docs/aws-dev-target.md` and ensure the wrapper script respects them without additional prompts.
+- **Ephemeral credentials**: always prefer EC2 Instance Connect for developer access. We do not persist SSH keys on disk or bake them into AMIs; clients must request fresh credentials per session (`npm run infra:publish-key` locally, equivalent automation in CI).
 - **Idempotent state**: stacks must be safe to reapply (e.g., rerunning deploy should reconcile drift without manual steps).
 - **Ownership**: keep infra code colocated with the app it serves; cross-app reuse belongs in shared constructs.
 

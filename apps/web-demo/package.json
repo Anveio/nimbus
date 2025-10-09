@@ -17,7 +17,8 @@
     "infra": "node infra/dev-ssh/scripts/run.mjs",
     "infra:deploy": "node infra/dev-ssh/scripts/run.mjs deploy",
     "infra:destroy": "node infra/dev-ssh/scripts/run.mjs destroy",
-    "infra:synth": "node infra/dev-ssh/scripts/run.mjs synth"
+    "infra:synth": "node infra/dev-ssh/scripts/run.mjs synth",
+    "infra:publish-key": "node infra/dev-ssh/scripts/run.mjs --publish-key"
   },
   "dependencies": {
     "@mana/tui-react": "^0.0.1",

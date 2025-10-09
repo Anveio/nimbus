@@ -58,6 +58,31 @@ function collectContextKeys(args) {
 
 async function main() {
   const rawArgs = process.argv.slice(2)
+
+  const publishIndex = rawArgs.findIndex(
+    (arg) => arg === '--publish-key' || arg === 'publish-key',
+  )
+  if (publishIndex !== -1) {
+    const passthrough = [
+      ...rawArgs.slice(0, publishIndex),
+      ...rawArgs.slice(publishIndex + 1),
+    ]
+    const result = spawnSync(
+      'npx',
+      ['tsx', path.join(stackDir, 'scripts', 'publish-key.ts'), ...passthrough],
+      {
+        cwd: stackDir,
+        stdio: 'inherit',
+        env: process.env,
+      },
+    )
+    if (result.error) {
+      console.error(result.error)
+      process.exit(result.status ?? 1)
+    }
+    process.exit(result.status ?? 0)
+  }
+
   let command = 'synth'
   const passthrough = []
 

@@ -2,11 +2,10 @@ import * as path from 'node:path'
 import { readFileSync } from 'node:fs'
 import { Stack, StackProps } from 'aws-cdk-lib'
 import {
-  AmazonLinuxCpuType,
-  AmazonLinuxGeneration,
   Instance,
   InstanceType,
   MachineImage,
+  OperatingSystemType,
   Peer,
   Port,
   SecurityGroup,
@@ -65,16 +64,15 @@ export class DevSshStack extends Stack {
       'Allow SSH from developer workstation',
     )
 
-    const machineImage =
+    const amiSsmParameter =
       architecture === 'arm64'
-        ? MachineImage.latestAmazonLinux({
-            generation: AmazonLinuxGeneration.AMAZON_LINUX_2023,
-            cpuType: AmazonLinuxCpuType.ARM_64,
-          })
-        : MachineImage.latestAmazonLinux({
-            generation: AmazonLinuxGeneration.AMAZON_LINUX_2023,
-            cpuType: AmazonLinuxCpuType.X86_64,
-          })
+        ? '/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64'
+        : '/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64'
+
+    // Pull the standard AL2023 image via SSM so we ride the latest non ECS-optimized AMI and keep EIC preinstalled.
+    const machineImage = MachineImage.fromSsmParameter(amiSsmParameter, {
+      os: OperatingSystemType.LINUX,
+    })
 
     const userData = UserData.forLinux()
     userData.addCommands('set -euxo pipefail')

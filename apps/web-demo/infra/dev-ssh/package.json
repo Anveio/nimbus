@@ -11,8 +11,12 @@
     "synth": "cdk synth"
   },
   "dependencies": {
+    "@aws-sdk/client-cloudformation": "^3.744.0",
+    "@aws-sdk/client-ec2": "^3.744.0",
+    "@aws-sdk/client-ec2-instance-connect": "^3.744.0",
     "aws-cdk-lib": "^2.178.0",
-    "constructs": "^10.4.2"
+    "constructs": "^10.4.2",
+    "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
     "typescript": "^5.9.2"
