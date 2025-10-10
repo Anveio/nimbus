@@ -27,6 +27,7 @@
     "infra:bootstrap": "node infra/dev-ssh/scripts/bootstrap.mjs"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.51.4",
     "@mana/tui-react": "^0.0.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"

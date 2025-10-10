@@ -126,9 +126,10 @@ chmod +x /tmp/bootstrap.sh
         : 60
 
     const signerToken = randomBytes(32).toString('hex')
+    const repositoryTagValue = 'mana-ssh-web'
 
     const signerFunction = new NodejsFunction(this, 'SigV4SignerFunction', {
-      runtime: Runtime.NODEJS_20_X,
+      runtime: Runtime.NODEJS_LATEST,
       entry: path.join(__dirname, 'signer', 'handler.ts'),
       handler: 'handler',
       bundling: {
@@ -146,9 +147,33 @@ chmod +x /tmp/bootstrap.sh
       },
     })
 
+    const discoveryFunction = new NodejsFunction(
+      this,
+      'InfraDiscoveryFunction',
+      {
+        runtime: Runtime.NODEJS_LATEST,
+        entry: path.join(__dirname, 'discovery', 'handler.ts'),
+        handler: 'handler',
+        bundling: {
+          target: 'node20',
+          format: OutputFormat.CJS,
+          externalModules: [],
+        },
+        environment: {
+          SIGNER_TOKEN: signerToken,
+          DEFAULT_REGION: Stack.of(this).region,
+          REPOSITORY_TAG_VALUE: repositoryTagValue,
+        },
+      },
+    )
+
     const signerIntegration = new HttpLambdaIntegration(
       'SigV4SignerIntegration',
       signerFunction,
+    )
+    const discoveryIntegration = new HttpLambdaIntegration(
+      'InfraDiscoveryIntegration',
+      discoveryFunction,
     )
     const signerApi = new HttpApi(this, 'SigV4SignerApi', {
       corsPreflight: {
@@ -162,6 +187,11 @@ chmod +x /tmp/bootstrap.sh
       path: '/sign',
       methods: [HttpMethod.POST],
       integration: signerIntegration,
+    })
+    signerApi.addRoutes({
+      path: '/discovery',
+      methods: [HttpMethod.POST],
+      integration: discoveryIntegration,
     })
 
     new CfnOutput(this, 'InstanceId', {
@@ -198,6 +228,11 @@ chmod +x /tmp/bootstrap.sh
         defaultExpires,
       }),
       description: 'Default signing configuration for the SigV4 signer',
+    })
+
+    new CfnOutput(this, 'DiscoveryEndpoint', {
+      value: `${signerApi.apiEndpoint}/discovery`,
+      description: 'HTTPS endpoint for discovering mana-tagged infrastructure',
     })
   }
 }

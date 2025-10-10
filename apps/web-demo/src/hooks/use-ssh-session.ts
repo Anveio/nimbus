@@ -188,11 +188,11 @@ export function useSshSession({ logger }: UseSshSessionParams) {
   }, [cleanupSession, logger])
 
   const connect = useCallback(
-    async (form: SshFormState) => {
-      const signedUrl = form.signedUrl.trim()
+    async (form: SshFormState, signedUrlInput: string) => {
+      const signedUrl = signedUrlInput.trim()
       if (signedUrl.length === 0) {
         const message =
-          'Provide the websocket signed URL before connecting.'
+          'Request a websocket signed URL before connecting.'
         dispatch({ type: 'failure', error: message })
         logger.append(`[ui] ${message}`)
         return

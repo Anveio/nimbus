@@ -6,6 +6,7 @@ import { defineConfig } from 'vite'
 
 interface CachedSignerConfig {
   readonly endpoint: string
+  readonly discoveryEndpoint?: string | null
   readonly bearerToken: string
   readonly defaults?: {
     readonly endpoint?: string
@@ -74,6 +75,9 @@ export default defineConfig({
     ),
     'import.meta.env.VITE_MANA_SIGNER_TOKEN': JSON.stringify(
       signerConfig?.bearerToken ?? '',
+    ),
+    'import.meta.env.VITE_MANA_DISCOVERY_ENDPOINT': JSON.stringify(
+      signerConfig?.discoveryEndpoint ?? '',
     ),
     'import.meta.env.VITE_MANA_SIGNER_DEFAULT_ENDPOINT': JSON.stringify(
       signerDefaults.endpoint ?? '',

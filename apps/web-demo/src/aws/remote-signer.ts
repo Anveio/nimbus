@@ -25,21 +25,39 @@ export interface SignResponse {
   readonly defaults: RemoteSignerDefaults
 }
 
+function readEnvString(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed.length > 0 ? trimmed : undefined
+  }
+  if (value == null) {
+    return undefined
+  }
+  const stringified = String(value).trim()
+  return stringified.length > 0 ? stringified : undefined
+}
+
 function loadFromEnv(): RemoteSignerConfig | null {
-  const endpoint = import.meta.env.VITE_MANA_SIGNER_ENDPOINT?.trim()
-  const bearerToken = import.meta.env.VITE_MANA_SIGNER_TOKEN?.trim()
+  const endpoint = readEnvString(import.meta.env.VITE_MANA_SIGNER_ENDPOINT)
+  const bearerToken = readEnvString(import.meta.env.VITE_MANA_SIGNER_TOKEN)
   if (!endpoint || !bearerToken) {
     return null
   }
-  const defaultEndpoint =
-    import.meta.env.VITE_MANA_SIGNER_DEFAULT_ENDPOINT?.trim() || undefined
-  const defaultRegion =
-    import.meta.env.VITE_MANA_SIGNER_DEFAULT_REGION?.trim() || undefined
-  const defaultService =
-    import.meta.env.VITE_MANA_SIGNER_DEFAULT_SERVICE?.trim() || undefined
-  const maxExpiresRaw = import.meta.env.VITE_MANA_SIGNER_MAX_EXPIRES?.trim()
-  const defaultExpiresRaw =
-    import.meta.env.VITE_MANA_SIGNER_DEFAULT_EXPIRES?.trim()
+  const defaultEndpoint = readEnvString(
+    import.meta.env.VITE_MANA_SIGNER_DEFAULT_ENDPOINT,
+  )
+  const defaultRegion = readEnvString(
+    import.meta.env.VITE_MANA_SIGNER_DEFAULT_REGION,
+  )
+  const defaultService = readEnvString(
+    import.meta.env.VITE_MANA_SIGNER_DEFAULT_SERVICE,
+  )
+  const maxExpiresRaw = readEnvString(
+    import.meta.env.VITE_MANA_SIGNER_MAX_EXPIRES,
+  )
+  const defaultExpiresRaw = readEnvString(
+    import.meta.env.VITE_MANA_SIGNER_DEFAULT_EXPIRES,
+  )
 
   const maxExpires =
     maxExpiresRaw && maxExpiresRaw.length > 0

@@ -195,6 +195,7 @@ function parseOutputs(filePath) {
   const raw = readFileSync(filePath, 'utf8')
   const json = JSON.parse(raw)
   let endpoint
+  let discoveryEndpoint
   let token
   let defaults
   for (const value of Object.values(json)) {
@@ -206,6 +207,12 @@ function parseOutputs(filePath) {
       value.SignerEndpoint.length > 0
     ) {
       endpoint = value.SignerEndpoint
+    }
+    if (
+      typeof value.DiscoveryEndpoint === 'string' &&
+      value.DiscoveryEndpoint.length > 0
+    ) {
+      discoveryEndpoint = value.DiscoveryEndpoint
     }
     if (typeof value.SignerToken === 'string' && value.SignerToken.length > 0) {
       token = value.SignerToken
@@ -235,6 +242,7 @@ function parseOutputs(filePath) {
 
   return {
     endpoint,
+    discoveryEndpoint: discoveryEndpoint ?? null,
     token,
     defaults: parsedDefaults,
   }
@@ -250,6 +258,7 @@ function updateSignerCacheFromOutputs(outputsFile) {
 
   const payload = {
     endpoint: data.endpoint,
+    discoveryEndpoint: data.discoveryEndpoint,
     bearerToken: data.token,
     defaults: data.defaults ?? null,
     updatedAt: new Date().toISOString(),

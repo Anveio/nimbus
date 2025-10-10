@@ -1,7 +1,6 @@
 import { useCallback, useReducer } from 'react'
 
 export interface SshFormState {
-  readonly signedUrl: string
   readonly host: string
   readonly port: string
   readonly username: string
@@ -9,15 +8,11 @@ export interface SshFormState {
   readonly awsRegion: string
   readonly awsService: string
   readonly expiresInSeconds: string
-  readonly accessKeyId: string
-  readonly secretAccessKey: string
-  readonly sessionToken: string
 }
 
 type Field = keyof SshFormState
 
 const defaultState: SshFormState = {
-  signedUrl: '',
   host: '',
   port: '22',
   username: '',
@@ -26,9 +21,6 @@ const defaultState: SshFormState = {
   awsRegion: 'us-west-2',
   awsService: 'ec2-instance-connect',
   expiresInSeconds: '60',
-  accessKeyId: '',
-  secretAccessKey: '',
-  sessionToken: '',
 }
 
 type SshFormAction =

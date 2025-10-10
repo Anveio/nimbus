@@ -12,7 +12,7 @@ import type { SessionLogEntry } from './hooks/session-log'
 import { useSshFormState } from './hooks/use-ssh-form'
 import { useSshSession } from './hooks/use-ssh-session'
 import { getRemoteSignerConfig, requestRemoteSignedUrl } from './aws/remote-signer'
-import { signUrlWithSigV4 } from './aws/sigv4'
+import { useSignedUrl } from './signed-url-context'
 
 function formatLogEntry(entry: SessionLogEntry): string {
   return `${new Date(entry.timestamp).toLocaleTimeString()} ${entry.message}`
@@ -32,13 +32,11 @@ function describeError(error: unknown): string {
   }
 }
 
-type SigningSource = 'manual' | 'remote'
-
 type SigningState =
   | { readonly phase: 'idle' }
-  | { readonly phase: 'pending'; readonly source: SigningSource }
-  | { readonly phase: 'success'; readonly source: SigningSource; readonly timestamp: number }
-  | { readonly phase: 'error'; readonly source: SigningSource; readonly error: string }
+  | { readonly phase: 'pending' }
+  | { readonly phase: 'success'; readonly timestamp: number }
+  | { readonly phase: 'error'; readonly error: string }
 
 function App(): JSX.Element {
   const { state: formState, updateField, patch } = useSshFormState()
@@ -47,6 +45,7 @@ function App(): JSX.Element {
   const { state: session, connect, disconnect } = useSshSession({
     logger,
   })
+  const { signedUrl, setSignedUrl } = useSignedUrl()
 
   const remoteSigner = useMemo(() => getRemoteSignerConfig(), [])
   const [signingState, setSigningState] = useState<SigningState>({
@@ -71,9 +70,9 @@ function App(): JSX.Element {
   const handleConnect = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault()
-      void connect(formState)
+      void connect(formState, signedUrl)
     },
-    [connect, formState],
+    [connect, formState, signedUrl],
   )
 
   const handleDisconnect = useCallback(() => {
@@ -139,69 +138,11 @@ function App(): JSX.Element {
     remoteSigner,
   ])
 
-  const handleGenerateSignedUrl = useCallback(async () => {
-    setSigningState({ phase: 'pending', source: 'manual' })
-    try {
-      const normalized = normalizeSigningInputs()
-
-      const accessKeyId = formState.accessKeyId.trim()
-      if (accessKeyId.length === 0) {
-        throw new Error('Provide the AWS access key ID before signing.')
-      }
-
-      const secretAccessKey = formState.secretAccessKey.trim()
-      if (secretAccessKey.length === 0) {
-        throw new Error(
-          'Provide the AWS secret access key before signing.',
-        )
-      }
-
-      const sessionToken = formState.sessionToken.trim()
-
-      const signed = await signUrlWithSigV4({
-        url: normalized.endpoint,
-        region: normalized.region,
-        service: normalized.service,
-        expiresIn: normalized.expiresIn,
-        credentials: {
-          accessKeyId,
-          secretAccessKey,
-          sessionToken: sessionToken.length > 0 ? sessionToken : undefined,
-        },
-      })
-
-      patch({
-        signedUrl: signed,
-        endpoint: normalized.endpoint,
-        awsRegion: normalized.region,
-        awsService: normalized.service,
-        expiresInSeconds: String(normalized.expiresIn),
-      })
-      setSigningState({
-        phase: 'success',
-        source: 'manual',
-        timestamp: Date.now(),
-      })
-    } catch (error) {
-      setSigningState({
-        phase: 'error',
-        source: 'manual',
-        error: describeError(error),
-      })
-    }
-  }, [
-    formState.accessKeyId,
-    formState.secretAccessKey,
-    formState.sessionToken,
-    normalizeSigningInputs,
-    patch,
-  ])
-
   const handleGenerateRemoteSignedUrl = useCallback(async () => {
     if (!remoteSigner) {
       return
     }
-    setSigningState({ phase: 'pending', source: 'remote' })
+    setSigningState({ phase: 'pending' })
     try {
       const normalized = normalizeSigningInputs()
       const expiresLimit = remoteSigner.defaults.maxExpires
@@ -221,37 +162,33 @@ function App(): JSX.Element {
       const patchedExpires = responseDefaults.defaultExpires ?? expiresIn
 
       patch({
-        signedUrl: response.signedUrl,
         endpoint: responseDefaults.endpoint ?? normalized.endpoint,
         awsRegion: responseDefaults.region ?? normalized.region,
         awsService: responseDefaults.service ?? normalized.service,
         expiresInSeconds: String(patchedExpires),
       })
+      setSignedUrl(response.signedUrl)
 
       setSigningState({
         phase: 'success',
-        source: 'remote',
         timestamp: Date.now(),
       })
     } catch (error) {
       setSigningState({
         phase: 'error',
-        source: 'remote',
         error: describeError(error),
       })
     }
-  }, [normalizeSigningInputs, patch, remoteSigner])
+  }, [normalizeSigningInputs, patch, remoteSigner, setSignedUrl])
 
   const signingMessage = useMemo(() => {
     if (signingState.phase === 'error') {
       return signingState.error
     }
     if (signingState.phase === 'success') {
-      const prefix =
-        signingState.source === 'remote'
-          ? 'Remote signer issued a URL at'
-          : 'Signed at'
-      return `${prefix} ${new Date(signingState.timestamp).toLocaleTimeString()}.`
+      return `Remote signer issued a URL at ${new Date(
+        signingState.timestamp,
+      ).toLocaleTimeString()}.`
     }
     return null
   }, [signingState])
@@ -275,13 +212,11 @@ function App(): JSX.Element {
           <span className={styles.label}>Signed WebSocket URL</span>
           <textarea
             className={styles.textarea}
-            placeholder="Paste the AWS signed URL here"
-            value={formState.signedUrl}
-            onChange={(event) =>
-              updateField('signedUrl', event.currentTarget.value)
-            }
+            placeholder="Request a signed URL to populate this field"
+            value={signedUrl}
+            readOnly
+            aria-readonly="true"
             rows={4}
-            required
           />
         </label>
         <section className={styles.formSection}>
@@ -289,8 +224,8 @@ function App(): JSX.Element {
             <span className={styles.sectionTitle}>SigV4 Generator</span>
             <p className={styles.sectionHint}>
               {remoteSigner
-                ? 'Use the remote signer for one-click SigV4 generation or paste temporary AWS credentials to sign locally. Remote calls are protected by bearer token; local signing never leaves your browser.'
-                : 'Paste temporary AWS credentials to presign the websocket endpoint. Nothing leaves your browser—revoke credentials when you are finished.'}
+                ? 'Use the remote signer for one-click SigV4 generation. Requests stay within your AWS account; rotate the signer token by redeploying the stack.'
+                : 'Remote signer unavailable. Redeploy the dev infra to regenerate the signer endpoint before requesting SigV4 URLs.'}
             </p>
           </header>
           <div className={styles.fieldGroup}>
@@ -350,47 +285,6 @@ function App(): JSX.Element {
               />
             </label>
           </div>
-          <div className={styles.fieldGroup}>
-            <label className={styles.field}>
-              <span className={styles.label}>Access Key ID</span>
-              <input
-                className={styles.input}
-                value={formState.accessKeyId}
-                onChange={(event) =>
-                  updateField('accessKeyId', event.currentTarget.value)
-                }
-                placeholder="ASIA..."
-                autoComplete="off"
-              />
-            </label>
-            <label className={styles.field}>
-              <span className={styles.label}>Secret Access Key</span>
-              <input
-                className={styles.input}
-                type="password"
-                value={formState.secretAccessKey}
-                onChange={(event) =>
-                  updateField(
-                    'secretAccessKey',
-                    event.currentTarget.value,
-                  )
-                }
-                autoComplete="off"
-              />
-            </label>
-            <label className={styles.field}>
-              <span className={styles.label}>Session Token</span>
-              <textarea
-                className={styles.textarea}
-                value={formState.sessionToken}
-                onChange={(event) =>
-                  updateField('sessionToken', event.currentTarget.value)
-                }
-                rows={3}
-                placeholder="Paste when using temporary credentials"
-              />
-            </label>
-          </div>
           <div className={styles.sectionActions}>
             {remoteSigner && (
               <button
@@ -401,25 +295,11 @@ function App(): JSX.Element {
                 }}
                 disabled={signingState.phase === 'pending'}
               >
-                {signingState.phase === 'pending' &&
-                signingState.source === 'remote'
+                {signingState.phase === 'pending'
                   ? 'Requesting…'
                   : 'Request signed URL'}
               </button>
             )}
-            <button
-              type="button"
-              className={styles.buttonSecondary}
-              onClick={() => {
-                void handleGenerateSignedUrl()
-              }}
-              disabled={signingState.phase === 'pending'}
-            >
-              {signingState.phase === 'pending' &&
-              signingState.source === 'manual'
-                ? 'Generating…'
-                : 'Generate signed URL'}
-            </button>
             {signingMessage && (
               <p
                 className={`${styles.signingStatus} ${

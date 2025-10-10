@@ -46,6 +46,7 @@ The dev stack now provisions a lightweight Lambda + HTTP API that mints SigV4 we
 - Destroying the stack or deleting `.mana/web-demo/signer.json` revokes access.
 - The signer enforces a short max TTL (default 5 minutes); override via `--context signerMaxExpires=<seconds>` if you need longer windows.
 - Additional overrides are available: `signerEndpoint` swaps the websocket URL base, `signerService` changes the AWS service identifier, and `signerDefaultExpires` adjusts the default TTL suggested in the UI.
+- The same API exposes `/discovery`, which enumerates Mana-tagged instances, VPCs, and EC2 Instance Connect endpoints for the requested region so the web demo can self-configure connection metadata.
 
 ## Optional: deploy the testing stack
 Provision the dedicated integration-test instance (tags `mana:purpose=instance-connect-testing`) when you need to exercise the live AWS path:

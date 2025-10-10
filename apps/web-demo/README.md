@@ -42,14 +42,13 @@ The current demo echoes data locally, but the structured props make it simple to
 
 ### Generate AWS SigV4 signed URLs
 
-The Connect panel now includes a SigV4 helper so you can presign the Instance Connect websocket endpoint without dropping to a terminal.
+The Connect panel now includes a SigV4 helper backed by the dev infra’s signer Lambda so you can presign the Instance Connect websocket endpoint without pasting AWS credentials.
 
-- Paste the base websocket endpoint (defaulting to the Mana demo deployment).
-- Provide temporary AWS credentials (access key, secret, optional session token) along with region/service overrides as needed.
-- Click **Generate signed URL** to produce an expiring websocket URL—the result is injected into the main "Signed WebSocket URL" field.
-- When the dev infra is deployed you can click **Request signed URL** to call the ephemeral AWS signer Lambda instead of pasting credentials. The helper caches the signer endpoint and bearer token in `.mana/web-demo/signer.json`; remove that file (or destroy the stack) to revoke access.
+- Paste the base websocket endpoint (defaults to the Mana demo deployment) or adjust region/service overrides if needed.
+- Click **Request signed URL** to call the signer; the result is injected into the main "Signed WebSocket URL" field.
+- The signer API also exposes `/discovery`, which returns Mana-tagged instances, VPCs, and EC2 Instance Connect endpoints so tooling can auto-populate connection metadata.
 
-The helper runs entirely inside the browser; revoke the session immediately after use if you are working with elevated credentials.
+The helper reads signer metadata from `.mana/web-demo/signer.json`. Redeploy the stack (or delete the cache file) to rotate the signer token.
 
 ## Folder layout
 
