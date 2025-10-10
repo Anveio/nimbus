@@ -302,6 +302,163 @@
   color: rgba(173, 208, 255, 0.6);
 }
 
+.discoveryPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.discoveryHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.discoveryHint {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  color: rgba(230, 237, 243, 0.6);
+  line-height: 1.45;
+}
+
+.discoveryControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.discoveryRegionControl {
+  min-width: 180px;
+}
+
+.discoveryRegionInput {
+  min-width: 180px;
+}
+
+.discoveryRefresh {
+  margin-bottom: 2px;
+}
+
+.discoveryBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.discoveryStatus {
+  margin: 0;
+  font-size: 0.9rem;
+  color: rgba(230, 237, 243, 0.7);
+}
+
+.discoveryError {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #ff8080;
+}
+
+.discoveryList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.discoveryInstance {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(99, 131, 188, 0.25);
+  background: rgba(11, 17, 26, 0.75);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.discoveryInstance_selected {
+  border-color: rgba(108, 172, 255, 0.6);
+  box-shadow: 0 0 0 1px rgba(108, 172, 255, 0.25);
+}
+
+.discoveryInstanceHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.discoveryInstanceIdentity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.discoveryInstanceName {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(230, 237, 243, 0.85);
+}
+
+.discoveryInstanceId {
+  font-size: 0.8rem;
+  color: rgba(230, 237, 243, 0.5);
+  letter-spacing: 0.05em;
+}
+
+.discoveryInstanceState {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(230, 237, 243, 0.65);
+}
+
+.discoveryInstanceMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: rgba(230, 237, 243, 0.65);
+}
+
+.discoveryInstanceActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.discoveryInstanceButton {
+  min-width: 140px;
+  text-align: center;
+}
+
+.discoveryFooter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: rgba(230, 237, 243, 0.6);
+}
+
+.discoveryFootnote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.discoveryCode {
+  font-family: inherit;
+  background: rgba(11, 17, 26, 0.9);
+  border-radius: 8px;
+  border: 1px solid rgba(99, 131, 188, 0.3);
+  padding: 2px 6px;
+  font-size: 0.85rem;
+  color: rgba(173, 208, 255, 0.95);
+}
+
 .logPanel {
   flex: 1;
   display: flex;

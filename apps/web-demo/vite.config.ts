@@ -46,7 +46,27 @@ function loadSignerConfig(): CachedSignerConfig | null {
     ) {
       return null
     }
-    return parsed
+    let discoveryEndpoint = parsed.discoveryEndpoint ?? null
+    if (!discoveryEndpoint && parsed.endpoint) {
+      try {
+        const endpointUrl = new URL(parsed.endpoint)
+        const pathSegments = endpointUrl.pathname.split('/').filter(Boolean)
+        if (pathSegments.length > 0) {
+          pathSegments[pathSegments.length - 1] = 'discovery'
+        } else {
+          pathSegments.push('discovery')
+        }
+        endpointUrl.pathname = `/${pathSegments.join('/')}`
+        discoveryEndpoint = endpointUrl.toString()
+      } catch {
+        // ignore malformed endpoint; caller will fall back to explicit value or disable discovery
+        discoveryEndpoint = null
+      }
+    }
+    return {
+      ...parsed,
+      discoveryEndpoint,
+    }
   } catch (error) {
     console.warn(
       `[vite.config] Failed to read signer config: ${
@@ -59,6 +79,11 @@ function loadSignerConfig(): CachedSignerConfig | null {
 
 const signerConfig = loadSignerConfig()
 const signerDefaults = signerConfig?.defaults ?? {}
+const discoveryEndpoint =
+  typeof signerConfig?.discoveryEndpoint === 'string' &&
+  signerConfig.discoveryEndpoint.length > 0
+    ? signerConfig.discoveryEndpoint
+    : ''
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -77,7 +102,7 @@ export default defineConfig({
       signerConfig?.bearerToken ?? '',
     ),
     'import.meta.env.VITE_MANA_DISCOVERY_ENDPOINT': JSON.stringify(
-      signerConfig?.discoveryEndpoint ?? '',
+      discoveryEndpoint,
     ),
     'import.meta.env.VITE_MANA_SIGNER_DEFAULT_ENDPOINT': JSON.stringify(
       signerDefaults.endpoint ?? '',

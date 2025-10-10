@@ -48,7 +48,7 @@ The Connect panel now includes a SigV4 helper backed by the dev infra’s signer
 - Click **Request signed URL** to call the signer; the result is injected into the main "Signed WebSocket URL" field.
 - The signer API also exposes `/discovery`, which returns Mana-tagged instances, VPCs, and EC2 Instance Connect endpoints so tooling can auto-populate connection metadata.
 
-The helper reads signer metadata from `.mana/web-demo/signer.json`. Redeploy the stack (or delete the cache file) to rotate the signer token.
+The helper reads signer metadata from `.mana/web-demo/signer.json`. Redeploy the stack (or delete the cache file) to rotate the signer token. The Vite build config inlines both the signer and discovery endpoints (deriving `/discovery` from older caches that only know about `/sign`), so no manual `VITE_*` environment wiring is required once the helper file exists.
 
 ## Folder layout
 

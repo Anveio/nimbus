@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useEffect,
   useMemo,
   useState,
   type FormEvent,
@@ -13,6 +14,8 @@ import { useSshFormState } from './hooks/use-ssh-form'
 import { useSshSession } from './hooks/use-ssh-session'
 import { getRemoteSignerConfig, requestRemoteSignedUrl } from './aws/remote-signer'
 import { useSignedUrl } from './signed-url-context'
+import { useDiscovery } from './discovery-context'
+import type { DiscoveryResult } from './aws/discovery'
 
 function formatLogEntry(entry: SessionLogEntry): string {
   return `${new Date(entry.timestamp).toLocaleTimeString()} ${entry.message}`
@@ -32,6 +35,21 @@ function describeError(error: unknown): string {
   }
 }
 
+type DiscoveryInstance = DiscoveryResult['instances'][number]
+
+function resolveInstanceDisplayName(instance: DiscoveryInstance): string {
+  return instance.name ?? instance.instanceId
+}
+
+function resolveInstanceHost(instance: DiscoveryInstance): string | null {
+  return (
+    instance.publicDnsName ??
+    instance.publicIpAddress ??
+    instance.privateIpAddress ??
+    null
+  )
+}
+
 type SigningState =
   | { readonly phase: 'idle' }
   | { readonly phase: 'pending' }
@@ -46,11 +64,30 @@ function App(): JSX.Element {
     logger,
   })
   const { signedUrl, setSignedUrl } = useSignedUrl()
+  const {
+    region: discoveryRegion,
+    setRegion: setDiscoveryRegion,
+    query: discoveryQuery,
+    isConfigured: isDiscoveryConfigured,
+  } = useDiscovery()
 
   const remoteSigner = useMemo(() => getRemoteSignerConfig(), [])
   const [signingState, setSigningState] = useState<SigningState>({
     phase: 'idle',
   })
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null)
+
+  const discoveryData = discoveryQuery.data
+  const discoveryInstances = useMemo(
+    () => discoveryData?.instances ?? [],
+    [discoveryData],
+  )
+  const discoveryInstanceConnectCount =
+    discoveryData?.instanceConnectEndpoints.length ?? 0
+  const resolvedDiscoveryRegion =
+    discoveryRegion ?? discoveryData?.region ?? null
+  const discoveryIsFetching = discoveryQuery.fetchStatus === 'fetching'
+  const discoveryHasError = discoveryQuery.status === 'error'
 
   const errorMessage =
     session.phase === 'error' ? session.error : null
@@ -78,6 +115,44 @@ function App(): JSX.Element {
   const handleDisconnect = useCallback(() => {
     void disconnect()
   }, [disconnect])
+
+  const handleDiscoveryRegionChange = useCallback(
+    (value: string) => {
+      const trimmed = value.trim()
+      setDiscoveryRegion(trimmed.length > 0 ? trimmed : null)
+      updateField('awsRegion', trimmed)
+      setSelectedInstanceId(null)
+    },
+    [setDiscoveryRegion, updateField],
+  )
+
+  const handleSelectInstance = useCallback(
+    (instance: DiscoveryInstance) => {
+      const hostCandidate = resolveInstanceHost(instance)
+      if (hostCandidate) {
+        updateField('host', hostCandidate)
+      }
+
+      if (resolvedDiscoveryRegion) {
+        updateField('awsRegion', resolvedDiscoveryRegion)
+      }
+
+      setSelectedInstanceId(instance.instanceId)
+    },
+    [resolvedDiscoveryRegion, updateField],
+  )
+
+  useEffect(() => {
+    if (!selectedInstanceId) {
+      return
+    }
+    const stillPresent = discoveryInstances.some(
+      (instance) => instance.instanceId === selectedInstanceId,
+    )
+    if (!stillPresent) {
+      setSelectedInstanceId(null)
+    }
+  }, [discoveryInstances, selectedInstanceId])
 
   const normalizeSigningInputs = useCallback(() => {
     const endpointInput = formState.endpoint.trim()
@@ -206,6 +281,152 @@ function App(): JSX.Element {
           </span>
         </div>
       </header>
+
+      <section className={`${styles.card} ${styles.discoveryPanel}`}>
+        <div className={styles.discoveryHeader}>
+          <div>
+            <span className={styles.cardTitle}>AWS Discovery</span>
+            <p className={styles.discoveryHint}>
+              Load Mana-tagged EC2 inventory to prefill the connection form.
+            </p>
+          </div>
+          {isDiscoveryConfigured && (
+            <div className={styles.discoveryControls}>
+              <label
+                className={`${styles.field} ${styles.discoveryRegionControl}`}
+              >
+                <span className={styles.label}>Region</span>
+                <input
+                  className={`${styles.input} ${styles.discoveryRegionInput}`}
+                  value={discoveryRegion ?? ''}
+                  onChange={(event) =>
+                    handleDiscoveryRegionChange(event.currentTarget.value)
+                  }
+                  placeholder={discoveryData?.region ?? 'us-west-2'}
+                  autoComplete="off"
+                />
+              </label>
+              <button
+                type="button"
+                className={`${styles.buttonSecondary} ${styles.discoveryRefresh}`}
+                onClick={() => {
+                  void discoveryQuery.refetch()
+                }}
+                disabled={discoveryIsFetching}
+              >
+                {discoveryIsFetching ? 'Refreshing…' : 'Refresh'}
+              </button>
+            </div>
+          )}
+        </div>
+        {isDiscoveryConfigured ? (
+          <>
+            <div className={styles.discoveryBody}>
+              {discoveryIsFetching && discoveryQuery.status === 'pending' ? (
+                <p className={styles.discoveryStatus}>Loading discovery data…</p>
+              ) : discoveryHasError ? (
+                <p className={styles.discoveryError}>
+                  Unable to load discovery data:{' '}
+                  {describeError(discoveryQuery.error)}
+                </p>
+              ) : discoveryInstances.length > 0 ? (
+                <ul className={styles.discoveryList}>
+                  {discoveryInstances.map((instance) => {
+                    const hostCandidate = resolveInstanceHost(instance)
+                    const isSelected =
+                      selectedInstanceId === instance.instanceId
+                    return (
+                      <li
+                        key={instance.instanceId}
+                        className={`${styles.discoveryInstance} ${
+                          isSelected
+                            ? styles.discoveryInstance_selected
+                            : ''
+                        }`}
+                      >
+                        <div className={styles.discoveryInstanceHeader}>
+                          <div className={styles.discoveryInstanceIdentity}>
+                            <span className={styles.discoveryInstanceName}>
+                              {resolveInstanceDisplayName(instance)}
+                            </span>
+                            <span className={styles.discoveryInstanceId}>
+                              {instance.instanceId}
+                            </span>
+                          </div>
+                          <span className={styles.discoveryInstanceState}>
+                            {instance.state ?? 'unknown'}
+                          </span>
+                        </div>
+                        <div className={styles.discoveryInstanceMeta}>
+                          {hostCandidate ? (
+                            <span>Host: {hostCandidate}</span>
+                          ) : (
+                            <span>Host: unavailable</span>
+                          )}
+                          {instance.availabilityZone && (
+                            <span>Zone: {instance.availabilityZone}</span>
+                          )}
+                          {instance.vpcId && <span>VPC: {instance.vpcId}</span>}
+                          {instance.subnetId && (
+                            <span>Subnet: {instance.subnetId}</span>
+                          )}
+                        </div>
+                        <div className={styles.discoveryInstanceActions}>
+                          <button
+                            type="button"
+                            className={`${styles.discoveryInstanceButton} ${
+                              isSelected
+                                ? styles.buttonPrimary
+                                : styles.buttonSecondary
+                            }`}
+                            onClick={() => handleSelectInstance(instance)}
+                            disabled={!hostCandidate}
+                          >
+                            {isSelected
+                              ? 'Selected'
+                              : hostCandidate
+                                ? 'Use in form'
+                                : 'No routable host'}
+                          </button>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : (
+                <p className={styles.discoveryStatus}>
+                  No Mana-tagged EC2 instances found for{' '}
+                  <code className={styles.discoveryCode}>
+                    {discoveryData?.region ?? resolvedDiscoveryRegion ?? '—'}
+                  </code>
+                  .
+                </p>
+              )}
+            </div>
+            <div className={styles.discoveryFooter}>
+              <span className={styles.discoveryFootnote}>
+                Showing resources for{' '}
+                <code className={styles.discoveryCode}>
+                  {discoveryData?.region ?? resolvedDiscoveryRegion ?? '—'}
+                </code>
+                .
+              </span>
+              {discoveryInstanceConnectCount > 0 && (
+                <span className={styles.discoveryFootnote}>
+                  {discoveryInstanceConnectCount} Instance Connect endpoint
+                  {discoveryInstanceConnectCount === 1 ? '' : 's'} detected.
+                </span>
+              )}
+            </div>
+          </>
+        ) : (
+          <p className={styles.discoveryStatus}>
+            Configure <code className={styles.discoveryCode}>VITE_MANA_DISCOVERY_ENDPOINT</code>{' '}
+            and <code className={styles.discoveryCode}>VITE_MANA_SIGNER_TOKEN</code> to enable
+            automatic discovery.
+          </p>
+        )}
+      </section>
 
       <form className={styles.form} onSubmit={handleConnect}>
         <label className={styles.field}>

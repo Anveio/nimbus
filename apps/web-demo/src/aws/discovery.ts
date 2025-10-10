@@ -19,7 +19,7 @@ export interface DiscoveryResult {
     readonly createdAt?: string
     readonly dnsName?: string
     readonly vpcId?: string
-    readonly subnetIds?: readonly string[]
+    readonly subnetId?: string
     readonly securityGroupIds?: readonly string[]
   }>
   readonly vpcs: Array<{
