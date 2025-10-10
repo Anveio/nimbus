@@ -9,8 +9,12 @@
     "moduleResolution": "node",
     "outDir": "dist",
     "rootDir": ".",
-    "types": ["node", "vitest/globals"],
-    "typeRoots": ["../../../../types", "./node_modules/@types"]
+    "types": ["node"],
+    "typeRoots": [
+      "../../../../types",
+      "./node_modules/@types",
+      "../../../../node_modules/@types"
+    ]
   },
-  "include": ["bin", "lib", "scripts", "tests", "../../../../types/global"]
+  "include": ["bin", "lib", "scripts", "../../../../types/global"]
 }

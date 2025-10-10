@@ -3,12 +3,11 @@
 This guide explains how to stand up a real Amazon Linux 2023 host for terminal testing/development. The stack is intentionally minimal—create it when you need it, tear it down when you are finished.
 
 ## Prerequisites
-- AWS account with permissions to manage EC2 instances, security groups, key pairs.
+- AWS account with permissions to manage EC2 instances and security groups.
 - IAM permission to call `ec2-instance-connect:SendSSHPublicKey` (granted to the AWS principal executing the helper script).
 - AWS CLI configured (`aws configure`).
 - Node.js ≥ 18 (already required by the repo).
 - Node.js ≥ 24 (all infra scripts run native TypeScript via `tsx` and rely on modern Node features).
-- Existing EC2 key pair **name** in the target region (or create one with `aws ec2 create-key-pair`).
 - Your public IP address (e.g. `curl https://checkip.amazonaws.com`).
 - An active AWS profile (export `AWS_PROFILE=<name>` or rely on `default`) with a configured default region. Run `aws sso login --profile <name>` or export credentials before invoking the infra helpers.
 
@@ -21,7 +20,6 @@ Every automation assumes you’ll clean up when you’re done. Tagging, teardown
 From the monorepo root (after `npm install`):
 
 ```bash
-export MANA_DEV_SSH_KEY_NAME=<YOUR_KEY_PAIR_NAME>    # run once per session
 npm run infra -- --filter @mana/web-demo -- --deploy
 ```
 
@@ -39,6 +37,15 @@ npm run infra -- --filter @mana/web-demo
 ```
 
 Outputs include the instance ID, public DNS, and IP.
+
+### Remote websocket signer
+
+The dev stack now provisions a lightweight Lambda + HTTP API that mints SigV4 websocket URLs on demand. After a successful deploy the helper script writes `.mana/web-demo/signer.json` with the signer endpoint, bearer token, and default parameters. The web demo automatically picks up the file (via `import.meta.env`) so you can request a signed URL with one click.
+
+- Keep the bearer token private; anyone with the value can call the signer.
+- Destroying the stack or deleting `.mana/web-demo/signer.json` revokes access.
+- The signer enforces a short max TTL (default 5 minutes); override via `--context signerMaxExpires=<seconds>` if you need longer windows.
+- Additional overrides are available: `signerEndpoint` swaps the websocket URL base, `signerService` changes the AWS service identifier, and `signerDefaultExpires` adjusts the default TTL suggested in the UI.
 
 ## Optional: deploy the testing stack
 Provision the dedicated integration-test instance (tags `mana:purpose=instance-connect-testing`) when you need to exercise the live AWS path:

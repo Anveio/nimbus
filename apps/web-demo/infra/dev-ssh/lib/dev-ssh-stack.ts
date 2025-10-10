@@ -1,4 +1,5 @@
 import * as path from 'node:path'
+import { randomBytes } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { Stack, StackProps } from 'aws-cdk-lib'
 import {
@@ -13,6 +14,10 @@ import {
   UserData,
   Vpc,
 } from 'aws-cdk-lib/aws-ec2'
+import { HttpApi, HttpMethod, CorsHttpMethod } from 'aws-cdk-lib/aws-apigatewayv2'
+import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations'
+import { Runtime } from 'aws-cdk-lib/aws-lambda'
+import { NodejsFunction, OutputFormat } from 'aws-cdk-lib/aws-lambda-nodejs'
 import { CfnOutput } from 'aws-cdk-lib'
 import { Construct } from 'constructs'
 import { applyManaTags } from './tags'
@@ -28,11 +33,6 @@ export class DevSshStack extends Stack {
     })
 
     const keyName = this.node.tryGetContext('keyName') as string | undefined
-    if (!keyName) {
-      throw new Error(
-        'Context variable "keyName" is required. Supply via: cdk deploy --context keyName=your-key-pair',
-      )
-    }
 
     const allowedIp =
       (this.node.tryGetContext('allowedIp') as string | undefined) ??
@@ -97,8 +97,71 @@ chmod +x /tmp/bootstrap.sh
       instanceType,
       machineImage,
       securityGroup,
-      keyName,
+      ...(keyName ? { keyName } : {}),
       userData,
+    })
+
+    const defaultSignerEndpoint =
+      (this.node.tryGetContext('signerEndpoint') as string | undefined) ??
+      'wss://prod.us-west-2.oneclickv2-proxy.ec2.aws.dev/proxy/instance-connect'
+    const signerService =
+      (this.node.tryGetContext('signerService') as string | undefined) ??
+      'ec2-instance-connect'
+    const maxExpiresContext = Number.parseInt(
+      (this.node.tryGetContext('signerMaxExpires') as string | undefined) ?? '',
+      10,
+    )
+    const defaultExpiresContext = Number.parseInt(
+      (this.node.tryGetContext('signerDefaultExpires') as string | undefined) ??
+        '',
+      10,
+    )
+    const maxExpires =
+      Number.isFinite(maxExpiresContext) && maxExpiresContext > 0
+        ? maxExpiresContext
+        : 300
+    const defaultExpires =
+      Number.isFinite(defaultExpiresContext) && defaultExpiresContext > 0
+        ? defaultExpiresContext
+        : 60
+
+    const signerToken = randomBytes(32).toString('hex')
+
+    const signerFunction = new NodejsFunction(this, 'SigV4SignerFunction', {
+      runtime: Runtime.NODEJS_20_X,
+      entry: path.join(__dirname, 'signer', 'handler.ts'),
+      handler: 'handler',
+      bundling: {
+        target: 'node20',
+        format: OutputFormat.CJS,
+        externalModules: [],
+      },
+      environment: {
+        SIGNER_TOKEN: signerToken,
+        DEFAULT_ENDPOINT: defaultSignerEndpoint,
+        DEFAULT_REGION: Stack.of(this).region,
+        DEFAULT_SERVICE: signerService,
+        MAX_EXPIRES: String(maxExpires),
+        DEFAULT_EXPIRES: String(defaultExpires),
+      },
+    })
+
+    const signerIntegration = new HttpLambdaIntegration(
+      'SigV4SignerIntegration',
+      signerFunction,
+    )
+    const signerApi = new HttpApi(this, 'SigV4SignerApi', {
+      corsPreflight: {
+        allowHeaders: ['authorization', 'content-type'],
+        allowMethods: [CorsHttpMethod.POST, CorsHttpMethod.OPTIONS],
+        allowOrigins: ['*'],
+      },
+    })
+
+    signerApi.addRoutes({
+      path: '/sign',
+      methods: [HttpMethod.POST],
+      integration: signerIntegration,
     })
 
     new CfnOutput(this, 'InstanceId', {
@@ -114,6 +177,27 @@ chmod +x /tmp/bootstrap.sh
     new CfnOutput(this, 'PublicIp', {
       value: instance.instancePublicIp ?? '0.0.0.0',
       description: 'Public IP address for SSH',
+    })
+
+    new CfnOutput(this, 'SignerEndpoint', {
+      value: `${signerApi.apiEndpoint}/sign`,
+      description: 'HTTPS endpoint for obtaining SigV4 signed websocket URLs',
+    })
+
+    new CfnOutput(this, 'SignerToken', {
+      value: signerToken,
+      description: 'Bearer token required to use the SigV4 signer endpoint',
+    })
+
+    new CfnOutput(this, 'SignerDefaults', {
+      value: JSON.stringify({
+        endpoint: defaultSignerEndpoint,
+        region: Stack.of(this).region,
+        service: signerService,
+        maxExpires,
+        defaultExpires,
+      }),
+      description: 'Default signing configuration for the SigV4 signer',
     })
   }
 }

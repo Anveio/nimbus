@@ -163,4 +163,11 @@ async function main() {
   await deleteStacks(client, stacks, cliOptions.wait ?? false)
 }
 
-await main()
+void (async () => {
+  try {
+    await main()
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exit(1)
+  }
+})()

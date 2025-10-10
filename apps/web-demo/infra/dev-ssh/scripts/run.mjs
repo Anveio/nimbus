@@ -4,11 +4,21 @@ import https from 'node:https'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import process from 'node:process'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { ensureCdkEnv, ensureCdkBootstrap } from './aws-env.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const stackDir = path.resolve(__dirname, '..')
+const repoRoot = path.resolve(__dirname, ...Array(5).fill('..'))
+const signerCacheDir = path.resolve(repoRoot, '.mana', 'web-demo')
+const signerCachePath = path.resolve(signerCacheDir, 'signer.json')
 
 const KNOWN_COMMANDS = new Set(['deploy', 'destroy', 'synth', 'diff'])
 
@@ -86,17 +96,6 @@ async function main() {
 
   const contextArgs = []
 
-  if (!providedContextKeys.has('keyName')) {
-    const keyName = process.env.MANA_DEV_SSH_KEY_NAME ?? process.env.MANA_DEFAULT_KEY_NAME
-    if (!keyName) {
-      console.error(
-        'Missing key pair context. Set MANA_DEV_SSH_KEY_NAME or pass --context keyName=<pair-name>.',
-      )
-      process.exit(1)
-    }
-    contextArgs.push('--context', `keyName=${keyName}`)
-  }
-
   if (!providedContextKeys.has('allowedIp')) {
     let allowedIp = process.env.MANA_DEV_SSH_ALLOWED_IP
     if (!allowedIp) {
@@ -136,9 +135,12 @@ async function main() {
   }
 
   const cdkArgs = [command, ...contextArgs, ...passthrough]
+  let outputsFile
 
   if (command === 'deploy') {
     cdkArgs.push('--require-approval', 'never')
+    outputsFile = path.resolve(stackDir, '.cdk-outputs.json')
+    cdkArgs.push('--outputs-file', outputsFile)
   } else if (command === 'destroy') {
     cdkArgs.push('--force')
   }
@@ -151,9 +153,120 @@ async function main() {
 
   if (result.error) {
     console.error(result.error)
+    if (outputsFile && existsSync(outputsFile)) {
+      rmSync(outputsFile, { force: true })
+    }
     process.exit(result.status ?? 1)
   }
-  process.exit(result.status ?? 0)
+
+  const exitCode = result.status ?? 0
+
+  if (exitCode === 0) {
+    if (command === 'deploy' && outputsFile) {
+      try {
+        updateSignerCacheFromOutputs(outputsFile)
+      } catch (error) {
+        console.warn(
+          `Unable to cache signer configuration: ${error instanceof Error ? error.message : String(error)}`,
+        )
+      }
+    } else if (command === 'destroy') {
+      removeSignerCache()
+    }
+  }
+
+  if (outputsFile && existsSync(outputsFile)) {
+    rmSync(outputsFile, { force: true })
+  }
+
+  process.exit(exitCode)
+}
+
+function ensureDirectory(dir) {
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true })
+  }
+}
+
+function parseOutputs(filePath) {
+  if (!existsSync(filePath)) {
+    return null
+  }
+  const raw = readFileSync(filePath, 'utf8')
+  const json = JSON.parse(raw)
+  let endpoint
+  let token
+  let defaults
+  for (const value of Object.values(json)) {
+    if (!value || typeof value !== 'object') {
+      continue
+    }
+    if (
+      typeof value.SignerEndpoint === 'string' &&
+      value.SignerEndpoint.length > 0
+    ) {
+      endpoint = value.SignerEndpoint
+    }
+    if (typeof value.SignerToken === 'string' && value.SignerToken.length > 0) {
+      token = value.SignerToken
+    }
+    if (
+      typeof value.SignerDefaults === 'string' &&
+      value.SignerDefaults.length > 0
+    ) {
+      defaults = value.SignerDefaults
+    }
+  }
+
+  if (!endpoint || !token) {
+    return null
+  }
+
+  let parsedDefaults
+  if (defaults) {
+    try {
+      parsedDefaults = JSON.parse(defaults)
+    } catch (error) {
+      console.warn(
+        `Failed to parse signer defaults from stack outputs: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+  }
+
+  return {
+    endpoint,
+    token,
+    defaults: parsedDefaults,
+  }
+}
+
+function updateSignerCacheFromOutputs(outputsFile) {
+  const data = parseOutputs(outputsFile)
+  if (!data) {
+    return
+  }
+
+  ensureDirectory(signerCacheDir)
+
+  const payload = {
+    endpoint: data.endpoint,
+    bearerToken: data.token,
+    defaults: data.defaults ?? null,
+    updatedAt: new Date().toISOString(),
+  }
+  writeFileSync(signerCachePath, JSON.stringify(payload, null, 2))
+  process.stderr.write(
+    `Signer configuration written to ${path.relative(repoRoot, signerCachePath)}\n`,
+  )
+}
+
+function removeSignerCache() {
+  if (existsSync(signerCachePath)) {
+    rmSync(signerCachePath, { force: true })
+    process.stderr.write(
+      `Removed signer configuration at ${path.relative(repoRoot, signerCachePath)}\n`,
+    )
+  }
 }
 
 await main()

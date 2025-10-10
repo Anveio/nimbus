@@ -11,6 +11,7 @@ import { useSessionLog } from './hooks/use-session-log'
 import type { SessionLogEntry } from './hooks/session-log'
 import { useSshFormState } from './hooks/use-ssh-form'
 import { useSshSession } from './hooks/use-ssh-session'
+import { getRemoteSignerConfig, requestRemoteSignedUrl } from './aws/remote-signer'
 import { signUrlWithSigV4 } from './aws/sigv4'
 
 function formatLogEntry(entry: SessionLogEntry): string {
@@ -31,6 +32,14 @@ function describeError(error: unknown): string {
   }
 }
 
+type SigningSource = 'manual' | 'remote'
+
+type SigningState =
+  | { readonly phase: 'idle' }
+  | { readonly phase: 'pending'; readonly source: SigningSource }
+  | { readonly phase: 'success'; readonly source: SigningSource; readonly timestamp: number }
+  | { readonly phase: 'error'; readonly source: SigningSource; readonly error: string }
+
 function App(): JSX.Element {
   const { state: formState, updateField, patch } = useSshFormState()
   const { entries, append, clear } = useSessionLog()
@@ -39,12 +48,10 @@ function App(): JSX.Element {
     logger,
   })
 
-  const [signingState, setSigningState] = useState<
-    | { readonly phase: 'idle' }
-    | { readonly phase: 'pending' }
-    | { readonly phase: 'success'; readonly timestamp: number }
-    | { readonly phase: 'error'; readonly error: string }
-  >({ phase: 'idle' })
+  const remoteSigner = useMemo(() => getRemoteSignerConfig(), [])
+  const [signingState, setSigningState] = useState<SigningState>({
+    phase: 'idle',
+  })
 
   const errorMessage =
     session.phase === 'error' ? session.error : null
@@ -73,30 +80,69 @@ function App(): JSX.Element {
     void disconnect()
   }, [disconnect])
 
-  const handleGenerateSignedUrl = useCallback(async () => {
-    setSigningState({ phase: 'pending' })
-    try {
-      const endpointInput = formState.endpoint.trim()
-      if (endpointInput.length === 0) {
-        throw new Error('Provide the websocket endpoint before signing.')
-      }
-      let endpointUrl: URL
-      try {
-        endpointUrl = new URL(endpointInput)
-      } catch {
-        throw new Error(
-          'Endpoint must be a valid URL (https:// or wss://).',
-        )
-      }
+  const normalizeSigningInputs = useCallback(() => {
+    const endpointInput = formState.endpoint.trim()
+    if (endpointInput.length === 0) {
+      throw new Error('Provide the websocket endpoint before signing.')
+    }
 
-      if (
-        endpointUrl.protocol !== 'https:' &&
-        endpointUrl.protocol !== 'wss:'
-      ) {
-        throw new Error(
-          'Endpoint must use https:// or wss:// so the websocket handshake can be signed.',
-        )
-      }
+    let endpointUrl: URL
+    try {
+      endpointUrl = new URL(endpointInput)
+    } catch {
+      throw new Error('Endpoint must be a valid URL (https:// or wss://).')
+    }
+
+    if (endpointUrl.protocol !== 'https:' && endpointUrl.protocol !== 'wss:') {
+      throw new Error(
+        'Endpoint must use https:// or wss:// so the websocket handshake can be signed.',
+      )
+    }
+
+    const region = formState.awsRegion.trim()
+    if (region.length === 0) {
+      throw new Error('AWS region is required for SigV4 signing.')
+    }
+
+    const service = formState.awsService.trim()
+    if (service.length === 0) {
+      throw new Error('AWS service identifier is required for signing.')
+    }
+
+    const fallbackExpires =
+      remoteSigner?.defaults.defaultExpires != null
+        ? remoteSigner.defaults.defaultExpires
+        : 60
+    const expiryInput = formState.expiresInSeconds.trim()
+    const expiresRaw =
+      expiryInput.length === 0
+        ? fallbackExpires
+        : Number.parseInt(expiryInput, 10)
+
+    if (!Number.isFinite(expiresRaw)) {
+      throw new Error('Expires in must be a finite number of seconds.')
+    }
+
+    const expiresIn = Math.max(1, Math.floor(expiresRaw))
+
+    return {
+      endpoint: endpointUrl.toString(),
+      region,
+      service,
+      expiresIn,
+    }
+  }, [
+    formState.awsRegion,
+    formState.awsService,
+    formState.endpoint,
+    formState.expiresInSeconds,
+    remoteSigner,
+  ])
+
+  const handleGenerateSignedUrl = useCallback(async () => {
+    setSigningState({ phase: 'pending', source: 'manual' })
+    try {
+      const normalized = normalizeSigningInputs()
 
       const accessKeyId = formState.accessKeyId.trim()
       if (accessKeyId.length === 0) {
@@ -110,33 +156,13 @@ function App(): JSX.Element {
         )
       }
 
-      const region = formState.awsRegion.trim()
-      if (region.length === 0) {
-        throw new Error('AWS region is required for SigV4 signing.')
-      }
-
-      const service = formState.awsService.trim()
-      if (service.length === 0) {
-        throw new Error('AWS service identifier is required for signing.')
-      }
-
-      const expiryInput = formState.expiresInSeconds.trim()
-      const expiresIn =
-        expiryInput.length === 0
-          ? 60
-          : Number.parseInt(expiryInput, 10)
-
-      if (!Number.isFinite(expiresIn)) {
-        throw new Error('Expires in must be a finite number of seconds.')
-      }
-
       const sessionToken = formState.sessionToken.trim()
 
       const signed = await signUrlWithSigV4({
-        url: endpointUrl.toString(),
-        region,
-        service,
-        expiresIn,
+        url: normalized.endpoint,
+        region: normalized.region,
+        service: normalized.service,
+        expiresIn: normalized.expiresIn,
         credentials: {
           accessKeyId,
           secretAccessKey,
@@ -144,31 +170,88 @@ function App(): JSX.Element {
         },
       })
 
-      patch({ signedUrl: signed })
-      setSigningState({ phase: 'success', timestamp: Date.now() })
+      patch({
+        signedUrl: signed,
+        endpoint: normalized.endpoint,
+        awsRegion: normalized.region,
+        awsService: normalized.service,
+        expiresInSeconds: String(normalized.expiresIn),
+      })
+      setSigningState({
+        phase: 'success',
+        source: 'manual',
+        timestamp: Date.now(),
+      })
     } catch (error) {
       setSigningState({
         phase: 'error',
+        source: 'manual',
         error: describeError(error),
       })
     }
   }, [
     formState.accessKeyId,
-    formState.awsRegion,
-    formState.awsService,
-    formState.endpoint,
-    formState.expiresInSeconds,
     formState.secretAccessKey,
     formState.sessionToken,
+    normalizeSigningInputs,
     patch,
   ])
+
+  const handleGenerateRemoteSignedUrl = useCallback(async () => {
+    if (!remoteSigner) {
+      return
+    }
+    setSigningState({ phase: 'pending', source: 'remote' })
+    try {
+      const normalized = normalizeSigningInputs()
+      const expiresLimit = remoteSigner.defaults.maxExpires
+      const expiresIn =
+        expiresLimit != null
+          ? Math.min(normalized.expiresIn, expiresLimit)
+          : normalized.expiresIn
+
+      const response = await requestRemoteSignedUrl({
+        endpoint: normalized.endpoint,
+        region: normalized.region,
+        service: normalized.service,
+        expiresIn,
+      })
+
+      const responseDefaults = response.defaults ?? {}
+      const patchedExpires = responseDefaults.defaultExpires ?? expiresIn
+
+      patch({
+        signedUrl: response.signedUrl,
+        endpoint: responseDefaults.endpoint ?? normalized.endpoint,
+        awsRegion: responseDefaults.region ?? normalized.region,
+        awsService: responseDefaults.service ?? normalized.service,
+        expiresInSeconds: String(patchedExpires),
+      })
+
+      setSigningState({
+        phase: 'success',
+        source: 'remote',
+        timestamp: Date.now(),
+      })
+    } catch (error) {
+      setSigningState({
+        phase: 'error',
+        source: 'remote',
+        error: describeError(error),
+      })
+    }
+  }, [normalizeSigningInputs, patch, remoteSigner])
 
   const signingMessage = useMemo(() => {
     if (signingState.phase === 'error') {
       return signingState.error
     }
     if (signingState.phase === 'success') {
-      return `Signed at ${new Date(signingState.timestamp).toLocaleTimeString()} and copied above.`
+      const prefix =
+        signingState.source === 'remote'
+          ? 'Remote signer issued a URL at'
+          : 'Signed at'
+      return `${prefix} ${new Date(signingState.timestamp).toLocaleTimeString()}.`
     }
     return null
   }, [signingState])
@@ -205,9 +288,9 @@ function App(): JSX.Element {
           <header className={styles.sectionHeader}>
             <span className={styles.sectionTitle}>SigV4 Generator</span>
             <p className={styles.sectionHint}>
-              Paste temporary AWS credentials to presign the websocket
-              endpoint. Nothing leaves your browser—revoke credentials
-              when you are finished.
+              {remoteSigner
+                ? 'Use the remote signer for one-click SigV4 generation or paste temporary AWS credentials to sign locally. Remote calls are protected by bearer token; local signing never leaves your browser.'
+                : 'Paste temporary AWS credentials to presign the websocket endpoint. Nothing leaves your browser—revoke credentials when you are finished.'}
             </p>
           </header>
           <div className={styles.fieldGroup}>
@@ -309,6 +392,21 @@ function App(): JSX.Element {
             </label>
           </div>
           <div className={styles.sectionActions}>
+            {remoteSigner && (
+              <button
+                type="button"
+                className={styles.buttonPrimary}
+                onClick={() => {
+                  void handleGenerateRemoteSignedUrl()
+                }}
+                disabled={signingState.phase === 'pending'}
+              >
+                {signingState.phase === 'pending' &&
+                signingState.source === 'remote'
+                  ? 'Requesting…'
+                  : 'Request signed URL'}
+              </button>
+            )}
             <button
               type="button"
               className={styles.buttonSecondary}
@@ -317,7 +415,8 @@ function App(): JSX.Element {
               }}
               disabled={signingState.phase === 'pending'}
             >
-              {signingState.phase === 'pending'
+              {signingState.phase === 'pending' &&
+              signingState.source === 'manual'
                 ? 'Generating…'
                 : 'Generate signed URL'}
             </button>

@@ -78,7 +78,7 @@ Mana is a zero-dependency, standards-compliant, universally embeddable terminal 
    - `npm run test -- --filter @mana/vt` — parser/interpreter property tests.
 3. Optional infrastructure helpers
   - Real SSH target: see [docs/aws-dev-target.md](docs/aws-dev-target.md) for CDK details.
-  - Export your default key pair name once: `export MANA_DEV_SSH_KEY_NAME=<ec2-key-name>` (optionally add to shell rc). Optional overrides: `MANA_DEV_SSH_ALLOWED_IP` (CIDR) and `MANA_DEV_SSH_STACK_NAME`.
+  - Optional overrides: `MANA_DEV_SSH_ALLOWED_IP` (CIDR) and `MANA_DEV_SSH_STACK_NAME`.
   - `npm run infra -- --filter @mana/web-demo` — synthesize the stack (no changes applied).
   - `npm run infra -- --filter @mana/web-demo -- --deploy` — deploy the dev EC2 instance (the script automatically opens the security group to your current public IP).
   - `npm run infra -- --filter @mana/web-demo -- --destroy` — tear the stack down when finished.

@@ -47,6 +47,7 @@ The Connect panel now includes a SigV4 helper so you can presign the Instance Co
 - Paste the base websocket endpoint (defaulting to the Mana demo deployment).
 - Provide temporary AWS credentials (access key, secret, optional session token) along with region/service overrides as needed.
 - Click **Generate signed URL** to produce an expiring websocket URL—the result is injected into the main "Signed WebSocket URL" field.
+- When the dev infra is deployed you can click **Request signed URL** to call the ephemeral AWS signer Lambda instead of pasting credentials. The helper caches the signer endpoint and bearer token in `.mana/web-demo/signer.json`; remove that file (or destroy the stack) to revoke access.
 
 The helper runs entirely inside the browser; revoke the session immediately after use if you are working with elevated credentials.
 
