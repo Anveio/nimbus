@@ -40,6 +40,16 @@ The current demo echoes data locally, but the structured props make it simple to
 2. Toggle `styling.localEcho` depending on whether the transport echoes characters or you want optimistic rendering.
 3. Observe render telemetry through `instrumentation.onFrame` and `terminalRef.current?.getRendererBackend()` when debugging backends.
 
+### Generate AWS SigV4 signed URLs
+
+The Connect panel now includes a SigV4 helper so you can presign the Instance Connect websocket endpoint without dropping to a terminal.
+
+- Paste the base websocket endpoint (defaulting to the Mana demo deployment).
+- Provide temporary AWS credentials (access key, secret, optional session token) along with region/service overrides as needed.
+- Click **Generate signed URL** to produce an expiring websocket URL—the result is injected into the main "Signed WebSocket URL" field.
+
+The helper runs entirely inside the browser; revoke the session immediately after use if you are working with elevated credentials.
+
 ## Folder layout
 
 - `src/` – React entry point and styling.

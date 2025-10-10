@@ -98,6 +98,57 @@
   gap: 8px;
 }
 
+.formSection {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  background: rgba(11, 17, 26, 0.65);
+  border: 1px solid rgba(99, 131, 188, 0.2);
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.sectionHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sectionTitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(230, 237, 243, 0.75);
+}
+
+.sectionHint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(230, 237, 243, 0.55);
+  line-height: 1.4;
+}
+
+.sectionActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.signingStatus {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.signingStatus_error {
+  color: #ff8080;
+}
+
+.signingStatus_success {
+  color: #5fe39d;
+}
+
 .label {
   font-size: 0.85rem;
   letter-spacing: 0.06em;

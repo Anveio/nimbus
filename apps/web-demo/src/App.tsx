@@ -1,22 +1,50 @@
-import { useCallback, useMemo, type FormEvent, type JSX } from 'react'
+import {
+  useCallback,
+  useMemo,
+  useState,
+  type FormEvent,
+  type JSX,
+} from 'react'
 
 import styles from './App.module.css'
 import { useSessionLog } from './hooks/use-session-log'
 import type { SessionLogEntry } from './hooks/session-log'
 import { useSshFormState } from './hooks/use-ssh-form'
 import { useSshSession } from './hooks/use-ssh-session'
+import { signUrlWithSigV4 } from './aws/sigv4'
 
 function formatLogEntry(entry: SessionLogEntry): string {
   return `${new Date(entry.timestamp).toLocaleTimeString()} ${entry.message}`
 }
 
+function describeError(error: unknown): string {
+  if (error instanceof Error && typeof error.message === 'string') {
+    return error.message
+  }
+  if (typeof error === 'string') {
+    return error
+  }
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return String(error)
+  }
+}
+
 function App(): JSX.Element {
-  const { state: formState, updateField } = useSshFormState()
+  const { state: formState, updateField, patch } = useSshFormState()
   const { entries, append, clear } = useSessionLog()
   const logger = useMemo(() => ({ append, clear }), [append, clear])
   const { state: session, connect, disconnect } = useSshSession({
     logger,
   })
+
+  const [signingState, setSigningState] = useState<
+    | { readonly phase: 'idle' }
+    | { readonly phase: 'pending' }
+    | { readonly phase: 'success'; readonly timestamp: number }
+    | { readonly phase: 'error'; readonly error: string }
+  >({ phase: 'idle' })
 
   const errorMessage =
     session.phase === 'error' ? session.error : null
@@ -44,6 +72,106 @@ function App(): JSX.Element {
   const handleDisconnect = useCallback(() => {
     void disconnect()
   }, [disconnect])
+
+  const handleGenerateSignedUrl = useCallback(async () => {
+    setSigningState({ phase: 'pending' })
+    try {
+      const endpointInput = formState.endpoint.trim()
+      if (endpointInput.length === 0) {
+        throw new Error('Provide the websocket endpoint before signing.')
+      }
+      let endpointUrl: URL
+      try {
+        endpointUrl = new URL(endpointInput)
+      } catch {
+        throw new Error(
+          'Endpoint must be a valid URL (https:// or wss://).',
+        )
+      }
+
+      if (
+        endpointUrl.protocol !== 'https:' &&
+        endpointUrl.protocol !== 'wss:'
+      ) {
+        throw new Error(
+          'Endpoint must use https:// or wss:// so the websocket handshake can be signed.',
+        )
+      }
+
+      const accessKeyId = formState.accessKeyId.trim()
+      if (accessKeyId.length === 0) {
+        throw new Error('Provide the AWS access key ID before signing.')
+      }
+
+      const secretAccessKey = formState.secretAccessKey.trim()
+      if (secretAccessKey.length === 0) {
+        throw new Error(
+          'Provide the AWS secret access key before signing.',
+        )
+      }
+
+      const region = formState.awsRegion.trim()
+      if (region.length === 0) {
+        throw new Error('AWS region is required for SigV4 signing.')
+      }
+
+      const service = formState.awsService.trim()
+      if (service.length === 0) {
+        throw new Error('AWS service identifier is required for signing.')
+      }
+
+      const expiryInput = formState.expiresInSeconds.trim()
+      const expiresIn =
+        expiryInput.length === 0
+          ? 60
+          : Number.parseInt(expiryInput, 10)
+
+      if (!Number.isFinite(expiresIn)) {
+        throw new Error('Expires in must be a finite number of seconds.')
+      }
+
+      const sessionToken = formState.sessionToken.trim()
+
+      const signed = await signUrlWithSigV4({
+        url: endpointUrl.toString(),
+        region,
+        service,
+        expiresIn,
+        credentials: {
+          accessKeyId,
+          secretAccessKey,
+          sessionToken: sessionToken.length > 0 ? sessionToken : undefined,
+        },
+      })
+
+      patch({ signedUrl: signed })
+      setSigningState({ phase: 'success', timestamp: Date.now() })
+    } catch (error) {
+      setSigningState({
+        phase: 'error',
+        error: describeError(error),
+      })
+    }
+  }, [
+    formState.accessKeyId,
+    formState.awsRegion,
+    formState.awsService,
+    formState.endpoint,
+    formState.expiresInSeconds,
+    formState.secretAccessKey,
+    formState.sessionToken,
+    patch,
+  ])
+
+  const signingMessage = useMemo(() => {
+    if (signingState.phase === 'error') {
+      return signingState.error
+    }
+    if (signingState.phase === 'success') {
+      return `Signed at ${new Date(signingState.timestamp).toLocaleTimeString()} and copied above.`
+    }
+    return null
+  }, [signingState])
 
   return (
     <main className={styles.container}>
@@ -73,6 +201,139 @@ function App(): JSX.Element {
             required
           />
         </label>
+        <section className={styles.formSection}>
+          <header className={styles.sectionHeader}>
+            <span className={styles.sectionTitle}>SigV4 Generator</span>
+            <p className={styles.sectionHint}>
+              Paste temporary AWS credentials to presign the websocket
+              endpoint. Nothing leaves your browser—revoke credentials
+              when you are finished.
+            </p>
+          </header>
+          <div className={styles.fieldGroup}>
+            <label className={styles.field}>
+              <span className={styles.label}>Endpoint</span>
+              <input
+                className={styles.input}
+                value={formState.endpoint}
+                onChange={(event) =>
+                  updateField('endpoint', event.currentTarget.value)
+                }
+                placeholder="wss://prod.us-west-2.oneclickv2-proxy.ec2.aws.dev/proxy/instance-connect"
+                autoComplete="off"
+              />
+            </label>
+            <label className={styles.field}>
+              <span className={styles.label}>Region</span>
+              <input
+                className={styles.input}
+                value={formState.awsRegion}
+                onChange={(event) =>
+                  updateField('awsRegion', event.currentTarget.value)
+                }
+                placeholder="us-west-2"
+                autoComplete="off"
+              />
+            </label>
+            <label className={styles.field}>
+              <span className={styles.label}>Service</span>
+              <input
+                className={styles.input}
+                value={formState.awsService}
+                onChange={(event) =>
+                  updateField('awsService', event.currentTarget.value)
+                }
+                placeholder="ec2-instance-connect"
+                autoComplete="off"
+              />
+            </label>
+            <label className={styles.field}>
+              <span className={styles.label}>Expires (seconds)</span>
+              <input
+                className={styles.input}
+                type="number"
+                value={formState.expiresInSeconds}
+                onChange={(event) =>
+                  updateField(
+                    'expiresInSeconds',
+                    event.currentTarget.value,
+                  )
+                }
+                placeholder="60"
+                min={1}
+                max={604800}
+                step={1}
+                autoComplete="off"
+              />
+            </label>
+          </div>
+          <div className={styles.fieldGroup}>
+            <label className={styles.field}>
+              <span className={styles.label}>Access Key ID</span>
+              <input
+                className={styles.input}
+                value={formState.accessKeyId}
+                onChange={(event) =>
+                  updateField('accessKeyId', event.currentTarget.value)
+                }
+                placeholder="ASIA..."
+                autoComplete="off"
+              />
+            </label>
+            <label className={styles.field}>
+              <span className={styles.label}>Secret Access Key</span>
+              <input
+                className={styles.input}
+                type="password"
+                value={formState.secretAccessKey}
+                onChange={(event) =>
+                  updateField(
+                    'secretAccessKey',
+                    event.currentTarget.value,
+                  )
+                }
+                autoComplete="off"
+              />
+            </label>
+            <label className={styles.field}>
+              <span className={styles.label}>Session Token</span>
+              <textarea
+                className={styles.textarea}
+                value={formState.sessionToken}
+                onChange={(event) =>
+                  updateField('sessionToken', event.currentTarget.value)
+                }
+                rows={3}
+                placeholder="Paste when using temporary credentials"
+              />
+            </label>
+          </div>
+          <div className={styles.sectionActions}>
+            <button
+              type="button"
+              className={styles.buttonSecondary}
+              onClick={() => {
+                void handleGenerateSignedUrl()
+              }}
+              disabled={signingState.phase === 'pending'}
+            >
+              {signingState.phase === 'pending'
+                ? 'Generating…'
+                : 'Generate signed URL'}
+            </button>
+            {signingMessage && (
+              <p
+                className={`${styles.signingStatus} ${
+                  signingState.phase === 'error'
+                    ? styles.signingStatus_error
+                    : styles.signingStatus_success
+                }`}
+              >
+                {signingMessage}
+              </p>
+            )}
+          </div>
+        </section>
         <div className={styles.fieldGroup}>
           <label className={styles.field}>
             <span className={styles.label}>SSH Host</span>
