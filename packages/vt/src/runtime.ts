@@ -16,17 +16,133 @@ import type {
   ParserEvent,
   ParserEventSink,
   ParserOptions,
+  ParserSpec,
   TerminalCapabilities,
+  TerminalEmulator,
   TerminalFeatures,
 } from './types'
 import type { PrinterController } from './utils/printer'
 import { resolveTerminalCapabilities } from './utils/resolve-capabilities'
 
-export interface TerminalRuntimeOptions
-  extends Partial<Omit<TerminalCapabilities, 'features'>> {
-  readonly features?: Partial<TerminalFeatures>
+export type TerminalRuntimePresetName = 'vt220-xterm'
+
+export interface TerminalRuntimePreset {
+  readonly spec: ParserSpec
+  readonly emulator?: TerminalEmulator
   readonly parser?: ParserOptions
+  readonly features?: Partial<TerminalFeatures>
+}
+
+export interface TerminalRuntimeCapabilityOverrides {
+  readonly spec?: ParserSpec
+  readonly emulator?: TerminalEmulator
+  readonly features?: Partial<TerminalFeatures>
+}
+
+export type TerminalRuntimePresetInput =
+  | TerminalRuntimePresetName
+  | TerminalRuntimePreset
+
+export interface TerminalRuntimeOptions {
+  readonly preset?: TerminalRuntimePresetInput
+  readonly parser?: ParserOptions
+  readonly capabilities?: TerminalRuntimeCapabilityOverrides
   readonly printer?: PrinterController
+}
+
+export const DEFAULT_TERMINAL_RUNTIME_PRESET_NAME: TerminalRuntimePresetName =
+  'vt220-xterm'
+
+export const TERMINAL_RUNTIME_PRESETS: Readonly<
+  Record<TerminalRuntimePresetName, TerminalRuntimePreset>
+> = Object.freeze({
+  'vt220-xterm': Object.freeze({
+    spec: 'vt220',
+    emulator: 'xterm',
+    parser: Object.freeze({
+      spec: 'vt220',
+      emulator: 'xterm',
+    } satisfies ParserOptions),
+  }),
+})
+
+const mergeFeatureOverrides = (
+  base: Partial<TerminalFeatures> | undefined,
+  overlay: Partial<TerminalFeatures> | undefined,
+): Partial<TerminalFeatures> | undefined => {
+  if (!base && !overlay) {
+    return undefined
+  }
+  if (!base) {
+    return overlay
+  }
+  if (!overlay) {
+    return base
+  }
+  return { ...base, ...overlay }
+}
+
+const resolvePreset = (
+  presetInput?: TerminalRuntimePresetInput,
+): TerminalRuntimePreset => {
+  if (!presetInput) {
+    return TERMINAL_RUNTIME_PRESETS[DEFAULT_TERMINAL_RUNTIME_PRESET_NAME]
+  }
+  if (typeof presetInput === 'string') {
+    const preset = TERMINAL_RUNTIME_PRESETS[presetInput]
+    if (!preset) {
+      throw new Error(
+        `Unknown terminal runtime preset: ${presetInput as string}`,
+      )
+    }
+    return preset
+  }
+  return presetInput
+}
+
+interface TerminalRuntimeInit {
+  readonly parser: ParserOptions
+  readonly capabilities: TerminalCapabilities
+  readonly printer?: PrinterController
+}
+
+const resolveRuntimeInit = (
+  options: TerminalRuntimeOptions | undefined,
+): TerminalRuntimeInit => {
+  const preset = resolvePreset(options?.preset)
+  const overrides = options?.capabilities
+  const mergedParser: ParserOptions = {
+    ...(preset.parser ?? {}),
+    ...(options?.parser ?? {}),
+  }
+
+  const mergedFeatures = mergeFeatureOverrides(
+    preset.features,
+    overrides?.features,
+  )
+
+  const finalSpec =
+    overrides?.spec ??
+    mergedParser.spec ??
+    preset.spec
+
+  const finalEmulator =
+    overrides?.emulator ??
+    mergedParser.emulator ??
+    preset.emulator
+
+  const resolved = resolveTerminalCapabilities({
+    parser: mergedParser,
+    spec: finalSpec,
+    emulator: finalEmulator,
+    features: mergedFeatures,
+  })
+
+  return {
+    parser: resolved.parser,
+    capabilities: resolved.capabilities,
+    printer: options?.printer,
+  }
 }
 
 export type TerminalRuntimeCursorMoveDirection =
@@ -220,22 +336,12 @@ class TerminalRuntimeImpl implements TerminalRuntime {
   private readonly _interpreter: TerminalInterpreter
   private readonly _parser: Parser
 
-  constructor(options: TerminalRuntimeOptions) {
-    const resolved = resolveTerminalCapabilities({
-      parser: options.parser,
-      spec: options.spec,
-      emulator: options.emulator,
-      features: options.features,
-    })
-
-    this._parser = createParser(resolved.parser)
-
-    const capabilities: TerminalCapabilities = resolved.capabilities
-
+  constructor(init: TerminalRuntimeInit) {
+    this._parser = createParser(init.parser)
     this._interpreter = createInterpreter({
-      parser: resolved.parser,
-      capabilities,
-      printer: options.printer,
+      parser: init.parser,
+      capabilities: init.capabilities,
+      printer: init.printer,
     })
   }
 
@@ -811,8 +917,14 @@ class TerminalRuntimeImpl implements TerminalRuntime {
 }
 
 export const createTerminalRuntime = (
-  options: TerminalRuntimeOptions = {},
-): TerminalRuntime => new TerminalRuntimeImpl(options)
+  options?: TerminalRuntimeOptions,
+): TerminalRuntime => {
+  const init = resolveRuntimeInit(options)
+  return new TerminalRuntimeImpl(init)
+}
+
+export const createDefaultTerminalRuntime = (): TerminalRuntime =>
+  createTerminalRuntime()
 
 export const parser = {
   create: createParser,

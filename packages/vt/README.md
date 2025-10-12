@@ -58,14 +58,17 @@ trade-offs between strict VT220 fidelity and more permissive behaviour:
 
 ## Runtime entry point
 
-Most consumers should start with `createTerminalRuntime`. It returns a
-fully wired `{ write, writeBytes, handleEvents, reset, snapshot }` bundle
-that hides parser sinks while still exposing both the interpreter and the
-underlying parser when advanced control is required. Pass your
-`parser`/`capabilities`/`printer` options once and the runtime forwards
-them to every layer so responses, scroll regions, and printer flows stay
-in sync. `write` returns the aggregated `TerminalUpdate[]` diff emitted by
-the interpreter, which you can hand straight to renderers.
+Most consumers should start with `createDefaultTerminalRuntime()`. It
+instantiates the `'vt220-xterm'` preset and returns a fully wired
+`{ write, writeBytes, handleEvents, reset, snapshot }` bundle that hides
+parser sinks while still exposing both the interpreter and the underlying
+parser when advanced control is required. When you need to customise
+behaviour, call `createTerminalRuntime({ preset, parser, capabilities, printer })`
+to merge parser tweaks or capability overrides onto any preset (or a preset
+object you supply). The runtime forwards the resolved configuration to every
+layer so responses, scroll regions, and printer flows stay in sync.
+`write` returns the aggregated `TerminalUpdate[]` diff emitted by the
+interpreter, which you can hand straight to renderers.
 
 If you need to tap directly into parser events (for logging, fuzzing, or
 alternate interpreters) the raw `createParser` export remains available

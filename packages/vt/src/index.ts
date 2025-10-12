@@ -27,12 +27,19 @@ export type {
   TerminalRuntimeCursorMoveDirection,
   TerminalRuntimeCursorMoveOptions,
   TerminalRuntimeEvent as TerminalRuntimeHostEvent,
+  TerminalRuntimePreset,
+  TerminalRuntimePresetInput,
+  TerminalRuntimePresetName,
+  TerminalRuntimeCapabilityOverrides,
   TerminalRuntimeOptions,
   TerminalRuntimePointerEvent,
   TerminalRuntimeWheelEvent,
 } from './runtime'
 export {
+  DEFAULT_TERMINAL_RUNTIME_PRESET_NAME,
+  TERMINAL_RUNTIME_PRESETS,
   createTerminalRuntime,
+  createDefaultTerminalRuntime,
   parser,
 } from './runtime'
 

@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import type { TerminalSelection, TerminalUpdate } from './interpreter'
 import {
   createTerminalRuntime,
+  createDefaultTerminalRuntime,
+  DEFAULT_TERMINAL_RUNTIME_PRESET_NAME,
+  TERMINAL_RUNTIME_PRESETS,
   type TerminalRuntimeCursorMoveOptions,
 } from './runtime'
 import { ParserEventType } from './types'
@@ -27,6 +30,50 @@ const normaliseResponse = (data: Uint8Array): string =>
   Array.from(data)
     .map((byte) => (byte === 0x9b ? '\u001B[' : String.fromCharCode(byte)))
     .join('')
+
+describe('TerminalRuntime presets', () => {
+  it('creates a runtime with the default preset via createDefaultTerminalRuntime', () => {
+    const runtime = createDefaultTerminalRuntime()
+    const preset = TERMINAL_RUNTIME_PRESETS[DEFAULT_TERMINAL_RUNTIME_PRESET_NAME]
+    expect(runtime.interpreter.capabilities.spec).toBe(preset.spec)
+    expect(runtime.interpreter.capabilities.emulator).toBe(preset.emulator)
+  })
+
+  it('allows overriding preset capabilities', () => {
+    const runtime = createTerminalRuntime({
+      capabilities: {
+        spec: 'vt100',
+        features: { supportsAnsiColors: false },
+      },
+    })
+    expect(runtime.interpreter.capabilities.spec).toBe('vt100')
+    expect(
+      runtime.interpreter.capabilities.features.supportsAnsiColors,
+    ).toBe(false)
+  })
+
+  it('derives the spec from parser overrides when capabilities do not supply one', () => {
+    const runtime = createTerminalRuntime({
+      parser: { spec: 'vt320', emulator: 'xterm' },
+    })
+    expect(runtime.interpreter.capabilities.spec).toBe('vt320')
+  })
+
+  it('accepts custom preset objects', () => {
+    const runtime = createTerminalRuntime({
+      preset: {
+        spec: 'vt320',
+        emulator: 'xterm',
+        parser: { spec: 'vt320', emulator: 'xterm' },
+        features: { supportsScrollRegions: false },
+      },
+    })
+    expect(runtime.interpreter.capabilities.spec).toBe('vt320')
+    expect(
+      runtime.interpreter.capabilities.features.supportsScrollRegions,
+    ).toBe(false)
+  })
+})
 
 const isResponseUpdate = (
   update: TerminalUpdate,

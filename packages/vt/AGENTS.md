@@ -25,7 +25,8 @@ This file anchors how we reason about the VT parser + interpreter stack. Treat i
 - Interpreter snapshots (`src/interpreter/state.ts`) expose terminal metrics, mode toggles, printer flags, and programmable strings that hosts surface to users.
 
 ## Public Runtime Surface
-- `createTerminalRuntime` is the canonical entry point. It wires parser + interpreter, returning a stable `TerminalRuntime` façade that hides parser internals.
+- `createTerminalRuntime` is the canonical entry point. It wires parser + interpreter, returning a stable `TerminalRuntime` façade that hides parser internals. The factory now accepts presets (e.g. `'vt220-xterm'`) plus nested overrides so advanced callers can swap specs, emulator quirks, or parser options without re-implementing capability resolution.
+- `createDefaultTerminalRuntime()` is the ergonomic zero-config helper; it resolves the `'vt220-xterm'` preset (VT220 spec with xterm overlays) and should be the starting point for hosts that just want a modern terminal without tweaks.
 - Runtime write APIs (`write`, `writeBytes`) stay byte-stream focused; local UX should express intent via `dispatchEvent` or the bulk `dispatchEvents` helper when batching.
 - `TerminalRuntimeHostEvent` is the sole host-facing command surface:
   - `cursor.*` events wrap interpreter navigation primitives and preserve selection semantics.
