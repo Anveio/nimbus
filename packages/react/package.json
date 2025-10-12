@@ -1,5 +1,5 @@
 {
-  "name": "@nimbus/tui-react",
+  "name": "@nimbus/react",
   "version": "0.0.1",
   "private": true,
   "description": "React renderer for the Nimbus terminal stack.",

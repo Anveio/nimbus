@@ -5,7 +5,7 @@ import {
   ensureDefaultProfiles,
   jsonBase64V1Profile,
   lenPrefixedV1Profile,
-  manaV1Profile,
+  nimbusV1Profile,
 } from '../profiles/defaults'
 
 const sampleHello: Ctl = {
@@ -33,23 +33,23 @@ describe('wire profiles', () => {
   })
 
   it('round-trips control frames for nimbus.v1', () => {
-    const encoded = manaV1Profile.encodeCtl(sampleHello)
+    const encoded = nimbusV1Profile.encodeCtl(sampleHello)
     expect(typeof encoded).toBe('string')
-    const decoded = manaV1Profile.decodeCtl(encoded)
+    const decoded = nimbusV1Profile.decodeCtl(encoded)
     expect(decoded).toEqual(sampleHello)
   })
 
   it('splits nimbus.v1 data frames at caps.maxFrame', () => {
     const payload = makePayload(2_000_000)
-    const frames = manaV1Profile.encodeData(
+    const frames = nimbusV1Profile.encodeData(
       { stream: 'stdout', id: 5, payload },
       { maxFrame: 64_000 },
     )
     expect(frames.length).toBeGreaterThan(1)
     const reconstructed = frames
-      .map((frame) => manaV1Profile.decodeData(frame))
+      .map((frame) => nimbusV1Profile.decodeData(frame))
       .filter(
-        (f): f is NonNullable<ReturnType<typeof manaV1Profile.decodeData>> =>
+        (f): f is NonNullable<ReturnType<typeof nimbusV1Profile.decodeData>> =>
           Boolean(f),
       )
     const combined = concatenate(reconstructed.map((f) => f.payload))

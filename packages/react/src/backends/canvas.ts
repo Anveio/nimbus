@@ -11,12 +11,12 @@ const CANVAS_BACKEND_KEY = 'canvas'
 const notImplementedRegistration: RendererBackendRegistration = {
   createRuntime() {
     throw new Error(
-      'Canvas renderer backend is not yet implemented in @nimbus/tui-react.',
+      'Canvas renderer backend is not yet implemented in @nimbus/react.',
     )
   },
   mount() {
     throw new Error(
-      'Canvas renderer backend is not yet implemented in @nimbus/tui-react.',
+      'Canvas renderer backend is not yet implemented in @nimbus/react.',
     )
   },
 }

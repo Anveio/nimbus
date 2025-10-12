@@ -2,6 +2,6 @@
   "extends": "@nimbus/tsconfig/workspace-app-config.json",
   "references": [
     { "path": "./packages/vt" },
-    { "path": "./packages/tui-react" }
+    { "path": "./packages/react" }
   ]
 }

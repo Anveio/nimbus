@@ -1,12 +1,12 @@
 import { createEventBus, type EventBus } from '../../client/internal/event-bus'
-import {
-  lenPrefixedV1Profile,
-  manaV1Profile,
-  ensureDefaultProfiles,
-} from '../../protocol'
-import type { WireProfile, Ctl, DataFrame } from '../../protocol'
 import type { RuntimeWebSocket } from '../../client/internal/socket'
 import { adaptWebSocket } from '../../client/internal/socket'
+import type { Ctl, DataFrame, WireProfile } from '../../protocol'
+import {
+  ensureDefaultProfiles,
+  lenPrefixedV1Profile,
+  nimbusV1Profile,
+} from '../../protocol'
 
 export interface ServerPolicyEvent {
   readonly type: 'flow_violation' | 'protocol_error'
@@ -278,5 +278,5 @@ function resolveProfile(options: ServerConnectionOptions): WireProfile {
   }
   return options.maxFrame && options.maxFrame > 1_048_576
     ? lenPrefixedV1Profile
-    : manaV1Profile
+    : nimbusV1Profile
 }

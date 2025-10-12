@@ -1,4 +1,4 @@
-# @nimbus/tui-react Agent Charter
+# @nimbus/react Agent Charter
 
 This charter guides how we evolve the React bindings for the Nimbus terminal stack. Update it whenever architectural shifts, risks, or rituals change.
 
@@ -8,7 +8,7 @@ This charter guides how we evolve the React bindings for the Nimbus terminal sta
 - Keep the package renderer-agnostic—React coordinates lifecycle and input; concrete drawing backends live in sibling renderer packages.
 
 ## Boundaries & Dependencies
-- Owns React-specific controllers, hooks, and components located in `packages/tui-react`.
+- Owns React-specific controllers, hooks, and components located in `packages/react`.
 - Depends on renderer packages (e.g. `@nimbus/webgl-renderer`, `@nimbus/cpu-canvas-renderer`) for runtime access. **Never import `@nimbus/vt` directly**—all VT primitives flow through the renderer contract.
 - Hosts may depend on transport packages (e.g. `@nimbus/ssh`, `@nimbus/websocket`) to obtain VT-compliant byte streams, but transport orchestration remains outside this package.
 - Never inline transport, crypto, or DOM-global hacks.
@@ -21,7 +21,7 @@ This charter guides how we evolve the React bindings for the Nimbus terminal sta
 - **Accessibility & ergonomics**: Provide focus management, screen-reader affordances, and theming hooks by default, with escapes for hosts to customize.
 
 ## Testing Doctrine
-- Unit & component tests: `npm exec vitest run` inside `packages/tui-react` with React Testing Library/jsdom to cover hooks, lifecycle, and imperative handles. Co-locate unit tests alongside source modules (e.g. `src/hooks/useAutoResize.ts` ↔ `src/hooks/useAutoResize.test.tsx`).
+- Unit & component tests: `npm exec vitest run` inside `packages/react` with React Testing Library/jsdom to cover hooks, lifecycle, and imperative handles. Co-locate unit tests alongside source modules (e.g. `src/hooks/useAutoResize.ts` ↔ `src/hooks/useAutoResize.test.tsx`).
 - Integration: Contract tests with our renderer packages ensure backend swapping, selection propagation, and diagnostics remain stable.
 - End-to-end: Package-local Playwright harness (`npm run test:e2e`) mounts `<Terminal />`, drives keyboard flows, and runs `axe-core` scans; keep it green alongside the `apps/web-demo` Playwright suite that exercises full host flows.
 - Type discipline: `npm run typecheck` across the monorepo before landing changes; avoid ambient `any` escape hatches.
@@ -83,7 +83,7 @@ This charter guides how we evolve the React bindings for the Nimbus terminal sta
 - `RendererSessionProvider` consumes `createTerminalRuntime` via the renderer layer, simplifying future multi-runtime experiments.
 
 ### 2025-10-12 – Backend registry
-- Introduced `registerRendererBackend`/`rendererBackend` plumbing inside `@nimbus/tui-react` so hosts can opt into alternate renderers without touching core composition.
+- Introduced `registerRendererBackend`/`rendererBackend` plumbing inside `@nimbus/react` so hosts can opt into alternate renderers without touching core composition.
 - Default entry auto-registers the WebGL backend; advanced consumers can tree-shake by registering only the backends they need.
 - Docs/tests updated to reflect the registry contract and the new `onRuntimeResponse` forwarding path.
 

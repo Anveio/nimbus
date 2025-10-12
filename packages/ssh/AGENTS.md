@@ -10,7 +10,7 @@ This brief governs the SSH protocol core. Update it whenever RFC scope, security
 ## Scope & Boundaries
 - Lives entirely within `packages/ssh`; everything else integrates via typed adapters (transport, crypto, storage, telemetry).
 - Randomness, monotonic clocks, and crypto primitives are injected — default wiring may use WebCrypto, but the engine never calls it directly.
-- No direct socket ownership. Higher layers (`@nimbus/tui-react`, `@nimbus/websocket`, proxy server) are responsible for IO and policy UX.
+- No direct socket ownership. Higher layers (`@nimbus/react`, `@nimbus/websocket`, proxy server) are responsible for IO and policy UX.
 
 ## Specification Library
 - Canonical texts (RFCs, Internet-Drafts, OpenSSH protocol notes) live under `packages/ssh/context/*.txt`.

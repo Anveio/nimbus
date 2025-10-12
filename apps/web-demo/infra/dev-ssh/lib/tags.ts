@@ -1,8 +1,8 @@
 import { type Stack, Tags } from 'aws-cdk-lib'
 
 export const OWNER_ENV_KEYS = [
-  'MANA_RESOURCE_OWNER',
-  'MANA_DEV_SSH_OWNER',
+  'NIMBUS_RESOURCE_OWNER',
+  'NIMBUS_EV_SSH_OWNER',
   'USER',
   'USERNAME',
 ]
@@ -35,9 +35,9 @@ export function determineOwner(stack: Stack): string {
 
 export function applyNimbusTags(stack: Stack, options: NimbusTagOptions) {
   const owner = determineOwner(stack)
-  Tags.of(stack).add('mana:owner', owner)
-  Tags.of(stack).add('mana:purpose', options.purpose)
-  Tags.of(stack).add('mana:repository', 'mana-ssh-web')
+  Tags.of(stack).add('nimbus:owner', owner)
+  Tags.of(stack).add('nimbus:purpose', options.purpose)
+  Tags.of(stack).add('nimbus:repository', 'nimbus/react-demo')
 
   if (options.additionalTags) {
     for (const [key, value] of Object.entries(options.additionalTags)) {

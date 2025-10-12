@@ -46,11 +46,11 @@ import {
   ensureDefaultProfiles as ensureProfilesRegistered,
   jsonBase64V1Profile,
   lenPrefixedV1Profile,
-  manaV1Profile,
+  nimbusV1Profile,
 } from './profiles/defaults'
 
 export {
-  manaV1Profile,
+  nimbusV1Profile,
   jsonBase64V1Profile,
   lenPrefixedV1Profile,
   ensureProfilesRegistered as ensureDefaultProfiles,

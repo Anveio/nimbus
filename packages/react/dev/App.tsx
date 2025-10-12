@@ -6,7 +6,7 @@ import './styles.css'
 
 declare global {
   interface Window {
-    __manaTuiReactTestHandle__?: TerminalSessionHandle
+    __nimbusReactTestHandle__?: TerminalSessionHandle
   }
 }
 
@@ -21,7 +21,7 @@ export function App(): JSX.Element {
         frame = requestAnimationFrame(attach)
         return
       }
-      window.__manaTuiReactTestHandle__ = handle
+      window.__nimbusReactTestHandle__ = handle
     }
 
     attach()
@@ -29,8 +29,8 @@ export function App(): JSX.Element {
       if (frame !== null) {
         cancelAnimationFrame(frame)
       }
-      if (window.__manaTuiReactTestHandle__) {
-        delete window.__manaTuiReactTestHandle__
+      if (window.__nimbusReactTestHandle__) {
+        delete window.__nimbusReactTestHandle__
       }
     }
   }, [])
@@ -45,7 +45,7 @@ export function App(): JSX.Element {
   const renderRootProps = useMemo(
     () => ({
       className: 'app-terminal-canvas',
-      'data-testid': 'tui-react-canvas',
+      'data-testid': 'nimbus-react-canvas',
     }),
     [],
   )
@@ -53,7 +53,7 @@ export function App(): JSX.Element {
   return (
     <main className="app">
       <header className="app-header">
-        <h1 className="app-title">Nimbus TUI React Harness</h1>
+        <h1 className="app-title">Nimbus React Harness</h1>
         <p className="app-subtitle">
           The demo mounts the public{' '}
           <code className="app-code">&lt;Terminal /&gt;</code> component using

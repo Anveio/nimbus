@@ -8,13 +8,13 @@ Our Playwright suite is the source of truth for verifying the rendered terminal 
 
 ## Feature Inventory
 
-### Global Harness Handle (`window.__manaTerminalTestHandle__`)
-- **What it does:** When `VITE_E2E=1` is present, `App.tsx` exposes a small suite of terminal helpers (`write`, `getSnapshot`, `getSelection`, `getResponses`, `getPrinterEvents`, `getDiagnostics`, `getRendererBackend`) on `window.__manaTerminalTestHandle__`. This keeps the app’s public surface unchanged while giving tests a sanctioned way to drive bytes directly into the interpreter and introspect renderer state.
+### Global Harness Handle (`window.__nimbusTerminalTestHandle__`)
+- **What it does:** When `VITE_E2E=1` is present, `App.tsx` exposes a small suite of terminal helpers (`write`, `getSnapshot`, `getSelection`, `getResponses`, `getPrinterEvents`, `getDiagnostics`, `getRendererBackend`) on `window.__nimbusTerminalTestHandle__`. This keeps the app’s public surface unchanged while giving tests a sanctioned way to drive bytes directly into the interpreter and introspect renderer state.
 - **Why we need it:** The demo still renders the same UI, but tests can skip brittle DOM typing loops whenever they need precise control over byte streams or want to inspect interpreter state.
-- **Important constraints:** The handle is registered after the `Terminal` ref resolves, so specs should wait for the handle to appear (e.g. `page.waitForFunction(() => Boolean(window.__manaTerminalTestHandle__))`) before using it. Inputs may be strings or `Uint8Array` instances; when passing raw bytes from Playwright, convert number arrays to `new Uint8Array(...)` inside `page.evaluate` so they survive the structured clone. Diagnostics depend on the active renderer backend – GPU-specific fields are `null` when the CPU path renders the frame.
+- **Important constraints:** The handle is registered after the `Terminal` ref resolves, so specs should wait for the handle to appear (e.g. `page.waitForFunction(() => Boolean(window.__nimbusTerminalTestHandle__))`) before using it. Inputs may be strings or `Uint8Array` instances; when passing raw bytes from Playwright, convert number arrays to `new Uint8Array(...)` inside `page.evaluate` so they survive the structured clone. Diagnostics depend on the active renderer backend – GPU-specific fields are `null` when the CPU path renders the frame.
 
 ### Playwright Interactions
-- **What we do now:** Specs focus the terminal like a user (`locator.click()`), then call `window.__manaTerminalTestHandle__?.write(...)` via `page.evaluate`. Snapshots and diagnostics are retrieved through the same handle and asserted in TypeScript.
+- **What we do now:** Specs focus the terminal like a user (`locator.click()`), then call `window.__nimbusTerminalTestHandle__?.write(...)` via `page.evaluate`. Snapshots and diagnostics are retrieved through the same handle and asserted in TypeScript.
 - **Why it matters:** We keep the automation surface tiny—`write`, `getSnapshot`, and a handful of diagnostics helpers—and rely on Playwright’s own timing guarantees instead of custom animation-frame helpers.
 
 ### Visual Snapshots (`toHaveScreenshot` + Baselines)

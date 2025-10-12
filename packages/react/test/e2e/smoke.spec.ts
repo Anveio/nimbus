@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test'
 
-const canvasSelector = 'canvas[data-testid="tui-react-canvas"]'
+const canvasSelector = 'canvas[data-testid="nimbus-react-canvas"]'
 
-test.describe('TUI React harness', () => {
+test.describe('Nimbus React harness', () => {
   test('renders renderer canvas with backend metadata', async ({ page }) => {
     page.on('console', (message) => {
       console.log(`console:${message.type()}:`, message.text())
@@ -17,7 +17,7 @@ test.describe('TUI React harness', () => {
     console.log('initial content preview:', initialHtml.slice(0, 200))
 
     await page
-      .getByRole('heading', { name: 'Nimbus TUI React Harness' })
+      .getByRole('heading', { name: 'Nimbus React Harness' })
       .waitFor({
         state: 'visible',
       })

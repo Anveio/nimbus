@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
+import { nimbusV1Profile } from '../protocol'
 import { createNodeWebSocketServer } from './node'
-import { manaV1Profile } from '../protocol'
 
 class MockServer {
   listeners: { connection?: (socket: MockSocket) => void } = {}
@@ -115,7 +115,7 @@ describe('createNodeWebSocketServer', () => {
     const firstFrame = socket.sent.find(
       (frame) => frame instanceof ArrayBuffer,
     ) as ArrayBuffer
-    const decoded = manaV1Profile.decodeData(firstFrame)
+    const decoded = nimbusV1Profile.decodeData(firstFrame)
     expect(decoded?.payload).toEqual(new Uint8Array([1, 2, 3]))
 
     socket.emit('message', {
@@ -124,7 +124,9 @@ describe('createNodeWebSocketServer', () => {
 
     const frames = socket.sent.filter((frame) => frame instanceof ArrayBuffer)
     expect(frames).toHaveLength(2)
-    const secondDecoded = manaV1Profile.decodeData(frames.at(-1) as ArrayBuffer)
+    const secondDecoded = nimbusV1Profile.decodeData(
+      frames.at(-1) as ArrayBuffer,
+    )
     expect(secondDecoded?.payload).toEqual(new Uint8Array([4, 5]))
   })
 })

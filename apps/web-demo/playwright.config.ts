@@ -27,7 +27,6 @@ export default defineConfig({
     stdout: 'pipe',
     stderr: 'pipe',
     timeout: 2_000,
-    // Enables the window.__manaTerminalTestHandle__ hook described in docs/e2e-test-harness.md
     env: {
       VITE_E2E: '1',
     },

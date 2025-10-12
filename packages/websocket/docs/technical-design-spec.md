@@ -182,7 +182,7 @@ Diagnostics & telemetry requirements (Phase 2):
   - heartbeat misses and reconnect attempts,
   - resume persistence operations (load/persist/clear success or failure).
 - Diagnostic payloads MUST include `timestamp`, `phase`, and a stable `code` string. Additional fields SHOULD be serialisable JSON values.
-- Browser client MUST capture current `bufferedAmount` and RTT (derived from ping/pong) so higher layers (`@nimbus/tui-react`, terminal web app) can render health indicators.
+- Browser client MUST capture current `bufferedAmount` and RTT (derived from ping/pong) so higher layers (`@nimbus/react`, terminal web app) can render health indicators.
 
 5) Wire Profiles (customizable on‑the‑wire format)
 
@@ -449,9 +449,9 @@ Application close codes (4000–4099)
 
 4015 INTERNAL_ERROR
 
-12) Integration with @nimbus/tui-react & terminal web app
+12) Integration with @nimbus/react & terminal web app
 
-- Browser client MUST expose bridge helpers (`connect`, `openSshSession`, `connectAndOpenSsh`) that return both the websocket connection and the underlying SSH session so `@nimbus/tui-react` can bind lifecycle hooks.
+- Browser client MUST expose bridge helpers (`connect`, `openSshSession`, `connectAndOpenSsh`) that return both the websocket connection and the underlying SSH session so `@nimbus/react` can bind lifecycle hooks.
 - Bridge helpers MUST forward diagnostic events (handshake, buffer_state, resume outcomes) so React components can surface status to users.
 - Terminal web app MUST treat `Connection.state` as the authoritative source for UI transitions (connecting/authenticating/ready/reconnecting/closed).
 - React integration MUST cleanly dispose SSH sessions/channels when the component tree unmounts to avoid leaking resume tokens or buffered data.

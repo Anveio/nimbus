@@ -25,10 +25,10 @@ Runtime responsibilities now feel crisp—the outstanding work sits downstream w
 
 ---
 
-## 3. React Host (`@nimbus/tui-react`)
+## 3. React Host (`@nimbus/react`)
 
 - **Composition + response forwarding (✅ Delivered).** `<Terminal />` still layers `RendererSurface`, `RendererSessionProvider`, and the hotkey boundary, now exposing `onRuntimeResponse` so transports can bridge DEC outputs without accessing diffs.
-- **Backend registry (✅ Delivered, needs follow-up).** `registerRendererBackend`, the `rendererBackend` prop, and the default import (`@nimbus/tui-react`) keep WebGL as the out-of-the-box renderer. Experimental entry points (`@nimbus/tui-react/webgl`, `/canvas`) are ready but the canvas variant is a placeholder until the CPU backend is fully integrated.
+- **Backend registry (✅ Delivered, needs follow-up).** `registerRendererBackend`, the `rendererBackend` prop, and the default import (`@nimbus/react`) keep WebGL as the out-of-the-box renderer. Experimental entry points (`@nimbus/react/webgl`, `/canvas`) are ready but the canvas variant is a placeholder until the CPU backend is fully integrated.
 - **Outstanding items.**
   - **Configuration reconciliation (⚠️).** `RendererSessionProvider` still uses fallback metrics forever. We need a feedback loop (first-frame metadata, measurement hook, helper) so renderer-provided metrics update `renderer.configure`.
   - **Runtime swapping semantics (⚠️).** Changing `rendererConfig.runtime` after mount updates refs without remounting. Decide whether to document the runtime as immutable or automatically tear down/recreate the session.
@@ -54,7 +54,7 @@ Until the demo exercises the stack end-to-end, regressions in transport↔runtim
 | Initiative | Status | Notes |
 | --- | --- | --- |
 | Renderer configuration helper | ⚠️ Outstanding | Ship a `deriveRendererConfiguration` helper and update React + other hosts to consume renderer-feedback metrics after mount. |
-| CPU renderer reboot | 🛑 Blocked | Stand up a new CPU renderer implementation, then wire it through the TUI React canvas backend with parity tests and documentation. |
+| CPU renderer reboot | 🛑 Blocked | Stand up a new CPU renderer implementation, then wire it through the React canvas backend with parity tests and documentation. |
 | Runtime response callbacks | ✅ Complete | VT runtime, renderers, and React all surface `onRuntimeResponse`. |
 | Web demo wiring | ⚠️ Outstanding | Mount `<Terminal />`, bridge runtime responses to SSH, and add a smoke test. |
 | Docs/spec refresh | 🚧 In progress | Update renderer spec, README, and release notes once the configuration helper and CPU backend are in place. |

@@ -12,7 +12,7 @@ This guide explains how to stand up a real Amazon Linux 2023 host for terminal t
 - An active AWS profile (export `AWS_PROFILE=<name>` or rely on `default`) with a configured default region. Run `aws sso login --profile <name>` or export credentials before invoking the infra helpers.
 
 ## First-time setup: bootstrap the CDK environment
-The infra helpers detect missing bootstrap resources and run `cdk bootstrap` automatically the first time you deploy. We default the CloudFormation execution role to `arn:aws:iam::aws:policy/AdministratorAccess`; override via `MANA_CDK_EXECUTION_POLICIES` (comma-separated ARNs) if your org prefers a custom policy. If your credentials can’t assume the administrator role, run the printed command after logging into that permission set.
+The infra helpers detect missing bootstrap resources and run `cdk bootstrap` automatically the first time you deploy. We default the CloudFormation execution role to `arn:aws:iam::aws:policy/AdministratorAccess`. If your credentials can’t assume the administrator role, run the printed command after logging into that permission set.
 
 Every automation assumes you’ll clean up when you’re done. Tagging, teardown scripts, and bootstrap auto-detection are there to make hygiene frictionless—lean on them so environments never linger.
 

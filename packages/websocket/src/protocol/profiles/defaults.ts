@@ -7,7 +7,7 @@ const DEFAULT_MAX_FRAME = 1 * 1024 * 1024 // 1 MiB including headers
 const textEncoder = new TextEncoder()
 const textDecoder = new TextDecoder()
 
-export const manaV1Profile: WireProfile = {
+export const nimbusV1Profile: WireProfile = {
   id: 'nimbus.v1',
   subprotocols: ['nimbus.ssh.v1'],
   encodeCtl(msg: Ctl): string {
@@ -174,7 +174,7 @@ export const lenPrefixedV1Profile: WireProfile = {
 }
 
 export function ensureDefaultProfiles(): void {
-  if (!getProfile(manaV1Profile.id)) registerProfile(manaV1Profile)
+  if (!getProfile(nimbusV1Profile.id)) registerProfile(nimbusV1Profile)
   if (!getProfile(jsonBase64V1Profile.id)) registerProfile(jsonBase64V1Profile)
   if (!getProfile(lenPrefixedV1Profile.id))
     registerProfile(lenPrefixedV1Profile)

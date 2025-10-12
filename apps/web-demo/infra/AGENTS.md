@@ -22,7 +22,7 @@ This charter guides how we evolve the web demo's infrastructure helpers. The goa
 - **Ephemeral credentials**: always prefer EC2 Instance Connect for developer access. We do not persist SSH keys on disk or bake them into AMIs; clients must request fresh credentials per session via the web experience.
 - **Tag discipline**: every stack/resource must carry `mana:owner`, `mana:purpose`, and `mana:repository` tags. Owners default from environment variables but must be override-able for shared accounts. The `mana:*` prefix stays in place until downstream infra tooling is updated.
 - **Testing parity**: keep the testing stack in lockstep with the dev stack (AMI selection, security posture) so integration tests exercise reality.
-- **Bootstrap policy**: default CloudFormation execution policies to `arn:aws:iam::aws:policy/AdministratorAccess`; teams may override via `MANA_CDK_EXECUTION_POLICIES` if they maintain a scoped alternative.
+- **Bootstrap policy**: default CloudFormation execution policies to `arn:aws:iam::aws:policy/AdministratorAccess`
 - **Hygiene first**: every helper should make setup/teardown seamless—no manual IAM tweaking, no lingering resources. Automate cleanup, tag aggressively, and fail fast with actionable guidance when credentials or hygiene guardrails are missing.
 - **Runtime baseline**: build and run infra tooling assuming Node.js 24; scripts execute TypeScript directly via `tsx`, and we lean on modern Node APIs without polyfills.
 - **Idempotent state**: stacks must be safe to reapply (e.g., rerunning deploy should reconcile drift without manual steps).

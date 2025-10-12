@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
+import { nimbusV1Profile } from '../../protocol'
 import { connect, type NodeConnectOptions } from '../node'
-import { manaV1Profile } from '../../protocol'
 
 class MockNodeSocket {
   static instances: MockNodeSocket[] = []
@@ -68,7 +68,7 @@ describe('node connect', () => {
       url: 'wss://example',
       WebSocketImpl:
         MockNodeSocket as unknown as NodeConnectOptions['WebSocketImpl'],
-      profile: manaV1Profile,
+      profile: nimbusV1Profile,
     }
 
     const connectionPromise = connect(options)
@@ -78,7 +78,7 @@ describe('node connect', () => {
     socket.emit('open', {})
     await flushMicrotasks()
     socket.emit('message', {
-      data: manaV1Profile.encodeCtl({
+      data: nimbusV1Profile.encodeCtl({
         t: 'hello_ok',
         server: 'node-server',
         caps: { flow: 'credit', profileAccepted: 'nimbus.v1' },
@@ -117,7 +117,7 @@ describe('node connect', () => {
     expect(load).toHaveBeenCalled()
 
     socket.emit('message', {
-      data: manaV1Profile.encodeCtl({
+      data: nimbusV1Profile.encodeCtl({
         t: 'hello_ok',
         server: 'node-resume',
         caps: { flow: 'credit', profileAccepted: 'nimbus.v1' },
@@ -136,7 +136,7 @@ describe('node connect', () => {
       .find((item) => item && typeof item === 'object' && item.t === 'open')
 
     socket.emit('message', {
-      data: manaV1Profile.encodeCtl({
+      data: nimbusV1Profile.encodeCtl({
         t: 'open_ok',
         id: openFrame?.id ?? 1,
         resumeKey: 'new-node-token',

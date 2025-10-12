@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.51.4",
-    "@nimbus/tui-react": "^0.0.1",
+    "@nimbus/react": "^0.0.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },

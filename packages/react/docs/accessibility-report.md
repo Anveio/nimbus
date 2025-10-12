@@ -1,10 +1,10 @@
-# `@nimbus/tui-react` Accessibility Assessment
+# `@nimbus/react` Accessibility Assessment
 
 **Date:** 2025-10-05  
 **Prepared by:** Code Assistant (in collaboration with Shovon Hasan)
 
 ## Scope
-This report evaluates the canvas-backed terminal experience exposed by `@nimbus/tui-react` for alignment with WAI-ARIA Authoring Practices, WCAG 2.2 Level AA, and user expectations for an accessible terminal/editor. Focus areas include semantics, keyboard interaction, assistive technology compatibility, visual requirements, and testing procedures. The analysis centers on the primary host component (`packages/tui-react/src/Terminal.tsx`) and its renderer bridge (`packages/tui-react/src/renderer.ts`).
+This report evaluates the canvas-backed terminal experience exposed by `@nimbus/react` for alignment with WAI-ARIA Authoring Practices, WCAG 2.2 Level AA, and user expectations for an accessible terminal/editor. Focus areas include semantics, keyboard interaction, assistive technology compatibility, visual requirements, and testing procedures. The analysis centers on the primary host component (`packages/react/src/Terminal.tsx`) and its renderer bridge (`packages/react/src/renderer.ts`).
 
 ## Expected Accessibility Contract
 Users interacting with a web terminal expect:
@@ -17,11 +17,11 @@ Users interacting with a web terminal expect:
 - **Testing transparency:** Documented manual + automated validation processes (axe, Playwright, screen readers) to prevent regressions and build trust.
 
 ## Current Implementation Overview
-- The focusable wrapper (`packages/tui-react/src/Terminal.tsx:1231-1320`) exposes `role="textbox"`, `tabIndex={0}`, `aria-label`, `aria-multiline="true"`, `aria-roledescription="Terminal"`, enumerates key gestures via `aria-keyshortcuts`, and wires `aria-describedby` to authored instructions. Focus management is opt-in via the `autoFocus` prop, which now defaults to `false`.
-- `useTerminalAccessibilityAdapter` + `TerminalAccessibilityLayer` (`packages/tui-react/src/accessibility-layer.tsx`) maintain an off-screen DOM transcript (`role="log"`/`role="grid"`) backed by the interpreter snapshot, including `aria-live` semantics, row/column indices, and `aria-selected` state that reflects the active selection. They also publish structured shortcut metadata that hosts can consume.
+- The focusable wrapper (`packages/react/src/Terminal.tsx:1231-1320`) exposes `role="textbox"`, `tabIndex={0}`, `aria-label`, `aria-multiline="true"`, `aria-roledescription="Terminal"`, enumerates key gestures via `aria-keyshortcuts`, and wires `aria-describedby` to authored instructions. Focus management is opt-in via the `autoFocus` prop, which now defaults to `false`.
+- `useTerminalAccessibilityAdapter` + `TerminalAccessibilityLayer` (`packages/react/src/accessibility-layer.tsx`) maintain an off-screen DOM transcript (`role="log"`/`role="grid"`) backed by the interpreter snapshot, including `aria-live` semantics, row/column indices, and `aria-selected` state that reflects the active selection. They also publish structured shortcut metadata that hosts can consume.
 - Caret position and host status updates are announced through dedicated live regions (`role="status"`) with politeness levels derived from runtime events.
-- Keyboard input is intercepted at the wrapper (`packages/tui-react/src/Terminal.tsx:1002-1148`) and re-encoded for the interpreter, with IME composition buffered via `compositionstart/update/end` handling. Pressing `Shift + ?` invokes a built-in modal shortcut guide that can also be controlled programmatically.
-- Visual defaults (theme/metrics) are hard-coded (`packages/tui-react/src/Terminal.tsx:49-96`) and do not yet adapt to user accessibility preferences (contrast, reduced motion).
+- Keyboard input is intercepted at the wrapper (`packages/react/src/Terminal.tsx:1002-1148`) and re-encoded for the interpreter, with IME composition buffered via `compositionstart/update/end` handling. Pressing `Shift + ?` invokes a built-in modal shortcut guide that can also be controlled programmatically.
+- Visual defaults (theme/metrics) are hard-coded (`packages/react/src/Terminal.tsx:49-96`) and do not yet adapt to user accessibility preferences (contrast, reduced motion).
 
 ## Compliance Assessment (WCAG 2.2 Level AA)
 - **Perceivable (1.x):** Largely compliant. The DOM transcript/layers satisfy 1.1.1 (non-text alternatives) and 1.3.1 (info relationships), though visual adaptability gaps remain (1.4.3/1.4.11).
@@ -61,7 +61,7 @@ Users interacting with a web terminal expect:
 
 ## Testing & Verification Plan
 - **Automated:**
-  - Maintain `@axe-core/playwright` coverage in both package-level specs (`packages/tui-react/test/e2e/terminal.accessibility.spec.ts`) and consumer apps.
+  - Maintain `@axe-core/playwright` coverage in both package-level specs (`packages/react/test/e2e/terminal.accessibility.spec.ts`) and consumer apps.
   - Add unit coverage for `useTerminalAccessibilityAdapter` selection math and IME buffering once implemented.
 - **Manual:**
   - Screen reader runs: NVDA + Firefox, JAWS + Chrome, VoiceOver + Safari; includes command entry, history review, selection narration.
@@ -71,10 +71,10 @@ Users interacting with a web terminal expect:
 
 ## Open Questions
 - What heuristics should determine when to promote the hidden DOM transcript to a visible “accessible transcript” toggle for all users?
-- Should host apps (e.g., `apps/web-demo`) own instructional overlays, or should `@nimbus/tui-react` export a default implementation?
+- Should host apps (e.g., `apps/web-demo`) own instructional overlays, or should `@nimbus/react` export a default implementation?
 - Which locales and input methods are highest priority for IME validation (Chinese Simplified, Japanese, Korean, accented Latin)?
 
 ## Next Steps
-1. Align on the immediate remediation scope and resource owners across `@nimbus/tui-react` and `@nimbus/vt`.
-2. Author/update specs (`packages/tui-react/AGENTS.md`) to capture accessible renderer contracts before implementation.
+1. Align on the immediate remediation scope and resource owners across `@nimbus/react` and `@nimbus/vt`.
+2. Author/update specs (`packages/react/AGENTS.md`) to capture accessible renderer contracts before implementation.
 3. Schedule pair-testing sessions with assistive technology users once the mirror/log prototype is ready.

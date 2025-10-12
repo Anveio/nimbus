@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import process from 'node:process'
 import { spawn } from 'node:child_process'
+import process from 'node:process'
+import { GetParameterCommand, SSMClient } from '@aws-sdk/client-ssm'
 import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts'
-import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm'
 import { loadSharedConfigFiles } from '@smithy/shared-ini-file-loader'
 
 function getProfileName() {
@@ -112,9 +112,7 @@ export async function ensureCdkBootstrap({ profile, account, region }) {
         `CDK bootstrap resources missing for aws://${account}/${region}; bootstrapping automatically...\n`,
       )
       const target = `aws://${account}/${region}`
-      const executionPolicies =
-        process.env.MANA_CDK_EXECUTION_POLICIES ??
-        'arn:aws:iam::aws:policy/AdministratorAccess'
+      const executionPolicies = 'arn:aws:iam::aws:policy/AdministratorAccess'
 
       const bootstrapArgs = ['cdk', 'bootstrap', target, '--profile', profile]
 

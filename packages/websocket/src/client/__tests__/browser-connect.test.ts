@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { manaV1Profile } from '../../protocol'
+import { nimbusV1Profile } from '../../protocol'
 import { type BrowserConnectOptions, connect } from '../browser'
 
 class MockSocket {
@@ -73,7 +73,7 @@ describe('browser connect', () => {
     socket.emit('open', {})
     await flushMicrotasks()
 
-    const helloOk = manaV1Profile.encodeCtl({
+    const helloOk = nimbusV1Profile.encodeCtl({
       t: 'hello_ok',
       server: 'mock-server',
       caps: { flow: 'credit', profileAccepted: 'nimbus.v1' },
@@ -99,7 +99,7 @@ describe('browser connect', () => {
     await flushMicrotasks()
 
     socket.emit('message', {
-      data: manaV1Profile.encodeCtl({
+      data: nimbusV1Profile.encodeCtl({
         t: 'hello_ok',
         server: 'mock-server',
         caps: { flow: 'credit', profileAccepted: 'nimbus.v1' },
@@ -120,7 +120,7 @@ describe('browser connect', () => {
     })
 
     socket.emit('message', {
-      data: manaV1Profile.encodeCtl({ t: 'open_ok', id: openFrame.id ?? 1 }),
+      data: nimbusV1Profile.encodeCtl({ t: 'open_ok', id: openFrame.id ?? 1 }),
     })
 
     const channel = await sessionPromise
@@ -130,7 +130,7 @@ describe('browser connect', () => {
       received.push(chunk)
     })
 
-    const dataFrames = manaV1Profile.encodeData(
+    const dataFrames = nimbusV1Profile.encodeData(
       { stream: 'stdout', id: channel.id, payload: new Uint8Array([1, 2, 3]) },
       { maxFrame: 64_000 },
     )
@@ -145,7 +145,7 @@ describe('browser connect', () => {
     await channel.send(new Uint8Array([9, 10]))
     const last = socket.sent.at(-1)
     expect(last).instanceOf(ArrayBuffer)
-    const decoded = manaV1Profile.decodeData(last as ArrayBuffer)
+    const decoded = nimbusV1Profile.decodeData(last as ArrayBuffer)
     expect(decoded?.payload).toEqual(new Uint8Array([9, 10]))
   })
 
@@ -180,7 +180,7 @@ describe('browser connect', () => {
     expect(load).toHaveBeenCalled()
 
     socket.emit('message', {
-      data: manaV1Profile.encodeCtl({
+      data: nimbusV1Profile.encodeCtl({
         t: 'hello_ok',
         server: 'resume-server',
         caps: { flow: 'credit', profileAccepted: 'nimbus.v1' },
@@ -199,7 +199,7 @@ describe('browser connect', () => {
       .find((item) => item && typeof item === 'object' && item.t === 'open')
 
     socket.emit('message', {
-      data: manaV1Profile.encodeCtl({
+      data: nimbusV1Profile.encodeCtl({
         t: 'open_ok',
         id: openFrame?.id ?? 1,
         resumeKey: 'fresh-token',

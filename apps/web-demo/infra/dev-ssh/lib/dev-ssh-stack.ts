@@ -1,7 +1,13 @@
-import * as path from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import { Stack, type StackProps } from 'aws-cdk-lib'
+import * as path from 'node:path'
+import { CfnOutput, Stack, type StackProps } from 'aws-cdk-lib'
+import {
+  CorsHttpMethod,
+  HttpApi,
+  HttpMethod,
+} from 'aws-cdk-lib/aws-apigatewayv2'
+import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations'
 import {
   Instance,
   InstanceType,
@@ -14,15 +20,8 @@ import {
   UserData,
   Vpc,
 } from 'aws-cdk-lib/aws-ec2'
-import {
-  HttpApi,
-  HttpMethod,
-  CorsHttpMethod,
-} from 'aws-cdk-lib/aws-apigatewayv2'
-import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations'
 import { Runtime } from 'aws-cdk-lib/aws-lambda'
 import { NodejsFunction, OutputFormat } from 'aws-cdk-lib/aws-lambda-nodejs'
-import { CfnOutput } from 'aws-cdk-lib'
 import type { Construct } from 'constructs'
 import { applyNimbusTags } from './tags'
 
@@ -130,7 +129,7 @@ chmod +x /tmp/bootstrap.sh
         : 60
 
     const signerToken = randomBytes(32).toString('hex')
-    const repositoryTagValue = 'mana-ssh-web'
+    const repositoryTagValue = 'nimbus-ssh-web'
 
     const signerFunction = new NodejsFunction(this, 'SigV4SignerFunction', {
       runtime: Runtime.NODEJS_LATEST,

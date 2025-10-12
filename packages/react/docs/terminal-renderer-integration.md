@@ -1,6 +1,6 @@
 # Terminal Renderer Integration Guide
 
-This document explains how `<Terminal />` in `@nimbus/tui-react` is expected to consume
+This document explains how `<Terminal />` in `@nimbus/react` is expected to consume
 renderer implementations that follow the contract captured in
 `packages/webgl-renderer/docs/renderer-specification-v0.md`. Treat that specification
 as the source of truth for event shapes and lifecycle semantics; this guide focuses on
@@ -73,8 +73,8 @@ Renderer sessions forward host events to `TerminalRuntime`, which returns batche
 ## Implementation Checklist for `<Terminal />`
 
 0. **Select a renderer backend**
-   - Use the default WebGL bundle via `import { Terminal } from '@nimbus/tui-react'` (auto-registers `'webgl'`).
-   - Opt into experimental bundles by importing `@nimbus/tui-react/webgl` or `@nimbus/tui-react/canvas`. The latter currently ships a placeholder registry entry while the CPU renderer integration is under construction.
+   - Use the default WebGL bundle via `import { Terminal } from '@nimbus/react'` (auto-registers `'webgl'`).
+   - Opt into experimental bundles by importing `@nimbus/react/webgl` or `@nimbus/react/canvas`. The latter currently ships a placeholder registry entry while the CPU renderer integration is under construction.
    - Regardless of entry point, you can call `registerRendererBackend()` manually and pass `rendererBackend="..."` to `<Terminal />` when you need to override the default for a given instance.
 
 1. **Expose session dispatch**

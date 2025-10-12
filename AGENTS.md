@@ -43,8 +43,8 @@ The workspace runs on Node 24 with npm. Each package is a shippable unit followi
   - `webgl-renderer` (`packages/webgl-renderer`): GPU-backed renderer root/session implementation.
   - `svg-renderer` (planned): Accessibility-first renderer targeting SSR and print output.
 - **Host Adapters**
-  - `tui-react` (`packages/tui-react` → future `@nimbus/react`): React bindings, accessibility overlays, hotkey pipeline.
-  - `tui-angular`/`tui-vue` (planned): Angular/Vue bindings following the same renderer contract.
+  - `react` (`packages/react`): React bindings, accessibility overlays, hotkey pipeline.
+  - `angular`/`vue` (planned): Angular/Vue bindings following the same renderer contract.
 - **Protocol & Transport**
   - `ssh` (`packages/ssh`): SSHv2 protocol core with sub-exports for `client/web`, `client/node`, and `server/node`. Spec-driven state machine, codecs, and crypto scaffolding.
   - `websocket` (`packages/websocket`): WebSocket transport primitives, connection policies, and backpressure controls for browser clients.
@@ -72,7 +72,7 @@ The workspace runs on Node 24 with npm. Each package is a shippable unit followi
 
 # Testing
 - Unit: Vitest for logic (parser fixtures, diff reducers, React hooks). Property-based tests where state spaces explode.
-- End-to-End: We use Playwright for anything that pushes pixels to the screen (tui-react, webgl-renderer) and apps (apps/web-demo). Every behavioral change demands a scenario. All statements in specifications MUST have a test scenario.
+- End-to-End: We use Playwright for anything that pushes pixels to the screen (`@nimbus/react`, webgl-renderer) and apps (apps/web-demo). Every behavioral change demands a scenario. All statements in specifications MUST have a test scenario.
 - After completing a task, run `npm run typecheck`, `npm run build`, and `npm run test` before declaring victory.
 - Spec Currency: When behavior shifts, update the relevant spec documents first (see package-level `AGENTS.md`), then tests, then code.
 

@@ -1,6 +1,6 @@
 # Hotkeys Module
 
-The React host now delegates keyboard handling to `packages/tui-react/src/hotkeys/`.
+The React host now delegates keyboard handling to `packages/react/src/hotkeys/`.
 
 - `handleTerminalHotkey(event, context)` interprets a `KeyboardEvent` and returns a `HotkeyResult`. It takes care of:
   - Toggle of the Shift + `?` shortcut guide.

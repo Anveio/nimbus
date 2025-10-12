@@ -11,8 +11,8 @@ import {
 } from '@aws-sdk/client-ec2-instance-connect'
 import nacl from 'tweetnacl'
 
-const DEFAULT_STACK_NAME = 'mana-dev-ssh-instance'
-const DEFAULT_OS_USER = 'mana'
+const DEFAULT_STACK_NAME = 'nimbus-dev-ssh-instance'
+const DEFAULT_OS_USER = 'ec2-user'
 const INSTANCE_CONNECT_TTL_MS = 60_000
 
 export interface InstanceTarget {
