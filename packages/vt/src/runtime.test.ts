@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { TerminalSelection, TerminalUpdate } from './interpreter'
 import {
   createTerminalRuntime,
@@ -34,7 +34,8 @@ const normaliseResponse = (data: Uint8Array): string =>
 describe('TerminalRuntime presets', () => {
   it('creates a runtime with the default preset via createDefaultTerminalRuntime', () => {
     const runtime = createDefaultTerminalRuntime()
-    const preset = TERMINAL_RUNTIME_PRESETS[DEFAULT_TERMINAL_RUNTIME_PRESET_NAME]
+    const preset =
+      TERMINAL_RUNTIME_PRESETS[DEFAULT_TERMINAL_RUNTIME_PRESET_NAME]
     expect(runtime.interpreter.capabilities.spec).toBe(preset.spec)
     expect(runtime.interpreter.capabilities.emulator).toBe(preset.emulator)
   })
@@ -47,9 +48,9 @@ describe('TerminalRuntime presets', () => {
       },
     })
     expect(runtime.interpreter.capabilities.spec).toBe('vt100')
-    expect(
-      runtime.interpreter.capabilities.features.supportsAnsiColors,
-    ).toBe(false)
+    expect(runtime.interpreter.capabilities.features.supportsAnsiColors).toBe(
+      false,
+    )
   })
 
   it('derives the spec from parser overrides when capabilities do not supply one', () => {
@@ -72,6 +73,45 @@ describe('TerminalRuntime presets', () => {
     expect(
       runtime.interpreter.capabilities.features.supportsScrollRegions,
     ).toBe(false)
+  })
+})
+
+describe('TerminalRuntime responses', () => {
+  it('notifies response listeners when pointer reports are emitted', () => {
+    const responses: string[] = []
+    const runtime = createTerminalRuntime({
+      onResponse: (response) => {
+        responses.push(response.kind)
+      },
+    })
+    runtime.write('\u001B[?1000h\u001B[?1006h')
+    runtime.dispatchEvent({
+      type: 'pointer',
+      action: 'down',
+      button: 'left',
+      buttons: 1,
+      position: { row: 1, column: 1 },
+    })
+
+    expect(responses).toContain('pointer-report')
+  })
+
+  it('disposes response listeners returned by onResponse', () => {
+    const runtime = createTerminalRuntime()
+    const listener = vi.fn()
+    const dispose = runtime.onResponse(listener)
+    dispose()
+
+    runtime.write('\u001B[?1000h\u001B[?1006h')
+    runtime.dispatchEvent({
+      type: 'pointer',
+      action: 'down',
+      button: 'left',
+      buttons: 1,
+      position: { row: 1, column: 1 },
+    })
+
+    expect(listener).not.toHaveBeenCalled()
   })
 })
 

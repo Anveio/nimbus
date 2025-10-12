@@ -32,6 +32,7 @@ This file anchors how we reason about the VT parser + interpreter stack. Treat i
   - `cursor.*` events wrap interpreter navigation primitives and preserve selection semantics.
   - `selection.*` events manage user highlights and edits without requiring consumers to manually diff state.
   - `parser.*` events are the sanctioned escape hatch for advanced embedders that already traffic in parser events.
+- `onResponse` listeners provide structured callbacks for host-directed bytes (pointer reports, wheel reports, bracketed paste guards, parser responses), so transports can forward data without spelunking the diff stream.
 - The raw parser export is explicitly advanced usage—keep it around for diagnostics, but nudge hosts to the runtime events first.
 
 ## Testing Doctrine

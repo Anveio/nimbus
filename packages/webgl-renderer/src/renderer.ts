@@ -1,6 +1,7 @@
 import {
   createTerminalRuntime,
   type TerminalRuntime,
+  type TerminalRuntimeResponse,
   type TerminalState,
 } from '@nimbus/vt'
 import { createWebglContext } from './gl/context'
@@ -105,6 +106,8 @@ class WebglRendererSessionImpl implements WebglRendererSession {
   private readonly frameListeners = createListenerRegistry<RendererFrameEvent>()
   private readonly resizeListeners =
     createListenerRegistry<RendererResizeRequestEvent>()
+  private readonly responseListeners =
+    createListenerRegistry<TerminalRuntimeResponse>()
   private readonly scheduler = new FrameScheduler()
   private readonly damageTracker = new DamageTracker()
   private pendingBatches: RuntimeUpdateBatch[] = []
@@ -116,6 +119,7 @@ class WebglRendererSessionImpl implements WebglRendererSession {
   private tileColumns = 0
   private tileRows = 0
   private lastCursorTile: number | null = null
+  private runtimeResponseDisposer: (() => void) | null = null
 
   constructor(init: WebglRendererSessionInit) {
     this.runtime = init.runtime
@@ -126,6 +130,10 @@ class WebglRendererSessionImpl implements WebglRendererSession {
     this.dispatch({
       type: 'renderer.configure',
       configuration: init.configuration,
+    })
+
+    this.runtimeResponseDisposer = this.runtime.onResponse((response) => {
+      this.responseListeners.emit(response)
     })
 
     this.attachSurface(init.canvas)
@@ -229,6 +237,12 @@ class WebglRendererSessionImpl implements WebglRendererSession {
     return this.resizeListeners.add(listener)
   }
 
+  onRuntimeResponse(
+    listener: (response: TerminalRuntimeResponse) => void,
+  ): () => void {
+    return this.responseListeners.add(listener)
+  }
+
   free(): void {
     if (this.freed) {
       return
@@ -236,11 +250,14 @@ class WebglRendererSessionImpl implements WebglRendererSession {
     this.unmount()
     this.frameListeners.clear()
     this.resizeListeners.clear()
+    this.responseListeners.clear()
     this.scheduler.cancel()
     this.pendingFrame = null
     this.pendingBatches = []
     this.damageTracker.clear()
     this.runtime.reset()
+    this.runtimeResponseDisposer?.()
+    this.runtimeResponseDisposer = null
     this.texture = null
     this.freed = true
     this.lifecycle.onFree?.()
@@ -791,9 +808,7 @@ class WebglRendererRootImpl implements RendererRoot<WebglRendererConfig> {
       typeof HTMLCanvasElement !== 'undefined' &&
       !(container instanceof HTMLCanvasElement)
     ) {
-      throw new Error(
-        'Renderer root requires an HTMLCanvasElement container.',
-      )
+      throw new Error('Renderer root requires an HTMLCanvasElement container.')
     }
 
     const previous = this._currentSession

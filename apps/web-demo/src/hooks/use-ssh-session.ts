@@ -3,6 +3,7 @@ import {
   type ConnectionState,
   connectAndOpenSsh,
 } from '@nimbus/websocket/client/web'
+import type { TerminalRuntimeResponse } from '@nimbus/vt'
 import { useCallback, useEffect, useReducer, useRef } from 'react'
 
 import type { SshFormState } from './use-ssh-form'
@@ -317,10 +318,26 @@ export function useSshSession({ logger }: UseSshSessionParams) {
     [cleanupSession, logger],
   )
 
+  const handleRuntimeResponse = useCallback(
+    (response: TerminalRuntimeResponse) => {
+      const session = sessionRef.current
+      if (!session) {
+        return
+      }
+      void session.channel.send(response.data).catch((error) => {
+        logger.append(
+          `[ssh] failed to forward runtime response: ${normalizeError(error)}`,
+        )
+      })
+    },
+    [logger],
+  )
+
   return {
     state,
     connect,
     disconnect,
+    handleRuntimeResponse,
   }
 }
 

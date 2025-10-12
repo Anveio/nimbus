@@ -8,7 +8,11 @@ import {
   manaV1Profile,
 } from '../profiles/defaults'
 
-const sampleHello: Ctl = { t: 'hello', proto: 1, caps: { profile: 'nimbus.v1' } }
+const sampleHello: Ctl = {
+  t: 'hello',
+  proto: 1,
+  caps: { profile: 'nimbus.v1' },
+}
 
 function makePayload(length: number): Uint8Array {
   const buf = new Uint8Array(length)

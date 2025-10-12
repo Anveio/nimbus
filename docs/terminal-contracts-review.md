@@ -6,7 +6,7 @@ This note captures the current state of the public contracts that tie the VT run
 
 * **Contract surface** – `createDefaultTerminalRuntime()` (and the underlying `createTerminalRuntime` factory in `packages/vt/src/runtime.ts`) exposes a cohesive host-event API (`TerminalRuntimeEvent`) that covers cursoring, selection, pointer tracking, paste, and parser injection. The interface is well documented, making it easy for higher layers to stay out of interpreter internals.
 * **Preset system** – The runtime now ships with a `'vt220-xterm'` preset and accepts either named presets or full preset objects alongside parser/capability overrides. This gives newcomers a one-line entry point while still letting advanced hosts tweak specs, emulator quirks, or individual feature flags by passing targeted overrides.
-* **Missing response channel** – Runtime responses (e.g. DEC mouse reports encoded via `encodeResponsePayload`) are trapped in private helpers. Upper layers must currently hook printer controllers or interpreter internals to forward bytes to transports. Exposing a structured “host response” stream on the runtime façade would make it obvious how transports should listen for outbound data.
+* **Response stream** – Hosts can register `onResponse` listeners to receive structured callbacks whenever the runtime emits host-directed bytes (pointer reports, wheel reports, bracketed paste guards, parser responses). This keeps transports from spelunking the `TerminalUpdate[]` diff and makes it obvious where to forward DEC reports.
 
 ## 2. Renderer Layer (`@nimbus/webgl-renderer` and `@nimbus/tui-web-canvas-renderer`)
 

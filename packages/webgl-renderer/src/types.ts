@@ -8,6 +8,7 @@ import type {
   TerminalRuntimeCursorMoveDirection,
   TerminalRuntimeCursorMoveOptions,
   TerminalRuntimeHostEvent as TerminalRuntimeEvent,
+  TerminalRuntimeResponse,
   TerminalSelection,
   TerminalState,
   TerminalUpdate,
@@ -243,6 +244,9 @@ export interface RendererSession<TRendererConfig = unknown> {
   onResizeRequest?(
     listener: (event: RendererResizeRequestEvent) => void,
   ): () => void
+  onRuntimeResponse(
+    listener: (response: TerminalRuntimeResponse) => void,
+  ): () => void
   unmount(): void
   free(): void
   serializeBuffer?(): Promise<ImageBitmap | Uint8Array>
@@ -262,8 +266,7 @@ export interface WebglRendererConfig {
   readonly profile?: TerminalProfile
 }
 
-export type WebglRendererRootOptions =
-  RendererRootOptions<WebglRendererConfig>
+export type WebglRendererRootOptions = RendererRootOptions<WebglRendererConfig>
 
 export interface WebglRendererFrameMetadata extends Record<string, unknown> {
   readonly reason?:

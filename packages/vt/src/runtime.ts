@@ -48,6 +48,9 @@ export interface TerminalRuntimeOptions {
   readonly parser?: ParserOptions
   readonly capabilities?: TerminalRuntimeCapabilityOverrides
   readonly printer?: PrinterController
+  readonly onResponse?:
+    | TerminalRuntimeResponseListener
+    | ReadonlyArray<TerminalRuntimeResponseListener>
 }
 
 export const DEFAULT_TERMINAL_RUNTIME_PRESET_NAME: TerminalRuntimePresetName =
@@ -65,6 +68,22 @@ export const TERMINAL_RUNTIME_PRESETS: Readonly<
     } satisfies ParserOptions),
   }),
 })
+
+export type TerminalRuntimeResponseKind =
+  | 'pointer-report'
+  | 'wheel-report'
+  | 'paste-guard'
+  | 'parser-response'
+
+export interface TerminalRuntimeResponse {
+  readonly kind: TerminalRuntimeResponseKind
+  readonly data: Uint8Array
+  readonly sequence?: string
+}
+
+export type TerminalRuntimeResponseListener = (
+  response: TerminalRuntimeResponse,
+) => void
 
 const mergeFeatureOverrides = (
   base: Partial<TerminalFeatures> | undefined,
@@ -104,6 +123,22 @@ interface TerminalRuntimeInit {
   readonly parser: ParserOptions
   readonly capabilities: TerminalCapabilities
   readonly printer?: PrinterController
+  readonly listeners: ReadonlyArray<TerminalRuntimeResponseListener>
+}
+
+const normalizeResponseListeners = (
+  listeners:
+    | TerminalRuntimeResponseListener
+    | ReadonlyArray<TerminalRuntimeResponseListener>
+    | undefined,
+): ReadonlyArray<TerminalRuntimeResponseListener> => {
+  if (!listeners) {
+    return []
+  }
+  if (typeof listeners === 'function') {
+    return [listeners]
+  }
+  return [...listeners]
 }
 
 const resolveRuntimeInit = (
@@ -121,15 +156,10 @@ const resolveRuntimeInit = (
     overrides?.features,
   )
 
-  const finalSpec =
-    overrides?.spec ??
-    mergedParser.spec ??
-    preset.spec
+  const finalSpec = overrides?.spec ?? mergedParser.spec ?? preset.spec
 
   const finalEmulator =
-    overrides?.emulator ??
-    mergedParser.emulator ??
-    preset.emulator
+    overrides?.emulator ?? mergedParser.emulator ?? preset.emulator
 
   const resolved = resolveTerminalCapabilities({
     parser: mergedParser,
@@ -142,6 +172,7 @@ const resolveRuntimeInit = (
     parser: resolved.parser,
     capabilities: resolved.capabilities,
     printer: options?.printer,
+    listeners: normalizeResponseListeners(options?.onResponse),
   }
 }
 
@@ -330,11 +361,19 @@ export interface TerminalRuntime {
    * reconnect) without allocating a fresh runtime instance.
    */
   reset(): void
+  /**
+   * Registers a listener for host-directed runtime responses (pointer reports,
+   * wheel reports, bracketed paste guards, parser responses, etc.). Returns a
+   * disposer that removes the listener.
+   */
+  onResponse(listener: TerminalRuntimeResponseListener): () => void
 }
 
 class TerminalRuntimeImpl implements TerminalRuntime {
   private readonly _interpreter: TerminalInterpreter
   private readonly _parser: Parser
+  private readonly responseListeners =
+    new Set<TerminalRuntimeResponseListener>()
 
   constructor(init: TerminalRuntimeInit) {
     this._parser = createParser(init.parser)
@@ -343,6 +382,10 @@ class TerminalRuntimeImpl implements TerminalRuntime {
       capabilities: init.capabilities,
       printer: init.printer,
     })
+
+    for (const listener of init.listeners) {
+      this.responseListeners.add(listener)
+    }
   }
 
   get interpreter(): TerminalInterpreter {
@@ -425,6 +468,26 @@ class TerminalRuntimeImpl implements TerminalRuntime {
     this._interpreter.reset()
   }
 
+  onResponse(listener: TerminalRuntimeResponseListener): () => void {
+    this.responseListeners.add(listener)
+    return () => {
+      this.responseListeners.delete(listener)
+    }
+  }
+
+  private notifyResponse(response: TerminalRuntimeResponse): void {
+    if (this.responseListeners.size === 0) {
+      return
+    }
+    for (const listener of this.responseListeners) {
+      try {
+        listener(response)
+      } catch {
+        // ignore listener errors to keep runtime execution uninterrupted
+      }
+    }
+  }
+
   private processWrite(input: string | Uint8Array): TerminalUpdate[] {
     const updates: TerminalUpdate[] = []
     const sink: ParserEventSink = {
@@ -493,7 +556,7 @@ class TerminalRuntimeImpl implements TerminalRuntime {
     if (!bytes) {
       return []
     }
-    return this.emitHostBytes(bytes)
+    return this.emitHostBytes(bytes, 'pointer-report')
   }
 
   private handleWheelEvent(event: TerminalRuntimeWheelEvent): TerminalUpdate[] {
@@ -516,7 +579,7 @@ class TerminalRuntimeImpl implements TerminalRuntime {
         pointerState.encoding,
       )
       if (report) {
-        sequences.push(...this.emitHostBytes(report))
+        sequences.push(...this.emitHostBytes(report, 'wheel-report'))
       }
     }
 
@@ -527,7 +590,7 @@ class TerminalRuntimeImpl implements TerminalRuntime {
         pointerState.encoding,
       )
       if (report) {
-        sequences.push(...this.emitHostBytes(report))
+        sequences.push(...this.emitHostBytes(report, 'wheel-report'))
       }
     }
 
@@ -545,13 +608,13 @@ class TerminalRuntimeImpl implements TerminalRuntime {
       supportsBracketed && this.snapshot.input.bracketedPaste
 
     if (bracketedEnabled) {
-      updates.push(...this.emitHostSequence('\u001B[200~'))
+      updates.push(...this.emitHostSequence('\u001B[200~', 'paste-guard'))
     }
 
     updates.push(...this.processWrite(data))
 
     if (bracketedEnabled) {
-      updates.push(...this.emitHostSequence('\u001B[201~'))
+      updates.push(...this.emitHostSequence('\u001B[201~', 'paste-guard'))
     }
 
     return updates
@@ -565,13 +628,21 @@ class TerminalRuntimeImpl implements TerminalRuntime {
     return this._interpreter.capabilities.features.supportsBracketedPaste
   }
 
-  private emitHostSequence(sequence: string): TerminalUpdate[] {
+  private emitHostSequence(
+    sequence: string,
+    kind: TerminalRuntimeResponseKind = 'parser-response',
+  ): TerminalUpdate[] {
     const mode = this.snapshot.c1Transmission
     const data = encodeResponsePayload(sequence, mode)
+    this.notifyResponse({ kind, data, sequence })
     return [{ type: 'response', data }]
   }
 
-  private emitHostBytes(bytes: Uint8Array): TerminalUpdate[] {
+  private emitHostBytes(
+    bytes: Uint8Array,
+    kind: TerminalRuntimeResponseKind = 'parser-response',
+  ): TerminalUpdate[] {
+    this.notifyResponse({ kind, data: bytes })
     return [{ type: 'response', data: bytes }]
   }
 

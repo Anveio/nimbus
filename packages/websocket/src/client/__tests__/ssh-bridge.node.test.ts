@@ -44,7 +44,8 @@ const hoisted = vi.hoisted(() => {
 })
 
 vi.mock('@nimbus/ssh/client/node', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@nimbus/ssh/client/node')>()
+  const actual =
+    await importOriginal<typeof import('@nimbus/ssh/client/node')>()
   return {
     ...actual,
     connectSSH: hoisted.connectMock,

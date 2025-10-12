@@ -230,7 +230,9 @@ const getFrameSnapshot = async (
 }
 
 const getSelectionEvents = async (page: Page) => {
-  return page.evaluate(() => window.__nimbusRendererTest__?.getSelectionEvents())
+  return page.evaluate(() =>
+    window.__nimbusRendererTest__?.getSelectionEvents(),
+  )
 }
 
 const getOverlayEvents = async (page: Page) => {

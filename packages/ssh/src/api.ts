@@ -138,9 +138,7 @@ export interface ProvidedIdentityConfig {
   readonly material: Ed25519IdentityMaterial
 }
 
-export type SshIdentityConfig =
-  | GeneratedIdentityConfig
-  | ProvidedIdentityConfig
+export type SshIdentityConfig = GeneratedIdentityConfig | ProvidedIdentityConfig
 
 export interface ResolvedIdentity {
   readonly username: string
@@ -1968,7 +1966,9 @@ class ClientSessionImpl implements SshSession {
     const signWriter = new BinaryWriter()
     signWriter.writeBytes(sessionId)
     signWriter.writeBytes(unsignedPayload)
-    const signatureBytes = await Promise.resolve(identity.sign(signWriter.toUint8Array()))
+    const signatureBytes = await Promise.resolve(
+      identity.sign(signWriter.toUint8Array()),
+    )
     const signatureWriter = new BinaryWriter()
     signatureWriter.writeString(identity.algorithm)
     writeBinaryString(signatureWriter, signatureBytes)

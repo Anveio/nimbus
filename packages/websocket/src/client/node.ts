@@ -88,11 +88,10 @@ export async function openSshSession(
     throw new Error('SSH username is required for public key authentication')
   }
 
-  const identityConfig =
-    sshOptions.identity ?? {
-      mode: 'generated',
-      username: init.user.username,
-    }
+  const identityConfig = sshOptions.identity ?? {
+    mode: 'generated',
+    username: init.user.username,
+  }
 
   try {
     const ssh = await connectSsh({

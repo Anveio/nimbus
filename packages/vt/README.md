@@ -67,6 +67,9 @@ behaviour, call `createTerminalRuntime({ preset, parser, capabilities, printer }
 to merge parser tweaks or capability overrides onto any preset (or a preset
 object you supply). The runtime forwards the resolved configuration to every
 layer so responses, scroll regions, and printer flows stay in sync.
+Register `onResponse` listeners (either via options or the returned runtime)
+to forward host-directed bytes—pointer reports, wheel reports, bracketed paste
+guards—straight to transports without inspecting the diff stream.
 `write` returns the aggregated `TerminalUpdate[]` diff emitted by the
 interpreter, which you can hand straight to renderers.
 

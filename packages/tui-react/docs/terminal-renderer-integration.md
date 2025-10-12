@@ -63,6 +63,10 @@ Renderer sessions forward host events to `TerminalRuntime`, which returns batche
 - `updates`: apply via `presentFrame({ snapshot, updates, reason: 'apply-updates' })`.
 - `response`: send to the transport (`instrumentation.emitData`) so the remote host
   receives DEC mouse clicks or bracketed paste sequences.
+- `onRuntimeResponse`: use the `<Terminal onRuntimeResponse={...} />` prop (or
+  `RendererSessionProvider` equivalent) to stream response callbacks directly from the
+  underlying runtime instead of scraping the diff. Every layer above the renderer should
+  forward these bytes to its transport – typically by writing them to the active SSH/WebSocket channel.
 - `mode` / `pointer-tracking`: update overlays or instrumentation as desired (e.g. show
   when applications request mouse capture).
 
@@ -82,7 +86,12 @@ Renderer sessions forward host events to `TerminalRuntime`, which returns batche
    - Replace the current paste path (local echo + transport write) with
      `runtime.paste`, letting the runtime emit bracketed guards when enabled.
 
-4. **Testing**
+4. **Response forwarding**
+   - Provide an `onRuntimeResponse` handler that forwards runtime responses to your
+     transport. In the Web demo, this means piping the `TerminalRuntimeResponse.data`
+     buffer into the active SSH channel.
+
+5. **Testing**
    - Add Vitest coverage verifying the new dispatch path emits the correct event
      shapes.
    - Extend Playwright flows to cover mouse tracking + bracketed paste scenarios once

@@ -131,6 +131,7 @@ Normative requirements:
 - `dispatch(event)` MUST be synchronous and fire-and-forget. Sessions MUST queue any necessary work internally and MUST throw when receiving an unsupported event type.
 - `onFrame(listener)` MUST register the listener and return a disposer that removes it. Sessions MUST invoke `listener` at least once after mounting to a new surface.
 - `onResizeRequest(listener)` MAY be omitted. When implemented, sessions MUST invoke listeners whenever runtime-driven resize requests occur (see Section 9).
+- `onRuntimeResponse(listener)` MUST register the listener and return a disposer that removes it. Sessions MUST forward every host-directed response emitted by the owned `TerminalRuntime` (pointer reports, wheel reports, bracketed paste guards, parser responses) before returning the associated `TerminalUpdate` diff to callers.
 - `free()` MUST reset the renderer's buffers, release resources, and render the session unusable for future rendering. After `free()` is called, subsequent calls to `dispatch` or new listener registrations MUST throw. `unmount()` MAY be invoked during teardown but MUST succeed exactly once; further calls MUST throw.
 - `serializeBuffer()` MAY be provided to expose the session's buffered frame data for diagnostics. When provided, it MUST resolve with an `ImageBitmap` or `Uint8Array` snapshot.
 

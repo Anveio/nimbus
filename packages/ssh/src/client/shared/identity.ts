@@ -1,8 +1,8 @@
-import {
-  type GeneratedIdentityConfig,
-  type GeneratedPublicKeyInfo,
-  type ResolvedIdentity,
-  type SshIdentityConfig,
+import type {
+  GeneratedIdentityConfig,
+  GeneratedPublicKeyInfo,
+  ResolvedIdentity,
+  SshIdentityConfig,
 } from '../../api'
 import { BinaryReader } from '../../internal/binary/binary-reader'
 import { BinaryWriter } from '../../internal/binary/binary-writer'
@@ -51,13 +51,14 @@ async function generateEd25519Identity(
       'Ed25519 identity generation requires WebCrypto SubtleCrypto support',
     )
   }
-  const keyPair = await crypto.subtle.generateKey(
-    { name: 'Ed25519' },
-    false,
-    ['sign', 'verify'],
-  )
+  const keyPair = await crypto.subtle.generateKey({ name: 'Ed25519' }, false, [
+    'sign',
+    'verify',
+  ])
   if (!isCryptoKeyPair(keyPair)) {
-    throw new SshInvariantViolation('WebCrypto failed to generate Ed25519 key pair')
+    throw new SshInvariantViolation(
+      'WebCrypto failed to generate Ed25519 key pair',
+    )
   }
   const publicKeyRaw = await crypto.subtle.exportKey('raw', keyPair.publicKey)
   const publicKey = new Uint8Array(publicKeyRaw)
@@ -109,7 +110,10 @@ async function resolveProvidedEd25519Identity(
     }
   }
   if (material.kind === 'raw') {
-    const privateKey = await importEd25519PrivateKey(crypto, material.privateKey)
+    const privateKey = await importEd25519PrivateKey(
+      crypto,
+      material.privateKey,
+    )
     const publicKey = new Uint8Array(material.publicKey)
     return {
       username: identity.username,

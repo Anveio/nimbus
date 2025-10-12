@@ -1,4 +1,8 @@
-import type { TerminalSelection, TerminalState, TerminalUpdate } from '@nimbus/vt'
+import type {
+  TerminalSelection,
+  TerminalState,
+  TerminalUpdate,
+} from '@nimbus/vt'
 import {
   type CanvasRenderer,
   createCanvasRenderer,

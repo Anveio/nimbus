@@ -10,7 +10,7 @@ import {
   createMemoryHostKeyStore,
   type RuntimeConfigOverrides,
   type RuntimeConnectOptions,
-  type TransportBinding
+  type TransportBinding,
 } from '../shared/connect'
 import { resolveIdentityConfig } from '../shared/identity'
 import { createIndexedDbHostKeyStore } from './host-key-store'

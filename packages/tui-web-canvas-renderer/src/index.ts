@@ -1,4 +1,9 @@
-import type { TerminalSelection, TerminalState, TerminalUpdate } from '@nimbus/vt'
+import type {
+  TerminalRuntimeResponse,
+  TerminalSelection,
+  TerminalState,
+  TerminalUpdate,
+} from '@nimbus/vt'
 import { areSelectionsEqual } from '@nimbus/vt'
 import { createCpuCanvasRenderer } from './backends/canvas/cpu'
 import { createWebglCanvasRenderer } from './backends/webgl/renderer'
@@ -88,7 +93,8 @@ const readRendererBackendDataset = (
     return null
   }
   const datasetValue =
-    element.dataset?.nimbusRendererBackend ?? element.dataset?.manaRendererBackend
+    element.dataset?.nimbusRendererBackend ??
+    element.dataset?.manaRendererBackend
   switch (datasetValue) {
     case 'cpu':
       return 'cpu-2d'
@@ -490,6 +496,9 @@ export const createRendererSession = (
   let lastSelection: TerminalSelection | null = null
   let emittedSelection: TerminalSelection | null = null
   let currentBackend: RendererSessionBackend | null = null
+  const responseListeners = new Set<
+    (response: TerminalRuntimeResponse) => void
+  >()
 
   const emitDiagnostics = (diagnostics: CanvasRenderer['diagnostics']) => {
     observers.onDiagnostics?.(diagnostics)
@@ -587,6 +596,20 @@ export const createRendererSession = (
       const selectionChanged = !areSelectionsEqual(selection, lastSelection)
       if (selectionChanged && !hasSelectionMutation(updates)) {
         updates = appendSelectionUpdate(updates, selection, lastSelection)
+      }
+
+      if (updates && responseListeners.size > 0) {
+        for (const update of updates) {
+          if (update.type === 'response') {
+            const response: TerminalRuntimeResponse = {
+              kind: 'parser-response',
+              data: update.data,
+            }
+            for (const listener of responseListeners) {
+              listener(response)
+            }
+          }
+        }
       }
 
       const metricsChanged = shouldIncludeMetrics(currentMetrics, frame.metrics)
@@ -716,6 +739,12 @@ export const createRendererSession = (
       }
     },
     getDiagnostics: () => lastDiagnostics,
+    onRuntimeResponse: (listener) => {
+      responseListeners.add(listener)
+      return () => {
+        responseListeners.delete(listener)
+      }
+    },
     dispose: () => {
       renderer?.dispose()
       renderer = null
@@ -725,6 +754,7 @@ export const createRendererSession = (
       lastOverlays = null
       lastSelection = null
       emittedSelection = null
+      responseListeners.clear()
       clearRendererBackendDataset(canvas)
     },
   }

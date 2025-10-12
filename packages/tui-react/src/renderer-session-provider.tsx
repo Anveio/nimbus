@@ -9,10 +9,10 @@ import {
 import type { JSX, ReactNode } from 'react'
 import {
   createRendererRoot,
-  RendererConfiguration,
-  RendererSession,
-  TerminalProfile,
-  WebglRendererConfig,
+  type RendererConfiguration,
+  type RendererSession,
+  type TerminalProfile,
+  type WebglRendererConfig,
   type RendererRoot,
   type WebglRendererRootOptions,
 } from '@nimbus/webgl-renderer'
@@ -93,6 +93,7 @@ export const RendererSessionProvider = (
     rendererConfig,
     onFrame,
     onResizeRequest,
+    onRuntimeResponse,
     children,
   } = props
 
@@ -198,6 +199,14 @@ export const RendererSessionProvider = (
     }
     return session.onFrame(onFrame)
   }, [sessionState, onFrame])
+
+  useEffect(() => {
+    const session = sessionState
+    if (!session || !onRuntimeResponse) {
+      return
+    }
+    return session.onRuntimeResponse(onRuntimeResponse)
+  }, [sessionState, onRuntimeResponse])
 
   useEffect(() => {
     const session = sessionState

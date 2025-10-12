@@ -17,28 +17,35 @@ import type {
   RendererRootContainer,
   RendererSession,
   TerminalProfile,
+  TerminalRuntimeResponse,
   WebglRendererConfig,
   WebglRendererRootOptions,
 } from '@nimbus/webgl-renderer'
 import { Terminal } from './terminal'
 
 type FrameListener = Parameters<RendererSession['onFrame']>[0]
-type ResizeRequestListener = Parameters<NonNullable<RendererSession['onResizeRequest']>>[0]
+type ResizeRequestListener = Parameters<
+  NonNullable<RendererSession['onResizeRequest']>
+>[0]
+type ResponseListener = Parameters<RendererSession['onRuntimeResponse']>[0]
 
 type SessionHarness = {
   session: RendererSession
   dispatch: ReturnType<typeof vi.fn>
   onFrame: ReturnType<typeof vi.fn>
   onResizeRequest: ReturnType<typeof vi.fn>
+  onRuntimeResponse: ReturnType<typeof vi.fn>
   unmount: ReturnType<typeof vi.fn>
   free: ReturnType<typeof vi.fn>
   emitFrame(event: RendererFrameEvent): void
   emitResizeRequest(event: RendererResizeRequestEvent): void
+  emitRuntimeResponse(event: TerminalRuntimeResponse): void
 }
 
 const createSessionHarness = (): SessionHarness => {
   const frameListeners = new Set<FrameListener>()
   const resizeListeners = new Set<ResizeRequestListener>()
+  const responseListeners = new Set<ResponseListener>()
 
   const dispatch = vi.fn()
   const unmount = vi.fn()
@@ -54,6 +61,11 @@ const createSessionHarness = (): SessionHarness => {
     return () => resizeListeners.delete(listener)
   })
 
+  const onRuntimeResponseMock = vi.fn((listener: ResponseListener) => {
+    responseListeners.add(listener)
+    return () => responseListeners.delete(listener)
+  })
+
   const session: RendererSession = {
     profile: {},
     runtime: {} as WebglRenderer.TerminalRuntime,
@@ -62,6 +74,8 @@ const createSessionHarness = (): SessionHarness => {
     onFrame: onFrameMock as RendererSession['onFrame'],
     onResizeRequest:
       onResizeRequestMock as NonNullable<RendererSession['onResizeRequest']>,
+    onRuntimeResponse:
+      onRuntimeResponseMock as RendererSession['onRuntimeResponse'],
     unmount: unmount as RendererSession['unmount'],
     free: free as RendererSession['free'],
   }
@@ -71,6 +85,7 @@ const createSessionHarness = (): SessionHarness => {
     dispatch,
     onFrame: onFrameMock,
     onResizeRequest: onResizeRequestMock,
+    onRuntimeResponse: onRuntimeResponseMock,
     unmount,
     free,
     emitFrame(event) {
@@ -78,6 +93,9 @@ const createSessionHarness = (): SessionHarness => {
     },
     emitResizeRequest(event) {
       resizeListeners.forEach((listener) => listener(event))
+    },
+    emitRuntimeResponse(event) {
+      responseListeners.forEach((listener) => listener(event))
     },
   }
 }
@@ -285,6 +303,30 @@ describe('<Terminal />', () => {
       type: 'renderer.configure',
       configuration,
     })
+  })
+
+  it('registers runtime response listeners', () => {
+    const sessionHarness = createSessionHarness()
+    const rendererHarness = createRendererHarness(sessionHarness.session)
+    createRendererRootSpy.mockImplementation(rendererHarness.factory)
+    const onRuntimeResponse = vi.fn()
+
+    render(
+      <Terminal onRuntimeResponse={onRuntimeResponse} />,
+    )
+
+    expect(sessionHarness.onRuntimeResponse).toHaveBeenCalledTimes(1)
+
+    const response: TerminalRuntimeResponse = {
+      kind: 'pointer-report',
+      data: new Uint8Array(),
+    }
+
+    act(() => {
+      sessionHarness.emitRuntimeResponse(response)
+    })
+
+    expect(onRuntimeResponse).toHaveBeenCalledWith(response)
   })
 
   it('updates profile without remounting the renderer', () => {

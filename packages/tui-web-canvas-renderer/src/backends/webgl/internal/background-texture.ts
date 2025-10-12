@@ -1,4 +1,8 @@
-import type { SelectionRowSegment, TerminalCell, TerminalState } from '@nimbus/vt'
+import type {
+  SelectionRowSegment,
+  TerminalCell,
+  TerminalState,
+} from '@nimbus/vt'
 import type { RendererTheme } from '../../../types'
 import {
   rendererColorToRgba,

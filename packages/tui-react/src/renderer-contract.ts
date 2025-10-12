@@ -4,6 +4,7 @@ import type {
   RendererRoot,
   RendererRootContainer,
   RendererSession,
+  TerminalRuntimeResponse,
   WebglRendererConfig,
   WebglRendererSession,
 } from '@nimbus/webgl-renderer'
@@ -19,6 +20,7 @@ export interface RendererSessionProviderProps{
   readonly rendererConfig?: Partial<WebglRendererConfig>
   readonly onFrame?: (event: RendererFrameEvent) => void
   readonly onResizeRequest?: (event: RendererResizeRequestEvent) => void
+  readonly onRuntimeResponse?: (response: TerminalRuntimeResponse) => void
   readonly children?: ReactNode
 }
 

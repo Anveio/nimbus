@@ -1,5 +1,6 @@
 import type {
   SosPmApcKind,
+  TerminalRuntimeResponse,
   TerminalSelection,
   TerminalState,
   TerminalUpdate,
@@ -270,6 +271,9 @@ export interface RendererSession {
   presentFrame(frame: RendererNextFrameMetadata): void
   configure(configuration: RendererSessionConfiguration): void
   getDiagnostics(): CanvasRendererDiagnostics | null
+  onRuntimeResponse(
+    listener: (response: TerminalRuntimeResponse) => void,
+  ): () => void
   dispose(): void
 }
 
