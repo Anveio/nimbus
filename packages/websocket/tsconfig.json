@@ -1,13 +1,11 @@
 {
   "extends": "../tsconfig/workspace-package-config.json",
   "compilerOptions": {
+    "customConditions": ["source"],
     "paths": {
-      "@nimbus/websocket/*": ["./src/*"],
-      "@nimbus/ssh/client/web": ["../ssh/src/client/web/index.ts"],
-      "@nimbus/ssh/client/node": ["../ssh/src/client/node/index.ts"],
-      "@nimbus/ssh/server/node": ["../ssh/src/server/node/index.ts"]
+      "@nimbus/websocket/*": ["./src/*"]
     },
-    "rootDir": "../..",
+    "rootDir": ".",
     "composite": false,
     "incremental": false,
     "tsBuildInfoFile": "./node_modules/.cache/websocket.tsbuildinfo"
@@ -15,8 +13,7 @@
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
-    "../ssh/src/**/*.ts",
-    "../ssh/src/**/*.tsx"
+    "vitest.config.ts"
   ],
   "exclude": ["dist", "build", "node_modules"]
 }

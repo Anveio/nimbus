@@ -1,20 +1,20 @@
-import { ensureDefaultProfiles, getProfile } from '../protocol'
-import { initialiseConnection } from './internal/connection'
-import { createChannelTransport } from './internal/ssh-bridge'
-import { makeFactory, type RuntimeWebSocket } from './internal/socket'
-import type {
-  Connection,
-  ConnectOptions,
-  WebSocketConstructor,
-  Channel,
-} from './types'
+import type { DiagnosticRecord } from '@nimbus/ssh/client/web'
 import {
   connectSSH as connectSsh,
   type HostIdentity,
   type WebConnectOptions as SshWebConnectOptions,
 } from '@nimbus/ssh/client/web'
-import type { DiagnosticRecord } from '@nimbus/ssh/client/web'
+import { ensureDefaultProfiles, getProfile } from '../protocol'
 import type { DiagnosticEvent } from '../protocol/diagnostics'
+import { initialiseConnection } from './internal/connection'
+import { makeFactory, type RuntimeWebSocket } from './internal/socket'
+import { createChannelTransport } from './internal/ssh-bridge'
+import type {
+  Channel,
+  Connection,
+  ConnectOptions,
+  WebSocketConstructor,
+} from './types'
 
 type SshConnectedSession = Awaited<ReturnType<typeof connectSsh>>
 
@@ -90,11 +90,10 @@ export async function openSshSession(
     throw new Error('SSH username is required for public key authentication')
   }
 
-  let identityConfig =
-    sshOptions.identity ?? {
-      mode: 'generated' as const,
-      username: init.user.username,
-    }
+  let identityConfig = sshOptions.identity ?? {
+    mode: 'generated' as const,
+    username: init.user.username,
+  }
 
   if (identityConfig.mode === 'generated') {
     const existing = identityConfig.onPublicKey

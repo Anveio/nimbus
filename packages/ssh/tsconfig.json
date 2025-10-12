@@ -1,6 +1,7 @@
 {
   "extends": "../tsconfig/workspace-package-config.json",
   "compilerOptions": {
+    "customConditions": ["source"],
     "types": ["global", "node"],
     "paths": {
       "@nimbus/ssh/client/web": ["./src/client/web/index.ts"],

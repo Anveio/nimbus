@@ -4,6 +4,9 @@ const verbose = process.env.VITEST_VERBOSE === 'true'
 
 export default defineConfig({
   root: __dirname,
+  resolve: {
+    conditions: ['source', 'module', 'import', 'default'],
+  },
   test: {
     globals: false,
     include: ['test/**/*.test.ts'],

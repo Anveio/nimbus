@@ -33,6 +33,7 @@ This brief governs the SSH protocol core. Update it whenever RFC scope, security
 - Publish dual artifacts: `web` build targeting browsers/workers (ES2022, tree-shakeable, no Node globals) and `node` build optimized for Node 18+.
 - Maintain identical TypeScript types for both entry points; choose implementation via `exports` map in `package.json`.
 - Plan follow-on support for Bun and Deno once the core stabilizes—keep abstractions runtime-neutral so additional builds remain additive.
+- Authoring tooling resolves against the TypeScript sources via a `"source"` condition in the exports map. Keep this branch in sync when adding new entry points so `tsc --noEmit` and Vitest run without a prebuild.
 
 ## Security & Compliance Pillars
 - Constant-time comparisons, defensive parsing, transcript binding, and strict rekey thresholds are mandatory.

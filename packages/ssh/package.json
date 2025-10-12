@@ -27,17 +27,20 @@
   "exports": {
     ".": null,
     "./client/web": {
-      "types": "./dist/client/web.d.ts",
+      "types": "./src/client/web/index.ts",
+      "source": "./src/client/web/index.ts",
       "import": "./dist/client/web.js",
       "require": "./dist/client/web.cjs"
     },
     "./client/node": {
-      "types": "./dist/client/node.d.ts",
+      "types": "./src/client/node/index.ts",
+      "source": "./src/client/node/index.ts",
       "import": "./dist/client/node.js",
       "require": "./dist/client/node.cjs"
     },
     "./server/node": {
-      "types": "./dist/server/node.d.ts",
+      "types": "./src/server/node/index.ts",
+      "source": "./src/server/node/index.ts",
       "import": "./dist/server/node.js",
       "require": "./dist/server/node.cjs"
     },

@@ -19,11 +19,6 @@ const targets = {
     fileBase: 'index',
     formats: ['es', 'cjs'],
   },
-  'root-entrypoint': {
-    entry: 'src/root-entrypoint-block.ts',
-    fileBase: 'root-entrypoint-block',
-    formats: ['es', 'cjs'],
-  },
   'client-browser': {
     entry: 'src/client/browser.ts',
     fileBase: 'client/browser',

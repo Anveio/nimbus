@@ -1,7 +1,6 @@
 import {
   type AlgorithmCatalog,
   createClientSession,
-  type ClientPublicKeyReadyEvent,
   type DiagnosticRecord,
   type DiagnosticsSink,
   type HostIdentity,

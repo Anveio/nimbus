@@ -1,9 +1,9 @@
 import {
-  connectAndOpenSsh,
   type BrowserSshSession,
   type ConnectionState,
+  connectAndOpenSsh,
 } from '@nimbus/websocket/client/web'
-import { useCallback, useEffect, useRef, useReducer } from 'react'
+import { useCallback, useEffect, useReducer, useRef } from 'react'
 
 import type { SshFormState } from './use-ssh-form'
 
@@ -145,9 +145,7 @@ export function useSshSession({ logger }: UseSshSessionParams) {
       try {
         dispose()
       } catch (error) {
-        logger.append(
-          `[ui] listener cleanup failed: ${normalizeError(error)}`,
-        )
+        logger.append(`[ui] listener cleanup failed: ${normalizeError(error)}`)
       }
     }
     disposersRef.current = []
@@ -191,8 +189,7 @@ export function useSshSession({ logger }: UseSshSessionParams) {
     async (form: SshFormState, signedUrlInput: string) => {
       const signedUrl = signedUrlInput.trim()
       if (signedUrl.length === 0) {
-        const message =
-          'Request a websocket signed URL before connecting.'
+        const message = 'Request a websocket signed URL before connecting.'
         dispatch({ type: 'failure', error: message })
         logger.append(`[ui] ${message}`)
         return
@@ -247,9 +244,7 @@ export function useSshSession({ logger }: UseSshSessionParams) {
               },
             },
             onGeneratedPublicKey(info) {
-              logger.append(
-                `[ssh] generated public key (${info.algorithm})`,
-              )
+              logger.append(`[ssh] generated public key (${info.algorithm})`)
               if (mountedRef.current) {
                 dispatch({
                   type: 'set-public-key',
@@ -287,9 +282,7 @@ export function useSshSession({ logger }: UseSshSessionParams) {
         )
         disposers.push(
           session.channel.on('error', (channelError) => {
-            logger.append(
-              `[channel] error: ${normalizeError(channelError)}`,
-            )
+            logger.append(`[channel] error: ${normalizeError(channelError)}`)
           }),
         )
         disposers.push(
