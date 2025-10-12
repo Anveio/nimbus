@@ -3,7 +3,7 @@ import type {
   RendererEvent,
   RendererSession,
   SelectionPoint,
-} from '@mana/webgl-renderer'
+} from '@nimbus/webgl-renderer'
 
 export type ShortcutGuideReason = 'hotkey' | 'imperative'
 

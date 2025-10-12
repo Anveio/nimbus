@@ -22,7 +22,7 @@ describe('ClientSessionImpl Phase 1 handshake', () => {
     const first = session.nextEvent()
     expect(first).toEqual({
       type: 'identification-sent',
-      clientId: 'SSH-2.0-mana-ssh-web_0.1',
+      clientId: 'SSH-2.0-nimbus-ssh-web_0.1',
     })
 
     const second = session.nextEvent()

@@ -1,9 +1,9 @@
-import { connect as connectViaBrowserSubpath } from '@mana/websocket/client/browser'
-import type { NodeConnectOptions as NodeConnectOptionsFromNode } from '@mana/websocket/client/node'
-import { connect as connectViaNodeSubpath } from '@mana/websocket/client/node'
-import type { BrowserConnectOptions as BrowserConnectOptionsFromWeb } from '@mana/websocket/client/web'
-import { connect as connectViaWebSubpath } from '@mana/websocket/client/web'
-import { createNodeWebSocketServer as serverFactorySubpath } from '@mana/websocket/server/node'
+import { connect as connectViaBrowserSubpath } from '@nimbus/websocket/client/browser'
+import type { NodeConnectOptions as NodeConnectOptionsFromNode } from '@nimbus/websocket/client/node'
+import { connect as connectViaNodeSubpath } from '@nimbus/websocket/client/node'
+import type { BrowserConnectOptions as BrowserConnectOptionsFromWeb } from '@nimbus/websocket/client/web'
+import { connect as connectViaWebSubpath } from '@nimbus/websocket/client/web'
+import { createNodeWebSocketServer as serverFactorySubpath } from '@nimbus/websocket/server/node'
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import type { BrowserConnectOptions as BrowserConnectOptionsFromBrowser } from './client/browser'
 import type { NodeConnectOptions as NodeConnectOptionsFromSource } from './client/node'
@@ -25,7 +25,7 @@ describe('public exports', () => {
 
   it('exposes protocol profile helpers', () => {
     ensureDefaultProfiles()
-    expect(getProfile('mana.v1')).toBeDefined()
+    expect(getProfile('nimbus.v1')).toBeDefined()
   })
 
   it('exposes browser client through subpath exports', () => {

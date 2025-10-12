@@ -17,7 +17,7 @@ class MockNodeSocket {
   }
 
   readyState = 0
-  protocol = 'mana.ssh.v1'
+  protocol = 'nimbus.ssh.v1'
 
   constructor(
     readonly url: string,
@@ -73,7 +73,7 @@ describe('node connect', () => {
 
     const connectionPromise = connect(options)
     const socket = MockNodeSocket.instances.at(-1)!
-    expect(socket.protocols).toEqual(['mana.ssh.v1'])
+    expect(socket.protocols).toEqual(['nimbus.ssh.v1'])
 
     socket.emit('open', {})
     await flushMicrotasks()
@@ -81,12 +81,12 @@ describe('node connect', () => {
       data: manaV1Profile.encodeCtl({
         t: 'hello_ok',
         server: 'node-server',
-        caps: { flow: 'credit', profileAccepted: 'mana.v1' },
+        caps: { flow: 'credit', profileAccepted: 'nimbus.v1' },
       }),
     })
 
     const connection = await connectionPromise
-    expect(connection.protocol).toBe('mana.ssh.v1')
+    expect(connection.protocol).toBe('nimbus.ssh.v1')
   })
 
   it('honours resume hooks', async () => {
@@ -120,7 +120,7 @@ describe('node connect', () => {
       data: manaV1Profile.encodeCtl({
         t: 'hello_ok',
         server: 'node-resume',
-        caps: { flow: 'credit', profileAccepted: 'mana.v1' },
+        caps: { flow: 'credit', profileAccepted: 'nimbus.v1' },
       }),
     })
 

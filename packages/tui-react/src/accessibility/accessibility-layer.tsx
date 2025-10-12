@@ -10,11 +10,11 @@ import {
   useState,
 } from 'react'
 import type { ShortcutGuideReason } from '../hotkeys'
-import type { RendererSession } from '@mana/webgl-renderer'
+import type { RendererSession } from '@nimbus/webgl-renderer'
 import type {
   SelectionPoint,
   TerminalSelection,
-} from '@mana/webgl-renderer'
+} from '@nimbus/webgl-renderer'
 export type TerminalStatusLevel = 'info' | 'warning' | 'error'
 
 export interface TerminalStatusMessage {

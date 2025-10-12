@@ -17,6 +17,6 @@ const env: cdk.Environment | undefined =
 
 new TestingInstanceConnectStack(app, stackName, {
   description:
-    'Mana testing EC2 instance dedicated to integration tests for Instance Connect.',
+    'Nimbus testing EC2 instance dedicated to integration tests for Instance Connect.',
   env,
 })

@@ -1,6 +1,6 @@
 # Code Assistant Context
 
-This charter orients our collaboration inside the `mana` monorepo, the repository for the Mana software project. Mana is a zero-dependency, standards-compliant, universally embeddable, high performance terminal with SSH remoting capabilities.
+This charter orients our collaboration inside the `nimbus` monorepo, the repository for the Nimbus software project. Nimbus is a zero-dependency, standards-compliant, universally embeddable, high performance terminal with SSH remoting capabilities.
 
 # The Co-Creative Preamble
 
@@ -41,10 +41,10 @@ The workspace runs on Node 24 with npm. Each package is a shippable unit followi
   - `vt` (`packages/vt`): Parser + interpreter. Pure, deterministic, spec-first. Emits terminal state diffs for higher layers.
 - **Renderer Layer**
   - `webgl-renderer` (`packages/webgl-renderer`): GPU-backed renderer root/session implementation.
-  - `tui-web-canvas-renderer` (`packages/tui-web-canvas-renderer`): CPU canvas renderer (legacy name; will align with `@mana/cpu-canvas-renderer` branding).
+  - `tui-web-canvas-renderer` (`packages/tui-web-canvas-renderer`): CPU canvas renderer (legacy name; will align with `@nimbus/cpu-canvas-renderer` branding).
   - `svg-renderer` (planned): Accessibility-first renderer targeting SSR and print output.
 - **Host Adapters**
-  - `tui-react` (`packages/tui-react` → future `@mana/react`): React bindings, accessibility overlays, hotkey pipeline.
+  - `tui-react` (`packages/tui-react` → future `@nimbus/react`): React bindings, accessibility overlays, hotkey pipeline.
   - `tui-angular`/`tui-vue` (planned): Angular/Vue bindings following the same renderer contract.
 - **Protocol & Transport**
   - `ssh` (`packages/ssh`): SSHv2 protocol core with sub-exports for `client/web`, `client/node`, and `server/node`. Spec-driven state machine, codecs, and crypto scaffolding.

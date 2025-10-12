@@ -1,4 +1,4 @@
-@mana/websocket — Technical Design Spec (v1)
+@nimbus/websocket — Technical Design Spec (v1)
 
 Audience: engineers building a browser/desktop Terminal UI + SSH over WebSockets; backend engineers building compatible WS servers.
 
@@ -10,7 +10,7 @@ client/web (WHATWG WebSocket; progressive WebSocketStream when available)
 
 client/node (ws-backed harness for integration tests; not a shipping runtime)
 
-server/node (reference WS server atop @mana/ssh; Deno/Bun adapters next)
+server/node (reference WS server atop @nimbus/ssh; Deno/Bun adapters next)
 
 protocol/ shared types + WireProfile (pluggable encoding/decoding)
 
@@ -50,18 +50,18 @@ packages/websocket/
   TECHNICAL_SPEC.md         # (this file)
 ```
 Public exports
-* @mana/websocket/client/web
-* @mana/websocket/client/node
-* @mana/websocket/server/node
-* @mana/websocket/protocol
+* @nimbus/websocket/client/web
+* @nimbus/websocket/client/node
+* @nimbus/websocket/server/node
+* @nimbus/websocket/protocol
 
 3) Public Client API (stable surface)
 ```typescript
-// @mana/websocket/client/web | @mana/websocket/client/node
+// @nimbus/websocket/client/web | @nimbus/websocket/client/node
 
 export type ConnectOptions = {
   url: string;                       // wss:// strongly recommended
-  profile?: string | WireProfile;    // default: 'mana.v1'
+  profile?: string | WireProfile;    // default: 'nimbus.v1'
   auth?: () => Promise<{ scheme: 'bearer'; token: string } | { scheme: 'none' }>;
   retry?: { strategy: 'exponential'; maxRetries?: number; baseMs?: number; jitter?: boolean };
   highWaterMark?: number;            // default: 8 MiB (web)
@@ -74,7 +74,7 @@ export type ConnectOptions = {
 };
 
 export type Connection = {
-  readonly protocol: string; // negotiated subprotocol, e.g. 'mana.ssh.v1'
+  readonly protocol: string; // negotiated subprotocol, e.g. 'nimbus.ssh.v1'
   readonly state: 'connecting' | 'authenticating' | 'ready' | 'reconnecting' | 'closed';
   on(evt: 'statechange' | 'diagnostic' | 'policy', fn: (...args: any[]) => void): () => void;
 
@@ -182,15 +182,15 @@ Diagnostics & telemetry requirements (Phase 2):
   - heartbeat misses and reconnect attempts,
   - resume persistence operations (load/persist/clear success or failure).
 - Diagnostic payloads MUST include `timestamp`, `phase`, and a stable `code` string. Additional fields SHOULD be serialisable JSON values.
-- Browser client MUST capture current `bufferedAmount` and RTT (derived from ping/pong) so higher layers (`@mana/tui-react`, terminal web app) can render health indicators.
+- Browser client MUST capture current `bufferedAmount` and RTT (derived from ping/pong) so higher layers (`@nimbus/tui-react`, terminal web app) can render health indicators.
 
 5) Wire Profiles (customizable on‑the‑wire format)
 
 We separate what is sent (semantics) from how it is framed (profile). A profile controls subprotocols, message encodings (text vs binary), and frame splitting.
 ```ts
 export interface WireProfile {
-  readonly id: string;                         // e.g. 'mana.v1'
-  readonly subprotocols?: readonly string[];   // e.g. ['mana.ssh.v1']
+  readonly id: string;                         // e.g. 'nimbus.v1'
+  readonly subprotocols?: readonly string[];   // e.g. ['nimbus.ssh.v1']
   encodeCtl(msg: Ctl): ArrayBuffer | string;
   decodeCtl(frame: ArrayBuffer | string): Ctl | null;
   encodeData(df: DataFrame, caps: { maxFrame?: number }): (ArrayBuffer | string)[];
@@ -204,9 +204,9 @@ export function getProfile(id: string): WireProfile | undefined;
 ```
 5.1 Profiles we ship in v1
 
-mana.v1 (default)
+nimbus.v1 (default)
 
-Subprotocol: mana.ssh.v1
+Subprotocol: nimbus.ssh.v1
 
 Control: JSON as WS text frames (UTF‑8)
 
@@ -238,7 +238,7 @@ Selecting a profile
 ```ts
 const conn = await connect({
   url: 'wss://example/ws/ssh',
-  profile: 'mana.v1', // or 'json-base64.v1' | 'lenpfx.v1' | a custom WireProfile
+  profile: 'nimbus.v1', // or 'json-base64.v1' | 'lenpfx.v1' | a custom WireProfile
 });
 ```
 Negotiation
@@ -309,7 +309,7 @@ idle → connecting → authenticating → ready → closed
 ```
 Handshake (normative):
 
-WS upgrade with subprotocols from profile (e.g., mana.ssh.v1).
+WS upgrade with subprotocols from profile (e.g., nimbus.ssh.v1).
 
 Client sends hello (includes auth, caps.profile, optional resume).
 
@@ -327,7 +327,7 @@ If resume fails, client SHOULD present a typed error and require manual reconnec
 
 SSH bridge:
 
-- Once a channel is confirmed (`open_ok`), the client spins up an `@mana/ssh` session using the channel as its transport. The websocket layer remains owner of resume tokens; the SSH runtime sees only raw octets.
+- Once a channel is confirmed (`open_ok`), the client spins up an `@nimbus/ssh` session using the channel as its transport. The websocket layer remains owner of resume tokens; the SSH runtime sees only raw octets.
 - Browser and Node adapters expose helpers that bridge a `Connection` + channel init payload into `{ session, dispose }`, mirroring `connectSSH`. The bridge forwards channel `data` into `session.receive`, flushes `outbound-data` events back through `channel.send`, and propagates channel `exit`/`error` to the disposer.
 
 7.2 Channel lifecycle
@@ -355,11 +355,11 @@ Control‑message rate‑limit (default 50/second/conn).
 
 Idle timeout (default 60s; keepalive pings reset it).
 
-Compression: Default off for mana.v1. See §9 for rationale/knobs.
+Compression: Default off for nimbus.v1. See §9 for rationale/knobs.
 
 9) Compression (permessage‑deflate) — stance & knobs
 
-Default: Disabled for mana.v1 because SSH data is high‑entropy (post‑KEX) and compression adds CPU/memory without meaningful win.
+Default: Disabled for nimbus.v1 because SSH data is high‑entropy (post‑KEX) and compression adds CPU/memory without meaningful win.
 
 Control frames: Small JSON control frames compress well, but most stacks cannot “compress only control.” Prefer disabling globally for this protocol.
 
@@ -373,9 +373,9 @@ Web client: Cannot force compression off; server decides during upgrade.
 
 Profiles: MAY declare a preference but server remains source of truth.
 
-10) Integration with @mana/ssh (server/node)
+10) Integration with @nimbus/ssh (server/node)
 
-The reference server adapts channels to @mana/ssh/client/node.
+The reference server adapts channels to @nimbus/ssh/client/node.
 
 Adapter responsibilities:
 
@@ -449,9 +449,9 @@ Application close codes (4000–4099)
 
 4015 INTERNAL_ERROR
 
-12) Integration with @mana/tui-react & terminal web app
+12) Integration with @nimbus/tui-react & terminal web app
 
-- Browser client MUST expose bridge helpers (`connect`, `openSshSession`, `connectAndOpenSsh`) that return both the websocket connection and the underlying SSH session so `@mana/tui-react` can bind lifecycle hooks.
+- Browser client MUST expose bridge helpers (`connect`, `openSshSession`, `connectAndOpenSsh`) that return both the websocket connection and the underlying SSH session so `@nimbus/tui-react` can bind lifecycle hooks.
 - Bridge helpers MUST forward diagnostic events (handshake, buffer_state, resume outcomes) so React components can surface status to users.
 - Terminal web app MUST treat `Connection.state` as the authoritative source for UI transitions (connecting/authenticating/ready/reconnecting/closed).
 - React integration MUST cleanly dispose SSH sessions/channels when the component tree unmounts to avoid leaking resume tokens or buffered data.
@@ -513,7 +513,7 @@ Test matrix: handshake, open, flow, data echo, exit, close, error codes
 
 Browser
 ```ts
-import { connect } from '@mana/websocket/client/web';
+import { connect } from '@nimbus/websocket/client/web';
 
 const conn = await connect({
   url: 'wss://example.com/ws/ssh',
@@ -532,7 +532,7 @@ ch.on('exit', ({ code, sig }) => console.log('exit', code, sig));
 ```
 Node/Electron main
 ```ts
-import { connect } from '@mana/websocket/client/node';
+import { connect } from '@nimbus/websocket/client/node';
 
 const conn = await connect({
   url: 'wss://example.com/ws/ssh',
@@ -550,7 +550,7 @@ ch.on('data', (d) => process.stdout.write(d));
 
 #### Identity wiring
 
-Browser and Node clients forward the SSH identity configuration to `@mana/ssh`. Consumers may:
+Browser and Node clients forward the SSH identity configuration to `@nimbus/ssh`. Consumers may:
 
 - omit `ssh.identity` to let the runtime generate a Ed25519 key.
 - provide `ssh.identity = { mode: 'provided', algorithm: 'ed25519', material: … }` with one of:
@@ -569,20 +569,20 @@ Electron: renderer uses client/web; main uses client/node.
 
 16) Versioning & Compatibility
 
-Subprotocol: mana.ssh.v1 (advertised by mana.v1 profile).
+Subprotocol: nimbus.ssh.v1 (advertised by nimbus.v1 profile).
 
 proto: 1 in hello identifies the semantic schema version.
 
-New optional fields MAY be added to caps and messages; breaking changes require a new subprotocol/profile id (e.g., mana.ssh.v2, mana.v2).
+New optional fields MAY be added to caps and messages; breaking changes require a new subprotocol/profile id (e.g., nimbus.ssh.v2, nimbus.v2).
 
 17) Implementation Checklist (v1)
 
 >Tracked as separate tickets; summarized here so contributors see the whole picture.
 
-- Profiles: implement mana.v1, json-base64.v1, lenpfx.v1; register + tests
+- Profiles: implement nimbus.v1, json-base64.v1, lenpfx.v1; register + tests
 - client/web: classic WS + progressive WebSocketStream; HWM/LWM; credit logic; resume store
 - client/node: ws transport; same API; compression options; parity tests
-- server/node: HTTP upgrade + ws; origin/policy/limits; credit; @mana/ssh adapter
+- server/node: HTTP upgrade + ws; origin/policy/limits; credit; @nimbus/ssh adapter
 - Docs: README.md (quick start), PROTOCOL.md (interop), this spec
 - Tests: unit, integration, E2E; conformance matrix; memory/leak sentinels
 
@@ -621,7 +621,7 @@ Strict frame limits; aggressive close on violations
 ```swift
 Browser/Electron (renderer)        Node/Electron (main)         Server (node)
 ┌───────────────────────────┐      ┌───────────────────────┐    ┌────────────────────────┐
-│ @mana/websocket/client/web│      │@mana/websocket/client│    │@mana/websocket/server  │
+│ @nimbus/websocket/client/web│      │@nimbus/websocket/client│    │@nimbus/websocket/server  │
 │  - WS / WSStream          │      │  - ws (node)         │    │  - ws + HTTP upgrade   │
 │  - credit mgr + mux       │      │  - credit mgr + mux  │    │  - mux + policies      │
 └───────────┬───────────────┘      └─────────┬────────────┘    └──────────┬─────────────┘
@@ -629,5 +629,5 @@ Browser/Electron (renderer)        Node/Electron (main)         Server (node)
             └────────────────────────────────────────────────────────────┘
                                               SSH adapter
                                               (per channel)
-                                                                  @mana/ssh/client/node
+                                                                  @nimbus/ssh/client/node
 ```

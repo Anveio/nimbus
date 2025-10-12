@@ -1,5 +1,5 @@
-import type { TerminalSelection, TerminalState, TerminalUpdate } from '@mana/vt'
-import { areSelectionsEqual } from '@mana/vt'
+import type { TerminalSelection, TerminalState, TerminalUpdate } from '@nimbus/vt'
+import { areSelectionsEqual } from '@nimbus/vt'
 import { createCpuCanvasRenderer } from './backends/canvas/cpu'
 import { createWebglCanvasRenderer } from './backends/webgl/renderer'
 import type {
@@ -49,15 +49,19 @@ const setRendererBackendDataset = (
   }
   switch (backend) {
     case 'cpu-2d':
+      element.dataset.nimbusRendererBackend = 'cpu'
       element.dataset.manaRendererBackend = 'cpu'
       break
     case 'gpu-webgl':
+      element.dataset.nimbusRendererBackend = 'webgl'
       element.dataset.manaRendererBackend = 'webgl'
       break
     case 'gpu-webgpu':
+      element.dataset.nimbusRendererBackend = 'webgpu'
       element.dataset.manaRendererBackend = 'webgpu'
       break
     default:
+      element.dataset.nimbusRendererBackend = backend
       element.dataset.manaRendererBackend = backend
       break
   }
@@ -71,6 +75,7 @@ const clearRendererBackendDataset = (
     return
   }
   if ('dataset' in element && element.dataset) {
+    delete element.dataset.nimbusRendererBackend
     delete element.dataset.manaRendererBackend
   }
 }
@@ -82,7 +87,8 @@ const readRendererBackendDataset = (
   if (!element || typeof element !== 'object') {
     return null
   }
-  const datasetValue = element.dataset?.manaRendererBackend
+  const datasetValue =
+    element.dataset?.nimbusRendererBackend ?? element.dataset?.manaRendererBackend
   switch (datasetValue) {
     case 'cpu':
       return 'cpu-2d'

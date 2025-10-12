@@ -2,10 +2,10 @@
   "extends": "../tsconfig/workspace-package-config.json",
   "compilerOptions": {
     "paths": {
-      "@mana/websocket/*": ["./src/*"],
-      "@mana/ssh/client/web": ["../ssh/src/client/web/index.ts"],
-      "@mana/ssh/client/node": ["../ssh/src/client/node/index.ts"],
-      "@mana/ssh/server/node": ["../ssh/src/server/node/index.ts"]
+      "@nimbus/websocket/*": ["./src/*"],
+      "@nimbus/ssh/client/web": ["../ssh/src/client/web/index.ts"],
+      "@nimbus/ssh/client/node": ["../ssh/src/client/node/index.ts"],
+      "@nimbus/ssh/server/node": ["../ssh/src/server/node/index.ts"]
     },
     "rootDir": "../..",
     "composite": false,

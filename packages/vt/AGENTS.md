@@ -1,4 +1,4 @@
-# @mana/vt Agent Charter
+# @nimbus/vt Agent Charter
 
 This file anchors how we reason about the VT parser + interpreter stack. Treat it as a living contract—revise whenever new capabilities or risks emerge.
 
@@ -9,7 +9,7 @@ This file anchors how we reason about the VT parser + interpreter stack. Treat i
 
 ## Boundaries & Dependencies
 - Owns classification, state machines, interpreter deltas, and capability descriptors inside `packages/vt`.
-- Exports typed surfaces for `@mana/tui-react`, `@mana/tui-web-canvas-renderer`, and future hosts. No browser APIs, no transport logic.
+- Exports typed surfaces for `@nimbus/tui-react`, `@nimbus/tui-web-canvas-renderer`, and future hosts. No browser APIs, no transport logic.
 - Shares spec and roadmap context through `docs/` alongside per-feature specs that precede implementation and test work.
 
 ## Design Pillars
@@ -63,7 +63,7 @@ Reframed the VT agent charter to mirror the root repository ethos, extracted fou
 ### 2025-10-10 – Runtime host event contract
 - Documented the `TerminalRuntimeHostEvent` union so downstream packages program against cursor/selection primitives instead of raw parser events.
 - Marked `dispatchEvent` and the bulk `dispatchEvents` helper as the happy paths, with `parser.dispatch`/`parser.batch` as explicit power-user fallbacks.
-- Upcoming refactors will route `@mana/tui-react` and renderer packages through the event surface, keeping interpreter state behind the runtime façade.
+- Upcoming refactors will route `@nimbus/tui-react` and renderer packages through the event surface, keeping interpreter state behind the runtime façade.
 
 ### 2025-09-29 – Printer controller stub
 - Introduced `printer/controller.ts` with a default no-op controller so the interpreter can mirror output when printer modes engage.

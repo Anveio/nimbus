@@ -2,7 +2,7 @@ import type {
   TerminalRuntime,
   TerminalSelection,
   TerminalUpdate,
-} from '@mana/vt'
+} from '@nimbus/vt'
 import type {
   RendererEvent,
   RuntimeUpdateBatch,

@@ -1,4 +1,4 @@
-import { createTerminalRuntime } from '@mana/vt'
+import { createTerminalRuntime } from '@nimbus/vt'
 import { describe, expect, it } from 'vitest'
 import { applyRendererEventToRuntime } from './runtime-bridge'
 

@@ -10,7 +10,7 @@ export default defineConfig({
     sourcemap: true,
     lib: {
       entry,
-      name: 'ManaSshTuiReact',
+      name: 'NimbusSshTuiReact',
       formats: ['es', 'cjs'],
       fileName: (format) => (format === 'es' ? 'index.mjs' : 'index.cjs'),
     },
@@ -19,7 +19,7 @@ export default defineConfig({
         'react',
         'react-dom',
         'react/jsx-runtime',
-        '@mana/webgl-renderer',
+        '@nimbus/webgl-renderer',
       ],
     },
   },

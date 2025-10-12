@@ -1,16 +1,16 @@
-# @mana/tui-web-canvas-renderer Agent Charter
+# @nimbus/tui-web-canvas-renderer Agent Charter
 
 This charter defines how we evolve the web canvas renderer. Update it when renderer capabilities, risks, or rituals shift.
 
 ## Mandate
-- Render `@mana/vt` interpreter diffs into high-fidelity pixels using HTML canvas surfaces (2D + optional GPU paths).
+- Render `@nimbus/vt` interpreter diffs into high-fidelity pixels using HTML canvas surfaces (2D + optional GPU paths).
 - Provide a stable renderer contract (`init`, `applyUpdates`, `sync`, `dispose`) that downstream hosts can adopt without depending on implementation details.
 - Serve as the reference implementation for future renderers (SVG, WebGL, native) by documenting expectations, performance baselines, and testing rituals.
 
 ## Boundaries & Dependencies
 - Owns drawing pipelines, glyph atlases, palette management, and selection/cursor overlays within `packages/tui-web-canvas-renderer`.
-- Consumes typed diffs, snapshots, and metadata exclusively from `@mana/vt`; never implement terminal semantics locally.
-- Exposes diagnostics and lifecycle hooks consumed by `@mana/tui-react`, demo apps, and test harnesses. No transport or React logic belongs here.
+- Consumes typed diffs, snapshots, and metadata exclusively from `@nimbus/vt`; never implement terminal semantics locally.
+- Exposes diagnostics and lifecycle hooks consumed by `@nimbus/tui-react`, demo apps, and test harnesses. No transport or React logic belongs here.
 
 ## Design Pillars
 - **Renderer-only responsibility**: Treat terminal state as read-only input. Keep side effects confined to canvas contexts and instrumentation callbacks.

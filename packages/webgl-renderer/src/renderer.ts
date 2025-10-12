@@ -2,7 +2,7 @@ import {
   createTerminalRuntime,
   type TerminalRuntime,
   type TerminalState,
-} from '@mana/vt'
+} from '@nimbus/vt'
 import { createWebglContext } from './gl/context'
 import { createFullScreenQuad, disposeFullScreenQuad } from './gl/quad'
 import { createProgram } from './gl/shader'

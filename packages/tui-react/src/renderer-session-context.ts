@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { RendererSession, TerminalRuntime } from '@mana/webgl-renderer'
+import type { RendererSession, TerminalRuntime } from '@nimbus/webgl-renderer'
 
 export interface RendererSessionContextValue {
   readonly session: RendererSession | null

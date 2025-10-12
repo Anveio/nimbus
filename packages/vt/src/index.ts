@@ -36,6 +36,16 @@ export {
   parser,
 } from './runtime'
 
+export {
+  areSelectionsEqual,
+  clampSelectionRange,
+  getSelectionBounds,
+  getSelectionRange,
+  getSelectionRowSegment,
+  getSelectionRowSegments,
+  isSelectionCollapsed,
+} from './interpreter'
+
 export type {
   ByteFlag,
   C1HandlingMode,

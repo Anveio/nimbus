@@ -1,4 +1,4 @@
-# Specification Matrix — `@mana/ssh`
+# Specification Matrix — `@nimbus/ssh`
 
 | Feature | Primary Spec | Supplemental Notes | Status |
 | --- | --- | --- | --- |

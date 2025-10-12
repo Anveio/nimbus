@@ -1,8 +1,8 @@
 {
-  "name": "@mana/web-demo",
+  "name": "@nimbus/web-demo",
   "version": "0.0.1",
   "private": true,
-  "description": "A web-based terminal application to demonstrate and test the ManaSSHWeb library.",
+  "description": "A web-based terminal application to demonstrate and test the NimbusSSHWeb library.",
   "scripts": {
     "clean": "git clean -xfd .",
     "dev": "vite",
@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.51.4",
-    "@mana/tui-react": "^0.0.1",
+    "@nimbus/tui-react": "^0.0.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },

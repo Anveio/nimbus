@@ -1,4 +1,4 @@
-import type { TerminalAttributes, TerminalColor } from '@mana/vt'
+import type { TerminalAttributes, TerminalColor } from '@nimbus/vt'
 import type { RendererColor, RendererTheme } from '../types'
 
 const clampByte = (value: number): number =>

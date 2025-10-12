@@ -20,7 +20,7 @@ describe('connection state machine', () => {
       {
         type: 'hello_sent',
         resumeToken: 'secret-token',
-        profileRequested: 'mana.v1',
+        profileRequested: 'nimbus.v1',
         timestamp: 10,
       },
       10,
@@ -31,7 +31,7 @@ describe('connection state machine', () => {
       type: 'handshake',
       attempt: 1,
       resumeTokenPresent: true,
-      profileRequested: 'mana.v1',
+      profileRequested: 'nimbus.v1',
     })
     expect(afterHello.diagnostics[1]).toMatchObject({
       type: 'resume_attempt',

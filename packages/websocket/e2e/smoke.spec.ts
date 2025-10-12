@@ -9,8 +9,8 @@ const sshRoot = path.resolve(packageRoot, '../ssh')
 
 let browserBundle: Promise<string> | null = null
 
-type ManaGlobal = {
-  readonly ManaSSHWebClient?: {
+type NimbusGlobal = {
+  readonly NimbusSSHWebClient?: {
     readonly connect?: unknown
   }
 }
@@ -22,11 +22,11 @@ async function compileBrowserBundle(): Promise<string> {
     resolve: {
       alias: [
         {
-          find: '@mana/ssh/client/web',
+          find: '@nimbus/ssh/client/web',
           replacement: path.resolve(sshRoot, 'src/client/web/index.ts'),
         },
         {
-          find: '@mana/ssh',
+          find: '@nimbus/ssh',
           replacement: path.resolve(sshRoot, 'src/index.ts'),
         },
       ],
@@ -39,7 +39,7 @@ async function compileBrowserBundle(): Promise<string> {
       lib: {
         entry: webClientEntry,
         formats: ['iife'],
-        name: 'ManaSSHWebClient',
+        name: 'NimbusSSHWebClient',
         fileName: () => 'bundle.js',
       },
       rollupOptions: {
@@ -74,8 +74,8 @@ test('browser bundle exposes connect function', async ({ page }) => {
   await page.addScriptTag({ content: bundle })
 
   const hasConnect = await page.evaluate(() => {
-    const global = window as unknown as ManaGlobal
-    return typeof global.ManaSSHWebClient?.connect === 'function'
+    const global = window as unknown as NimbusGlobal
+    return typeof global.NimbusSSHWebClient?.connect === 'function'
   })
 
   expect(hasConnect).toBe(true)

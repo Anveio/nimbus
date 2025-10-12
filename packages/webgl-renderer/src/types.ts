@@ -11,7 +11,7 @@ import type {
   TerminalSelection,
   TerminalState,
   TerminalUpdate,
-} from '@mana/vt'
+} from '@nimbus/vt'
 
 /**
  * Renderer configuration as described by renderer-specification-v0.md §8.

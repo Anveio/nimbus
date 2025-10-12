@@ -1,5 +1,5 @@
 {
-  "extends": "@mana/tsconfig/workspace-app-config.json",
+  "extends": "@nimbus/tsconfig/workspace-app-config.json",
   "compilerOptions": {
     "baseUrl": ".",
     "jsx": "react-jsx",

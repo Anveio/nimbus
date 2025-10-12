@@ -8,14 +8,14 @@ describe('BinaryReader/BinaryWriter', () => {
     const writer = new BinaryWriter()
     writer.writeUint8(7)
     writer.writeUint32(0x01020304)
-    writer.writeString('mana')
+    writer.writeString('nimbus')
 
     const buffer = writer.toUint8Array()
     const reader = new BinaryReader(buffer)
 
     expect(reader.readUint8()).toBe(7)
     expect(reader.readUint32()).toBe(0x01020304)
-    expect(reader.readString()).toBe('mana')
+    expect(reader.readString()).toBe('nimbus')
     expect(reader.remaining).toBe(0)
   })
 
@@ -30,14 +30,14 @@ describe('BinaryReader/BinaryWriter', () => {
 
   it('supports cloning without consuming state', () => {
     const writer = new BinaryWriter()
-    writer.writeString('mana')
+    writer.writeString('nimbus')
     const buffer = writer.toUint8Array()
 
     const reader = new BinaryReader(buffer)
     const clone = reader.clone()
 
-    expect(clone.readString()).toBe('mana')
-    expect(reader.readString()).toBe('mana')
+    expect(clone.readString()).toBe('nimbus')
+    expect(reader.readString()).toBe('nimbus')
   })
 
   it('writes and reads UTF-8 payloads losslessly', () => {

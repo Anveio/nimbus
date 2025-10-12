@@ -10,7 +10,7 @@ import type {
   ReactNode,
   RefAttributes,
 } from 'react'
-import type { RendererRootContainer } from '@mana/webgl-renderer'
+import type { RendererRootContainer } from '@nimbus/webgl-renderer'
 import {
   RendererSurfaceContextProvider,
   useRendererSurface,

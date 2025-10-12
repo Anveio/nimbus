@@ -1,4 +1,4 @@
-# ManaSSH Protocol
+# NimbusSSH Protocol
 
 This package contains the core, transport-agnostic implementation of the SSH protocol (RFCs 4250-4254).
 
@@ -6,14 +6,14 @@ This package contains the core, transport-agnostic implementation of the SSH pro
 
 This package manages the SSH state machine, handles cryptographic operations, and performs message serialization/deserialization. It is designed to be completely independent of any network transport, taking byte arrays in and producing byte arrays out.
 
-This strict separation of concerns allows for maximum testability, flexibility, and extensibility. It is consumed by higher-level packages (like `@mana/web`) to provide a complete client solution.
+This strict separation of concerns allows for maximum testability, flexibility, and extensibility. It is consumed by higher-level packages (like `@nimbus/web`) to provide a complete client solution.
 
 ## Runtime dependencies
 
 The core constructor (`createClientSession`) is runtime agnostic: it has no built-in knowledge of sockets, timers, or platforms. Instead, callers must inject the environment-specific primitives (`clock`, `randomBytes`, `crypto`, host-key policy, identity, etc.) through the `SshClientConfig`. Most consumers should rely on the runtime-aware adapters that do this wiring automatically:
 
-- `@mana/ssh/client/web` – browser/worker defaults
-- `@mana/ssh/client/node` – Node 18+ defaults
+- `@nimbus/ssh/client/web` – browser/worker defaults
+- `@nimbus/ssh/client/node` – Node 18+ defaults
 - future runtimes (Deno, Bun, servers) will expose similar entry points
 
 Importing the top-level package in environments where those dependencies are not provided will fail; pick the adapter that matches your runtime or supply the primitives explicitly. Public-key authentication requires a username and signing material—runtime adapters generate an ephemeral Ed25519 keypair by default and emit the OpenSSH-formatted public key so hosts can pass it to EC2 Instance Connect or similar services before authentication completes.

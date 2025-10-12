@@ -717,10 +717,10 @@ describe('TerminalInterpreter basic behaviour', () => {
   })
 
   it('surfaces OSC title updates and stores state', () => {
-    const { interpreter, updates } = run('\u001b]0;mana terminal\u0007')
+    const { interpreter, updates } = run('\u001b]0;nimbus terminal\u0007')
     const flattened = updates.flat()
 
-    expect(interpreter.snapshot.title).toBe('mana terminal')
+    expect(interpreter.snapshot.title).toBe('nimbus terminal')
     expect(flattened.some((update) => update.type === 'osc')).toBe(true)
     expect(flattened.some((update) => update.type === 'title')).toBe(true)
   })
@@ -950,7 +950,7 @@ describe('TerminalInterpreter basic behaviour', () => {
   it('renders complex ANSI banner with truecolor and emojis', () => {
     const sequence =
       '\u001b[38;2;88;166;255m┏━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓\r\n' +
-      '\u001b[38;2;88;166;255m┃\u001b[0m  \u001b[1;38;2;35;134;54mMana Web Terminal\u001b[0m  \u001b[38;2;88;166;255m┃\r\n' +
+      '\u001b[38;2;88;166;255m┃\u001b[0m  \u001b[1;38;2;35;134;54mNimbus Web Terminal\u001b[0m  \u001b[38;2;88;166;255m┃\r\n' +
       '\u001b[38;2;88;166;255m┣━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━┫\r\n' +
       '\u001b[0m  🛰  \u001b[3mConnected to virtual constellation\u001b[0m\r\n' +
       '  🧪  \u001b[38;2;255;215;0mExperimental session — type freely!\u001b[0m\r\n' +
@@ -967,7 +967,7 @@ describe('TerminalInterpreter basic behaviour', () => {
         .trimEnd()
 
     expect(readRow(0)).toBe('┏━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓')
-    expect(readRow(1)).toBe('┃  Mana Web Terminal  ┃')
+    expect(readRow(1)).toBe('┃  Nimbus Web Terminal  ┃')
     expect(readRow(2)).toBe('┣━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━┫')
     expect(readRow(3)).toBe('  🛰  Connected to virtual constellation')
     expect(readRow(4)).toBe('  🧪  Experimental session — type freely!')

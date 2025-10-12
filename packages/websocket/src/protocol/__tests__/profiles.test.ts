@@ -8,7 +8,7 @@ import {
   manaV1Profile,
 } from '../profiles/defaults'
 
-const sampleHello: Ctl = { t: 'hello', proto: 1, caps: { profile: 'mana.v1' } }
+const sampleHello: Ctl = { t: 'hello', proto: 1, caps: { profile: 'nimbus.v1' } }
 
 function makePayload(length: number): Uint8Array {
   const buf = new Uint8Array(length)
@@ -23,19 +23,19 @@ describe('wire profiles', () => {
     clearProfilesForTest()
     ensureDefaultProfiles()
     ensureDefaultProfiles()
-    expect(getProfile('mana.v1')).toBeDefined()
+    expect(getProfile('nimbus.v1')).toBeDefined()
     expect(getProfile('json-base64.v1')).toBeDefined()
     expect(getProfile('lenpfx.v1')).toBeDefined()
   })
 
-  it('round-trips control frames for mana.v1', () => {
+  it('round-trips control frames for nimbus.v1', () => {
     const encoded = manaV1Profile.encodeCtl(sampleHello)
     expect(typeof encoded).toBe('string')
     const decoded = manaV1Profile.decodeCtl(encoded)
     expect(decoded).toEqual(sampleHello)
   })
 
-  it('splits mana.v1 data frames at caps.maxFrame', () => {
+  it('splits nimbus.v1 data frames at caps.maxFrame', () => {
     const payload = makePayload(2_000_000)
     const frames = manaV1Profile.encodeData(
       { stream: 'stdout', id: 5, payload },

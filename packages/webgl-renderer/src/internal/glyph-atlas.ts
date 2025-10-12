@@ -1,4 +1,4 @@
-import type { TerminalCell } from '@mana/vt'
+import type { TerminalCell } from '@nimbus/vt'
 import type { RendererMetrics } from '../types'
 import { fontString } from './fonts'
 import {

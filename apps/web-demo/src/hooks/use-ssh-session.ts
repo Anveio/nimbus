@@ -2,7 +2,7 @@ import {
   connectAndOpenSsh,
   type BrowserSshSession,
   type ConnectionState,
-} from '@mana/websocket/client/web'
+} from '@nimbus/websocket/client/web'
 import { useCallback, useEffect, useRef, useReducer } from 'react'
 
 import type { SshFormState } from './use-ssh-form'

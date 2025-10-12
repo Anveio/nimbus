@@ -1,4 +1,4 @@
-import type { TerminalCell } from '@mana/vt'
+import type { TerminalCell } from '@nimbus/vt'
 import { rendererColorToRgba } from './colors'
 import type { RendererTheme } from '../types'
 

@@ -1,23 +1,23 @@
-# @mana/web Agent Charter
+# @nimbus/web Agent Charter
 
-This charter anchors the mandate, guardrails, and rituals for the Mana web host SDK. Revise it whenever scope, interfaces, or risks shift.
+This charter anchors the mandate, guardrails, and rituals for the Nimbus web host SDK. Revise it whenever scope, interfaces, or risks shift.
 
 ## Mandate
-- Deliver a batteries-included browser SDK that spins up a production-grade Mana terminal with a handful of configuration options.
+- Deliver a batteries-included browser SDK that spins up a production-grade Nimbus terminal with a handful of configuration options.
 - Compose interpreter, renderer, transport, and telemetry layers so SaaS teams integrate SSH without re-learning protocol internals.
 - Expose escape hatches for advanced hosts to swap transports, renderer themes, authentication, and observability without forking the stack.
 
 ## Boundaries & Dependencies
 - Owns all browser host orchestration housed in `packages/web` (session controller, default UI scaffolding, configuration schema, diagnostics plumbing).
 - Depends on:
-  - `@mana/vt` for terminal semantics and diff emission.
-  - `@mana/tui-react` + `@mana/tui-web-canvas-renderer` for UI composition; may default to React but must keep a framework-neutral entry point.
-  - `@mana/ssh` for protocol state machines and crypto, consuming the `client/web` surface by default.
-  - `@mana/websocket` for the default transport adapter.
+  - `@nimbus/vt` for terminal semantics and diff emission.
+  - `@nimbus/tui-react` + `@nimbus/tui-web-canvas-renderer` for UI composition; may default to React but must keep a framework-neutral entry point.
+  - `@nimbus/ssh` for protocol state machines and crypto, consuming the `client/web` surface by default.
+  - `@nimbus/websocket` for the default transport adapter.
 - Does **not** ship backend proxy code, key management services, or bespoke customer integrations. Delegate those to hosts or sibling apps.
 
 ## Product Surfaces
-- High-level factory (e.g. `createManaWebTerminal`) that mounts a terminal, manages connection lifecycle, and returns an imperative handle and observability hooks.
+- High-level factory (e.g. `createNimbusWebTerminal`) that mounts a terminal, manages connection lifecycle, and returns an imperative handle and observability hooks.
 - React-ready component wrapper that re-exports the factory with sensible defaults for JSX consumers.
 - Configuration schema covering authentication strategy, transport endpoint(s), renderer theme, feature flags (clipboard, selection, file transfer), and telemetry sinks.
 - Test harness helpers mirroring Playwright/Vitest fixtures so downstream apps can script terminals without duplicating setup logic.
@@ -27,10 +27,10 @@ This charter anchors the mandate, guardrails, and rituals for the Mana web host 
 - **Secure-by-default**: Enable bracketed paste, strict clipboard policies, connection backoff, and audit logging out of the box; require explicit opt-in to relax.
 - **Composable layers**: Keep transport, renderer, and telemetry swappable via typed interfaces. Avoid hard-coding WebSocket-only or React-only pathways.
 - **Observable runtime**: Emit structured events (connection, auth, channel, resize, error) and metrics via callbacks so hosts can wire their own observability stacks.
-- **Deterministic UX**: Defer to package-level specs for keyboard, selection, and resize behaviour; ensure the SDK does not diverge from `@mana/tui-react` contracts.
+- **Deterministic UX**: Defer to package-level specs for keyboard, selection, and resize behaviour; ensure the SDK does not diverge from `@nimbus/tui-react` contracts.
 
 ## Non-Goals
-- Running in privileged Node.js or server environments (covered by `@mana/ssh/server/node`).
+- Running in privileged Node.js or server environments (covered by `@nimbus/ssh/server/node`).
 - Providing UI chrome beyond terminal necessities (no dashboards, user management, or billing logic).
 - Hiding the raw SSH protocol: advanced consumers must still reach the lower-level clients via exports.
 

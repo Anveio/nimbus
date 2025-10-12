@@ -7,7 +7,7 @@ describe('messages', () => {
       t: 'hello',
       proto: 1,
       auth: { scheme: 'bearer', token: 'abc' },
-      caps: { profile: 'mana.v1' },
+      caps: { profile: 'nimbus.v1' },
     }
     expect(isCtl(ctl)).toBe(true)
   })

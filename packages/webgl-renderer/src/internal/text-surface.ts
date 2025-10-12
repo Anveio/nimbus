@@ -3,7 +3,7 @@ import type {
   TerminalColor,
   TerminalSelection,
   TerminalState,
-} from '@mana/vt'
+} from '@nimbus/vt'
 import type {
   RendererConfiguration,
   RendererDirtyRegion,

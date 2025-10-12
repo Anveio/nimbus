@@ -1,6 +1,6 @@
-# @mana/tui-react Agent Charter
+# @nimbus/tui-react Agent Charter
 
-This charter guides how we evolve the React bindings for the Mana terminal stack. Update it whenever architectural shifts, risks, or rituals change.
+This charter guides how we evolve the React bindings for the Nimbus terminal stack. Update it whenever architectural shifts, risks, or rituals change.
 
 ## Mandate
 - Deliver a zero-boilerplate React terminal component that orchestrates parser, interpreter, renderer, and host wiring on behalf of application code.
@@ -9,8 +9,8 @@ This charter guides how we evolve the React bindings for the Mana terminal stack
 
 ## Boundaries & Dependencies
 - Owns React-specific controllers, hooks, and components located in `packages/tui-react`.
-- Depends on renderer packages (e.g. `@mana/webgl-renderer`, `@mana/cpu-canvas-renderer`) for runtime access. **Never import `@mana/vt` directly**—all VT primitives flow through the renderer contract.
-- Hosts may depend on transport packages (e.g. `@mana/ssh`, `@mana/websocket`) to obtain VT-compliant byte streams, but transport orchestration remains outside this package.
+- Depends on renderer packages (e.g. `@nimbus/webgl-renderer`, `@nimbus/cpu-canvas-renderer`) for runtime access. **Never import `@nimbus/vt` directly**—all VT primitives flow through the renderer contract.
+- Hosts may depend on transport packages (e.g. `@nimbus/ssh`, `@nimbus/websocket`) to obtain VT-compliant byte streams, but transport orchestration remains outside this package.
 - Never inline transport, crypto, or DOM-global hacks.
 
 ## Design Pillars
@@ -22,13 +22,13 @@ This charter guides how we evolve the React bindings for the Mana terminal stack
 
 ## Testing Doctrine
 - Unit & component tests: `npm exec vitest run` inside `packages/tui-react` with React Testing Library/jsdom to cover hooks, lifecycle, and imperative handles. Co-locate unit tests alongside source modules (e.g. `src/hooks/useAutoResize.ts` ↔ `src/hooks/useAutoResize.test.tsx`).
-- Integration: Contract tests with `@mana/tui-web-canvas-renderer` ensure renderer swapping, selection propagation, and diagnostics remain stable.
+- Integration: Contract tests with `@nimbus/tui-web-canvas-renderer` ensure renderer swapping, selection propagation, and diagnostics remain stable.
 - End-to-end: Package-local Playwright harness (`npm run test:e2e`) mounts `<Terminal />`, drives keyboard flows, and runs `axe-core` scans; keep it green alongside the `apps/web-demo` Playwright suite that exercises full host flows.
 - Type discipline: `npm run typecheck` across the monorepo before landing changes; avoid ambient `any` escape hatches.
 - Spec-first workflow: Update or author package-level specs (e.g. controller lifecycle, selection semantics) prior to modifying code/tests.
 
 ## Active Focus / Backlog Signals
-- Finish the renderer-agnostic `<Terminal />` composition so swapping `@mana/webgl-renderer`, `@mana/cpu-canvas-renderer`, or future renderer packages requires zero host changes.
+- Finish the renderer-agnostic `<Terminal />` composition so swapping `@nimbus/webgl-renderer`, `@nimbus/cpu-canvas-renderer`, or future renderer packages requires zero host changes.
 - Harden keyboard + pointer selection parity (Shift/Option/Meta semantics, word jump rules) and ensure interpreter deltas map to renderer selection overlays.
 - Auto-resize via ResizeObserver and font metrics, exposing row/column info through the imperative handle and diagnostics channel.
 - Extend host/clipboard APIs for OSC 52, bracketed paste, mouse tracking, and connection diagnostics.
@@ -79,7 +79,7 @@ This charter guides how we evolve the React bindings for the Mana terminal stack
 - Unified the npm script surface so `npm run test` fans out to Vitest and Playwright, mirroring the renderer package’s patterns.
 
 ### 2025-10-12 – Renderer contract alignment
-- All VT primitives now flow through renderer exports. `<Terminal />` refuses direct `@mana/vt` imports, guaranteeing renderer/runtimes remain swappable.
+- All VT primitives now flow through renderer exports. `<Terminal />` refuses direct `@nimbus/vt` imports, guaranteeing renderer/runtimes remain swappable.
 - `RendererSessionProvider` consumes `createTerminalRuntime` via the renderer layer, simplifying future multi-runtime experiments.
 
 ### 2025-09-30 – Charter refresh

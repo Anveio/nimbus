@@ -2754,7 +2754,7 @@ class ClientSessionImpl implements SshSession {
  * or globals beyond the `SshClientConfig` you provide. Callers must inject
  * environment-specific primitives (clock, randomness, crypto provider,
  * host-key policy, diagnostics) through the config. Higher-level adapters
- * such as `@mana/ssh/client/web` and `@mana/ssh/client/node` assemble those
+ * such as `@nimbus/ssh/client/web` and `@nimbus/ssh/client/node` assemble those
  * defaults on your behalf; when using this constructor directly be sure to
  * supply equivalents explicitly (e.g. `crypto.getRandomValues` in browsers,
  * `crypto.randomBytes`/`crypto.webcrypto` in Node).

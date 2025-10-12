@@ -1,7 +1,7 @@
 # WebSocket SSH Client Proposal
 
 ## Intent
-This document captures the initial surface area for the browser WebSocket transport that bridges Mana terminals to remote SSH sessions. The goal is to give app developers a batteries-included client that hides wire details yet keeps the door open for higher-level orchestration once the SSH core exposes full channel control. The proposal now codifies lifecycle, security, codec, and diagnostics guarantees so the public API can ship as a stable, testable transport layer.
+This document captures the initial surface area for the browser WebSocket transport that bridges Nimbus terminals to remote SSH sessions. The goal is to give app developers a batteries-included client that hides wire details yet keeps the door open for higher-level orchestration once the SSH core exposes full channel control. The proposal now codifies lifecycle, security, codec, and diagnostics guarantees so the public API can ship as a stable, testable transport layer.
 
 ## Goals
 - **One-line bootstrap:** Consumer code should look like `const client = createWebSocketSshClient(config); await client.connect();` followed by `client.write("ls\n")`.
@@ -73,7 +73,7 @@ export interface WebSocketSshClientConfig {
     readonly headers?: Readonly<Record<string, string>>
   }
 
-  /** Preferred algorithm suites forwarded to @mana/ssh. Overrides merge with shipped defaults. */
+  /** Preferred algorithm suites forwarded to @nimbus/ssh. Overrides merge with shipped defaults. */
   readonly algorithms?: Partial<AlgorithmSuiteOverrides>
 
   /** Optional reconnection policy; defaults keep exponential backoff + jitter. */
@@ -148,14 +148,14 @@ export type TransportEvent =
 These events keep the default experience approachable (subscribe to `data`, write strings) while allowing future layering (auth flows, structured reconnect UI and diagnostics). `error` events are emitted once per terminal failure, immediately before transitioning to `failed` or `closed`.
 
 ### Frame codec configuration
-- The client ships with a canonical `mana-default:1` codec that wraps SSH payloads and transport control frames in a binary envelope. This codec is considered the interoperability baseline for Mana hosts and server transports.
+- The client ships with a canonical `nimbus-default:1` codec that wraps SSH payloads and transport control frames in a binary envelope. This codec is considered the interoperability baseline for Nimbus hosts and server transports.
 - `frameCodec` may be supplied to experiment with alternate envelopes (for example, a QUIC-ready framing or integration with an existing proxy). Custom codecs must round-trip `TransportFrame` structures and are expected to negotiate out-of-band compatibility with the server.
 - The active codec is surfaced via `client.codec` so hosts can log, verify, or enforce policy. If the supplied codec throws during `decode`, the transport emits an `error` with `reason: 'protocol-error'` and moves to `failed`.
 - Future protocol additions (resume markers, security challenges) will land in the default codec first. Custom codecs are responsible for re-encoding those control frames when upgrading to newer versions.
 
-## Canonical codec `mana-default:1`
+## Canonical codec `nimbus-default:1`
 
-`mana-default:1` is the reference codec backing browser ↔ server interoperability. Both sides must implement it; alternative codecs are opt-in and negotiated by the host application.
+`nimbus-default:1` is the reference codec backing browser ↔ server interoperability. Both sides must implement it; alternative codecs are opt-in and negotiated by the host application.
 
 ### Requirements and invariants
 - Frames must be self-delimiting and reject corruption quickly.
@@ -181,7 +181,7 @@ The payload immediately follows the header.
 
 ### Data frame semantics
 - `type = 0x00`.
-- Payload is the raw SSH binary fragment emitted by `@mana/ssh`.
+- Payload is the raw SSH binary fragment emitted by `@nimbus/ssh`.
 - Frames MUST preserve ordering; the receiver enqueues data strictly by `sequence`.
 - `FIN` indicates the sender flushed an internal buffer (for example after newline). Hosts may use it as a heuristic for UI updates but MUST NOT assume message boundaries.
 
@@ -197,7 +197,7 @@ The payload immediately follows the header.
 - `CHECKPOINT` flag is valid for RESUME_TICKET frames; receivers persist the supplied token atomically before acknowledging queued writes.
 
 ### Negotiation and lifecycle
-- The client selects a preferred codec (default `mana-default:1`) before opening the WebSocket.
+- The client selects a preferred codec (default `nimbus-default:1`) before opening the WebSocket.
 - After the socket opens, both sides exchange HELLO frames. If both advertise the same codec ID, the session proceeds. Otherwise, the endpoint detecting the mismatch sends `CLOSE_HINT` with `code = 4600` (`codec-mismatch`) and closes the connection.
 - `sequence` starts at zero for the first frame after HELLO and increments by one for every transmitted frame, regardless of type. Receivers drop duplicate or out-of-order frames and emit a protocol `error`.
 - Heartbeat cadence is derived from transport config (default 10 seconds). Missing two consecutive acknowledgements triggers reconnect.
@@ -216,7 +216,7 @@ The payload immediately follows the header.
 
 ### Interoperability notes
 - The codec never mutates SSH payload bytes; servers peel the 14-byte header and feed the original RFC 4253 packets straight into their SSH stack. Implementations such as `golang.org/x/crypto/ssh` therefore interoperate without modifications.
-- Mana defaults to modern OpenSSH algorithms (curve25519 KEX, ssh-ed25519 host keys, aes128-gcm cipher, umac-64 MAC). When targeting Go hosts, expose preset overrides that include `aes128-ctr`, `chacha20-poly1305@openssh.com`, and `hmac-sha2-256/512` to match the Go runtime catalogue.
+- Nimbus defaults to modern OpenSSH algorithms (curve25519 KEX, ssh-ed25519 host keys, aes128-gcm cipher, umac-64 MAC). When targeting Go hosts, expose preset overrides that include `aes128-ctr`, `chacha20-poly1305@openssh.com`, and `hmac-sha2-256/512` to match the Go runtime catalogue.
 - Resume ticket control frames are optional; servers that ignore them remain compliant but forego reconnect optimisations. The browser client downgrades gracefully by emitting `reconnecting` events with `resume=false`.
 
 ### Lifecycle semantics
@@ -229,14 +229,14 @@ The payload immediately follows the header.
 The async iterable on `events` remains the canonical delivery mechanism and integrates with async generators, but the `on` helper gives React hosts and imperative shells a simple subscription primitive. The unsubscribe handle must be invoked by consumers; `dispose()` cleans up any remaining subscriptions automatically.
 
 ### Default algorithm catalogue
-Until wider cipher/MAC support lands in `@mana/ssh`, the client ships with the following defaults:
+Until wider cipher/MAC support lands in `@nimbus/ssh`, the client ships with the following defaults:
 - `keyExchange`: `['curve25519-sha256@libssh.org', 'diffie-hellman-group14-sha256']`
 - `hostKeys`: `['ssh-ed25519']`
 - `ciphers`: `['aes128-gcm@openssh.com']`
 - `macs`: `['umac-64@openssh.com']` (negotiated, enforced once MAC handling is implemented)
 - `compression`: `['none']`
 
-If consumers provide a partial override (for example, a custom cipher list), the supplied arrays replace only the specified suites while the remaining defaults stay intact. The transport validates the merged catalog against the capabilities exposed by `@mana/ssh` and emits an `error` event with `reason: 'protocol-error'` if an unsupported combination is requested.
+If consumers provide a partial override (for example, a custom cipher list), the supplied arrays replace only the specified suites while the remaining defaults stay intact. The transport validates the merged catalog against the capabilities exposed by `@nimbus/ssh` and emits an `error` event with `reason: 'protocol-error'` if an unsupported combination is requested.
 
 ## Behavioural outline
 
@@ -247,7 +247,7 @@ If consumers provide a partial override (for example, a custom cipher list), the
 5. **Failure + retry** – If the WebSocket closes unexpectedly and `reconnectPolicy.enabled` is true, we emit `reconnecting`, compute a backoff delay, and attempt to restore the session. On success the transport emits `connected` with `resume: false` (until resume semantics land) and drains any queued writes. On exhaustion we emit `error` with `reason: 'policy-exhausted'` followed by `disconnect` and transition to `failed`.
 
 ## Reconnect and resume contract
-- `resume` is `false` until `@mana/ssh` supports channel/window restoration. The flag remains so hosts can wire UI affordances without breaking changes later.
+- `resume` is `false` until `@nimbus/ssh` supports channel/window restoration. The flag remains so hosts can wire UI affordances without breaking changes later.
 - Queued writes survive reconnect attempts and flush once the transport re-enters `ready`. If the retry loop exhausts, queued writes are discarded after emitting the terminal `error`.
 - `dispose()` during a reconnect cancels outstanding timers and emits `disconnect` with a `reason` that inspectors can distinguish from remote shutdown.
 - When resume support lands the transport will emit an additional `TransportEvent` describing the resumed channel state; this proposal reserves `type: 'connected'` with `resume: true` for that future milestone.
@@ -268,9 +268,9 @@ The optional `diagnostics.logger` hook receives structured `TransportDiagnosticE
 - Custom codec lifecycle: we must spell out how version negotiation works when the client and server advertise incompatible codec IDs.
 
 ## Next steps
-1. Spec the wire-level envelope shared between browser client and reference server (control vs data frames) and codify it alongside this doc, including the canonical `mana-default:1` codec contract.
+1. Spec the wire-level envelope shared between browser client and reference server (control vs data frames) and codify it alongside this doc, including the canonical `nimbus-default:1` codec contract.
 2. Implement a Node-friendly harness to validate handshake/reconnect flows, including verification that `lastError`, retry exhaustion, diagnostic logging, and codec enforcement behave as documented.
-3. Extend `@mana/ssh` with channel + auth intents so the `write` helper can deliver real shell bytes and so `resize` transitions from a no-op to an actual window change request.
-4. Prototype the async iterable + `on()` helper inside `@mana/web` to ensure the ergonomics layer works for hosts without duplicating abstractions.
+3. Extend `@nimbus/ssh` with channel + auth intents so the `write` helper can deliver real shell bytes and so `resize` transitions from a no-op to an actual window change request.
+4. Prototype the async iterable + `on()` helper inside `@nimbus/web` to ensure the ergonomics layer works for hosts without duplicating abstractions.
 5. Publish a conformance test suite that third-party codecs can reuse to guarantee compatibility with the default transport expectations.
 6. Stand up an integration harness against a minimal `golang.org/x/crypto/ssh` target to validate algorithm presets, HELLO negotiation, and reconnect behaviour with the canonical codec.

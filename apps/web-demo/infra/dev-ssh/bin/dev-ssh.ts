@@ -17,6 +17,6 @@ const env: cdk.Environment | undefined =
 
 new DevSshStack(app, stackName, {
   description:
-    'Mana dev SSH target (ephemeral) - provides an EC2 instance configured for terminal testing.',
+    'Nimbus dev SSH target (ephemeral) - provides an EC2 instance configured for terminal testing.',
   env,
 })

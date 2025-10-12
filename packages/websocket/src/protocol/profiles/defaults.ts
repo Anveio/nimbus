@@ -8,8 +8,8 @@ const textEncoder = new TextEncoder()
 const textDecoder = new TextDecoder()
 
 export const manaV1Profile: WireProfile = {
-  id: 'mana.v1',
-  subprotocols: ['mana.ssh.v1'],
+  id: 'nimbus.v1',
+  subprotocols: ['nimbus.ssh.v1'],
   encodeCtl(msg: Ctl): string {
     return JSON.stringify(msg)
   },
@@ -69,7 +69,7 @@ export const manaV1Profile: WireProfile = {
 
 export const jsonBase64V1Profile: WireProfile = {
   id: 'json-base64.v1',
-  subprotocols: ['mana.ssh.v1'],
+  subprotocols: ['nimbus.ssh.v1'],
   encodeCtl(msg: Ctl): string {
     return JSON.stringify(msg)
   },
@@ -119,7 +119,7 @@ export const jsonBase64V1Profile: WireProfile = {
 
 export const lenPrefixedV1Profile: WireProfile = {
   id: 'lenpfx.v1',
-  subprotocols: ['mana.ssh.v1'],
+  subprotocols: ['nimbus.ssh.v1'],
   encodeCtl(msg: Ctl): ArrayBuffer {
     const payload = textEncoder.encode(JSON.stringify(msg))
     return buildLenPfxFrame(0x10, 0, payload)

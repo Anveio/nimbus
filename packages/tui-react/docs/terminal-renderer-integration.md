@@ -1,6 +1,6 @@
 # Terminal Renderer Integration Guide
 
-This document explains how `<Terminal />` in `@mana/tui-react` is expected to consume
+This document explains how `<Terminal />` in `@nimbus/tui-react` is expected to consume
 renderer implementations that follow the contract captured in
 `packages/webgl-renderer/docs/renderer-specification-v0.md`. Treat that specification
 as the source of truth for event shapes and lifecycle semantics; this guide focuses on
@@ -14,7 +14,7 @@ how we wire those requirements into the React host.
    - Hold onto the session for the lifetime of the component, recreating it when the
      renderer configuration changes (metrics, theme, accessibility profile).
    - Forward snapshot updates via `presentFrame`, `applyUpdates`, and `sync` to keep the
-     renderer in lock-step with the runtime snapshot supplied by `@mana/vt`.
+     renderer in lock-step with the runtime snapshot supplied by `@nimbus/vt`.
 
 2. **Event dispatch pipeline**
    - Translate browser events into the renderer `RendererEvent` union.

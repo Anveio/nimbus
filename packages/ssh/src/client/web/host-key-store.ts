@@ -15,7 +15,7 @@ type StoredHostKey = {
   readonly fingerprint: string
 }
 
-const DEFAULT_DATABASE_NAME = 'mana-ssh-host-keys'
+const DEFAULT_DATABASE_NAME = 'nimbus-ssh-host-keys'
 const DEFAULT_STORE_NAME = 'host-keys'
 
 export async function createIndexedDbHostKeyStore(

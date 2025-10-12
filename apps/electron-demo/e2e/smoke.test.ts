@@ -7,7 +7,7 @@ test('launch electron app', async () => {
 
   const window = await app.firstWindow()
 
-  // Assert "Mana" appears somewhere on the page
+  // Assert "Nimbus" appears somewhere on the page
   await expect(window.locator('text=Hello')).toBeVisible()
 
   await app.close()

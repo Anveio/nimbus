@@ -37,7 +37,7 @@ export const createNodeWebSocketServer = (
         instance.on('connection', (socket: unknown) => {
           const connection = new ServerConnection({
             socket,
-            serverName: options.serverName ?? 'mana.websocket.server',
+            serverName: options.serverName ?? 'nimbus.websocket.server',
             maxFrame: options.maxFrame,
             windowTarget: options.windowTarget,
             onChannelOpen: options.onChannelOpen,

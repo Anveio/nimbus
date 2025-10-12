@@ -20,7 +20,7 @@ import { Runtime } from 'aws-cdk-lib/aws-lambda'
 import { NodejsFunction, OutputFormat } from 'aws-cdk-lib/aws-lambda-nodejs'
 import { CfnOutput } from 'aws-cdk-lib'
 import { Construct } from 'constructs'
-import { applyManaTags } from './tags'
+import { applyNimbusTags } from './tags'
 
 interface DevSshStackProps extends StackProps {}
 
@@ -28,7 +28,7 @@ export class DevSshStack extends Stack {
   constructor(scope: Construct, id: string, props?: DevSshStackProps) {
     super(scope, id, props)
 
-    applyManaTags(this, {
+    applyNimbusTags(this, {
       purpose: 'instance-connect-dev',
     })
 
@@ -60,7 +60,7 @@ export class DevSshStack extends Stack {
 
     const securityGroup = new SecurityGroup(this, 'DevSshSecurityGroup', {
       vpc,
-      description: 'Mana dev SSH security group',
+      description: 'Nimbus dev SSH security group',
       allowAllOutbound: true,
     })
     securityGroup.addIngressRule(
@@ -232,7 +232,8 @@ chmod +x /tmp/bootstrap.sh
 
     new CfnOutput(this, 'DiscoveryEndpoint', {
       value: `${signerApi.apiEndpoint}/discovery`,
-      description: 'HTTPS endpoint for discovering mana-tagged infrastructure',
+      description:
+        'HTTPS endpoint for discovering Nimbus-tagged infrastructure (filtered via mana:* tags)',
     })
   }
 }

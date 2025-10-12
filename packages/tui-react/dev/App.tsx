@@ -53,7 +53,7 @@ export function App(): JSX.Element {
   return (
     <main className="app">
       <header className="app-header">
-        <h1 className="app-title">Mana TUI React Harness</h1>
+        <h1 className="app-title">Nimbus TUI React Harness</h1>
         <p className="app-subtitle">
           The demo mounts the public <code className="app-code">&lt;Terminal /&gt;</code> component using the layered renderer stack.
         </p>

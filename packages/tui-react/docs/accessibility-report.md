@@ -1,10 +1,10 @@
-# `@mana/tui-react` Accessibility Assessment
+# `@nimbus/tui-react` Accessibility Assessment
 
 **Date:** 2025-10-05  
 **Prepared by:** Code Assistant (in collaboration with Shovon Hasan)
 
 ## Scope
-This report evaluates the canvas-backed terminal experience exposed by `@mana/tui-react` for alignment with WAI-ARIA Authoring Practices, WCAG 2.2 Level AA, and user expectations for an accessible terminal/editor. Focus areas include semantics, keyboard interaction, assistive technology compatibility, visual requirements, and testing procedures. The analysis centers on the primary host component (`packages/tui-react/src/Terminal.tsx`) and its renderer bridge (`packages/tui-react/src/renderer.ts`).
+This report evaluates the canvas-backed terminal experience exposed by `@nimbus/tui-react` for alignment with WAI-ARIA Authoring Practices, WCAG 2.2 Level AA, and user expectations for an accessible terminal/editor. Focus areas include semantics, keyboard interaction, assistive technology compatibility, visual requirements, and testing procedures. The analysis centers on the primary host component (`packages/tui-react/src/Terminal.tsx`) and its renderer bridge (`packages/tui-react/src/renderer.ts`).
 
 ## Expected Accessibility Contract
 Users interacting with a web terminal expect:
@@ -51,11 +51,11 @@ Users interacting with a web terminal expect:
 ### Long Term (Strategic investments)
 1. **Assistive technology integrations:** Explore the ARIA `role="application"` pattern with virtual cursor overrides, and evaluate browser APIs for Braille display updates.
 2. **Advanced telemetry:** Extend status/log channels to cover transport-level changes, task progress, and host notifications with severity-aware politeness.
-3. **Cross-package alignment:** Keep `@mana/vt` exporting rich semantics (line identifiers, bidi markers) so alternate renderers achieve parity with the React host.
+3. **Cross-package alignment:** Keep `@nimbus/vt` exporting rich semantics (line identifiers, bidi markers) so alternate renderers achieve parity with the React host.
 
 ## Implementation Strategy
-- **Interpreter-first contract:** Continue treating interpreter snapshots/diffs as the semantic source of truth. Any new metadata required for IME buffering or bidi/RTL support should originate in `@mana/vt`.
-- **Renderer isolation:** Keep `@mana/tui-web-canvas-renderer` focused on rasterization. Accessibility remains a host concern layered through React hooks and DOM adapters.
+- **Interpreter-first contract:** Continue treating interpreter snapshots/diffs as the semantic source of truth. Any new metadata required for IME buffering or bidi/RTL support should originate in `@nimbus/vt`.
+- **Renderer isolation:** Keep `@nimbus/tui-web-canvas-renderer` focused on rasterization. Accessibility remains a host concern layered through React hooks and DOM adapters.
 - **Host accessibility adapter:** Evolve `useTerminalAccessibilityAdapter` and `TerminalAccessibilityLayer` to manage shortcut metadata, focus heuristics, and richer status streams without coupling to renderer internals.
 - **Reusable boundary:** Document the semantic update contract so other hosts (future Svelte/Web Components adapters) can reuse the accessibility adapter pattern.
 
@@ -71,10 +71,10 @@ Users interacting with a web terminal expect:
 
 ## Open Questions
 - What heuristics should determine when to promote the hidden DOM transcript to a visible “accessible transcript” toggle for all users?
-- Should host apps (e.g., `apps/web-demo`) own instructional overlays, or should `@mana/tui-react` export a default implementation?
+- Should host apps (e.g., `apps/web-demo`) own instructional overlays, or should `@nimbus/tui-react` export a default implementation?
 - Which locales and input methods are highest priority for IME validation (Chinese Simplified, Japanese, Korean, accented Latin)?
 
 ## Next Steps
-1. Align on the immediate remediation scope and resource owners across `@mana/tui-react` and `@mana/vt`.
+1. Align on the immediate remediation scope and resource owners across `@nimbus/tui-react` and `@nimbus/vt`.
 2. Author/update specs (`packages/tui-react/AGENTS.md`) to capture accessible renderer contracts before implementation.
 3. Schedule pair-testing sessions with assistive technology users once the mirror/log prototype is ready.

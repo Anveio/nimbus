@@ -4,7 +4,7 @@ This renderer targets the contract defined in `docs/renderer-specification-v0.md
 
 ## Pointer and clipboard dispatch
 
-Pointer, wheel, focus, and paste events now feed directly into `@mana/vt` so that the runtime can honour DEC private modes (1000/1002/1003, 1004, 2004). Renderers are responsible for supplying cell-relative coordinates and modifier state so that the runtime can synthesise the appropriate control sequences (legacy, UTF-8, or SGR encodings). Copy remains a host-level concern because the interpreter only tracks OSC 52 writes; renderer layers should continue to expose selections to platform clipboards.
+Pointer, wheel, focus, and paste events now feed directly into `@nimbus/vt` so that the runtime can honour DEC private modes (1000/1002/1003, 1004, 2004). Renderers are responsible for supplying cell-relative coordinates and modifier state so that the runtime can synthesise the appropriate control sequences (legacy, UTF-8, or SGR encodings). Copy remains a host-level concern because the interpreter only tracks OSC 52 writes; renderer layers should continue to expose selections to platform clipboards.
 
 ## Render pipeline summary
 

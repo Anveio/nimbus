@@ -3,7 +3,7 @@ import type {
   RendererSession,
   SelectionPoint,
   TerminalSelection,
-} from '@mana/webgl-renderer'
+} from '@nimbus/webgl-renderer'
 import type { HotkeyContext } from './context'
 import { handleTerminalHotkey } from './handler'
 

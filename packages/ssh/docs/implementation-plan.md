@@ -1,4 +1,4 @@
-# `mana-ssh/ssh` Implementation Plan
+# `nimbus-ssh/ssh` Implementation Plan
 
 > Drafted: 2025-10-01
 

@@ -1,4 +1,4 @@
-import type { TerminalCell } from '@mana/vt'
+import type { TerminalCell } from '@nimbus/vt'
 
 export interface TileDefinition {
   readonly index: number

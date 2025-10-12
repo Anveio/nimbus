@@ -1,4 +1,4 @@
-import type { TerminalSelection, TerminalState, TerminalUpdate } from '@mana/vt'
+import type { TerminalSelection, TerminalState, TerminalUpdate } from '@nimbus/vt'
 import {
   type CanvasRenderer,
   createCanvasRenderer,
@@ -40,7 +40,7 @@ interface ResizeOptions extends UpdateOptions {
 
 declare global {
   interface Window {
-    __manaRendererTest__?: {
+    __nimbusRendererTest__?: {
       initRenderer: (options: InitRendererOptions) => void
       applyUpdates: (options: UpdateOptions) => void
       resize: (options: ResizeOptions) => void
@@ -96,7 +96,7 @@ const toSelection = (value: unknown): TerminalSelection | null => {
   return value as TerminalSelection
 }
 
-window.__manaRendererTest__ = {
+window.__nimbusRendererTest__ = {
   initRenderer(options) {
     if (store.renderer) {
       store.renderer.dispose()
@@ -270,7 +270,7 @@ window.__manaRendererTest__ = {
   getBackend() {
     const renderer = ensureRenderer()
     const canvas = renderer.canvas as HTMLCanvasElement
-    return canvas.dataset?.manaRendererBackend ?? null
+    return canvas.dataset?.nimbusRendererBackend ?? null
   },
 
   dispose() {

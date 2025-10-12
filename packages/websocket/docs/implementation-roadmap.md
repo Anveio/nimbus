@@ -1,4 +1,4 @@
-# @mana/websocket Implementation Roadmap (v1)
+# @nimbus/websocket Implementation Roadmap (v1)
 
 _Last updated: 2025-10-04T07:58:11Z_
 
@@ -14,10 +14,10 @@ This note sequences near-term workstreams required before code lands, with empha
 
 1. **Semantic schema lock-in** — _Complete_
    - Discriminated unions for control/data/diagnostic/policy messages and connection/channels land in `packages/websocket/src/protocol` with exhaustive guards and helper predicates.
-   - Version markers (`proto: 1`, subprotocol `mana.ssh.v1`) branded in types; upgrade path reserved via profile registry.
+   - Version markers (`proto: 1`, subprotocol `nimbus.ssh.v1`) branded in types; upgrade path reserved via profile registry.
 
 2. **WireProfile contract** — _Complete_
-   - Core `WireProfile` interface exported; default registry seeds `mana.v1`, `json-base64.v1`, `lenpfx.v1` with decode/encode parity tests.
+   - Core `WireProfile` interface exported; default registry seeds `nimbus.v1`, `json-base64.v1`, `lenpfx.v1` with decode/encode parity tests.
    - Conformance fixtures exercised through vitest round-trip coverage.
 
 3. **Flow-control spine** — _Complete (client/shared)_
@@ -64,12 +64,12 @@ Status: _Skeleton online_
 
 - Adaptive `windowTarget` heuristics need RTT measurement strategy—client-side, server-side, or negotiated?
 - Resume token cryptography/entropy requirements (Spec §8.4) pending security review.
-- Diagnostics integration with repo-wide telemetry schema (Spec §11 → apps/telemetry) to coordinate with `@mana/web` team.
+- Diagnostics integration with repo-wide telemetry schema (Spec §11 → apps/telemetry) to coordinate with `@nimbus/web` team.
 - End-to-end resume/reconnect simulations (client ↔ server) and conformance kit orchestration outstanding.
 
 ## Next Actions
 
-1. Wire server connection to `@mana/ssh` adapter scaffold; define channel lifecycle contract.
+1. Wire server connection to `@nimbus/ssh` adapter scaffold; define channel lifecycle contract.
 2. Add integration harness executing client ↔ server handshake/resume loops (deterministic sockets) and log coverage.
 3. Implement backpressure adapters (WHATWG bufferedAmount, Node stream) feeding flow controller pause reasons.
 4. Expand diagnostics to include structured policy events (rate limit, origin) and hook into repo telemetry once defined.

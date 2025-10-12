@@ -33,7 +33,7 @@ export default defineConfig({
         'react',
         'react-dom',
         'react/jsx-runtime',
-        '@mana/webgl-renderer',
+        '@nimbus/webgl-renderer',
       ],
       output: {
         inlineDynamicImports: true,

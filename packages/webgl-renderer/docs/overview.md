@@ -1,6 +1,6 @@
-# @mana/tui-webgl-renderer
+# @nimbus/tui-webgl-renderer
 
-The WebGL renderer owns the Mana VT runtime lifecycle, converts interpreter
+The WebGL renderer owns the Nimbus VT runtime lifecycle, converts interpreter
 updates into GPU frames, and now exposes the `RendererRoot`/`RendererSession`
 contract described in `renderer-specification-v0.md` (v1). Hosts obtain an
 idempotent root via `createRendererRoot(container, options)` and mount sessions

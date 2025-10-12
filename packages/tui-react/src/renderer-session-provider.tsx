@@ -15,9 +15,9 @@ import {
   WebglRendererConfig,
   type RendererRoot,
   type WebglRendererRootOptions,
-} from '@mana/webgl-renderer'
-import { createTerminalRuntime } from '@mana/webgl-renderer'
-import type { TerminalRuntime } from '@mana/webgl-renderer'
+} from '@nimbus/webgl-renderer'
+import { createTerminalRuntime } from '@nimbus/webgl-renderer'
+import type { TerminalRuntime } from '@nimbus/webgl-renderer'
 import type { RendererSessionProviderProps } from './renderer-contract'
 import { RendererRootProvider } from './renderer-root-context'
 import { useRendererSurface } from './renderer-surface-context'

@@ -1,7 +1,7 @@
 {
-  "name": "@mana/ssh",
+  "name": "@nimbus/ssh",
   "version": "0.0.1",
-  "description": "The core, transport-agnostic SSH protocol implementation for Mana.",
+  "description": "The core, transport-agnostic SSH protocol implementation for Nimbus.",
   "scripts": {
     "clean": "git clean -xfd .",
     "clean:artifacts": "rm -rf dist",

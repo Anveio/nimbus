@@ -15,7 +15,7 @@ import {
 } from 'aws-cdk-lib/aws-ec2'
 import { CfnOutput } from 'aws-cdk-lib'
 import { Construct } from 'constructs'
-import { applyManaTags } from './tags'
+import { applyNimbusTags } from './tags'
 
 interface TestingInstanceConnectStackProps extends StackProps {}
 
@@ -29,7 +29,7 @@ export class TestingInstanceConnectStack extends Stack {
   ) {
     super(scope, id, props)
 
-    applyManaTags(this, {
+    applyNimbusTags(this, {
       purpose: 'instance-connect-testing',
       additionalTags: {
         'mana:testing-stack': 'true',
@@ -62,7 +62,7 @@ export class TestingInstanceConnectStack extends Stack {
 
     const securityGroup = new SecurityGroup(this, 'TestingSecurityGroup', {
       vpc,
-      description: 'Mana testing SSH security group',
+      description: 'Nimbus testing SSH security group',
       allowAllOutbound: true,
     })
     securityGroup.addIngressRule(

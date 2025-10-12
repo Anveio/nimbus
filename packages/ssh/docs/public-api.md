@@ -1,8 +1,8 @@
-# `@mana/ssh` Public API & Implementation Strategy
+# `@nimbus/ssh` Public API & Implementation Strategy
 
 > Drafted: 2025-10-01
 
-This document captures the proposed API surface, behavioural contract, and build-out plan for the `@mana/ssh` package. The goal is to deliver a spec-faithful SSHv2 engine that higher-layer transports (browser WebSockets, proxy servers, desktop apps) can consume without inheriting protocol complexity.
+This document captures the proposed API surface, behavioural contract, and build-out plan for the `@nimbus/ssh` package. The goal is to deliver a spec-faithful SSHv2 engine that higher-layer transports (browser WebSockets, proxy servers, desktop apps) can consume without inheriting protocol complexity.
 
 ## Goals
 - **Spec compliance first**: Implement RFC 4250–4256 and mandatory updates (RFC 4344, 4419, 5647, 5656, 6668, 7478, 8308, 8332, 8709, 9142, etc.) exactly. Document any intentional divergence.
@@ -19,7 +19,7 @@ Consumers choose the adapter that matches their runtime:
 - Browsers/workers:
 
   ```ts
-  import { createClientSession } from '@mana/ssh/client/web'
+  import { createClientSession } from '@nimbus/ssh/client/web'
 
   const session = createClientSession(config)
   ```
@@ -27,7 +27,7 @@ Consumers choose the adapter that matches their runtime:
 - Node.js clients:
 
   ```ts
-  import { createClientSession } from '@mana/ssh/client/node'
+  import { createClientSession } from '@nimbus/ssh/client/node'
 
   const session = createClientSession(config)
   ```
@@ -35,7 +35,7 @@ Consumers choose the adapter that matches their runtime:
 - Node.js servers:
 
   ```ts
-  import { createClientSession } from '@mana/ssh/server/node'
+  import { createClientSession } from '@nimbus/ssh/server/node'
 
   const session = createClientSession(config)
   ```
@@ -200,7 +200,7 @@ Commands that produce outbound packets enqueue them, generating matching `outbou
 
 7. **Phase 6 — Extended Capabilities**
    - Agent forwarding protocol (draft-miller-ssh-agent-02), port forwarding helpers, optional SFTP module layered on channels.
-   - Provide separate transport wrappers (`@mana/websocket`, `@mana/node-stream`) leveraging the event/intent API.
+   - Provide separate transport wrappers (`@nimbus/websocket`, `@nimbus/node-stream`) leveraging the event/intent API.
 
 ## Distribution Plan Recap
 - Dual outputs: `web` (ES2022, WebCrypto-ready, tree-shakeable) and `node` (Node 18+, uses `crypto` module). Shared TypeScript declarations.

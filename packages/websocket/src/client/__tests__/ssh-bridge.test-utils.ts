@@ -69,7 +69,7 @@ export function createMockConnection(channel: MockChannel): MockConnection {
   }
 
   return {
-    protocol: 'mana.ssh.v1',
+    protocol: 'nimbus.ssh.v1',
     state: 'ready',
     on(event, listener) {
       const bucket = ensureBucket(event)

@@ -1,6 +1,6 @@
 # Renderer Session Contract
 
-This document captures the canonical contract between hosts (React, Electron, web components) and the `@mana/tui-web-canvas-renderer` session API. It should remain in lockstep with the TypeScript definitions exported from `src/types.ts`.
+This document captures the canonical contract between hosts (React, Electron, web components) and the `@nimbus/tui-web-canvas-renderer` session API. It should remain in lockstep with the TypeScript definitions exported from `src/types.ts`.
 
 ## Goals
 - Provide a single imperative entry point (`presentFrame`) for delivering interpreter state and host adornments to the renderer.
@@ -61,7 +61,7 @@ Renderers should treat these as hints and never diverge from interpreter semanti
 Observers are registered once during session creation. Swapping observers uses `session.configure({ observers })` to avoid re-allocating closures in the critical path.
 
 ## Host Responsibilities
-- Maintain interpreter state (`@mana/vt` runtime) and build `RendererNextFrameMetadata` on every update.
+- Maintain interpreter state (`@nimbus/vt` runtime) and build `RendererNextFrameMetadata` on every update.
 - Call `presentFrame` in response to interpreter deltas, viewport changes, or host overlay updates.
 - Surface diagnostics through their own instrumentation layers without reading canvas internals.
 
@@ -73,5 +73,5 @@ Observers are registered once during session creation. Swapping observers uses `
 
 ## Future Work
 - Explicit pull-based loop (`session.requestFrame(fn)`) for animation-driven flows.
-- Shared session core for native renderers (`@mana/tui-renderer-core`).
+- Shared session core for native renderers (`@nimbus/tui-renderer-core`).
 - Rich overlay descriptors (hyperlink/OSC 8 highlighting, diagnostics markers).

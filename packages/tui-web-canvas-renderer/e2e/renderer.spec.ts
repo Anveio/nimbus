@@ -4,7 +4,7 @@ import type {
   TerminalSelection,
   TerminalState,
   TerminalUpdate,
-} from '@mana/vt'
+} from '@nimbus/vt'
 import { expect, type Page, test } from '@playwright/test'
 import type { RendererMetrics, RendererTheme } from '../src/types'
 import {
@@ -146,6 +146,14 @@ const createSnapshot = (rows: number, columns: number): TerminalState => ({
     controller: false,
     autoPrint: false,
   },
+  input: {
+    pointer: {
+      tracking: 'off',
+      encoding: 'default',
+    },
+    focusReporting: false,
+    bracketedPaste: false,
+  },
 })
 
 const withHarness = async (page: Page, fn: () => Promise<void>) => {
@@ -160,73 +168,73 @@ const withHarness = async (page: Page, fn: () => Promise<void>) => {
 const initRenderer = async (
   page: Page,
   options: Parameters<
-    NonNullable<typeof window.__manaRendererTest__>['initRenderer']
+    NonNullable<typeof window.__nimbusRendererTest__>['initRenderer']
   >[0],
 ) => {
   await page.evaluate((opts) => {
-    window.__manaRendererTest__?.initRenderer(opts)
+    window.__nimbusRendererTest__?.initRenderer(opts)
   }, options)
 }
 
 const applyUpdates = async (
   page: Page,
   options: Parameters<
-    NonNullable<typeof window.__manaRendererTest__>['applyUpdates']
+    NonNullable<typeof window.__nimbusRendererTest__>['applyUpdates']
   >[0],
 ) => {
   await page.evaluate((opts) => {
-    window.__manaRendererTest__?.applyUpdates(opts)
+    window.__nimbusRendererTest__?.applyUpdates(opts)
   }, options)
 }
 
 const resizeRenderer = async (
   page: Page,
   options: Parameters<
-    NonNullable<typeof window.__manaRendererTest__>['resize']
+    NonNullable<typeof window.__nimbusRendererTest__>['resize']
   >[0],
 ) => {
   await page.evaluate((opts) => {
-    window.__manaRendererTest__?.resize(opts)
+    window.__nimbusRendererTest__?.resize(opts)
   }, options)
 }
 
 const setTheme = async (page: Page, theme: RendererTheme) => {
   await page.evaluate((nextTheme) => {
-    window.__manaRendererTest__?.setTheme(nextTheme)
+    window.__nimbusRendererTest__?.setTheme(nextTheme)
   }, theme)
 }
 
 const _syncRenderer = async (page: Page, snapshot: TerminalState) => {
   await page.evaluate((nextSnapshot) => {
-    window.__manaRendererTest__?.sync(nextSnapshot)
+    window.__nimbusRendererTest__?.sync(nextSnapshot)
   }, snapshot)
 }
 
 const getPixel = async (page: Page, x: number, y: number) => {
   return page.evaluate(
-    ({ px, py }) => window.__manaRendererTest__!.getPixel(px, py),
+    ({ px, py }) => window.__nimbusRendererTest__!.getPixel(px, py),
     { px: x, py: y },
   )
 }
 
 const getDiagnostics = async (page: Page) => {
-  return page.evaluate(() => window.__manaRendererTest__?.getDiagnostics())
+  return page.evaluate(() => window.__nimbusRendererTest__?.getDiagnostics())
 }
 
 const getFrameSnapshot = async (
   page: Page,
 ): Promise<{ hash: string | null; width: number; height: number } | null> => {
   return page.evaluate(
-    () => window.__manaRendererTest__?.getFrameSnapshot() ?? null,
+    () => window.__nimbusRendererTest__?.getFrameSnapshot() ?? null,
   )
 }
 
 const getSelectionEvents = async (page: Page) => {
-  return page.evaluate(() => window.__manaRendererTest__?.getSelectionEvents())
+  return page.evaluate(() => window.__nimbusRendererTest__?.getSelectionEvents())
 }
 
 const getOverlayEvents = async (page: Page) => {
-  return page.evaluate(() => window.__manaRendererTest__?.getOverlayEvents())
+  return page.evaluate(() => window.__nimbusRendererTest__?.getOverlayEvents())
 }
 
 test.describe('createCanvasRenderer (browser)', () => {
@@ -668,12 +676,12 @@ test.describe('createCanvasRenderer (browser)', () => {
       await initRenderer(page, { snapshot, theme, metrics: baseMetrics })
 
       await page.evaluate(() => {
-        window.__manaRendererTest__?.dispose()
+        window.__nimbusRendererTest__?.dispose()
       })
 
       await expect(
         page.evaluate(() => {
-          window.__manaRendererTest__?.sync(null as unknown as TerminalState)
+          window.__nimbusRendererTest__?.sync(null as unknown as TerminalState)
         }),
       ).rejects.toThrow()
     })
@@ -696,7 +704,7 @@ test.describe('createCanvasRenderer (webgl backend)', () => {
       })
 
       const backend = await page.evaluate(() =>
-        window.__manaRendererTest__?.getBackend(),
+        window.__nimbusRendererTest__?.getBackend(),
       )
       expect(backend).toBe('webgl')
 

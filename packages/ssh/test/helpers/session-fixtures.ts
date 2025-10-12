@@ -38,7 +38,7 @@ export const TEST_ALGORITHMS: AlgorithmCatalog = {
 }
 
 const DEFAULT_IDENTIFICATION: IdentificationConfig = {
-  clientId: 'SSH-2.0-mana-ssh-web_0.1',
+  clientId: 'SSH-2.0-nimbus-ssh-web_0.1',
 }
 
 const UNKNOWN_DECISION: HostKeyDecision = { outcome: 'unknown' as const }

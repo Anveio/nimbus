@@ -1,4 +1,4 @@
-import type { TerminalCell } from '@mana/vt'
+import type { TerminalCell } from '@nimbus/vt'
 import { describe, expect, test } from 'vitest'
 import {
   computeGlyphRenderMetadata,

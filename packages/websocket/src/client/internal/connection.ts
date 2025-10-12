@@ -69,7 +69,7 @@ export async function initialiseConnection(
   const resumeOptions = options.resume ?? { storage: 'session', ttlMs: 60_000 }
   const resumeStorage = createResumeStore(
     resumeOptions.storage ?? 'session',
-    `mana.ws.${options.url}`,
+    `nimbus.ws.${options.url}`,
   )
   const resumeTtlMs = resumeOptions.ttlMs ?? 60_000
   const seededToken = await seedResumeState({
@@ -118,9 +118,9 @@ export async function initialiseConnection(
 
 function resolveProfile(profile: ConnectOptions['profile']): WireProfile {
   if (!profile) {
-    const resolved = getProfile('mana.v1')
+    const resolved = getProfile('nimbus.v1')
     if (!resolved) {
-      throw new Error('Default wire profile mana.v1 is not registered')
+      throw new Error('Default wire profile nimbus.v1 is not registered')
     }
     return resolved
   }

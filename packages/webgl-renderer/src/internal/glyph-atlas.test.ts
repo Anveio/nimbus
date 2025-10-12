@@ -1,4 +1,4 @@
-import type { TerminalCell } from '@mana/vt'
+import type { TerminalCell } from '@nimbus/vt'
 import { describe, expect, test, beforeAll, afterAll, vi } from 'vitest'
 import type { RendererMetrics } from '../types'
 import { GlyphAtlas } from './glyph-atlas'

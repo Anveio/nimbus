@@ -1,8 +1,8 @@
 {
-  "name": "@mana/tui-web-canvas-renderer",
+  "name": "@nimbus/tui-web-canvas-renderer",
   "version": "0.0.1",
   "private": true,
-  "description": "Web canvas renderer for the Mana terminal stack.",
+  "description": "Web canvas renderer for the Nimbus terminal stack.",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
@@ -23,6 +23,6 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@mana/vt": "^0.0.1"
+    "@nimbus/vt": "^0.0.1"
   }
 }

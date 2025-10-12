@@ -5,7 +5,7 @@ import {
   type TerminalSelection,
   type TerminalState,
   type TerminalUpdate,
-} from '@mana/vt'
+} from '@nimbus/vt'
 import type {
   CanvasRenderer,
   CanvasRendererDiagnostics,
@@ -211,7 +211,9 @@ const createProgramPair = (
 
 const updateBackendAttribute = (canvas: unknown, backend: string): void => {
   if (typeof (canvas as HTMLCanvasElement).dataset !== 'undefined') {
-    ;(canvas as HTMLCanvasElement).dataset.manaRendererBackend = backend
+    const element = canvas as HTMLCanvasElement
+    element.dataset.nimbusRendererBackend = backend
+    element.dataset.manaRendererBackend = backend
   }
 }
 

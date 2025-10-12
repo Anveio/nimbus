@@ -30,7 +30,7 @@ import type { HotkeyRendererEvent } from './hotkeys'
 import type {
   SelectionPoint,
   TerminalSelection,
-} from '@mana/webgl-renderer'
+} from '@nimbus/webgl-renderer'
 
 /**
  * Bridges the forwarded `TerminalSessionHandle` to the active renderer root,

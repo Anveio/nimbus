@@ -20,7 +20,7 @@ class MockSocket {
   readonly sent: unknown[] = []
   readonly listeners = new Map<string, Set<(event: unknown) => void>>()
 
-  constructor(readonly protocol: string = 'mana.ssh.v1') {}
+  constructor(readonly protocol: string = 'nimbus.ssh.v1') {}
 
   send(data: unknown) {
     this.sent.push(data)
@@ -84,7 +84,7 @@ describe('createNodeWebSocketServer', () => {
       data: JSON.stringify({
         t: 'hello',
         proto: 1,
-        caps: { profile: 'mana.v1' },
+        caps: { profile: 'nimbus.v1' },
       }),
     })
 

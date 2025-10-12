@@ -28,7 +28,7 @@ function resolveWorkspacePath(...segments: string[]): string {
 }
 
 function loadSignerConfig(): CachedSignerConfig | null {
-  const signerConfigPath = resolveWorkspacePath('.mana', 'web-demo', 'signer.json')
+  const signerConfigPath = resolveWorkspacePath('.nimbus', 'web-demo', 'signer.json')
   if (!fs.existsSync(signerConfigPath)) {
     return null
   }
@@ -90,8 +90,8 @@ export default defineConfig({
   plugins: [react({ include: /\.(js|jsx|ts|tsx)$/ })],
   resolve: {
     alias: {
-      '@mana/ssh': resolveWorkspacePath('packages/ssh/src'),
-      '@mana/websocket': resolveWorkspacePath('packages/websocket/src'),
+      '@nimbus/ssh': resolveWorkspacePath('packages/ssh/src'),
+      '@nimbus/websocket': resolveWorkspacePath('packages/websocket/src'),
     },
   },
   define: {

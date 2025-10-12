@@ -44,8 +44,8 @@ const hoisted = vi.hoisted(() => {
   return { disposeSpy, state, connectMock }
 })
 
-vi.mock('@mana/ssh/client/web', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@mana/ssh/client/web')>()
+vi.mock('@nimbus/ssh/client/web', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@nimbus/ssh/client/web')>()
   return {
     ...actual,
     connectSSH: hoisted.connectMock,

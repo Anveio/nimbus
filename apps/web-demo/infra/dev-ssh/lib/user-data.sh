@@ -17,4 +17,4 @@ chown -R mana:mana /home/mana/.ssh
 echo 'AllowUsers mana' >>/etc/ssh/sshd_config.d/99-mana.conf
 systemctl restart sshd
 
-echo 'Welcome to the Mana dev SSH instance.' >/etc/motd
+echo 'Welcome to the Nimbus dev SSH instance.' >/etc/motd

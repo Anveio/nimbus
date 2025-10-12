@@ -7,7 +7,7 @@ export const OWNER_ENV_KEYS = [
   'USERNAME',
 ]
 
-export interface ManaTagOptions {
+export interface NimbusTagOptions {
   readonly purpose: string
   readonly additionalTags?: Record<string, string>
 }
@@ -32,7 +32,7 @@ export function determineOwner(stack: Stack): string {
   return ownerFromEnvironment()
 }
 
-export function applyManaTags(stack: Stack, options: ManaTagOptions) {
+export function applyNimbusTags(stack: Stack, options: NimbusTagOptions) {
   const owner = determineOwner(stack)
   Tags.of(stack).add('mana:owner', owner)
   Tags.of(stack).add('mana:purpose', options.purpose)

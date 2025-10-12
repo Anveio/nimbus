@@ -1,4 +1,4 @@
-import type { TerminalState } from '@mana/vt'
+import type { TerminalState } from '@nimbus/vt'
 import type { CanvasLike, RendererMetrics } from '../../../types'
 
 export interface CanvasLayout {

@@ -14,7 +14,7 @@ chmod 700 "/home/${TESTING_USER}/.ssh"
 touch "/home/${TESTING_USER}/.hushlogin"
 
 cat <<'MOTD' >/etc/motd
-Instance Connect testing target for Mana. Credentials are delivered via EC2 Instance Connect helper tooling.
+Instance Connect testing target for Nimbus. Credentials are delivered via EC2 Instance Connect helper tooling.
 MOTD
 
 echo "AllowUsers ${TESTING_USER}" >/etc/ssh/sshd_config.d/99-mana-testing.conf

@@ -1,4 +1,4 @@
-import type { TerminalSelection } from '@mana/vt'
+import type { TerminalSelection } from '@nimbus/vt'
 import { describe, expect, it } from 'vitest'
 import type { RendererTheme, TerminalProfile } from '../types'
 import { mergeTerminalProfile } from './profile'

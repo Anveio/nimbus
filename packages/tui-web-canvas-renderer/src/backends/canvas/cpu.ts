@@ -4,8 +4,8 @@ import type {
   TerminalCell,
   TerminalSelection,
   TerminalState,
-} from '@mana/vt'
-import { getSelectionRowSegments } from '@mana/vt'
+} from '@nimbus/vt'
+import { getSelectionRowSegments } from '@nimbus/vt'
 import type {
   CanvasLike,
   CanvasRenderer,
@@ -50,7 +50,9 @@ const updateBackendAttribute = (canvas: CanvasLike, backend: string): void => {
   if (typeof (canvas as HTMLCanvasElement).dataset === 'undefined') {
     return
   }
-  ;(canvas as HTMLCanvasElement).dataset.manaRendererBackend = backend
+  const element = canvas as HTMLCanvasElement
+  element.dataset.nimbusRendererBackend = backend
+  element.dataset.manaRendererBackend = backend
 }
 
 interface FrameStats {

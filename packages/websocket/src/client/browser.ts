@@ -12,8 +12,8 @@ import {
   connectSSH as connectSsh,
   type HostIdentity,
   type WebConnectOptions as SshWebConnectOptions,
-} from '@mana/ssh/client/web'
-import type { DiagnosticRecord } from '@mana/ssh/client/web'
+} from '@nimbus/ssh/client/web'
+import type { DiagnosticRecord } from '@nimbus/ssh/client/web'
 import type { DiagnosticEvent } from '../protocol/diagnostics'
 
 type SshConnectedSession = Awaited<ReturnType<typeof connectSsh>>
@@ -198,7 +198,7 @@ function resolveProtocols(
   const resolvedProfile =
     typeof options.profile === 'string'
       ? getProfile(options.profile)
-      : (options.profile ?? getProfile('mana.v1'))
+      : (options.profile ?? getProfile('nimbus.v1'))
   const subs = resolvedProfile?.subprotocols
   if (!subs || subs.length === 0) return undefined
   return Array.from(subs)

@@ -1,4 +1,4 @@
-import type { TerminalAttributes, TerminalColor } from '@mana/vt'
+import type { TerminalAttributes, TerminalColor } from '@nimbus/vt'
 import { describe, expect, it } from 'vitest'
 import type { RendererPalette, RendererTheme } from '../types'
 import {

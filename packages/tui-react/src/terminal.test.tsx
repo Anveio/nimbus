@@ -8,7 +8,7 @@ import {
   it,
   vi,
 } from 'vitest'
-import * as WebglRenderer from '@mana/webgl-renderer'
+import * as WebglRenderer from '@nimbus/webgl-renderer'
 import type {
   RendererConfiguration,
   RendererFrameEvent,
@@ -19,7 +19,7 @@ import type {
   TerminalProfile,
   WebglRendererConfig,
   WebglRendererRootOptions,
-} from '@mana/webgl-renderer'
+} from '@nimbus/webgl-renderer'
 import { Terminal } from './terminal'
 
 type FrameListener = Parameters<RendererSession['onFrame']>[0]

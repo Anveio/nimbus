@@ -1,8 +1,8 @@
 {
-  "name": "@mana/websocket",
+  "name": "@nimbus/websocket",
   "version": "0.0.0",
   "private": true,
-  "description": "WebSocket transport primitives for Mana SSH sessions.",
+  "description": "WebSocket transport primitives for Nimbus SSH sessions.",
   "files": [
     "dist/**"
   ],
@@ -51,7 +51,7 @@
   },
   "sideEffects": false,
   "dependencies": {
-    "@mana/ssh": "^0.0.1"
+    "@nimbus/ssh": "^0.0.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.1",

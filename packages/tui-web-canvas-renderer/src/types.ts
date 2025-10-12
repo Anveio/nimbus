@@ -3,7 +3,7 @@ import type {
   TerminalSelection,
   TerminalState,
   TerminalUpdate,
-} from '@mana/vt'
+} from '@nimbus/vt'
 
 export type RendererColor = string
 

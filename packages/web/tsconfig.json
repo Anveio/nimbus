@@ -2,7 +2,7 @@
   "extends": "../tsconfig/workspace-package-config.json",
   "compilerOptions": {
     "paths": {
-      "@mana/web": ["./src/index.ts"]
+      "@nimbus/web": ["./src/index.ts"]
     }
   },
   "include": ["src"],

@@ -16,7 +16,7 @@ test.describe('TUI React harness', () => {
     const initialHtml = await page.content()
     console.log('initial content preview:', initialHtml.slice(0, 200))
 
-    await page.getByRole('heading', { name: 'Mana TUI React Harness' }).waitFor({
+    await page.getByRole('heading', { name: 'Nimbus TUI React Harness' }).waitFor({
       state: 'visible',
     })
 
@@ -24,7 +24,7 @@ test.describe('TUI React harness', () => {
     await expect(canvas).toBeVisible()
 
     const backend = await page.waitForFunction(() => {
-      return document.querySelector('canvas')?.dataset?.manaRendererBackend ?? null
+      return document.querySelector('canvas')?.dataset?.nimbusRendererBackend ?? null
     })
 
     expect(await backend.jsonValue()).toBeTruthy()

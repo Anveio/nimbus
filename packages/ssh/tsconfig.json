@@ -3,9 +3,9 @@
   "compilerOptions": {
     "types": ["global", "node"],
     "paths": {
-      "@mana/ssh/client/web": ["./src/client/web/index.ts"],
-      "@mana/ssh/client/node": ["./src/client/node/index.ts"],
-      "@mana/ssh/server/node": ["./src/server/node/index.ts"]
+      "@nimbus/ssh/client/web": ["./src/client/web/index.ts"],
+      "@nimbus/ssh/client/node": ["./src/client/node/index.ts"],
+      "@nimbus/ssh/server/node": ["./src/server/node/index.ts"]
     }
   },
   "include": ["src", "test", "vitest.config.ts"],

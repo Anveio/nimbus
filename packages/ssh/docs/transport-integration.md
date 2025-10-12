@@ -1,13 +1,13 @@
 # Transport Integration Contract (Phase 2)
 
-This note codifies how the SSH engine composes with transports (e.g. the Phase‑2 `@mana/websocket` client). It describes the responsibilities of both sides, the baseline runtime wiring, and the resume story we are building toward.
+This note codifies how the SSH engine composes with transports (e.g. the Phase‑2 `@nimbus/websocket` client). It describes the responsibilities of both sides, the baseline runtime wiring, and the resume story we are building toward.
 
 ## Runtime Entrypoints
 
-`@mana/ssh` exposes runtime-specific helpers that wrap the core `createClientSession` API:
+`@nimbus/ssh` exposes runtime-specific helpers that wrap the core `createClientSession` API:
 
-- `@mana/ssh/client/web` – browser/worker default wiring (`connectSSH`; callers provide a `TransportBinding`).
-- `@mana/ssh/client/node` – Node 18+ runtime wiring (`connectSSH`).
+- `@nimbus/ssh/client/web` – browser/worker default wiring (`connectSSH`; callers provide a `TransportBinding`).
+- `@nimbus/ssh/client/node` – Node 18+ runtime wiring (`connectSSH`).
 - Both build on shared primitives from `src/client/shared`.
 
 `connectSSH(options)` expects:
@@ -91,8 +91,8 @@ A transport wrapper (WebSocket, QUIC, fixed TCP) must:
 When targeting browsers, wire DOM primitives into a `TransportBinding` before invoking `connectSSH`. A WebSocket example:
 
 ```ts
-// @mana/ssh/client/web exports the TransportBinding type alias.
-import type { WebTransportBinding } from '@mana/ssh/client/web'
+// @nimbus/ssh/client/web exports the TransportBinding type alias.
+import type { WebTransportBinding } from '@nimbus/ssh/client/web'
 
 export function createWebSocketTransport(socket: WebSocket): WebTransportBinding {
   socket.binaryType = 'arraybuffer'

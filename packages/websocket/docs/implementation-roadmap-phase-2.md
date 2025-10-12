@@ -1,17 +1,17 @@
-# @mana/websocket Implementation Roadmap — Phase 2
+# @nimbus/websocket Implementation Roadmap — Phase 2
 
 _Last updated: 2025-10-04T08:12:00Z_
 
 ## Focus
 
-- Integrate the websocket transport with `@mana/ssh` client adapters across web and node runtimes.
+- Integrate the websocket transport with `@nimbus/ssh` client adapters across web and node runtimes.
 - Expand protocol coverage to resume loops, telemetry, and policy enforcement.
 - Harden interoperability tooling (conformance kit, doc updates, integration harness).
 
 ## Workstreams
 
 1. **SSH Client Integration**
-   - Author `sshClientAdapter` for web/node, mapping `Connection.openSession` to `@mana/ssh` session APIs.
+   - Author `sshClientAdapter` for web/node, mapping `Connection.openSession` to `@nimbus/ssh` session APIs.
    - Preserve resume state (channel id, resume key, SSH session metadata) alongside websocket resume tokens.
    - Surface SSH-specific diagnostics via the websocket `diagnostic`/`policy` buses for visibility.
 
@@ -24,7 +24,7 @@ _Last updated: 2025-10-04T08:12:00Z_
    - Implement document visibility/offline observers in the browser client; add tests to confirm credit pauses/resumes.
 
 4. **Server Policy Enforcement**
-   - Connect `ServerConnection` to `@mana/ssh` adapter (node) and enforce:
+   - Connect `ServerConnection` to `@nimbus/ssh` adapter (node) and enforce:
      - Origin allowlist and session caps (close with policy diagnostics when exceeded).
      - Control-message rate limiting with structured policy events.
      - Heartbeat/idle timeout handling and logging.

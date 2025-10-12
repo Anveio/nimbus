@@ -6,7 +6,7 @@ import type {
   RendererSession,
   WebglRendererConfig,
   WebglRendererSession,
-} from '@mana/webgl-renderer'
+} from '@nimbus/webgl-renderer'
 import type { CanvasHTMLAttributes, ReactNode } from 'react'
 
 export interface TerminalSessionHandle {

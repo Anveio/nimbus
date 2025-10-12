@@ -271,7 +271,7 @@ function App(): JSX.Element {
   return (
     <main className={styles.container}>
       <header className={styles.statusBar}>
-        <h1 className={styles.heading}>Mana Web SSH Client</h1>
+        <h1 className={styles.heading}>Nimbus Web Terminal</h1>
         <div className={styles.statusGroup}>
           <span className={styles.statusLabel}>Status</span>
           <span className={`${styles.statusBadge} ${statusBadgeClass}`}>
@@ -287,7 +287,7 @@ function App(): JSX.Element {
           <div>
             <span className={styles.cardTitle}>AWS Discovery</span>
             <p className={styles.discoveryHint}>
-              Load Mana-tagged EC2 inventory to prefill the connection form.
+              Load Nimbus-tagged EC2 inventory to prefill the connection form.
             </p>
           </div>
           {isDiscoveryConfigured && (
@@ -395,7 +395,7 @@ function App(): JSX.Element {
                 </ul>
               ) : (
                 <p className={styles.discoveryStatus}>
-                  No Mana-tagged EC2 instances found for{' '}
+                  No Nimbus-tagged EC2 instances found for{' '}
                   <code className={styles.discoveryCode}>
                     {discoveryData?.region ?? resolvedDiscoveryRegion ?? '—'}
                   </code>

@@ -1,8 +1,8 @@
-# Mana Renderer Specification v1
+# Nimbus Renderer Specification v1
 
 **Status:** Draft normative specification
 
-**Applies to:** Renderer implementations targeting the `mana/vt` runtime and derivatives
+**Applies to:** Renderer implementations targeting the `nimbus/vt` runtime and derivatives
 
 **Version:** 1.0.0
 
@@ -10,14 +10,14 @@
 
 ## 1. Scope
 
-This specification defines the renderer-facing contract for embedding the `mana/vt` interpreter within host environments (web, native, server-side rendering). It applies to all renderer implementations that intend to be consumed by Mana hosts, including but not limited to canvas, WebGL, WebGPU, and platform-specific drawing primitives. The document establishes the lifecycle, configuration, event dispatch, and diagnostic expectations required for interoperability with Mana hosts.
+This specification defines the renderer-facing contract for embedding the `nimbus/vt` interpreter within host environments (web, native, server-side rendering). It applies to all renderer implementations that intend to be consumed by Nimbus hosts, including but not limited to canvas, WebGL, WebGPU, and platform-specific drawing primitives. The document establishes the lifecycle, configuration, event dispatch, and diagnostic expectations required for interoperability with Nimbus hosts.
 
 Renderer implementations that conform to this specification MUST expose the interfaces and semantics described herein. Hosts that integrate conformant renderers MUST honor the responsibilities assigned to them in informative sections, except where explicitly marked as non-normative.
 
 ## 2. Normative References
 
 - Bradner, S., "Key words for use in RFCs to Indicate Requirement Levels", RFC 2119, March 1997.
-- Mana `mana/vt` interpreter documentation (`packages/vt`).
+- Nimbus `nimbus/vt` interpreter documentation (`packages/vt`).
 - ECMAScript (ECMA-262) and TypeScript language specifications for syntax interpretation of included code listings.
 
 ## 3. Terms and Conventions

@@ -1,8 +1,8 @@
 {
-  "name": "@mana/tui-react",
+  "name": "@nimbus/tui-react",
   "version": "0.0.1",
   "private": true,
-  "description": "React renderer for the Mana terminal stack.",
+  "description": "React renderer for the Nimbus terminal stack.",
   "main": "src/index.ts",
   "module": "src/index.ts",
   "types": "src/index.ts",
@@ -45,7 +45,7 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@mana/webgl-renderer": "^0.0.1"
+    "@nimbus/webgl-renderer": "^0.0.1"
   },
   "peerDependencies": {
     "react": ">=17.0.0",

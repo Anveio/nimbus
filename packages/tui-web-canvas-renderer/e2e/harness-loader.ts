@@ -19,7 +19,7 @@ const createBuildConfig = (): InlineConfig => ({
     lib: {
       entry: HARNESS_ENTRY,
       formats: ['iife'],
-      name: 'ManaRendererHarness',
+      name: 'NimbusRendererHarness',
     },
     rollupOptions: {
       output: {
@@ -64,13 +64,13 @@ export const prepareHarness = async (page: Page): Promise<void> => {
 
   await page.goto('about:blank')
   await page.setContent('<!DOCTYPE html><html><body></body></html>')
-  await page.waitForFunction(() => Boolean(window.__manaRendererTest__))
+  await page.waitForFunction(() => Boolean(window.__nimbusRendererTest__))
 }
 
 export const disposeHarness = async (page: Page): Promise<void> => {
   try {
     await page.evaluate(() => {
-      window.__manaRendererTest__?.dispose()
+      window.__nimbusRendererTest__?.dispose()
     })
   } catch (error) {
     if ((error as Error).message?.includes('Target closed')) {

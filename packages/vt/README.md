@@ -69,7 +69,7 @@ the interpreter, which you can hand straight to renderers.
 
 If you need to tap directly into parser events (for logging, fuzzing, or
 alternate interpreters) the raw `createParser` export remains available
-via `import { parser } from '@mana/vt'` and calling `parser.create()`.
+via `import { parser } from '@nimbus/vt'` and calling `parser.create()`.
 
 ## Interpreter behaviour
 

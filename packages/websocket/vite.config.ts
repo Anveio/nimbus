@@ -33,7 +33,7 @@ const targets = {
     entry: 'src/client/browser.ts',
     fileBase: 'client/browser',
     formats: ['iife'],
-    globalName: 'ManaSSHWebClient',
+    globalName: 'NimbusSSHWebClient',
     inlineDependencies: true,
     fileName: () => 'client/browser.global.js',
   },
@@ -82,7 +82,7 @@ export default defineConfig((context) => {
 
   const entry = path.resolve(rootDir, target.entry)
   const outDir = path.resolve(rootDir, 'dist')
-  const external = target.inlineDependencies ? [] : [/^@mana\//u, /^(node:)/u]
+  const external = target.inlineDependencies ? [] : [/^@nimbus\//u, /^(node:)/u]
 
   return {
     plugins: [

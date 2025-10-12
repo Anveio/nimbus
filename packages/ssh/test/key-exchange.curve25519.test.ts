@@ -323,7 +323,7 @@ describe('RFC 5656 §4.1 curve25519 key exchange', () => {
     const sharedSecretBigInt = littleEndianToBigInt(sharedSecretBytes)
     const sharedSecretField = encodeMpintField(sharedSecretBigInt)
 
-    const clientIdentification = asciiEncoder.encode('SSH-2.0-mana-ssh-web_0.1')
+    const clientIdentification = asciiEncoder.encode('SSH-2.0-nimbus-ssh-web_0.1')
     const serverIdentificationBare = asciiEncoder.encode('SSH-2.0-OpenSSH_9.6')
 
     const clientPublicLength = new DataView(

@@ -17,7 +17,7 @@ class MockSocket {
   }
 
   readyState = 0
-  protocol = 'mana.ssh.v1'
+  protocol = 'nimbus.ssh.v1'
 
   constructor(
     readonly url: string,
@@ -68,7 +68,7 @@ describe('browser connect', () => {
 
     const connectionPromise = connect(options)
     const socket = MockSocket.instances.at(-1)!
-    expect(socket.protocols).toEqual(['mana.ssh.v1'])
+    expect(socket.protocols).toEqual(['nimbus.ssh.v1'])
 
     socket.emit('open', {})
     await flushMicrotasks()
@@ -76,13 +76,13 @@ describe('browser connect', () => {
     const helloOk = manaV1Profile.encodeCtl({
       t: 'hello_ok',
       server: 'mock-server',
-      caps: { flow: 'credit', profileAccepted: 'mana.v1' },
+      caps: { flow: 'credit', profileAccepted: 'nimbus.v1' },
     })
     socket.emit('message', { data: helloOk })
 
     const connection = await connectionPromise
     expect(connection.state).toBe('ready')
-    expect(connection.protocol).toBe('mana.ssh.v1')
+    expect(connection.protocol).toBe('nimbus.ssh.v1')
   })
 
   it('opens a channel and handles data frames', async () => {
@@ -102,7 +102,7 @@ describe('browser connect', () => {
       data: manaV1Profile.encodeCtl({
         t: 'hello_ok',
         server: 'mock-server',
-        caps: { flow: 'credit', profileAccepted: 'mana.v1' },
+        caps: { flow: 'credit', profileAccepted: 'nimbus.v1' },
       }),
     })
     const connection = await connectionPromise
@@ -183,7 +183,7 @@ describe('browser connect', () => {
       data: manaV1Profile.encodeCtl({
         t: 'hello_ok',
         server: 'resume-server',
-        caps: { flow: 'credit', profileAccepted: 'mana.v1' },
+        caps: { flow: 'credit', profileAccepted: 'nimbus.v1' },
       }),
     })
 
