@@ -4,8 +4,7 @@ import { TestingInstanceConnectStack } from '../lib/testing-instance-connect-sta
 
 const app = new cdk.App()
 
-const stackName =
-  app.node.tryGetContext('stackName') ?? 'mana-dev-ssh-testing'
+const stackName = app.node.tryGetContext('stackName') ?? 'mana-dev-ssh-testing'
 
 const env: cdk.Environment | undefined =
   process.env.CDK_DEFAULT_ACCOUNT && process.env.CDK_DEFAULT_REGION

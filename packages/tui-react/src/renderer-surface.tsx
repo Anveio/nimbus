@@ -1,9 +1,4 @@
-import {
-  forwardRef,
-  useCallback,
-  useMemo,
-  useState,
-} from 'react'
+import { forwardRef, useCallback, useMemo, useState } from 'react'
 import type {
   CanvasHTMLAttributes,
   ForwardedRef,
@@ -44,9 +39,8 @@ const RendererSurfaceInner = (
 ): ReactNode => {
   const { renderRoot: providedRenderRoot, renderRootProps, children } = props
 
-  const [managedRenderRoot, setManagedRenderRoot] = useState<RendererRootContainer | null>(
-    providedRenderRoot ?? null,
-  )
+  const [managedRenderRoot, setManagedRenderRoot] =
+    useState<RendererRootContainer | null>(providedRenderRoot ?? null)
 
   const handleRef = useCallback(
     (node: HTMLCanvasElement | null) => {
@@ -70,10 +64,7 @@ const RendererSurfaceInner = (
   return (
     <RendererSurfaceContextProvider value={contextValue}>
       {providedRenderRoot ? null : (
-        <canvas
-          {...renderRootProps}
-          ref={handleRef}
-        />
+        <canvas {...renderRootProps} ref={handleRef} />
       )}
       {shouldRenderChildren ? children : null}
     </RendererSurfaceContextProvider>

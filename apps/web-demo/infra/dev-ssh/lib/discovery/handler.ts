@@ -57,8 +57,7 @@ const config: DiscoveryConfig = {
     process.env.AWS_REGION ??
     process.env.AWS_DEFAULT_REGION ??
     '',
-  repositoryTagValue:
-    process.env.REPOSITORY_TAG_VALUE ?? 'mana-ssh-web',
+  repositoryTagValue: process.env.REPOSITORY_TAG_VALUE ?? 'mana-ssh-web',
 }
 
 function requiredEnv(key: string): string {
@@ -77,9 +76,7 @@ function buildCorsHeaders() {
   }
 }
 
-function unauthorized(
-  message: string,
-): APIGatewayProxyStructuredResultV2 {
+function unauthorized(message: string): APIGatewayProxyStructuredResultV2 {
   return {
     statusCode: 401,
     headers: buildCorsHeaders(),
@@ -114,12 +111,10 @@ function serverError(error: unknown): APIGatewayProxyStructuredResultV2 {
   }
 }
 
-function parseRegion(
-  event: {
-    readonly body?: string | null
-    readonly queryStringParameters?: Record<string, string | undefined>
-  },
-): string {
+function parseRegion(event: {
+  readonly body?: string | null
+  readonly queryStringParameters?: Record<string, string | undefined>
+}): string {
   const queryRegion = event.queryStringParameters?.region?.trim()
   if (queryRegion) {
     return queryRegion
@@ -127,7 +122,10 @@ function parseRegion(
   if (event.body && event.body.trim().length > 0) {
     try {
       const parsed = JSON.parse(event.body) as DiscoveryRequestBody
-      if (typeof parsed.region === 'string' && parsed.region.trim().length > 0) {
+      if (
+        typeof parsed.region === 'string' &&
+        parsed.region.trim().length > 0
+      ) {
         return parsed.region.trim()
       }
     } catch (error) {
@@ -146,7 +144,9 @@ function parseRegion(
 }
 
 function normaliseTags(
-  tags: Array<{ Key?: string | undefined; Value?: string | undefined }> | undefined,
+  tags:
+    | Array<{ Key?: string | undefined; Value?: string | undefined }>
+    | undefined,
 ): Record<string, string> {
   if (!tags) {
     return {}
@@ -163,13 +163,11 @@ function extractNameTag(tags: Record<string, string>): string | undefined {
   return tags.Name ?? tags.name ?? undefined
 }
 
-export async function handler(
-  event: {
-    readonly headers?: Record<string, string | undefined>
-    readonly body?: string | null
-    readonly queryStringParameters?: Record<string, string | undefined>
-  },
-): Promise<APIGatewayProxyStructuredResultV2> {
+export async function handler(event: {
+  readonly headers?: Record<string, string | undefined>
+  readonly body?: string | null
+  readonly queryStringParameters?: Record<string, string | undefined>
+}): Promise<APIGatewayProxyStructuredResultV2> {
   if (
     event.headers?.authorization?.startsWith('Bearer ') !== true &&
     event.headers?.Authorization?.startsWith('Bearer ') !== true

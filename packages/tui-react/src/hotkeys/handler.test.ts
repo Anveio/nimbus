@@ -70,7 +70,13 @@ const createContext = (): MockContext => {
     keyboardSelectionAnchorRef: { current: null },
   }
 
-  return { context, snapshot, performLocalErase, clearSelection, toggleShortcutGuide }
+  return {
+    context,
+    snapshot,
+    performLocalErase,
+    clearSelection,
+    toggleShortcutGuide,
+  }
 }
 
 describe('handleTerminalHotkey', () => {
@@ -94,7 +100,11 @@ describe('handleTerminalHotkey', () => {
       ...context,
       shortcutGuideEnabled: true,
     }
-    const event = createKeyboardEvent({ key: '?', code: 'Slash', shiftKey: true })
+    const event = createKeyboardEvent({
+      key: '?',
+      code: 'Slash',
+      shiftKey: true,
+    })
 
     const result = handleTerminalHotkey(event, hotkeyContext)
 
@@ -152,7 +162,11 @@ describe('handleTerminalHotkey', () => {
   it('extends selection anchor on shift + arrow', () => {
     const { context, snapshot } = createContext()
     snapshot.cursor = { row: 3, column: 4 } as any
-    const event = createKeyboardEvent({ key: 'ArrowLeft', code: 'ArrowLeft', shiftKey: true })
+    const event = createKeyboardEvent({
+      key: 'ArrowLeft',
+      code: 'ArrowLeft',
+      shiftKey: true,
+    })
 
     const result = handleTerminalHotkey(event, context)
 

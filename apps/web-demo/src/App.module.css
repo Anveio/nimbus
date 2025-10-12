@@ -3,9 +3,17 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
-  background: radial-gradient(circle at 20% 20%, rgba(56, 139, 253, 0.15), transparent 55%),
-    radial-gradient(circle at 80% 10%, rgba(255, 107, 129, 0.12), transparent 60%),
-    #0b1017;
+  background:
+    radial-gradient(
+      circle at 20% 20%,
+      rgba(56, 139, 253, 0.15),
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at 80% 10%,
+      rgba(255, 107, 129, 0.12),
+      transparent 60%
+    ), #0b1017;
   color: #e6edf3;
   font-family: "Fira Code", Menlo, Consolas, monospace;
   padding: 32px;
@@ -165,7 +173,9 @@
   font-family: inherit;
   font-size: 0.95rem;
   padding: 10px 12px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .input:focus,
@@ -196,8 +206,11 @@
   font-weight: 600;
   cursor: pointer;
   padding: 10px 18px;
-  transition: transform 0.15s ease, box-shadow 0.15s ease,
-    background 0.15s ease, border 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease,
+    border 0.15s ease;
 }
 
 .buttonPrimary {
@@ -377,7 +390,9 @@
   border-radius: 12px;
   border: 1px solid rgba(99, 131, 188, 0.25);
   background: rgba(11, 17, 26, 0.75);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .discoveryInstance_selected {

@@ -22,7 +22,9 @@ export const RendererSurfaceContextProvider = RendererSurfaceContext.Provider
 export const useRendererSurface = (): RendererRootContainer => {
   const context = useContext(RendererSurfaceContext)
   if (!context.renderRoot) {
-    throw new Error('Renderer surface is not available in the current React tree.')
+    throw new Error(
+      'Renderer surface is not available in the current React tree.',
+    )
   }
   return context.renderRoot
 }

@@ -1,6 +1,6 @@
 import * as path from 'node:path'
 import { readFileSync } from 'node:fs'
-import { Stack, StackProps } from 'aws-cdk-lib'
+import { Stack, type StackProps } from 'aws-cdk-lib'
 import {
   Instance,
   InstanceType,
@@ -14,7 +14,7 @@ import {
   Vpc,
 } from 'aws-cdk-lib/aws-ec2'
 import { CfnOutput } from 'aws-cdk-lib'
-import { Construct } from 'constructs'
+import type { Construct } from 'constructs'
 import { applyNimbusTags } from './tags'
 
 interface TestingInstanceConnectStackProps extends StackProps {}

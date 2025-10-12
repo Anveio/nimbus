@@ -54,11 +54,7 @@ async function hmacSha256(
     ['sign'],
   )
   const payload = toUint8(data)
-  const signature = await subtle.sign(
-    'HMAC',
-    cryptoKey,
-    toArrayBuffer(payload),
-  )
+  const signature = await subtle.sign('HMAC', cryptoKey, toArrayBuffer(payload))
   return new Uint8Array(signature)
 }
 
@@ -90,8 +86,9 @@ function toHex(buffer: Uint8Array): string {
 
 function encodeRfc3986(value: string): string {
   return encodeURIComponent(value)
-    .replace(/[!'()*]/g, (char) =>
-      `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+    .replace(
+      /[!'()*]/g,
+      (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
     )
     .replace(/%[0-9a-f]{2}/g, (match) => match.toUpperCase())
 }
@@ -162,9 +159,7 @@ function validateExpires(expiresIn: number | undefined): number {
   return rounded
 }
 
-export async function signUrlWithSigV4(
-  input: SignUrlInput,
-): Promise<string> {
+export async function signUrlWithSigV4(input: SignUrlInput): Promise<string> {
   const url = new URL(input.url)
   const method = normalizeMethod(input.method)
   const expiresIn = validateExpires(input.expiresIn)
@@ -193,7 +188,10 @@ export async function signUrlWithSigV4(
     params.push([key, value])
   })
   params.push(['X-Amz-Algorithm', 'AWS4-HMAC-SHA256'])
-  params.push(['X-Amz-Credential', `${input.credentials.accessKeyId}/${credentialScope}`])
+  params.push([
+    'X-Amz-Credential',
+    `${input.credentials.accessKeyId}/${credentialScope}`,
+  ])
   params.push(['X-Amz-Date', amzDate])
   params.push(['X-Amz-Expires', String(expiresIn)])
   params.push(['X-Amz-SignedHeaders', 'host'])

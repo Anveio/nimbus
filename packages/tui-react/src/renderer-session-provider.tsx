@@ -1,3 +1,11 @@
+import type {
+  RendererConfiguration,
+  RendererRoot,
+  RendererSession,
+  TerminalProfile,
+  TerminalRuntime,
+} from '@nimbus/webgl-renderer'
+import type { JSX } from 'react'
 import {
   useCallback,
   useEffect,
@@ -6,25 +14,18 @@ import {
   useRef,
   useState,
 } from 'react'
-import type { JSX, ReactNode } from 'react'
 import {
-  createRendererRoot,
-  type RendererConfiguration,
-  type RendererSession,
-  type TerminalProfile,
-  type WebglRendererConfig,
-  type RendererRoot,
-  type WebglRendererRootOptions,
-} from '@nimbus/webgl-renderer'
-import { createTerminalRuntime } from '@nimbus/webgl-renderer'
-import type { TerminalRuntime } from '@nimbus/webgl-renderer'
+  getDefaultRendererBackendKey,
+  getRendererBackend,
+} from './renderer-backend-registry'
 import type { RendererSessionProviderProps } from './renderer-contract'
+import './backends/webgl'
 import { RendererRootProvider } from './renderer-root-context'
-import { useRendererSurface } from './renderer-surface-context'
 import {
   RendererSessionContextProvider,
   type RendererSessionContextValue,
 } from './renderer-session-context'
+import { useRendererSurface } from './renderer-surface-context'
 
 const FALLBACK_CELL_METRICS = Object.freeze({
   width: 8,
@@ -35,12 +36,29 @@ const FALLBACK_CELL_METRICS = Object.freeze({
 const DEFAULT_CANVAS_WIDTH = 640
 const DEFAULT_CANVAS_HEIGHT = 384
 
+const extractRuntime = (config: unknown): TerminalRuntime | null => {
+  if (config && typeof config === 'object' && 'runtime' in config) {
+    const value = (config as { readonly runtime?: TerminalRuntime | null })
+      .runtime
+    return value ?? null
+  }
+  return null
+}
+
+const extractProfile = (config: unknown): TerminalProfile | undefined => {
+  if (config && typeof config === 'object' && 'profile' in config) {
+    return (config as { readonly profile?: TerminalProfile }).profile
+  }
+  return undefined
+}
+
 const computeFallbackConfiguration = (
   canvas: HTMLCanvasElement,
 ): RendererConfiguration => {
-  const rect = typeof canvas.getBoundingClientRect === 'function'
-    ? canvas.getBoundingClientRect()
-    : { width: 0, height: 0 }
+  const rect =
+    typeof canvas.getBoundingClientRect === 'function'
+      ? canvas.getBoundingClientRect()
+      : { width: 0, height: 0 }
   const cssWidth =
     rect.width || canvas.clientWidth || canvas.width || DEFAULT_CANVAS_WIDTH
   const cssHeight =
@@ -50,10 +68,7 @@ const computeFallbackConfiguration = (
       ? window.devicePixelRatio
       : 1
 
-  const framebufferWidth = Math.max(
-    1,
-    Math.round(cssWidth * devicePixelRatio),
-  )
+  const framebufferWidth = Math.max(1, Math.round(cssWidth * devicePixelRatio))
   const framebufferHeight = Math.max(
     1,
     Math.round(cssHeight * devicePixelRatio),
@@ -63,10 +78,7 @@ const computeFallbackConfiguration = (
     1,
     Math.floor(cssWidth / FALLBACK_CELL_METRICS.width),
   )
-  const rows = Math.max(
-    1,
-    Math.floor(cssHeight / FALLBACK_CELL_METRICS.height),
-  )
+  const rows = Math.max(1, Math.floor(cssHeight / FALLBACK_CELL_METRICS.height))
 
   return {
     grid: { rows, columns },
@@ -90,6 +102,7 @@ export const RendererSessionProvider = (
   props: RendererSessionProviderProps,
 ): JSX.Element | null => {
   const {
+    rendererBackend,
     rendererConfig,
     onFrame,
     onResizeRequest,
@@ -102,27 +115,50 @@ export const RendererSessionProvider = (
   const rendererConfigRef =
     useRef<RendererSessionProviderProps['rendererConfig']>(rendererConfig)
   const runtimeRef = useRef<TerminalRuntime | null>(
-    rendererConfig?.runtime ?? null,
+    extractRuntime(rendererConfig),
   )
   const profileRef = useRef<TerminalProfile | undefined>(
-    rendererConfig?.profile,
+    extractProfile(rendererConfig),
   )
   const previousProfileRef = useRef<TerminalProfile | undefined>(
-    rendererConfig?.profile,
+    extractProfile(rendererConfig),
   )
-  const rootRef = useRef<RendererRoot<WebglRendererConfig> | null>(null)
+  const rootRef = useRef<RendererRoot | null>(null)
   const sessionRef = useRef<RendererSession | null>(null)
 
-  const [rootState, setRootState] =
-    useState<RendererRoot<WebglRendererConfig> | null>(null)
-  const [sessionState, setSessionState] = useState<RendererSession | null>(
-    null,
+  const [rootState, setRootState] = useState<RendererRoot | null>(null)
+  const [sessionState, setSessionState] = useState<RendererSession | null>(null)
+  const [runtimeState, setRuntimeState] = useState<TerminalRuntime | null>(
+    runtimeRef.current,
   )
+
+  const resolvedBackendKey = useMemo(() => {
+    if (rendererBackend) {
+      return rendererBackend
+    }
+    if (
+      rendererConfig &&
+      typeof rendererConfig === 'object' &&
+      'backend' in rendererConfig &&
+      typeof (rendererConfig as { backend?: unknown }).backend === 'string'
+    ) {
+      const value = (rendererConfig as { backend?: string }).backend
+      if (value) {
+        return value
+      }
+    }
+    return getDefaultRendererBackendKey()
+  }, [rendererBackend, rendererConfig])
+
+  const backendKeyRef = useRef<string>(resolvedBackendKey)
 
   useEffect(() => {
     rendererConfigRef.current = rendererConfig
-    runtimeRef.current = rendererConfig?.runtime ?? null
-    profileRef.current = rendererConfig?.profile
+    const nextRuntime = extractRuntime(rendererConfig)
+    runtimeRef.current = nextRuntime
+    setRuntimeState(nextRuntime)
+    const nextProfile = extractProfile(rendererConfig)
+    profileRef.current = nextProfile
   }, [rendererConfig])
 
   const computeConfiguration = useCallback((): RendererConfiguration => {
@@ -139,35 +175,43 @@ export const RendererSessionProvider = (
   }, [computeConfiguration])
 
   useLayoutEffect(() => {
-    const runtimeInstance = runtimeRef.current ?? createTerminalRuntime()
+    if (backendKeyRef.current !== resolvedBackendKey) {
+      runtimeRef.current = extractRuntime(rendererConfigRef.current)
+    }
+    backendKeyRef.current = resolvedBackendKey
+
+    const backend = getRendererBackend(resolvedBackendKey)
+    if (!backend) {
+      throw new Error(
+        `Renderer backend "${resolvedBackendKey}" is not registered.`,
+      )
+    }
+
+    const runtimeInstance =
+      runtimeRef.current ?? backend.createRuntime(rendererConfigRef.current)
     runtimeRef.current = runtimeInstance
+    setRuntimeState(runtimeInstance)
 
     const configuration = computeConfiguration()
 
-    const currentRendererConfig = rendererConfigRef.current ?? {}
+    const mounted = backend.mount({
+      canvas,
+      configuration,
+      profile: profileRef.current,
+      rendererConfig: rendererConfigRef.current,
+      runtime: runtimeInstance,
+    })
 
-    const options = Object.assign(
-      {},
-      currentRendererConfig,
-      {
-        configuration,
-        runtime: runtimeInstance,
-      },
-      profileRef.current !== undefined
-        ? { profile: profileRef.current }
-        : {},
-    ) as WebglRendererRootOptions
-
-    const root = createRendererRoot(canvas, options)
-    rootRef.current = root
-    setRootState(root)
-
-    const session = root.mount()
-    sessionRef.current = session
-    setSessionState(session)
+    rootRef.current = mounted.root
+    setRootState(mounted.root)
+    sessionRef.current = mounted.session
+    setSessionState(mounted.session)
 
     if (profileRef.current !== undefined) {
-      session.dispatch({ type: 'profile.update', profile: profileRef.current })
+      mounted.session.dispatch({
+        type: 'profile.update',
+        profile: profileRef.current,
+      })
       previousProfileRef.current = profileRef.current
     }
 
@@ -181,9 +225,9 @@ export const RendererSessionProvider = (
       rootRef.current = null
       setSessionState(null)
       setRootState(null)
-      root.dispose()
+      mounted.root.dispose()
     }
-  }, [canvas, computeConfiguration])
+  }, [canvas, computeConfiguration, resolvedBackendKey])
 
   useEffect(() => {
     if (!sessionState) {
@@ -241,7 +285,7 @@ export const RendererSessionProvider = (
 
   useEffect(() => {
     const session = sessionState
-    const nextProfile = rendererConfig?.profile
+    const nextProfile = extractProfile(rendererConfig)
     if (!session || nextProfile === undefined) {
       previousProfileRef.current = nextProfile
       return
@@ -251,14 +295,14 @@ export const RendererSessionProvider = (
     }
     session.dispatch({ type: 'profile.update', profile: nextProfile })
     previousProfileRef.current = nextProfile
-  }, [sessionState, rendererConfig?.profile])
+  }, [sessionState, rendererConfig])
 
   const contextValue: RendererSessionContextValue = useMemo(
     () => ({
       session: sessionRef.current,
-      runtime: runtimeRef.current,
+      runtime: runtimeState,
     }),
-    [sessionState, rendererConfig?.runtime],
+    [runtimeState],
   )
 
   if (!rootState || !sessionState) {

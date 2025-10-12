@@ -120,12 +120,11 @@ export const handleTerminalHotkey = (
     const previousCursor = snapshot.cursor
     if (shouldExtendSelection) {
       const currentAnchor = context.keyboardSelectionAnchorRef.current
-      context.keyboardSelectionAnchorRef.current =
-        currentAnchor ?? {
-          row: previousCursor.row,
-          column: previousCursor.column,
-          timestamp: Date.now(),
-        }
+      context.keyboardSelectionAnchorRef.current = currentAnchor ?? {
+        row: previousCursor.row,
+        column: previousCursor.column,
+        timestamp: Date.now(),
+      }
     } else {
       context.keyboardSelectionAnchorRef.current = null
       if (snapshot.selection) {

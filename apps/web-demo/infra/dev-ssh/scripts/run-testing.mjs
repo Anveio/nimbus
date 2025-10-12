@@ -130,7 +130,8 @@ async function main() {
   const contextArgs = []
 
   if (!providedContextKeys.has('allowedIp')) {
-    let allowedIp = process.env.MANA_TESTING_ALLOWED_IP ?? process.env.MANA_DEV_SSH_ALLOWED_IP
+    let allowedIp =
+      process.env.MANA_TESTING_ALLOWED_IP ?? process.env.MANA_DEV_SSH_ALLOWED_IP
     if (!allowedIp) {
       try {
         const ip = await resolvePublicIp()
@@ -161,13 +162,7 @@ async function main() {
     }
   }
 
-  const cdkArgs = [
-    '--app',
-    CDK_APP,
-    command,
-    ...contextArgs,
-    ...passthrough,
-  ]
+  const cdkArgs = ['--app', CDK_APP, command, ...contextArgs, ...passthrough]
 
   if (command === 'deploy') {
     cdkArgs.push('--require-approval', 'never')

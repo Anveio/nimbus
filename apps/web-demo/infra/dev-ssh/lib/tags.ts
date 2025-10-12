@@ -1,4 +1,4 @@
-import { Stack, Tags } from 'aws-cdk-lib'
+import { type Stack, Tags } from 'aws-cdk-lib'
 
 export const OWNER_ENV_KEYS = [
   'MANA_RESOURCE_OWNER',
@@ -23,8 +23,9 @@ export function ownerFromEnvironment(): string {
 }
 
 export function determineOwner(stack: Stack): string {
-  const contextOwner =
-    (stack.node.tryGetContext('owner') as string | undefined)?.trim()
+  const contextOwner = (
+    stack.node.tryGetContext('owner') as string | undefined
+  )?.trim()
   if (contextOwner && contextOwner.length > 0) {
     return contextOwner
   }

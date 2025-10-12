@@ -82,6 +82,11 @@ This charter guides how we evolve the React bindings for the Nimbus terminal sta
 - All VT primitives now flow through renderer exports. `<Terminal />` refuses direct `@nimbus/vt` imports, guaranteeing renderer/runtimes remain swappable.
 - `RendererSessionProvider` consumes `createTerminalRuntime` via the renderer layer, simplifying future multi-runtime experiments.
 
+### 2025-10-12 – Backend registry
+- Introduced `registerRendererBackend`/`rendererBackend` plumbing inside `@nimbus/tui-react` so hosts can opt into alternate renderers without touching core composition.
+- Default entry auto-registers the WebGL backend; advanced consumers can tree-shake by registering only the backends they need.
+- Docs/tests updated to reflect the registry contract and the new `onRuntimeResponse` forwarding path.
+
 ### 2025-09-30 – Charter refresh
 Reframed the React agent charter around mandate, boundaries, and testing doctrine; promoted the `<Terminal />` rewrite, selection parity, and auto-resize as active backlog signals.
 

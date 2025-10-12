@@ -91,9 +91,7 @@ function serverError(error: unknown): APIGatewayProxyStructuredResultV2 {
   }
 }
 
-function parseRequest(
-  rawBody: string | undefined | null,
-): SignRequestPayload {
+function parseRequest(rawBody: string | undefined | null): SignRequestPayload {
   if (!rawBody || rawBody.trim().length === 0) {
     return {}
   }
@@ -114,17 +112,23 @@ function parseRequest(
     }
     return payload
   } catch (error) {
-    throw new Error(`Invalid JSON payload: ${error instanceof Error ? error.message : String(error)}`)
+    throw new Error(
+      `Invalid JSON payload: ${error instanceof Error ? error.message : String(error)}`,
+    )
   }
 }
 
 function sanitizeEndpoint(endpoint: string | undefined): string {
-  const candidate = endpoint?.trim().length ? endpoint.trim() : config.defaultEndpoint
+  const candidate = endpoint?.trim().length
+    ? endpoint.trim()
+    : config.defaultEndpoint
   let url: URL
   try {
     url = new URL(candidate)
   } catch (error) {
-    throw new Error(`Endpoint must be a valid URL: ${error instanceof Error ? error.message : String(error)}`)
+    throw new Error(
+      `Endpoint must be a valid URL: ${error instanceof Error ? error.message : String(error)}`,
+    )
   }
   if (url.protocol !== 'https:' && url.protocol !== 'wss:') {
     throw new Error('Endpoint must use https:// or wss://')
@@ -141,7 +145,9 @@ function sanitizeRegion(region: string | undefined): string {
 }
 
 function sanitizeService(service: string | undefined): string {
-  const resolved = service?.trim().length ? service.trim() : config.defaultService
+  const resolved = service?.trim().length
+    ? service.trim()
+    : config.defaultService
   if (!resolved) {
     throw new Error('Service identifier is required for signing')
   }
@@ -170,8 +176,9 @@ function sanitizeExpires(expires: number | undefined): number {
 
 function encodeRfc3986(value: string): string {
   return encodeURIComponent(value)
-    .replace(/[!'()*]/g, (char) =>
-      `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+    .replace(
+      /[!'()*]/g,
+      (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
     )
     .replace(/%[0-9a-f]{2}/g, (match) => match.toUpperCase())
 }
@@ -298,12 +305,10 @@ function signUrl(
   return { signedUrl: url.toString(), expiresAt }
 }
 
-export async function handler(
-  event: {
-    readonly headers?: Record<string, string | undefined>
-    readonly body?: string | null
-  },
-): Promise<APIGatewayProxyStructuredResultV2> {
+export async function handler(event: {
+  readonly headers?: Record<string, string | undefined>
+  readonly body?: string | null
+}): Promise<APIGatewayProxyStructuredResultV2> {
   try {
     const authHeader =
       event.headers?.authorization ?? event.headers?.Authorization

@@ -2,11 +2,9 @@ import { randomBytes } from 'node:crypto'
 import {
   CloudFormationClient,
   DescribeStacksCommand,
+  type Stack,
 } from '@aws-sdk/client-cloudformation'
-import {
-  DescribeInstancesCommand,
-  EC2Client,
-} from '@aws-sdk/client-ec2'
+import { DescribeInstancesCommand, EC2Client } from '@aws-sdk/client-ec2'
 import {
   EC2InstanceConnectClient,
   SendSSHPublicKeyCommand,
@@ -121,16 +119,14 @@ export function resolveRegion(option?: string) {
   )
 }
 
-export async function resolveInstanceTarget(
-  params: {
-    readonly region: string
-    readonly stackName: string
-    readonly instanceIdHint?: string
-  },
-): Promise<InstanceTarget> {
+export async function resolveInstanceTarget(params: {
+  readonly region: string
+  readonly stackName: string
+  readonly instanceIdHint?: string
+}): Promise<InstanceTarget> {
   const cloudFormation = new CloudFormationClient({ region: params.region })
 
-  let stack
+  let stack: Stack | undefined
   if (params.instanceIdHint) {
     stack = (
       await cloudFormation.send(
@@ -178,7 +174,9 @@ export async function resolveInstanceTarget(
   const reservation = describeInstances.Reservations?.[0]
   const instance = reservation?.Instances?.[0]
   if (!instance) {
-    throw new Error(`Instance ${instanceId} not found or not in a running state.`)
+    throw new Error(
+      `Instance ${instanceId} not found or not in a running state.`,
+    )
   }
 
   if (instance.State?.Name !== 'running') {
@@ -194,7 +192,9 @@ export async function resolveInstanceTarget(
     )
   }
 
-  const publicDnsName = instance.PublicDnsName?.length ? instance.PublicDnsName : undefined
+  const publicDnsName = instance.PublicDnsName?.length
+    ? instance.PublicDnsName
+    : undefined
 
   return {
     stackName: params.stackName,

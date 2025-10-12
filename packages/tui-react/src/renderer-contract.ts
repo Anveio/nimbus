@@ -16,8 +16,9 @@ export interface TerminalSessionHandle {
   getRuntime(): WebglRendererSession['runtime'] | null
 }
 
-export interface RendererSessionProviderProps{
-  readonly rendererConfig?: Partial<WebglRendererConfig>
+export interface RendererSessionProviderProps {
+  readonly rendererBackend?: string
+  readonly rendererConfig?: unknown
   readonly onFrame?: (event: RendererFrameEvent) => void
   readonly onResizeRequest?: (event: RendererResizeRequestEvent) => void
   readonly onRuntimeResponse?: (response: TerminalRuntimeResponse) => void

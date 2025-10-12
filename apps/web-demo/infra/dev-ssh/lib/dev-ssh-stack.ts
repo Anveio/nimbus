@@ -1,7 +1,7 @@
 import * as path from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import { Stack, StackProps } from 'aws-cdk-lib'
+import { Stack, type StackProps } from 'aws-cdk-lib'
 import {
   Instance,
   InstanceType,
@@ -14,12 +14,16 @@ import {
   UserData,
   Vpc,
 } from 'aws-cdk-lib/aws-ec2'
-import { HttpApi, HttpMethod, CorsHttpMethod } from 'aws-cdk-lib/aws-apigatewayv2'
+import {
+  HttpApi,
+  HttpMethod,
+  CorsHttpMethod,
+} from 'aws-cdk-lib/aws-apigatewayv2'
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations'
 import { Runtime } from 'aws-cdk-lib/aws-lambda'
 import { NodejsFunction, OutputFormat } from 'aws-cdk-lib/aws-lambda-nodejs'
 import { CfnOutput } from 'aws-cdk-lib'
-import { Construct } from 'constructs'
+import type { Construct } from 'constructs'
 import { applyNimbusTags } from './tags'
 
 interface DevSshStackProps extends StackProps {}

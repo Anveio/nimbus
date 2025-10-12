@@ -46,9 +46,7 @@ export function SignedUrlProvider({
 export function useSignedUrl(): SignedUrlContextValue {
   const ctx = useContext(SignedUrlContext)
   if (!ctx) {
-    throw new Error(
-      'useSignedUrl must be used within a SignedUrlProvider',
-    )
+    throw new Error('useSignedUrl must be used within a SignedUrlProvider')
   }
   return ctx
 }

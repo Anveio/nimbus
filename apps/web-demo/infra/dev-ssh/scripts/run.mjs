@@ -113,7 +113,8 @@ async function main() {
   }
 
   if (!providedContextKeys.has('stackName')) {
-    const stackName = process.env.MANA_DEV_SSH_STACK_NAME ?? 'mana-dev-ssh-instance'
+    const stackName =
+      process.env.MANA_DEV_SSH_STACK_NAME ?? 'mana-dev-ssh-instance'
     contextArgs.push('--context', `stackName=${stackName}`)
   }
 

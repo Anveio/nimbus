@@ -53,16 +53,11 @@ function reducer(state: SshFormState, action: SshFormAction): SshFormState {
   return state
 }
 
-export function useSshFormState(
-  initial: Partial<SshFormState> = defaultState,
-) {
-  const [state, dispatch] = useReducer(
-    reducer,
-    {
-      ...defaultState,
-      ...initial,
-    },
-  )
+export function useSshFormState(initial: Partial<SshFormState> = defaultState) {
+  const [state, dispatch] = useReducer(reducer, {
+    ...defaultState,
+    ...initial,
+  })
 
   const updateField = useCallback((field: Field, value: string) => {
     dispatch({ type: 'update-field', field, value })

@@ -1,3 +1,13 @@
+import type { SelectionPoint, TerminalSelection } from '@nimbus/webgl-renderer'
+import type {
+  ForwardedRef,
+  JSX,
+  CompositionEvent as ReactCompositionEvent,
+  ReactElement,
+  KeyboardEvent as ReactKeyboardEvent,
+  ReactNode,
+  RefAttributes,
+} from 'react'
 import {
   forwardRef,
   useCallback,
@@ -5,32 +15,13 @@ import {
   useMemo,
   useRef,
 } from 'react'
-import type {
-  ForwardedRef,
-  JSX,
-  KeyboardEvent as ReactKeyboardEvent,
-  CompositionEvent as ReactCompositionEvent,
-  ReactElement,
-  ReactNode,
-  RefAttributes,
-} from 'react'
-import type {
-  TerminalProps,
-  TerminalSessionHandle,
-} from './renderer-contract'
+import type { HotkeyRendererEvent } from './hotkeys'
+import { createHotkeyContext, handleTerminalHotkey } from './hotkeys'
+import type { TerminalProps, TerminalSessionHandle } from './renderer-contract'
 import { useRendererRoot } from './renderer-root-context'
+import { useRendererSessionContext } from './renderer-session-context'
 import { RendererSessionProvider } from './renderer-session-provider'
 import { RendererSurface } from './renderer-surface'
-import { useRendererSessionContext } from './renderer-session-context'
-import {
-  createHotkeyContext,
-  handleTerminalHotkey,
-} from './hotkeys'
-import type { HotkeyRendererEvent } from './hotkeys'
-import type {
-  SelectionPoint,
-  TerminalSelection,
-} from '@nimbus/webgl-renderer'
 
 /**
  * Bridges the forwarded `TerminalSessionHandle` to the active renderer root,
@@ -63,12 +54,13 @@ const TerminalHandleBinderBase = forwardRef(TerminalHandleBinderInner)
 TerminalHandleBinderBase.displayName = 'TerminalHandleBinder'
 
 type TerminalHandleBinderComponent = (
-  props: { readonly children?: ReactNode } & RefAttributes<
-    TerminalSessionHandle
-  >,
+  props: {
+    readonly children?: ReactNode
+  } & RefAttributes<TerminalSessionHandle>,
 ) => JSX.Element
 
-const TerminalHandleBinder = TerminalHandleBinderBase as TerminalHandleBinderComponent
+const TerminalHandleBinder =
+  TerminalHandleBinderBase as TerminalHandleBinderComponent
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value))
@@ -95,9 +87,9 @@ const createCaretSelection = (
   }
 }
 
-const TerminalHotkeyBoundary = (
-  props: { readonly children?: ReactNode },
-): JSX.Element => {
+const TerminalHotkeyBoundary = (props: {
+  readonly children?: ReactNode
+}): JSX.Element => {
   const { children } = props
   const { session, runtime } = useRendererSessionContext()
   const compositionStateRef = useRef({ active: false, data: '' })
@@ -163,8 +155,7 @@ const TerminalHotkeyBoundary = (
         const hasContent =
           Array.isArray(rowBuffer) &&
           Boolean(
-            rowBuffer[cursorColumn] &&
-              rowBuffer[cursorColumn]!.char !== ' ',
+            rowBuffer[cursorColumn] && rowBuffer[cursorColumn]!.char !== ' ',
           )
 
         if (!hasContent) {
@@ -277,8 +268,9 @@ const TerminalHotkeyBoundary = (
   return (
     <div
       data-testid="terminal-hotkeys-boundary"
-      role="presentation"
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: It is interactive
       tabIndex={0}
+      role="application"
       onKeyDown={handleKeyDown}
       onCompositionStart={handleCompositionStart}
       onCompositionUpdate={handleCompositionUpdate}
@@ -316,9 +308,8 @@ const TerminalBase = forwardRef(TerminalInner)
 
 TerminalBase.displayName = 'Terminal'
 
-type TerminalComponent =(
-  props: TerminalProps &
-    RefAttributes<TerminalSessionHandle>,
+type TerminalComponent = (
+  props: TerminalProps & RefAttributes<TerminalSessionHandle>,
 ) => ReactElement
 
 const Terminal = TerminalBase as TerminalComponent

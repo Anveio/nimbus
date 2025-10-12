@@ -11,10 +11,7 @@ import {
 } from 'react'
 import type { ShortcutGuideReason } from '../hotkeys'
 import type { RendererSession } from '@nimbus/webgl-renderer'
-import type {
-  SelectionPoint,
-  TerminalSelection,
-} from '@nimbus/webgl-renderer'
+import type { SelectionPoint, TerminalSelection } from '@nimbus/webgl-renderer'
 export type TerminalStatusLevel = 'info' | 'warning' | 'error'
 
 export interface TerminalStatusMessage {
@@ -487,12 +484,9 @@ const createCaretStatusText = (
       snapshot.selection,
       snapshot.columns,
     )
-    const cellsSelected = selectionSegments.reduce<number>(
-      (total, segment) => {
-        return total + (segment.endColumn - segment.startColumn + 1)
-      },
-      0,
-    )
+    const cellsSelected = selectionSegments.reduce<number>((total, segment) => {
+      return total + (segment.endColumn - segment.startColumn + 1)
+    }, 0)
     return `${base}. ${cellsSelected} cell${cellsSelected === 1 ? '' : 's'} selected.`
   }
   return base

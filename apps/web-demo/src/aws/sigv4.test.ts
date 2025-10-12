@@ -5,8 +5,9 @@ import { signUrlWithSigV4 } from './sigv4'
 
 function encodeRfc3986(value: string): string {
   return encodeURIComponent(value)
-    .replace(/[!'()*]/g, (char) =>
-      `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+    .replace(
+      /[!'()*]/g,
+      (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
     )
     .replace(/%[0-9a-f]{2}/g, (match) => match.toUpperCase())
 }
@@ -28,10 +29,7 @@ function canonicalizeQuery(params: URLSearchParams): string {
     if (key === 'X-Amz-Signature') {
       return
     }
-    entries.push([
-      encodeRfc3986(key),
-      encodeRfc3986(value),
-    ])
+    entries.push([encodeRfc3986(key), encodeRfc3986(value)])
   })
   entries.sort(([keyA, valueA], [keyB, valueB]) => {
     if (keyA < keyB) return -1
@@ -101,9 +99,7 @@ describe('signUrlWithSigV4', () => {
     expect(amzDate).toBe('20240105T123456Z')
 
     const credential = parsed.searchParams.get('X-Amz-Credential')
-    expect(credential).toBe(
-      'AKIDEXAMPLE/20240105/us-east-1/iam/aws4_request',
-    )
+    expect(credential).toBe('AKIDEXAMPLE/20240105/us-east-1/iam/aws4_request')
 
     const stringToSign = [
       'AWS4-HMAC-SHA256',

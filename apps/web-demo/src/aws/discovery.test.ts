@@ -11,13 +11,17 @@ describe('fetchDiscoveryMetadata', () => {
   it('throws when endpoint missing', async () => {
     vi.stubEnv('VITE_MANA_DISCOVERY_ENDPOINT', '')
     vi.stubEnv('VITE_MANA_SIGNER_TOKEN', 'token')
-    await expect(() => fetchDiscoveryMetadata()).rejects.toThrow(/Discovery endpoint not configured/)
+    await expect(() => fetchDiscoveryMetadata()).rejects.toThrow(
+      /Discovery endpoint not configured/,
+    )
   })
 
   it('throws when signer token missing', async () => {
     vi.stubEnv('VITE_MANA_DISCOVERY_ENDPOINT', 'https://example.com/discovery')
     vi.stubEnv('VITE_MANA_SIGNER_TOKEN', '')
-    await expect(() => fetchDiscoveryMetadata()).rejects.toThrow(/Signer token not configured/)
+    await expect(() => fetchDiscoveryMetadata()).rejects.toThrow(
+      /Signer token not configured/,
+    )
   })
 
   it('invokes discovery endpoint with bearer token', async () => {

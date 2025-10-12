@@ -55,14 +55,13 @@ export function App(): JSX.Element {
       <header className="app-header">
         <h1 className="app-title">Nimbus TUI React Harness</h1>
         <p className="app-subtitle">
-          The demo mounts the public <code className="app-code">&lt;Terminal /&gt;</code> component using the layered renderer stack.
+          The demo mounts the public{' '}
+          <code className="app-code">&lt;Terminal /&gt;</code> component using
+          the layered renderer stack.
         </p>
       </header>
       <section className="app-terminal">
-        <Terminal
-          ref={terminalRef}
-          renderRootProps={renderRootProps}
-        />
+        <Terminal ref={terminalRef} renderRootProps={renderRootProps} />
       </section>
     </main>
   )

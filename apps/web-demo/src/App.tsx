@@ -12,7 +12,10 @@ import { useSessionLog } from './hooks/use-session-log'
 import type { SessionLogEntry } from './hooks/session-log'
 import { useSshFormState } from './hooks/use-ssh-form'
 import { useSshSession } from './hooks/use-ssh-session'
-import { getRemoteSignerConfig, requestRemoteSignedUrl } from './aws/remote-signer'
+import {
+  getRemoteSignerConfig,
+  requestRemoteSignedUrl,
+} from './aws/remote-signer'
 import { useSignedUrl } from './signed-url-context'
 import { useDiscovery } from './discovery-context'
 import type { DiscoveryResult } from './aws/discovery'
@@ -60,7 +63,11 @@ function App(): JSX.Element {
   const { state: formState, updateField, patch } = useSshFormState()
   const { entries, append, clear } = useSessionLog()
   const logger = useMemo(() => ({ append, clear }), [append, clear])
-  const { state: session, connect, disconnect } = useSshSession({
+  const {
+    state: session,
+    connect,
+    disconnect,
+  } = useSshSession({
     logger,
   })
   const { signedUrl, setSignedUrl } = useSignedUrl()
@@ -75,7 +82,9 @@ function App(): JSX.Element {
   const [signingState, setSigningState] = useState<SigningState>({
     phase: 'idle',
   })
-  const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null)
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(
+    null,
+  )
 
   const discoveryData = discoveryQuery.data
   const discoveryInstances = useMemo(
@@ -89,10 +98,8 @@ function App(): JSX.Element {
   const discoveryIsFetching = discoveryQuery.fetchStatus === 'fetching'
   const discoveryHasError = discoveryQuery.status === 'error'
 
-  const errorMessage =
-    session.phase === 'error' ? session.error : null
-  const publicKey =
-    session.phase === 'connected' ? session.publicKey : null
+  const errorMessage = session.phase === 'error' ? session.error : null
+  const publicKey = session.phase === 'connected' ? session.publicKey : null
 
   const statusBadgeClass =
     styles[`statusBadge_${session.phase}`] ?? styles.statusBadge
@@ -323,7 +330,9 @@ function App(): JSX.Element {
           <>
             <div className={styles.discoveryBody}>
               {discoveryIsFetching && discoveryQuery.status === 'pending' ? (
-                <p className={styles.discoveryStatus}>Loading discovery data…</p>
+                <p className={styles.discoveryStatus}>
+                  Loading discovery data…
+                </p>
               ) : discoveryHasError ? (
                 <p className={styles.discoveryError}>
                   Unable to load discovery data:{' '}
@@ -339,9 +348,7 @@ function App(): JSX.Element {
                       <li
                         key={instance.instanceId}
                         className={`${styles.discoveryInstance} ${
-                          isSelected
-                            ? styles.discoveryInstance_selected
-                            : ''
+                          isSelected ? styles.discoveryInstance_selected : ''
                         }`}
                       >
                         <div className={styles.discoveryInstanceHeader}>
@@ -421,9 +428,13 @@ function App(): JSX.Element {
           </>
         ) : (
           <p className={styles.discoveryStatus}>
-            Configure <code className={styles.discoveryCode}>VITE_MANA_DISCOVERY_ENDPOINT</code>{' '}
-            and <code className={styles.discoveryCode}>VITE_MANA_SIGNER_TOKEN</code> to enable
-            automatic discovery.
+            Configure{' '}
+            <code className={styles.discoveryCode}>
+              VITE_MANA_DISCOVERY_ENDPOINT
+            </code>{' '}
+            and{' '}
+            <code className={styles.discoveryCode}>VITE_MANA_SIGNER_TOKEN</code>{' '}
+            to enable automatic discovery.
           </p>
         )}
       </section>
@@ -493,10 +504,7 @@ function App(): JSX.Element {
                 type="number"
                 value={formState.expiresInSeconds}
                 onChange={(event) =>
-                  updateField(
-                    'expiresInSeconds',
-                    event.currentTarget.value,
-                  )
+                  updateField('expiresInSeconds', event.currentTarget.value)
                 }
                 placeholder="60"
                 min={1}
@@ -608,11 +616,7 @@ function App(): JSX.Element {
       <section className={styles.logPanel}>
         <header className={styles.logHeader}>
           <span className={styles.cardTitle}>Session Log</span>
-          <button
-            type="button"
-            className={styles.buttonGhost}
-            onClick={clear}
-          >
+          <button type="button" className={styles.buttonGhost} onClick={clear}>
             Clear
           </button>
         </header>

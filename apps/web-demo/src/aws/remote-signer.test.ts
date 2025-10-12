@@ -26,10 +26,7 @@ describe('remote signer configuration', () => {
   it('exposes configuration when present', async () => {
     vi.stubEnv('VITE_MANA_SIGNER_ENDPOINT', 'https://example.com/sign')
     vi.stubEnv('VITE_MANA_SIGNER_TOKEN', 'token-123')
-    vi.stubEnv(
-      'VITE_MANA_SIGNER_DEFAULT_ENDPOINT',
-      'wss://example.com/socket',
-    )
+    vi.stubEnv('VITE_MANA_SIGNER_DEFAULT_ENDPOINT', 'wss://example.com/socket')
     vi.stubEnv('VITE_MANA_SIGNER_DEFAULT_REGION', 'us-west-2')
     vi.stubEnv('VITE_MANA_SIGNER_DEFAULT_SERVICE', 'ec2-instance-connect')
     vi.stubEnv('VITE_MANA_SIGNER_MAX_EXPIRES', '120')
@@ -67,7 +64,9 @@ describe('requestRemoteSignedUrl', () => {
     }
 
     const originalFetch = globalThis.fetch
-    globalThis.fetch = vi.fn().mockResolvedValue(mockResponse) as unknown as typeof fetch
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue(mockResponse) as unknown as typeof fetch
 
     try {
       const payload = await requestRemoteSignedUrl({

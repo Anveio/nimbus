@@ -10,18 +10,12 @@ const runLiveTest = process.env.MANA_RUN_INSTANCE_CONNECT_TESTS === '1'
 
 describe('EC2 Instance Connect', () => {
   if (!runLiveTest) {
-    test.skip(
-      'live Instance Connect smoke test (set MANA_RUN_INSTANCE_CONNECT_TESTS=1 to enable)',
-      () => {},
-    )
+    test.skip('live Instance Connect smoke test (set MANA_RUN_INSTANCE_CONNECT_TESTS=1 to enable)', () => {})
     return
   }
 
   if (!existsSync(cachePath)) {
-    test.skip(
-      `testing metadata cache not found at ${cachePath}. Deploy the testing stack first.`,
-      () => {},
-    )
+    test.skip(`testing metadata cache not found at ${cachePath}. Deploy the testing stack first.`, () => {})
     return
   }
 

@@ -6,11 +6,11 @@ import {
   CloudFormationClient,
   DescribeStacksCommand,
 } from '@aws-sdk/client-cloudformation'
+import { EC2Client, DescribeInstancesCommand } from '@aws-sdk/client-ec2'
 import {
-  EC2Client,
-  DescribeInstancesCommand,
-} from '@aws-sdk/client-ec2'
-import { resolveInstanceTarget, resolveRegion } from '../lib/instance-connect-publisher'
+  resolveInstanceTarget,
+  resolveRegion,
+} from '../lib/instance-connect-publisher'
 
 const CACHE_DIR = '.mana'
 const CACHE_FILE = 'testing-instance.json'
@@ -106,15 +106,12 @@ async function writeCache(options: CliOptions) {
     publicDnsName: target.publicDnsName ?? null,
     testingUser,
     stackTags: target.stackTags,
-    instanceTags: instance?.Tags?.reduce<Record<string, string>>(
-      (acc, tag) => {
-        if (tag.Key) {
-          acc[tag.Key] = tag.Value ?? ''
-        }
-        return acc
-      },
-      {},
-    ),
+    instanceTags: instance?.Tags?.reduce<Record<string, string>>((acc, tag) => {
+      if (tag.Key) {
+        acc[tag.Key] = tag.Value ?? ''
+      }
+      return acc
+    }, {}),
     updatedAt: new Date().toISOString(),
   }
 

@@ -4,8 +4,7 @@ import { DevSshStack } from '../lib/dev-ssh-stack'
 
 const app = new cdk.App()
 
-const stackName =
-  app.node.tryGetContext('stackName') ?? 'mana-dev-ssh-instance'
+const stackName = app.node.tryGetContext('stackName') ?? 'mana-dev-ssh-instance'
 
 const env: cdk.Environment | undefined =
   process.env.CDK_DEFAULT_ACCOUNT && process.env.CDK_DEFAULT_REGION

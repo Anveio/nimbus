@@ -8,6 +8,7 @@
     "allowJs": true,
     "jsx": "preserve",
     "noEmit": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "typeRoots": ["../../types", "../../node_modules/@types"]
   }
 }

@@ -28,7 +28,11 @@ function hasDiscoveryEndpoint(): boolean {
   return typeof endpoint === 'string' && endpoint.trim().length > 0
 }
 
-export function DiscoveryProvider({ children }: { readonly children: ReactNode }) {
+export function DiscoveryProvider({
+  children,
+}: {
+  readonly children: ReactNode
+}) {
   const defaultRegion =
     import.meta.env.VITE_MANA_SIGNER_DEFAULT_REGION?.trim() || null
   const [region, setRegion] = useState<string | null>(defaultRegion)

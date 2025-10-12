@@ -7,4 +7,5 @@ export type {
   SelectionPoint,
   TerminalRuntimeCursorMoveDirection,
   TerminalRuntimeCursorMoveOptions,
+  TerminalRuntimeResponse,
 } from '@nimbus/vt'

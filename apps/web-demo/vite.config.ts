@@ -28,7 +28,11 @@ function resolveWorkspacePath(...segments: string[]): string {
 }
 
 function loadSignerConfig(): CachedSignerConfig | null {
-  const signerConfigPath = resolveWorkspacePath('.nimbus', 'web-demo', 'signer.json')
+  const signerConfigPath = resolveWorkspacePath(
+    '.nimbus',
+    'web-demo',
+    'signer.json',
+  )
   if (!fs.existsSync(signerConfigPath)) {
     return null
   }
@@ -101,9 +105,8 @@ export default defineConfig({
     'import.meta.env.VITE_MANA_SIGNER_TOKEN': JSON.stringify(
       signerConfig?.bearerToken ?? '',
     ),
-    'import.meta.env.VITE_MANA_DISCOVERY_ENDPOINT': JSON.stringify(
-      discoveryEndpoint,
-    ),
+    'import.meta.env.VITE_MANA_DISCOVERY_ENDPOINT':
+      JSON.stringify(discoveryEndpoint),
     'import.meta.env.VITE_MANA_SIGNER_DEFAULT_ENDPOINT': JSON.stringify(
       signerDefaults.endpoint ?? '',
     ),

@@ -20,8 +20,8 @@ This note captures the current state of the public contracts that tie the VT run
 * **Composition strength** – `<Terminal />` composes `RendererSurface`, `RendererSessionProvider`, and the hotkey boundary to hide most of the wiring. Consumers get a declarative React component that feels close to the “React.render” simplicity goal.
 * **Configuration feedback loop** – `RendererSessionProvider` computes its own fallback configuration (`FALLBACK_CELL_METRICS`) and dispatches it immediately. We do not reconcile with renderer-provided metrics afterwards, so the grid can be inaccurate once fonts settle. We need a handshake—either by listening to frame metadata or by asking the renderer to probe cell metrics—to update the configuration after mount.
 * **Runtime swapping footgun** – The provider updates internal refs when `rendererConfig.runtime` changes, but the session remains mounted. If a caller supplies a new runtime instance, the rendered session continues to use the old one. We should either treat `runtime` as immutable (documented) or detect changes and remount the session to avoid silent mismatches.
-* **Surface for responses** – Hotkey handling dispatches runtime events, but there is no callback to observe the batches returned by the renderer session (which include `updates` and any host responses). Hosts that want to forward DEC responses to a transport or log telemetry currently have no API for it. Exposing an `onRuntimeEvent` or `onBatch` callback would close that loop.
-* **Renderer selection** – The React package imports WebGL types directly (`RendererSessionProviderProps` references `@nimbus/webgl-renderer`). Offering a backend factory prop (e.g. `rendererFactory?: (canvas, options) => RendererRoot`) would let hosts opt into the CPU renderer or future renderers without forking the provider.
+* **Surface for responses** – ✅ `RendererSessionProvider` and `<Terminal />` now expose `onRuntimeResponse`, so hosts can forward DEC reports without diff spelunking.
+* **Renderer selection** – ✅ `RendererSessionProvider` now routes through a backend registry (`rendererBackend` + `registerRendererBackend`), so React hosts can opt into CPU/WebGL (or custom) renderers without bespoke wiring.
 
 ## 4. Web Demo Integration (`apps/web-demo`)
 
@@ -32,8 +32,9 @@ This note captures the current state of the public contracts that tie the VT run
 
 1. **Shared runtime bridge** – Extract the renderer-to-runtime translation helpers into a reusable module so every renderer and host speaks the same contract without duplication.
 2. **Automatic configuration helpers** – Provide utilities for DPI and cell-metric negotiation (`deriveRendererConfiguration`) and update the React provider to use renderer feedback after mount.
-3. **Backend flexibility** – Extend `<Terminal />` with a backend selection hook or factory so hosts can choose WebGL vs CPU (and future renderers) declaratively.
-4. **Runtime response callbacks** – Surface runtime batches/responses at the React layer to make transport integration straightforward.
+3. **Backend flexibility** – Backend registry landed in `@nimbus/tui-react`, but we still need to publish lightweight entry points (e.g., canvas-only builds) and register additional backends.
+4. **Runtime response callbacks** – ✅ Delivered via the `onRuntimeResponse` hook exported through renderer sessions and React bindings.
 5. **Wire the demo** – Mount `<Terminal />` inside `apps/web-demo`, feed it the SSH session, and forward runtime responses to the transport. This will be the canonical example that exercises the full contract from VT to the browser UI.
+6. **Canvas backend parity** – Entry points exist (`@nimbus/tui-react/canvas`) but still need a full CPU renderer integration that matches the renderer contract.
 
 Addressing these items will move Nimbus closer to the “elegant default” experience we want—where a host can call a small number of high-level helpers (ideally a single function) and get a fully wired terminal with sensible defaults, while still retaining the depth and extensibility demanded by advanced users.

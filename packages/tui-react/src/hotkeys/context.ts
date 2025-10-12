@@ -9,8 +9,7 @@ export type ShortcutGuideReason = 'hotkey' | 'imperative'
 
 export type HotkeyRendererEvent = Extract<
   RendererEvent,
-  | { readonly type: 'runtime.key' }
-  | { readonly type: 'runtime.cursor.move' }
+  { readonly type: 'runtime.key' } | { readonly type: 'runtime.cursor.move' }
 >
 
 export interface HotkeyContext {

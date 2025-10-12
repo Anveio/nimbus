@@ -62,9 +62,7 @@ export async function ensureCdkEnv() {
   process.env.AWS_DEFAULT_REGION ??= region
 
   let account =
-    process.env.CDK_DEFAULT_ACCOUNT ??
-    process.env.AWS_ACCOUNT_ID ??
-    undefined
+    process.env.CDK_DEFAULT_ACCOUNT ?? process.env.AWS_ACCOUNT_ID ?? undefined
 
   if (!account) {
     try {
@@ -94,11 +92,7 @@ export async function ensureCdkEnv() {
   return { profile, account, region }
 }
 
-export async function ensureCdkBootstrap({
-  profile,
-  account,
-  region,
-}) {
+export async function ensureCdkBootstrap({ profile, account, region }) {
   const ssm = new SSMClient({ region })
   try {
     await ssm.send(
@@ -122,13 +116,7 @@ export async function ensureCdkBootstrap({
         process.env.MANA_CDK_EXECUTION_POLICIES ??
         'arn:aws:iam::aws:policy/AdministratorAccess'
 
-      const bootstrapArgs = [
-        'cdk',
-        'bootstrap',
-        target,
-        '--profile',
-        profile,
-      ]
+      const bootstrapArgs = ['cdk', 'bootstrap', target, '--profile', profile]
 
       if (executionPolicies.length > 0) {
         bootstrapArgs.push(

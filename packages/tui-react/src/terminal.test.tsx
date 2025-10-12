@@ -1,14 +1,4 @@
-import { render } from '@testing-library/react'
-import { act } from 'react'
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from 'vitest'
-import * as WebglRenderer from '@nimbus/webgl-renderer'
+import type * as WebglRenderer from '@nimbus/webgl-renderer'
 import type {
   RendererConfiguration,
   RendererFrameEvent,
@@ -21,6 +11,13 @@ import type {
   WebglRendererConfig,
   WebglRendererRootOptions,
 } from '@nimbus/webgl-renderer'
+import { render } from '@testing-library/react'
+import { act } from 'react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  clearRendererBackendsForTests,
+  registerRendererBackend,
+} from './renderer-backend-registry'
 import { Terminal } from './terminal'
 
 type FrameListener = Parameters<RendererSession['onFrame']>[0]
@@ -72,8 +69,9 @@ const createSessionHarness = (): SessionHarness => {
     configuration: undefined,
     dispatch: dispatch as RendererSession['dispatch'],
     onFrame: onFrameMock as RendererSession['onFrame'],
-    onResizeRequest:
-      onResizeRequestMock as NonNullable<RendererSession['onResizeRequest']>,
+    onResizeRequest: onResizeRequestMock as NonNullable<
+      RendererSession['onResizeRequest']
+    >,
     onRuntimeResponse:
       onRuntimeResponseMock as RendererSession['onRuntimeResponse'],
     unmount: unmount as RendererSession['unmount'],
@@ -89,13 +87,19 @@ const createSessionHarness = (): SessionHarness => {
     unmount,
     free,
     emitFrame(event) {
-      frameListeners.forEach((listener) => listener(event))
+      frameListeners.forEach((listener) => {
+        listener(event)
+      })
     },
     emitResizeRequest(event) {
-      resizeListeners.forEach((listener) => listener(event))
+      resizeListeners.forEach((listener) => {
+        listener(event)
+      })
     },
     emitRuntimeResponse(event) {
-      responseListeners.forEach((listener) => listener(event))
+      responseListeners.forEach((listener) => {
+        listener(event)
+      })
     },
   }
 }
@@ -147,6 +151,41 @@ const createRendererHarness = (session: RendererSession): RendererHarness => {
   }
 }
 
+const registerHarnessBackend = (
+  sessionHarness: SessionHarness,
+  rendererHarness: RendererHarness,
+) => {
+  let runtimeInstance: WebglRenderer.TerminalRuntime | null = null
+  registerRendererBackend('webgl', {
+    createRuntime: vi.fn(() => {
+      if (runtimeInstance) {
+        return runtimeInstance
+      }
+      runtimeInstance = {} as WebglRenderer.TerminalRuntime
+      return runtimeInstance
+    }),
+    mount: vi.fn(
+      ({ canvas, configuration, profile, rendererConfig, runtime }) => {
+        runtimeInstance = runtime as WebglRenderer.TerminalRuntime
+        const options = Object.assign(
+          {},
+          (rendererConfig as Record<string, unknown>) ?? {},
+          {
+            configuration,
+            runtime,
+          },
+          profile !== undefined ? { profile } : {},
+        ) as WebglRendererRootOptions
+
+        const root = rendererHarness.factory(canvas, options)
+        const session = root.mount()
+        sessionHarness.session = session
+        return { root, session }
+      },
+    ),
+  })
+}
+
 const configuration: RendererConfiguration = {
   grid: { rows: 24, columns: 80 },
   cssPixels: { width: 640, height: 384 },
@@ -159,9 +198,6 @@ const ansiPalette = Array.from({ length: 16 }, (_, index) =>
   index % 2 === 0 ? '#000000' : '#ffffff',
 )
 
-const actualCreateRendererRoot = WebglRenderer.createRendererRoot
-const createRendererRootSpy = vi.spyOn(WebglRenderer, 'createRendererRoot')
-
 const originalCanvasGetBoundingClientRect =
   HTMLCanvasElement.prototype.getBoundingClientRect
 const devicePixelRatioDescriptor = Object.getOwnPropertyDescriptor(
@@ -169,19 +205,20 @@ const devicePixelRatioDescriptor = Object.getOwnPropertyDescriptor(
   'devicePixelRatio',
 )
 
-const mockCanvasRect = () => ({
-  width: configuration.cssPixels.width,
-  height: configuration.cssPixels.height,
-  top: 0,
-  left: 0,
-  bottom: configuration.cssPixels.height,
-  right: configuration.cssPixels.width,
-  x: 0,
-  y: 0,
-  toJSON() {
-    return {}
-  },
-}) as DOMRect
+const mockCanvasRect = () =>
+  ({
+    width: configuration.cssPixels.width,
+    height: configuration.cssPixels.height,
+    top: 0,
+    left: 0,
+    bottom: configuration.cssPixels.height,
+    right: configuration.cssPixels.width,
+    x: 0,
+    y: 0,
+    toJSON() {
+      return {}
+    },
+  }) as DOMRect
 
 class ResizeObserverMock {
   readonly observe = vi.fn()
@@ -198,6 +235,7 @@ class ResizeObserverMock {
 const resizeObservers: ResizeObserverMock[] = []
 
 beforeEach(() => {
+  clearRendererBackendsForTests()
   resizeObservers.length = 0
   ;(globalThis as { ResizeObserver?: unknown }).ResizeObserver = vi
     .fn()
@@ -207,7 +245,6 @@ beforeEach(() => {
       return instance
     })
   HTMLCanvasElement.prototype.getBoundingClientRect = mockCanvasRect
-  createRendererRootSpy.mockImplementation(actualCreateRendererRoot)
   Object.defineProperty(window, 'devicePixelRatio', {
     value: configuration.devicePixelRatio,
     configurable: true,
@@ -216,32 +253,32 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks()
+  clearRendererBackendsForTests()
   delete (globalThis as { ResizeObserver?: unknown }).ResizeObserver
   resizeObservers.length = 0
   HTMLCanvasElement.prototype.getBoundingClientRect =
     originalCanvasGetBoundingClientRect
   if (devicePixelRatioDescriptor) {
-    Object.defineProperty(window, 'devicePixelRatio', devicePixelRatioDescriptor)
+    Object.defineProperty(
+      window,
+      'devicePixelRatio',
+      devicePixelRatioDescriptor,
+    )
   } else {
     delete (window as unknown as { devicePixelRatio?: number }).devicePixelRatio
   }
-  createRendererRootSpy.mockReset()
-  createRendererRootSpy.mockImplementation(actualCreateRendererRoot)
 })
 
 describe('<Terminal />', () => {
   it('creates a managed container and mounts the renderer', () => {
     const sessionHarness = createSessionHarness()
     const rendererHarness = createRendererHarness(sessionHarness.session)
-    createRendererRootSpy.mockImplementation(rendererHarness.factory)
+    registerHarnessBackend(sessionHarness, rendererHarness)
 
-    const { container: host } = render(
-      <Terminal />,
-    )
+    const { container: host } = render(<Terminal />)
 
     const managed = host.querySelector('canvas') as HTMLCanvasElement
 
-    expect(createRendererRootSpy).toHaveBeenCalledTimes(1)
     expect(rendererHarness.factory).toHaveBeenCalledTimes(1)
     expect(rendererHarness.container()).toBe(managed)
     expect(rendererHarness.mount).toHaveBeenCalledTimes(1)
@@ -257,20 +294,13 @@ describe('<Terminal />', () => {
   it('dispatches configuration updates on resize and resize requests', () => {
     const sessionHarness = createSessionHarness()
     const rendererHarness = createRendererHarness(sessionHarness.session)
-    createRendererRootSpy.mockImplementation(rendererHarness.factory)
+    registerHarnessBackend(sessionHarness, rendererHarness)
     const onFrame = vi.fn((event: RendererFrameEvent) => {
       return event
     })
-    const onResizeRequest = vi.fn(
-      (event: RendererResizeRequestEvent) => event,
-    )
+    const onResizeRequest = vi.fn((event: RendererResizeRequestEvent) => event)
 
-    render(
-      <Terminal
-        onFrame={onFrame}
-        onResizeRequest={onResizeRequest}
-      />,
-    )
+    render(<Terminal onFrame={onFrame} onResizeRequest={onResizeRequest} />)
 
     expect(sessionHarness.onFrame).toHaveBeenCalledTimes(1)
     sessionHarness.emitFrame({ timestamp: 0, approxFrameDuration: null })
@@ -308,12 +338,10 @@ describe('<Terminal />', () => {
   it('registers runtime response listeners', () => {
     const sessionHarness = createSessionHarness()
     const rendererHarness = createRendererHarness(sessionHarness.session)
-    createRendererRootSpy.mockImplementation(rendererHarness.factory)
+    registerHarnessBackend(sessionHarness, rendererHarness)
     const onRuntimeResponse = vi.fn()
 
-    render(
-      <Terminal onRuntimeResponse={onRuntimeResponse} />,
-    )
+    render(<Terminal onRuntimeResponse={onRuntimeResponse} />)
 
     expect(sessionHarness.onRuntimeResponse).toHaveBeenCalledTimes(1)
 
@@ -332,7 +360,7 @@ describe('<Terminal />', () => {
   it('updates profile without remounting the renderer', () => {
     const sessionHarness = createSessionHarness()
     const rendererHarness = createRendererHarness(sessionHarness.session)
-    createRendererRootSpy.mockImplementation(rendererHarness.factory)
+    registerHarnessBackend(sessionHarness, rendererHarness)
 
     const profileA: TerminalProfile = {
       theme: {
@@ -363,9 +391,7 @@ describe('<Terminal />', () => {
 
     sessionHarness.dispatch.mockClear()
 
-    rerender(
-      <Terminal rendererConfig={{ profile: profileB }} />,
-    )
+    rerender(<Terminal rendererConfig={{ profile: profileB }} />)
 
     expect(rendererHarness.mount).toHaveBeenCalledTimes(1)
     expect(sessionHarness.dispatch).toHaveBeenCalledWith({
@@ -377,11 +403,9 @@ describe('<Terminal />', () => {
   it('disposes the renderer root on unmount', () => {
     const sessionHarness = createSessionHarness()
     const rendererHarness = createRendererHarness(sessionHarness.session)
-    createRendererRootSpy.mockImplementation(rendererHarness.factory)
+    registerHarnessBackend(sessionHarness, rendererHarness)
 
-    const { unmount } = render(
-      <Terminal />,
-    )
+    const { unmount } = render(<Terminal />)
 
     expect(rendererHarness.dispose).not.toHaveBeenCalled()
 

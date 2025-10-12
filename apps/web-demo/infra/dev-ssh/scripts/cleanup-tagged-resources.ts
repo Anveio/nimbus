@@ -116,7 +116,10 @@ async function deleteStacks(
     process.stderr.write(`Deleting stack ${stack.name}\n`)
     await client.send(new DeleteStackCommand({ StackName: stack.name }))
     if (waitForDelete) {
-      await waitUntilStackDeleteComplete({ client, maxWaitTime: 600 }, { StackName: stack.name })
+      await waitUntilStackDeleteComplete(
+        { client, maxWaitTime: 600 },
+        { StackName: stack.name },
+      )
     }
   }
 }
