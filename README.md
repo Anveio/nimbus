@@ -78,7 +78,7 @@ Nimbus is a zero-dependency, standards-compliant, universally embeddable termina
    - `npm run test -- --filter @nimbus/vt` — parser/interpreter property tests.
 3. Optional infrastructure helpers
   - Real SSH target: see [docs/aws-dev-target.md](docs/aws-dev-target.md) for CDK details.
-  - Optional overrides: `MANA_DEV_SSH_ALLOWED_IP` (CIDR) and `MANA_DEV_SSH_STACK_NAME`.
+  - Optional overrides: `NIMBUS_DEV_SSH_ALLOWED_IP` (CIDR) and `NIMBUS_DEV_SSH_STACK_NAME` (legacy `MANA_*` variants remain for compatibility).
   - `npm run infra -- --filter @nimbus/web-demo` — synthesize the stack (no changes applied).
   - `npm run infra -- --filter @nimbus/web-demo -- --deploy` — deploy the dev EC2 instance (the script automatically opens the security group to your current public IP).
   - `npm run infra -- --filter @nimbus/web-demo -- --destroy` — tear the stack down when finished.

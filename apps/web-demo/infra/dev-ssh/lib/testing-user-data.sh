@@ -3,7 +3,7 @@ set -euxo pipefail
 
 dnf update -y
 
-TESTING_USER="${MANA_TESTING_USER:-mana-integ}"
+TESTING_USER="${NIMBUS_TESTING_USER:-${MANA_TESTING_USER:-nimbus-integ}}"
 
 if ! id "$TESTING_USER" &>/dev/null; then
   useradd -m "$TESTING_USER"
@@ -17,5 +17,5 @@ cat <<'MOTD' >/etc/motd
 Instance Connect testing target for Nimbus. Credentials are delivered via EC2 Instance Connect helper tooling.
 MOTD
 
-echo "AllowUsers ${TESTING_USER}" >/etc/ssh/sshd_config.d/99-mana-testing.conf
+echo "AllowUsers ${TESTING_USER}" >/etc/ssh/sshd_config.d/99-nimbus-testing.conf
 systemctl restart sshd

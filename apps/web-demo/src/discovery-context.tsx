@@ -24,7 +24,9 @@ interface DiscoveryContextValue {
 const DiscoveryContext = createContext<DiscoveryContextValue | null>(null)
 
 function hasDiscoveryEndpoint(): boolean {
-  const endpoint = import.meta.env.VITE_MANA_DISCOVERY_ENDPOINT
+  const endpoint =
+    import.meta.env.VITE_NIMBUS_DISCOVERY_ENDPOINT ??
+    import.meta.env.VITE_MANA_DISCOVERY_ENDPOINT
   return typeof endpoint === 'string' && endpoint.trim().length > 0
 }
 
@@ -34,7 +36,9 @@ export function DiscoveryProvider({
   readonly children: ReactNode
 }) {
   const defaultRegion =
-    import.meta.env.VITE_MANA_SIGNER_DEFAULT_REGION?.trim() || null
+    import.meta.env.VITE_NIMBUS_SIGNER_DEFAULT_REGION?.trim() ||
+    import.meta.env.VITE_MANA_SIGNER_DEFAULT_REGION?.trim() ||
+    null
   const [region, setRegion] = useState<string | null>(defaultRegion)
   const isConfigured = hasDiscoveryEndpoint()
 

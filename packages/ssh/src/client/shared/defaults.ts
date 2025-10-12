@@ -6,7 +6,7 @@ import type {
 
 export function createDefaultIdentification(): IdentificationConfig {
   return {
-    clientId: 'SSH-2.0-mana_ssh_0.0.1',
+    clientId: 'SSH-2.0-nimbus_ssh_0.0.1',
   }
 }
 

@@ -13,14 +13,14 @@ This charter guides how we evolve the web demo's infrastructure helpers. The goa
 - `scripts/run.mjs`: wrapper that resolves context parameters, opens security groups to the caller’s IP, and forwards commands to `npx cdk`.
 - `scripts/run-testing.mjs`: orchestrator for the testing stack that mirrors the main wrapper and refreshes metadata caches.
 - `scripts/update-testing-cache.ts`: helper invoked after testing-stack deploys to persist metadata in `.nimbus/testing-instance.json`.
-- `scripts/cleanup-tagged-resources.ts`: CLI that enumerates CloudFormation stacks tagged with `mana:*` keys and destroys them deterministically (tags remain on the legacy prefix until AWS-side consumers migrate).
+- `scripts/cleanup-tagged-resources.ts`: CLI that enumerates CloudFormation stacks tagged with `nimbus:*` keys and destroys them deterministically (legacy `mana:*` tags remain supported until downstream consumers migrate).
 - `scripts/bootstrap.mjs`: wrapper that resolves credentials/profile information and runs `cdk bootstrap` for the active account/region.
 
 ## Guidelines
-- **Local defaults**: leverage environment variables (`MANA_DEV_SSH_*`) so developers rarely pass `--context` flags manually.
+- **Local defaults**: leverage environment variables (`NIMBUS_DEV_SSH_*`) so developers rarely pass `--context` flags manually. Legacy `MANA_DEV_SSH_*` variables are still read if present.
 - **CI overrides**: document required environment variables in `docs/aws-dev-target.md` and ensure the wrapper script respects them without additional prompts.
 - **Ephemeral credentials**: always prefer EC2 Instance Connect for developer access. We do not persist SSH keys on disk or bake them into AMIs; clients must request fresh credentials per session via the web experience.
-- **Tag discipline**: every stack/resource must carry `mana:owner`, `mana:purpose`, and `mana:repository` tags. Owners default from environment variables but must be override-able for shared accounts. The `mana:*` prefix stays in place until downstream infra tooling is updated.
+- **Tag discipline**: every stack/resource must carry `nimbus:owner`, `nimbus:purpose`, and `nimbus:repository` tags. Owners default from environment variables but must be override-able for shared accounts. Legacy `mana:*` tags are still read for cleanup only.
 - **Testing parity**: keep the testing stack in lockstep with the dev stack (AMI selection, security posture) so integration tests exercise reality.
 - **Bootstrap policy**: default CloudFormation execution policies to `arn:aws:iam::aws:policy/AdministratorAccess`
 - **Hygiene first**: every helper should make setup/teardown seamless—no manual IAM tweaking, no lingering resources. Automate cleanup, tag aggressively, and fail fast with actionable guidance when credentials or hygiene guardrails are missing.

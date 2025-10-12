@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 test('smoke: renders terminal shell', async ({ page }) => {
-  await page.goto('/?renderer=cpu')
+  await page.goto('/')
 
   const html = await page.content()
   console.log('page content after goto:', html.slice(0, 200))

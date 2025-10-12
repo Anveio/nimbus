@@ -12,7 +12,8 @@ import {
   resolveRegion,
 } from '../lib/instance-connect-publisher'
 
-const CACHE_DIR = '.mana'
+const CACHE_DIR = '.nimbus'
+const LEGACY_CACHE_DIR = '.mana'
 const CACHE_FILE = 'testing-instance.json'
 
 interface CliOptions {
@@ -62,6 +63,11 @@ function getCachePath() {
   return path.join(repoRoot, CACHE_DIR, CACHE_FILE)
 }
 
+function getLegacyCachePath() {
+  const repoRoot = resolveRepoRoot()
+  return path.join(repoRoot, LEGACY_CACHE_DIR, CACHE_FILE)
+}
+
 async function writeCache(options: CliOptions) {
   const region = resolveRegion(options.region)
   if (!region) {
@@ -72,9 +78,11 @@ async function writeCache(options: CliOptions) {
 
   const stackName =
     options.stackName ??
+    process.env.NIMBUS_TESTING_STACK_NAME ??
+    process.env.NIMBUS_DEV_SSH_STACK_NAME ??
     process.env.MANA_TESTING_STACK_NAME ??
     process.env.MANA_DEV_SSH_STACK_NAME ??
-    'mana-dev-ssh-testing'
+    'nimbus-dev-ssh-testing'
 
   const target = await resolveInstanceTarget({
     region,
@@ -89,7 +97,7 @@ async function writeCache(options: CliOptions) {
   const testingUser =
     stackResult.Stacks?.[0]?.Outputs?.find(
       (output) => output.OutputKey === 'TestingUser',
-    )?.OutputValue ?? 'mana-integ'
+    )?.OutputValue ?? 'nimbus-integ'
 
   const ec2 = new EC2Client({ region })
   const instanceDescription = await ec2.send(
@@ -118,6 +126,12 @@ async function writeCache(options: CliOptions) {
   const cachePath = getCachePath()
   mkdirSync(path.dirname(cachePath), { recursive: true })
   writeFileSync(cachePath, `${JSON.stringify(cachePayload, null, 2)}\n`)
+  const legacyPath = getLegacyCachePath()
+  if (legacyPath !== cachePath) {
+    try {
+      rmSync(legacyPath)
+    } catch {}
+  }
   process.stderr.write(`Testing metadata cached at ${cachePath}\n`)
 }
 
@@ -128,6 +142,15 @@ function clearCache() {
     process.stderr.write(`Removed testing metadata cache ${cachePath}\n`)
   } catch {
     process.stderr.write(`No testing metadata cache found at ${cachePath}\n`)
+  }
+  const legacyPath = getLegacyCachePath()
+  if (legacyPath !== cachePath) {
+    try {
+      rmSync(legacyPath)
+      process.stderr.write(
+        `Removed legacy testing metadata cache ${legacyPath}\n`,
+      )
+    } catch {}
   }
 }
 

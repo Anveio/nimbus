@@ -30,7 +30,7 @@ npm run infra:destroy                       # remove the dev stack
 npm run infra:cleanup-tagged -- --wait      # sweep any remaining tagged stacks
 ```
 
-Run `npm run infra:cleanup-tagged -- --dry-run` first if you want a preview of what will be deleted. All helper scripts tag resources with `mana:*` keys so cleanup is deterministic; these tag names remain unchanged until the AWS cleanup tooling is migrated.
+Run `npm run infra:cleanup-tagged -- --dry-run` first if you want a preview of what will be deleted. All helper scripts tag resources with `nimbus:*` keys so cleanup is deterministic; legacy `mana:*` tags remain readable for backwards compatibility during the migration.
 
 ## Connecting to a real host
 

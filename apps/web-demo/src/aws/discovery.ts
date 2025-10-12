@@ -32,7 +32,9 @@ export interface DiscoveryResult {
 }
 
 function resolveDiscoveryEndpoint(): string {
-  const endpoint = import.meta.env.VITE_MANA_DISCOVERY_ENDPOINT
+  const endpoint =
+    import.meta.env.VITE_NIMBUS_DISCOVERY_ENDPOINT ??
+    import.meta.env.VITE_MANA_DISCOVERY_ENDPOINT
   if (typeof endpoint === 'string' && endpoint.trim().length > 0) {
     return endpoint.trim()
   }
@@ -42,7 +44,9 @@ function resolveDiscoveryEndpoint(): string {
 }
 
 function resolveBearerToken(): string {
-  const token = import.meta.env.VITE_MANA_SIGNER_TOKEN
+  const token =
+    import.meta.env.VITE_NIMBUS_SIGNER_TOKEN ??
+    import.meta.env.VITE_MANA_SIGNER_TOKEN
   if (typeof token === 'string' && token.trim().length > 0) {
     return token.trim()
   }

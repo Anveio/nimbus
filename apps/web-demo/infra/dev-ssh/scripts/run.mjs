@@ -17,8 +17,13 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const stackDir = path.resolve(__dirname, '..')
 const repoRoot = path.resolve(__dirname, ...Array(5).fill('..'))
-const signerCacheDir = path.resolve(repoRoot, '.mana', 'web-demo')
+const legacySignerCacheDir = path.resolve(repoRoot, '.mana', 'web-demo')
+const signerCacheDir = path.resolve(repoRoot, '.nimbus', 'web-demo')
 const signerCachePath = path.resolve(signerCacheDir, 'signer.json')
+const legacySignerCachePath = path.resolve(
+  legacySignerCacheDir,
+  'signer.json',
+)
 
 const KNOWN_COMMANDS = new Set(['deploy', 'destroy', 'synth', 'diff'])
 
@@ -97,14 +102,16 @@ async function main() {
   const contextArgs = []
 
   if (!providedContextKeys.has('allowedIp')) {
-    let allowedIp = process.env.MANA_DEV_SSH_ALLOWED_IP
+    let allowedIp =
+      process.env.NIMBUS_DEV_SSH_ALLOWED_IP ??
+      process.env.MANA_DEV_SSH_ALLOWED_IP
     if (!allowedIp) {
       try {
         const ip = await resolvePublicIp()
         allowedIp = `${ip}/32`
       } catch (error) {
         console.error(
-          `Unable to determine public IP automatically. Set MANA_DEV_SSH_ALLOWED_IP or pass --context allowedIp=...\n${error instanceof Error ? error.message : String(error)}`,
+          `Unable to determine public IP automatically. Set NIMBUS_DEV_SSH_ALLOWED_IP (or legacy MANA_DEV_SSH_ALLOWED_IP) or pass --context allowedIp=...\n${error instanceof Error ? error.message : String(error)}`,
         )
         process.exit(1)
       }
@@ -114,7 +121,9 @@ async function main() {
 
   if (!providedContextKeys.has('stackName')) {
     const stackName =
-      process.env.MANA_DEV_SSH_STACK_NAME ?? 'mana-dev-ssh-instance'
+      process.env.NIMBUS_DEV_SSH_STACK_NAME ??
+      process.env.MANA_DEV_SSH_STACK_NAME ??
+      'nimbus-dev-ssh-instance'
     contextArgs.push('--context', `stackName=${stackName}`)
   }
 
@@ -265,6 +274,12 @@ function updateSignerCacheFromOutputs(outputsFile) {
     updatedAt: new Date().toISOString(),
   }
   writeFileSync(signerCachePath, JSON.stringify(payload, null, 2))
+  if (
+    legacySignerCachePath !== signerCachePath &&
+    existsSync(legacySignerCachePath)
+  ) {
+    rmSync(legacySignerCachePath, { force: true })
+  }
   process.stderr.write(
     `Signer configuration written to ${path.relative(repoRoot, signerCachePath)}\n`,
   )
@@ -275,6 +290,15 @@ function removeSignerCache() {
     rmSync(signerCachePath, { force: true })
     process.stderr.write(
       `Removed signer configuration at ${path.relative(repoRoot, signerCachePath)}\n`,
+    )
+  }
+  if (
+    legacySignerCachePath !== signerCachePath &&
+    existsSync(legacySignerCachePath)
+  ) {
+    rmSync(legacySignerCachePath, { force: true })
+    process.stderr.write(
+      `Removed signer configuration at ${path.relative(repoRoot, legacySignerCachePath)}\n`,
     )
   }
 }

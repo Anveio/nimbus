@@ -430,11 +430,14 @@ function App(): JSX.Element {
           <p className={styles.discoveryStatus}>
             Configure{' '}
             <code className={styles.discoveryCode}>
-              VITE_MANA_DISCOVERY_ENDPOINT
+              VITE_NIMBUS_DISCOVERY_ENDPOINT
             </code>{' '}
             and{' '}
-            <code className={styles.discoveryCode}>VITE_MANA_SIGNER_TOKEN</code>{' '}
-            to enable automatic discovery.
+            <code className={styles.discoveryCode}>
+              VITE_NIMBUS_SIGNER_TOKEN
+            </code>{' '}
+            to enable automatic discovery (legacy `VITE_MANA_*` variables are
+            still accepted).
           </p>
         )}
       </section>
@@ -571,7 +574,7 @@ function App(): JSX.Element {
             <span className={styles.label}>Username</span>
             <input
               className={styles.input}
-              placeholder="ec2-user"
+              placeholder="nimbus"
               value={formState.username}
               onChange={(event) =>
                 updateField('username', event.currentTarget.value)

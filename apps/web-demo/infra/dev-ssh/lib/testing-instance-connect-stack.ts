@@ -19,7 +19,7 @@ import { applyNimbusTags } from './tags'
 
 interface TestingInstanceConnectStackProps extends StackProps {}
 
-const DEFAULT_TESTING_USER = 'mana-integ'
+const DEFAULT_TESTING_USER = 'nimbus-integ'
 
 export class TestingInstanceConnectStack extends Stack {
   constructor(
@@ -32,7 +32,7 @@ export class TestingInstanceConnectStack extends Stack {
     applyNimbusTags(this, {
       purpose: 'instance-connect-testing',
       additionalTags: {
-        'mana:testing-stack': 'true',
+        'nimbus:testing-stack': 'true',
       },
     })
 
@@ -90,7 +90,7 @@ export class TestingInstanceConnectStack extends Stack {
 ${bootstrapScript}
 EOF
 chmod +x /tmp/bootstrap.sh
-MANA_TESTING_USER=${DEFAULT_TESTING_USER} /tmp/bootstrap.sh`)
+NIMBUS_TESTING_USER=${DEFAULT_TESTING_USER} /tmp/bootstrap.sh`)
 
     const instance = new Instance(this, 'TestingInstance', {
       vpc,

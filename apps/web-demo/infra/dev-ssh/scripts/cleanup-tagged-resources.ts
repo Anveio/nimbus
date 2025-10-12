@@ -96,17 +96,33 @@ async function filterStacksByTag(
       }
       return acc
     }, {})
-    if (tags['mana:owner'] !== owner) {
+    const ownerTag = tags['nimbus:owner'] ?? tags['mana:owner']
+    if (ownerTag !== owner) {
       continue
     }
-    if (purpose && tags['mana:purpose'] !== purpose) {
-      continue
+    if (purpose) {
+      const purposeTag = tags['nimbus:purpose'] ?? tags['mana:purpose']
+      if (purposeTag !== purpose) {
+        continue
+      }
     }
-    matches.push({ name, tags })
+    const repositoryTag =
+      tags['nimbus:repository'] ?? tags['mana:repository'] ?? ''
+    matches.push({
+      name,
+      tags: {
+        ...tags,
+        'nimbus:owner': ownerTag,
+        ...(purpose ? { 'nimbus:purpose': purpose } : {}),
+        'nimbus:repository': repositoryTag,
+      },
+    })
   }
   return matches
 }
 
+      continue
+    }
 async function deleteStacks(
   client: CloudFormationClient,
   stacks: Array<{ name: string; tags: Record<string, string> }>,

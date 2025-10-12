@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process'
 import https from 'node:https'
-import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import process from 'node:process'
-import { ensureCdkEnv, ensureCdkBootstrap } from './aws-env.mjs'
+import { fileURLToPath } from 'node:url'
+import { ensureCdkBootstrap, ensureCdkEnv } from './aws-env.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -131,14 +131,15 @@ async function main() {
 
   if (!providedContextKeys.has('allowedIp')) {
     let allowedIp =
-      process.env.MANA_TESTING_ALLOWED_IP ?? process.env.MANA_DEV_SSH_ALLOWED_IP
+      process.env.NIMBUS_TESTING_ALLOWED_IP ??
+      process.env.NIMBUS_DEV_SSH_ALLOWED_IP
     if (!allowedIp) {
       try {
         const ip = await resolvePublicIp()
         allowedIp = `${ip}/32`
       } catch (error) {
         console.error(
-          `Unable to determine public IP automatically. Set MANA_TESTING_ALLOWED_IP or pass --context allowedIp=...\n${error instanceof Error ? error.message : String(error)}`,
+          `Unable to determine public IP automatically. Set NIMBUS_TESTING_ALLOWED_IP or pass --context allowedIp=...\n${error instanceof Error ? error.message : String(error)}`,
         )
         process.exit(1)
       }
@@ -148,15 +149,14 @@ async function main() {
 
   if (!providedContextKeys.has('stackName')) {
     const stackName =
-      process.env.MANA_TESTING_STACK_NAME ?? 'mana-dev-ssh-testing'
+      process.env.NIMBUS_TESTING_STACK_NAME ?? 'nimbus-dev-ssh-testing'
     contextArgs.push('--context', `stackName=${stackName}`)
   }
 
   if (!providedContextKeys.has('arch')) {
     const arch =
-      process.env.MANA_TESTING_ARCH ??
-      process.env.MANA_DEV_SSH_ARCH ??
-      undefined
+      process.env.NIMBUS_TESTING_ARCH ?? process.env.NIMBUS_DEV_SSH_ARCH
+    undefined
     if (arch) {
       contextArgs.push('--context', `arch=${arch}`)
     }

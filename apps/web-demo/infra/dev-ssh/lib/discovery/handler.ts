@@ -57,8 +57,10 @@ const config: DiscoveryConfig = {
     process.env.AWS_REGION ??
     process.env.AWS_DEFAULT_REGION ??
     '',
-  repositoryTagValue: process.env.REPOSITORY_TAG_VALUE ?? 'mana-ssh-web',
+  repositoryTagValue: process.env.REPOSITORY_TAG_VALUE ?? 'nimbus-ssh-web',
 }
+
+const LEGACY_REPOSITORY_TAG_VALUE = 'mana-ssh-web'
 
 function requiredEnv(key: string): string {
   const value = process.env[key]
@@ -242,32 +244,47 @@ async function discoverInstances(
 ): Promise<DiscoveryResponse['instances']> {
   const filters: Filter[] = [
     {
-      Name: 'tag:mana:repository',
+      Name: 'tag:nimbus:repository',
       Values: [repositoryTag],
     },
+    {
+      Name: 'tag:mana:repository',
+      Values: Array.from(
+        new Set([repositoryTag, LEGACY_REPOSITORY_TAG_VALUE]),
+      ),
+    },
   ]
-  const command = new DescribeInstancesCommand({
-    Filters: filters,
-  })
-  const result = await client.send(command)
+
+  const seen = new Set<string>()
   const instances: DiscoveryResponse['instances'] = []
-  for (const reservation of result.Reservations ?? []) {
-    for (const instance of reservation.Instances ?? []) {
-      const tags = normaliseTags(instance.Tags)
-      instances.push({
-        instanceId: instance.InstanceId ?? 'unknown',
-        state: instance.State?.Name,
-        availabilityZone: instance.Placement?.AvailabilityZone,
-        publicDnsName: instance.PublicDnsName,
-        publicIpAddress: instance.PublicIpAddress,
-        privateIpAddress: instance.PrivateIpAddress,
-        name: extractNameTag(tags),
-        vpcId: instance.VpcId,
-        subnetId: instance.SubnetId,
-        tags,
-      })
+
+  for (const filter of filters) {
+    const command = new DescribeInstancesCommand({ Filters: [filter] })
+    const result = await client.send(command)
+    for (const reservation of result.Reservations ?? []) {
+      for (const instance of reservation.Instances ?? []) {
+        const instanceId = instance.InstanceId ?? 'unknown'
+        if (seen.has(instanceId)) {
+          continue
+        }
+        seen.add(instanceId)
+        const tags = normaliseTags(instance.Tags)
+        instances.push({
+          instanceId,
+          state: instance.State?.Name,
+          availabilityZone: instance.Placement?.AvailabilityZone,
+          publicDnsName: instance.PublicDnsName,
+          publicIpAddress: instance.PublicIpAddress,
+          privateIpAddress: instance.PrivateIpAddress,
+          name: extractNameTag(tags),
+          vpcId: instance.VpcId,
+          subnetId: instance.SubnetId,
+          tags,
+        })
+      }
     }
   }
+
   return instances
 }
 
@@ -277,28 +294,44 @@ async function discoverInstanceConnectEndpoints(
 ): Promise<DiscoveryResponse['instanceConnectEndpoints']> {
   const filters: Filter[] = [
     {
-      Name: 'tag:mana:repository',
+      Name: 'tag:nimbus:repository',
       Values: [repositoryTag],
+    },
+    {
+      Name: 'tag:mana:repository',
+      Values: Array.from(
+        new Set([repositoryTag, LEGACY_REPOSITORY_TAG_VALUE]),
+      ),
     },
   ]
 
-  const command = new DescribeInstanceConnectEndpointsCommand({
-    Filters: filters,
-  })
-  const result = await client.send(command)
+  const seen = new Set<string>()
   const endpoints: DiscoveryResponse['instanceConnectEndpoints'] = []
-  for (const endpoint of result.InstanceConnectEndpoints ?? []) {
-    endpoints.push({
-      endpointId: endpoint.InstanceConnectEndpointId ?? 'unknown',
-      state: endpoint.State,
-      statusReason: endpoint.StateMessage,
-      createdAt: endpoint.CreatedAt?.toISOString(),
-      dnsName: endpoint.DnsName,
-      vpcId: endpoint.VpcId,
-      subnetId: endpoint.SubnetId,
-      securityGroupIds: endpoint.SecurityGroupIds,
+
+  for (const filter of filters) {
+    const command = new DescribeInstanceConnectEndpointsCommand({
+      Filters: [filter],
     })
+    const result = await client.send(command)
+    for (const endpoint of result.InstanceConnectEndpoints ?? []) {
+      const endpointId = endpoint.InstanceConnectEndpointId ?? 'unknown'
+      if (seen.has(endpointId)) {
+        continue
+      }
+      seen.add(endpointId)
+      endpoints.push({
+        endpointId,
+        state: endpoint.State,
+        statusReason: endpoint.StateReason ?? endpoint.StateMessage,
+        createdAt: endpoint.CreatedAt?.toISOString(),
+        dnsName: endpoint.DnsName,
+        vpcId: endpoint.VpcId,
+        subnetId: endpoint.SubnetId,
+        securityGroupIds: endpoint.SecurityGroupIds,
+      })
+    }
   }
+
   return endpoints
 }
 

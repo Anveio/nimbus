@@ -205,7 +205,7 @@ export function useSshSession({ logger }: UseSshSessionParams) {
       }
 
       const usernameInput = form.username.trim()
-      const username = usernameInput.length > 0 ? usernameInput : 'ec2-user'
+      const username = usernameInput.length > 0 ? usernameInput : 'nimbus'
       const port = parseSshPort(form.port)
 
       dispatch({ type: 'start-connect' })

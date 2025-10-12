@@ -27,8 +27,8 @@ The script automatically detects your current public IP and restricts the securi
 
 | Environment | Purpose |
 | --- | --- |
-| `MANA_DEV_SSH_ALLOWED_IP` | Custom CIDR (e.g. `203.0.113.4/32`). |
-| `MANA_DEV_SSH_STACK_NAME` | Override stack name (`mana-dev-ssh-instance` by default; legacy prefix retained until infra migration). |
+| `NIMBUS_DEV_SSH_ALLOWED_IP` | Custom CIDR (e.g. `203.0.113.4/32`). Legacy `MANA_DEV_SSH_ALLOWED_IP` remains supported as a fallback. |
+| `NIMBUS_DEV_SSH_STACK_NAME` | Override stack name (`nimbus-dev-ssh-instance` by default; legacy env `MANA_DEV_SSH_STACK_NAME` still read if present). |
 
 To inspect the synthesized template without deploying:
 
@@ -46,10 +46,10 @@ The dev stack now provisions a lightweight Lambda + HTTP API that mints SigV4 we
 - Destroying the stack or deleting `.nimbus/web-demo/signer.json` revokes access.
 - The signer enforces a short max TTL (default 5 minutes); override via `--context signerMaxExpires=<seconds>` if you need longer windows.
 - Additional overrides are available: `signerEndpoint` swaps the websocket URL base, `signerService` changes the AWS service identifier, and `signerDefaultExpires` adjusts the default TTL suggested in the UI.
-- The same API exposes `/discovery`, which enumerates Nimbus-tagged instances (currently labelled with `mana:*` tags), VPCs, and EC2 Instance Connect endpoints for the requested region so the web demo can self-configure connection metadata.
+- The same API exposes `/discovery`, which enumerates Nimbus-tagged instances (currently labelled with `nimbus:*` tags), VPCs, and EC2 Instance Connect endpoints for the requested region so the web demo can self-configure connection metadata.
 
 ## Optional: deploy the testing stack
-Provision the dedicated integration-test instance (tags `mana:purpose=instance-connect-testing`) when you need to exercise the live AWS path:
+Provision the dedicated integration-test instance (tags `nimbus:purpose=instance-connect-testing`) when you need to exercise the live AWS path:
 
 ```bash
 cd apps/web-demo
@@ -65,7 +65,7 @@ Ephemeral keys are issued through the browser demo experience. Use the web UI to
 The infra package ships a Vitest suite that calls the real `SendSSHPublicKey` API. It is **skipped by default**. To opt in:
 
 1. Deploy the testing stack (`npm run infra:testing-deploy`) so `.nimbus/testing-instance.json` exists.
-2. Export `MANA_RUN_INSTANCE_CONNECT_TESTS=1`.
+2. Export `NIMBUS_RUN_INSTANCE_CONNECT_TESTS=1` (legacy `MANA_RUN_INSTANCE_CONNECT_TESTS` is also recognised).
 3. Execute `npm run test -- --filter @nimbus/web-demo-infra-dev-ssh` or call `npm run test` from `apps/web-demo/infra/dev-ssh`.
 
 The test reuses the cached metadata, generates an ephemeral ED25519 key, and fails fast if AWS rejects the call.
@@ -74,10 +74,10 @@ The test reuses the cached metadata, generates an ephemeral ED25519 key, and fai
 Set environment variables for the WebSocket proxy or other transports:
 
 ```bash
-export MANA_SSH_HOST=<PUBLIC_DNS>
-export MANA_SSH_PORT=22
-export MANA_SSH_USERNAME=mana
-export MANA_SSH_KEY_PATH=<PATH_TO_PRIVATE_KEY>
+export NIMBUS_SSH_HOST=<PUBLIC_DNS>
+export NIMBUS_SSH_PORT=22
+export NIMBUS_SSH_USERNAME=nimbus
+export NIMBUS_SSH_KEY_PATH=<PATH_TO_PRIVATE_KEY>
 ```
 
 ## Tear Down
@@ -95,4 +95,4 @@ npm run infra:cleanup-tagged -- --dry-run        # preview
 npm run infra:cleanup-tagged -- --wait           # delete and wait for completion
 ```
 
-Both dev and testing stacks are tagged with `mana:owner=<resolved owner>` and `mana:purpose=<...>`; cleanup tooling filters on those legacy-prefixed tags so shared accounts stay tidy. Tag names will migrate after downstream automation is updated.
+Both dev and testing stacks are tagged with nimbus`:owner=<resolved owner>` and nimbus`:purpose=<...>`; cleanup tooling filters on those legacy-prefixed tags so shared accounts stay tidy. Tag names will migrate after downstream automation is updated.

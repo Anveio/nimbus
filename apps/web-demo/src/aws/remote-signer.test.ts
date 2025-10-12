@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const DEFAULT_ENV_PREFIX = 'VITE_MANA_SIGNER_'
+const ENV_PREFIXES = ['VITE_NIMBUS_SIGNER_', 'VITE_MANA_SIGNER_']
 
 afterEach(() => {
   vi.unstubAllEnvs()
@@ -10,7 +10,7 @@ afterEach(() => {
 
 function clearSignerEnv() {
   for (const key of Object.keys(import.meta.env)) {
-    if (key.startsWith(DEFAULT_ENV_PREFIX)) {
+    if (ENV_PREFIXES.some((prefix) => key.startsWith(prefix))) {
       vi.stubEnv(key, '')
     }
   }
@@ -24,13 +24,16 @@ describe('remote signer configuration', () => {
   })
 
   it('exposes configuration when present', async () => {
-    vi.stubEnv('VITE_MANA_SIGNER_ENDPOINT', 'https://example.com/sign')
-    vi.stubEnv('VITE_MANA_SIGNER_TOKEN', 'token-123')
-    vi.stubEnv('VITE_MANA_SIGNER_DEFAULT_ENDPOINT', 'wss://example.com/socket')
-    vi.stubEnv('VITE_MANA_SIGNER_DEFAULT_REGION', 'us-west-2')
-    vi.stubEnv('VITE_MANA_SIGNER_DEFAULT_SERVICE', 'ec2-instance-connect')
-    vi.stubEnv('VITE_MANA_SIGNER_MAX_EXPIRES', '120')
-    vi.stubEnv('VITE_MANA_SIGNER_DEFAULT_EXPIRES', '45')
+    vi.stubEnv('VITE_NIMBUS_SIGNER_ENDPOINT', 'https://example.com/sign')
+    vi.stubEnv('VITE_NIMBUS_SIGNER_TOKEN', 'token-123')
+    vi.stubEnv(
+      'VITE_NIMBUS_SIGNER_DEFAULT_ENDPOINT',
+      'wss://example.com/socket',
+    )
+    vi.stubEnv('VITE_NIMBUS_SIGNER_DEFAULT_REGION', 'us-west-2')
+    vi.stubEnv('VITE_NIMBUS_SIGNER_DEFAULT_SERVICE', 'ec2-instance-connect')
+    vi.stubEnv('VITE_NIMBUS_SIGNER_MAX_EXPIRES', '120')
+    vi.stubEnv('VITE_NIMBUS_SIGNER_DEFAULT_EXPIRES', '45')
 
     const module = await import('./remote-signer')
     const config = module.getRemoteSignerConfig()
@@ -45,12 +48,23 @@ describe('remote signer configuration', () => {
       defaultExpires: 45,
     })
   })
+
+  it('accepts legacy env names for backwards compatibility', async () => {
+    vi.stubEnv('VITE_MANA_SIGNER_ENDPOINT', 'https://legacy.example.com/sign')
+    vi.stubEnv('VITE_MANA_SIGNER_TOKEN', 'legacy-token')
+
+    const module = await import('./remote-signer')
+    const config = module.getRemoteSignerConfig()
+    expect(config).not.toBeNull()
+    expect(config?.endpoint).toBe('https://legacy.example.com/sign')
+    expect(config?.bearerToken).toBe('legacy-token')
+  })
 })
 
 describe('requestRemoteSignedUrl', () => {
   it('invokes fetch with bearer token and payload', async () => {
-    vi.stubEnv('VITE_MANA_SIGNER_ENDPOINT', 'https://example.com/sign')
-    vi.stubEnv('VITE_MANA_SIGNER_TOKEN', 'token-abc')
+    vi.stubEnv('VITE_NIMBUS_SIGNER_ENDPOINT', 'https://example.com/sign')
+    vi.stubEnv('VITE_NIMBUS_SIGNER_TOKEN', 'token-abc')
 
     const { requestRemoteSignedUrl } = await import('./remote-signer')
 

@@ -9,24 +9,30 @@ afterEach(() => {
 
 describe('fetchDiscoveryMetadata', () => {
   it('throws when endpoint missing', async () => {
-    vi.stubEnv('VITE_MANA_DISCOVERY_ENDPOINT', '')
-    vi.stubEnv('VITE_MANA_SIGNER_TOKEN', 'token')
+    vi.stubEnv('VITE_NIMBUS_DISCOVERY_ENDPOINT', '')
+    vi.stubEnv('VITE_NIMBUS_SIGNER_TOKEN', 'token')
     await expect(() => fetchDiscoveryMetadata()).rejects.toThrow(
       /Discovery endpoint not configured/,
     )
   })
 
   it('throws when signer token missing', async () => {
-    vi.stubEnv('VITE_MANA_DISCOVERY_ENDPOINT', 'https://example.com/discovery')
-    vi.stubEnv('VITE_MANA_SIGNER_TOKEN', '')
+    vi.stubEnv(
+      'VITE_NIMBUS_DISCOVERY_ENDPOINT',
+      'https://example.com/discovery',
+    )
+    vi.stubEnv('VITE_NIMBUS_SIGNER_TOKEN', '')
     await expect(() => fetchDiscoveryMetadata()).rejects.toThrow(
       /Signer token not configured/,
     )
   })
 
   it('invokes discovery endpoint with bearer token', async () => {
-    vi.stubEnv('VITE_MANA_DISCOVERY_ENDPOINT', 'https://example.com/discovery')
-    vi.stubEnv('VITE_MANA_SIGNER_TOKEN', 'token-1')
+    vi.stubEnv(
+      'VITE_NIMBUS_DISCOVERY_ENDPOINT',
+      'https://example.com/discovery',
+    )
+    vi.stubEnv('VITE_NIMBUS_SIGNER_TOKEN', 'token-1')
 
     const mockResponse = {
       ok: true,
@@ -65,6 +71,39 @@ describe('fetchDiscoveryMetadata', () => {
             : JSON.stringify(init.body)
       expect(JSON.parse(payload)).toEqual({ region: 'us-west-2' })
       expect(result.region).toBe('us-west-2')
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+})
+
+describe('legacy env compatibility', () => {
+  it('accepts legacy env variable names', async () => {
+    vi.stubEnv('VITE_MANA_DISCOVERY_ENDPOINT', 'https://legacy.example.com')
+    vi.stubEnv('VITE_MANA_SIGNER_TOKEN', 'legacy-token')
+
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        region: 'us-east-1',
+        instances: [],
+        instanceConnectEndpoints: [],
+        vpcs: [],
+      }),
+    })
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = fetchSpy as unknown as typeof fetch
+
+    try {
+      await fetchDiscoveryMetadata()
+      expect(fetchSpy).toHaveBeenCalledWith(
+        'https://legacy.example.com',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer legacy-token',
+          }),
+        }),
+      )
     } finally {
       globalThis.fetch = originalFetch
     }

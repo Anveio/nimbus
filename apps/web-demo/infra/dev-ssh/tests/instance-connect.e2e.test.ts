@@ -4,13 +4,18 @@ import { describe, expect, test } from 'vitest'
 import { publishEphemeralKey } from '../lib/instance-connect-publisher'
 
 const repoRoot = path.resolve(__dirname, '../../../..', '..')
-const cachePath = path.resolve(repoRoot, '.mana', 'testing-instance.json')
+const cachePath = path.resolve(repoRoot, '.nimbus', 'testing-instance.json')
 
-const runLiveTest = process.env.MANA_RUN_INSTANCE_CONNECT_TESTS === '1'
+const runLiveTest =
+  process.env.NIMBUS_RUN_INSTANCE_CONNECT_TESTS === '1' ||
+  process.env.MANA_RUN_INSTANCE_CONNECT_TESTS === '1'
 
 describe('EC2 Instance Connect', () => {
   if (!runLiveTest) {
-    test.skip('live Instance Connect smoke test (set MANA_RUN_INSTANCE_CONNECT_TESTS=1 to enable)', () => {})
+    test.skip(
+      'live Instance Connect smoke test (set NIMBUS_RUN_INSTANCE_CONNECT_TESTS=1 to enable)',
+      () => {},
+    )
     return
   }
 
@@ -34,7 +39,7 @@ describe('EC2 Instance Connect', () => {
         region: payload.region,
         osUser: payload.testingUser,
         instanceId: payload.instanceId,
-        comment: 'mana-integration-test',
+        comment: 'nimbus-integration-test',
       })
 
       expect(result.instanceId).toBe(payload.instanceId)

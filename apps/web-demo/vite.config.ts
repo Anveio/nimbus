@@ -28,12 +28,14 @@ function resolveWorkspacePath(...segments: string[]): string {
 }
 
 function loadSignerConfig(): CachedSignerConfig | null {
-  const signerConfigPath = resolveWorkspacePath(
-    '.nimbus',
-    'web-demo',
-    'signer.json',
+  const candidatePaths = [
+    resolveWorkspacePath('.nimbus', 'web-demo', 'signer.json'),
+    resolveWorkspacePath('.mana', 'web-demo', 'signer.json'),
+  ]
+  const signerConfigPath = candidatePaths.find((file) =>
+    fs.existsSync(file),
   )
-  if (!fs.existsSync(signerConfigPath)) {
+  if (!signerConfigPath) {
     return null
   }
   try {
@@ -99,6 +101,31 @@ export default defineConfig({
     },
   },
   define: {
+    'import.meta.env.VITE_NIMBUS_SIGNER_ENDPOINT': JSON.stringify(
+      signerConfig?.endpoint ?? '',
+    ),
+    'import.meta.env.VITE_NIMBUS_SIGNER_TOKEN': JSON.stringify(
+      signerConfig?.bearerToken ?? '',
+    ),
+    'import.meta.env.VITE_NIMBUS_DISCOVERY_ENDPOINT': JSON.stringify(
+      discoveryEndpoint,
+    ),
+    'import.meta.env.VITE_NIMBUS_SIGNER_DEFAULT_ENDPOINT': JSON.stringify(
+      signerDefaults.endpoint ?? '',
+    ),
+    'import.meta.env.VITE_NIMBUS_SIGNER_DEFAULT_REGION': JSON.stringify(
+      signerDefaults.region ?? '',
+    ),
+    'import.meta.env.VITE_NIMBUS_SIGNER_DEFAULT_SERVICE': JSON.stringify(
+      signerDefaults.service ?? '',
+    ),
+    'import.meta.env.VITE_NIMBUS_SIGNER_MAX_EXPIRES': JSON.stringify(
+      signerDefaults.maxExpires ?? '',
+    ),
+    'import.meta.env.VITE_NIMBUS_SIGNER_DEFAULT_EXPIRES': JSON.stringify(
+      signerDefaults.defaultExpires ?? '',
+    ),
+    // Legacy fallbacks (remove once downstream scripts adopt Nimbus-prefixed env vars)
     'import.meta.env.VITE_MANA_SIGNER_ENDPOINT': JSON.stringify(
       signerConfig?.endpoint ?? '',
     ),

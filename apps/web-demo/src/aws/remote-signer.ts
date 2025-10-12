@@ -38,25 +38,36 @@ function readEnvString(value: unknown): string | undefined {
 }
 
 function loadFromEnv(): RemoteSignerConfig | null {
-  const endpoint = readEnvString(import.meta.env.VITE_MANA_SIGNER_ENDPOINT)
-  const bearerToken = readEnvString(import.meta.env.VITE_MANA_SIGNER_TOKEN)
+  const endpoint = readEnvString(
+    import.meta.env.VITE_NIMBUS_SIGNER_ENDPOINT ??
+      import.meta.env.VITE_MANA_SIGNER_ENDPOINT,
+  )
+  const bearerToken = readEnvString(
+    import.meta.env.VITE_NIMBUS_SIGNER_TOKEN ??
+      import.meta.env.VITE_MANA_SIGNER_TOKEN,
+  )
   if (!endpoint || !bearerToken) {
     return null
   }
   const defaultEndpoint = readEnvString(
-    import.meta.env.VITE_MANA_SIGNER_DEFAULT_ENDPOINT,
+    import.meta.env.VITE_NIMBUS_SIGNER_DEFAULT_ENDPOINT ??
+      import.meta.env.VITE_MANA_SIGNER_DEFAULT_ENDPOINT,
   )
   const defaultRegion = readEnvString(
-    import.meta.env.VITE_MANA_SIGNER_DEFAULT_REGION,
+    import.meta.env.VITE_NIMBUS_SIGNER_DEFAULT_REGION ??
+      import.meta.env.VITE_MANA_SIGNER_DEFAULT_REGION,
   )
   const defaultService = readEnvString(
-    import.meta.env.VITE_MANA_SIGNER_DEFAULT_SERVICE,
+    import.meta.env.VITE_NIMBUS_SIGNER_DEFAULT_SERVICE ??
+      import.meta.env.VITE_MANA_SIGNER_DEFAULT_SERVICE,
   )
   const maxExpiresRaw = readEnvString(
-    import.meta.env.VITE_MANA_SIGNER_MAX_EXPIRES,
+    import.meta.env.VITE_NIMBUS_SIGNER_MAX_EXPIRES ??
+      import.meta.env.VITE_MANA_SIGNER_MAX_EXPIRES,
   )
   const defaultExpiresRaw = readEnvString(
-    import.meta.env.VITE_MANA_SIGNER_DEFAULT_EXPIRES,
+    import.meta.env.VITE_NIMBUS_SIGNER_DEFAULT_EXPIRES ??
+      import.meta.env.VITE_MANA_SIGNER_DEFAULT_EXPIRES,
   )
 
   const maxExpires =

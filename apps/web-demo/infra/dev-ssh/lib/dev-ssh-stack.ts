@@ -236,7 +236,7 @@ chmod +x /tmp/bootstrap.sh
     new CfnOutput(this, 'DiscoveryEndpoint', {
       value: `${signerApi.apiEndpoint}/discovery`,
       description:
-        'HTTPS endpoint for discovering Nimbus-tagged infrastructure (filtered via mana:* tags)',
+        'HTTPS endpoint for discovering Nimbus-tagged infrastructure (filtered via nimbus:* tags)',
     })
   }
 }

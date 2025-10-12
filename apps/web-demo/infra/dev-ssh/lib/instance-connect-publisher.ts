@@ -12,7 +12,7 @@ import {
 import nacl from 'tweetnacl'
 
 const DEFAULT_STACK_NAME = 'nimbus-dev-ssh-instance'
-const DEFAULT_OS_USER = 'ec2-user'
+const DEFAULT_OS_USER = 'nimbus'
 const INSTANCE_CONNECT_TTL_MS = 60_000
 
 export interface InstanceTarget {
@@ -218,6 +218,7 @@ export async function publishEphemeralKey(
 
   const stackName =
     options.stackName ??
+    process.env.NIMBUS_DEV_SSH_STACK_NAME ??
     process.env.MANA_DEV_SSH_STACK_NAME ??
     DEFAULT_STACK_NAME
   const osUser = options.osUser ?? DEFAULT_OS_USER
