@@ -64,7 +64,7 @@ Status: _Skeleton online_
 
 - Adaptive `windowTarget` heuristics need RTT measurement strategy—client-side, server-side, or negotiated?
 - Resume token cryptography/entropy requirements (Spec §8.4) pending security review.
-- Diagnostics integration with repo-wide telemetry schema (Spec §11 → apps/telemetry) to coordinate with `@nimbus/web` team.
+- Diagnostics integration with repo-wide telemetry schema (Spec §11 → apps/telemetry) to coordinate with the browser host surfaces.
 - End-to-end resume/reconnect simulations (client ↔ server) and conformance kit orchestration outstanding.
 
 ## Next Actions

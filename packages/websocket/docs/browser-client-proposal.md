@@ -271,6 +271,6 @@ The optional `diagnostics.logger` hook receives structured `TransportDiagnosticE
 1. Spec the wire-level envelope shared between browser client and reference server (control vs data frames) and codify it alongside this doc, including the canonical `nimbus-default:1` codec contract.
 2. Implement a Node-friendly harness to validate handshake/reconnect flows, including verification that `lastError`, retry exhaustion, diagnostic logging, and codec enforcement behave as documented.
 3. Extend `@nimbus/ssh` with channel + auth intents so the `write` helper can deliver real shell bytes and so `resize` transitions from a no-op to an actual window change request.
-4. Prototype the async iterable + `on()` helper inside `@nimbus/web` to ensure the ergonomics layer works for hosts without duplicating abstractions.
+4. Prototype the async iterable + `on()` helper inside our browser host utilities (e.g. `apps/web-demo`) to ensure the ergonomics layer works for hosts without duplicating abstractions.
 5. Publish a conformance test suite that third-party codecs can reuse to guarantee compatibility with the default transport expectations.
 6. Stand up an integration harness against a minimal `golang.org/x/crypto/ssh` target to validate algorithm presets, HELLO negotiation, and reconnect behaviour with the canonical codec.

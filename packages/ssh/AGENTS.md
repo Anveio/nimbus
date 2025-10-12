@@ -10,7 +10,7 @@ This brief governs the SSH protocol core. Update it whenever RFC scope, security
 ## Scope & Boundaries
 - Lives entirely within `packages/ssh`; everything else integrates via typed adapters (transport, crypto, storage, telemetry).
 - Randomness, monotonic clocks, and crypto primitives are injected — default wiring may use WebCrypto, but the engine never calls it directly.
-- No direct socket ownership. Higher layers (`@nimbus/web`, `@nimbus/websocket`, proxy server) are responsible for IO and policy UX.
+- No direct socket ownership. Higher layers (`@nimbus/tui-react`, `@nimbus/websocket`, proxy server) are responsible for IO and policy UX.
 
 ## Specification Library
 - Canonical texts (RFCs, Internet-Drafts, OpenSSH protocol notes) live under `packages/ssh/context/*.txt`.
@@ -44,7 +44,7 @@ This brief governs the SSH protocol core. Update it whenever RFC scope, security
 - **Type & lint gates**: `npm run typecheck`, `npm run lint` required for every change.
 - **Unit / property**: Vitest + fast-check over packet reducers, negotiation tables, and crypto glue.
 - **Integration transcripts**: Replay captures from OpenSSH/libssh/Dropbear to assert byte-for-byte compatibility.
-- **End-to-end**: Once wired into `apps/web-demo`, run Playwright scenarios exercising handshake, auth, channel flows, and rekeying through the canvas renderer harness.
+- **End-to-end**: Once wired into `apps/web-demo`, run Playwright scenarios exercising handshake, auth, channel flows, and rekeying through the web demo harness.
 - **Crypto validation**: Known-answer tests for curve25519 (RFC 7748), Ed25519 (RFC 8032), ChaCha20-Poly1305 (RFC 8439).
 
 ## Roadmap Signals

@@ -22,7 +22,7 @@ Nimbus is a zero-dependency, standards-compliant, universally embeddable termina
                             │ transports
             +---------------┴-------------+
             |   Protocol / Transport      |
-            |    (@nimbus/ssh, websocket)   |
+            |    (@nimbus/ssh, @nimbus/websocket) |
             +-----------------------------+
 ```
 
@@ -39,7 +39,7 @@ Nimbus is a zero-dependency, standards-compliant, universally embeddable termina
 | VT Core | `@nimbus/vt` | Parser + interpreter. Emits immutable snapshots/diffs. |
 | Renderer Layer | `@nimbus/webgl-renderer` (today) · `@nimbus/cpu-canvas-renderer` (planned) · `@nimbus/svg-renderer` (planned) | All conform to a shared renderer root/session contract; abstract away VT details from hosts. |
 | Host Adapters | `@nimbus/react` (currently `packages/tui-react`) · `@nimbus/angular` (planned) · `@nimbus/vue` (planned) | Batteries-included components/hooks per framework. Import renderers only through the renderer API. |
-| Protocol & Transport | `@nimbus/ssh`, `@nimbus/websocket`, `@nimbus/web` | SSH state machine, WebSocket policies, browser SDK composition. |
+| Protocol & Transport | `@nimbus/ssh`, `@nimbus/websocket` | SSH state machine and WebSocket transport surfaces. |
 | Apps & Tools | `apps/web-demo`, `apps/proxy-server`, `apps/simulated-instance`, `apps/electron-demo` (planned) | Reference experiences, infra bridges, deterministic fixtures. |
 
 ## Layer Contracts

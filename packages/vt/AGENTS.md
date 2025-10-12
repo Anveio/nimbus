@@ -9,7 +9,7 @@ This file anchors how we reason about the VT parser + interpreter stack. Treat i
 
 ## Boundaries & Dependencies
 - Owns classification, state machines, interpreter deltas, and capability descriptors inside `packages/vt`.
-- Exports typed surfaces for `@nimbus/tui-react`, `@nimbus/tui-web-canvas-renderer`, and future hosts. No browser APIs, no transport logic.
+- Exports typed surfaces for `@nimbus/tui-react` and future hosts. No browser APIs, no transport logic.
 - Shares spec and roadmap context through `docs/` alongside per-feature specs that precede implementation and test work.
 
 ## Design Pillars

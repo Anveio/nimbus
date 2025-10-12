@@ -6,7 +6,7 @@
 Authoring toolchain note: each public subpath export advertises a `source` condition that points at its TypeScript implementation. Our tsconfig/vitest configs include that condition so `tsc --noEmit` and unit tests resolve modules without prebuilding. Keep this convention when adding new entry points.
 
 ## Distributions
-- `client/browser`: A zero-dependency browser client that connects a Nimbus terminal to a remote session over WebSocket. It emits typed control, data, and lifecycle events that bind directly to `@nimbus/vt`, `@nimbus/tui-react`, and the browser SDK in `@nimbus/web`.
+- `client/browser`: A zero-dependency browser client that connects a Nimbus terminal to a remote session over WebSocket. It emits typed control, data, and lifecycle events that bind directly to `@nimbus/vt`, `@nimbus/tui-react`, and our browser hosts (e.g. `apps/web-demo`).
 - `client/node`: Mirrors the browser contract for headless scenarios (Vitest, Playwright, CLI tooling). Useful for black-box protocol tests and simulating browser peers without DOM requirements. **Runtime note:** browsers are the only first-class environment we support today; Node/Bun/Deno still require user-supplied `WebSocket` polyfills and do not expose `WebSocketStream`, so this adapter is reserved for automated testing until we ship hardened server-side integration docs. Minimum supported Node runtime for this package is v22 LTS to align with the Undici WebSocket baseline.
 - `server/node`: A reference Node server that speaks the same protocol to upstream Nimbus clients. It supervises session lifecycles, enforces flow control, and bridges to SSH channels.
 

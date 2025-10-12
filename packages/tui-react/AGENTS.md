@@ -22,7 +22,7 @@ This charter guides how we evolve the React bindings for the Nimbus terminal sta
 
 ## Testing Doctrine
 - Unit & component tests: `npm exec vitest run` inside `packages/tui-react` with React Testing Library/jsdom to cover hooks, lifecycle, and imperative handles. Co-locate unit tests alongside source modules (e.g. `src/hooks/useAutoResize.ts` ↔ `src/hooks/useAutoResize.test.tsx`).
-- Integration: Contract tests with `@nimbus/tui-web-canvas-renderer` ensure renderer swapping, selection propagation, and diagnostics remain stable.
+- Integration: Contract tests with our renderer packages ensure backend swapping, selection propagation, and diagnostics remain stable.
 - End-to-end: Package-local Playwright harness (`npm run test:e2e`) mounts `<Terminal />`, drives keyboard flows, and runs `axe-core` scans; keep it green alongside the `apps/web-demo` Playwright suite that exercises full host flows.
 - Type discipline: `npm run typecheck` across the monorepo before landing changes; avoid ambient `any` escape hatches.
 - Spec-first workflow: Update or author package-level specs (e.g. controller lifecycle, selection semantics) prior to modifying code/tests.

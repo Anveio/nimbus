@@ -55,7 +55,7 @@ Users interacting with a web terminal expect:
 
 ## Implementation Strategy
 - **Interpreter-first contract:** Continue treating interpreter snapshots/diffs as the semantic source of truth. Any new metadata required for IME buffering or bidi/RTL support should originate in `@nimbus/vt`.
-- **Renderer isolation:** Keep `@nimbus/tui-web-canvas-renderer` focused on rasterization. Accessibility remains a host concern layered through React hooks and DOM adapters.
+- **Renderer isolation:** Keep renderer packages focused on rasterization. Accessibility remains a host concern layered through React hooks and DOM adapters.
 - **Host accessibility adapter:** Evolve `useTerminalAccessibilityAdapter` and `TerminalAccessibilityLayer` to manage shortcut metadata, focus heuristics, and richer status streams without coupling to renderer internals.
 - **Reusable boundary:** Document the semantic update contract so other hosts (future Svelte/Web Components adapters) can reuse the accessibility adapter pattern.
 

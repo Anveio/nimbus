@@ -1,40 +1,64 @@
 # Nimbus Terminal Contract Review
 
-This note captures the current state of the public contracts that tie the VT runtime, renderer implementations, React host bindings, and the web demo together. It is written for engineers who are new to Nimbus and need a guided tour of how the layers interact, what is working well, and where we can improve the developer experience.
+This note captures the current state of the Nimbus terminal stack—VT runtime, renderer implementations, host bindings, and the demo app. It highlights what is already solid, what changed recently, and which gaps still block a “drop it in and it just works” story.
+
+---
 
 ## 1. VT Runtime (`@nimbus/vt`)
 
-* **Contract surface** – `createDefaultTerminalRuntime()` (and the underlying `createTerminalRuntime` factory in `packages/vt/src/runtime.ts`) exposes a cohesive host-event API (`TerminalRuntimeEvent`) that covers cursoring, selection, pointer tracking, paste, and parser injection. The interface is well documented, making it easy for higher layers to stay out of interpreter internals.
-* **Preset system** – The runtime now ships with a `'vt220-xterm'` preset and accepts either named presets or full preset objects alongside parser/capability overrides. This gives newcomers a one-line entry point while still letting advanced hosts tweak specs, emulator quirks, or individual feature flags by passing targeted overrides.
-* **Response stream** – Hosts can register `onResponse` listeners to receive structured callbacks whenever the runtime emits host-directed bytes (pointer reports, wheel reports, bracketed paste guards, parser responses). This keeps transports from spelunking the `TerminalUpdate[]` diff and makes it obvious where to forward DEC reports.
+- **Preset-first runtime (✅ Delivered).** `createDefaultTerminalRuntime()` wires the `'vt220-xterm'` preset and hides parser plumbing; `createTerminalRuntime()` still accepts overrides so advanced hosts can swap specs, emulator quirks, or capability flags without re-implementing resolution.
+- **Structured response stream (✅ Delivered).** `onResponse` listeners fire for `pointer-report`, `wheel-report`, `paste-guard`, and `parser-response`, so transports can forward DEC traffic without spelunking `TerminalUpdate[]`.
+- **Follow-up notes.**
+  - Document how presets merge with explicit `parser`/`capabilities` overrides (current behaviour is additive but deserves a worked example).
+  - Consider lightweight diagnostics (e.g., warn when `onResponse` has no listeners) so hosts discover missing wiring quickly.
 
-## 2. Renderer Layer (`@nimbus/webgl-renderer` and `@nimbus/tui-web-canvas-renderer`)
+Runtime responsibilities now feel crisp—the outstanding work sits downstream where renderers and hosts consume the contract.
 
-* **Root/session contract** – The WebGL renderer follows the spec in `packages/webgl-renderer/docs/renderer-specification-v0.md`. `createRendererRoot(container, options)` returns an idempotent root that manages renderer sessions (`RendererSession`) with frame listeners, diagnostics, and lifecycle hooks. This is the right abstraction for hosts.
-* **Event bridge duplication risk** – `RendererEvent` mirrors the runtime host union, but the logic that translates renderer events into runtime calls lives inside WebGL-only helpers (`packages/webgl-renderer/src/internal/runtime-bridge.ts`). Anyone building a new renderer (e.g. WebGPU or CPU canvas) will either copy that file or re-derive the same switch. We should hoist this bridge into a shared package (for example `@nimbus/host-bridge`) or re-export it so other renderers stay consistent.
-* **Configuration ergonomics** – Hosts must fabricate complete `RendererConfiguration` objects (grid size, CSS size, DPR, framebuffer size, cell metrics). The React package currently guesses cell metrics (8×16) before fonts load. Providing a shared helper, such as `deriveRendererConfiguration(canvas, overrides)`, would make it easier for any host (React or not) to get sane defaults and then refine after the first frame.
-* **Backend parity** – The canvas renderer mirrors the WebGL API surface, but `@nimbus/tui-react` is hard-wired to the WebGL entry point. Without a consistent adapter in the React layer, consumers cannot pick a CPU backend without re-implementing the provider stack.
+---
+
+## 2. Renderer Layer (`@nimbus/webgl-renderer`)
+
+- **Spec v1 compliance (✅ WebGL).** `createRendererRoot` stays idempotent, exposes `onFrame`/`onResizeRequest`, and now forwards runtime responses through `onRuntimeResponse`.
+- **CPU renderer reboot (🛑 Blocked).** The legacy canvas package has been retired. We need a clean-sheet CPU renderer before re-enabling the canvas backend in hosts or adding parity tests.
+- **Configuration ergonomics (⚠️ Outstanding).** Hosts still fabricate `RendererConfiguration`. React guesses 8×16 cells on mount. A shared helper—`deriveRendererConfiguration(canvas, overrides)`—would de-duplicate fallbacks and let renderers feed back measured metrics after fonts settle.
+- **Documentation debt.** Update the renderer spec once the configuration helper lands and the CPU backend aligns with WebGL; today the doc implies each renderer is responsible for its own bridge logic, which is acceptable so long as the behaviour stays in sync.
+
+---
 
 ## 3. React Host (`@nimbus/tui-react`)
 
-* **Composition strength** – `<Terminal />` composes `RendererSurface`, `RendererSessionProvider`, and the hotkey boundary to hide most of the wiring. Consumers get a declarative React component that feels close to the “React.render” simplicity goal.
-* **Configuration feedback loop** – `RendererSessionProvider` computes its own fallback configuration (`FALLBACK_CELL_METRICS`) and dispatches it immediately. We do not reconcile with renderer-provided metrics afterwards, so the grid can be inaccurate once fonts settle. We need a handshake—either by listening to frame metadata or by asking the renderer to probe cell metrics—to update the configuration after mount.
-* **Runtime swapping footgun** – The provider updates internal refs when `rendererConfig.runtime` changes, but the session remains mounted. If a caller supplies a new runtime instance, the rendered session continues to use the old one. We should either treat `runtime` as immutable (documented) or detect changes and remount the session to avoid silent mismatches.
-* **Surface for responses** – ✅ `RendererSessionProvider` and `<Terminal />` now expose `onRuntimeResponse`, so hosts can forward DEC reports without diff spelunking.
-* **Renderer selection** – ✅ `RendererSessionProvider` now routes through a backend registry (`rendererBackend` + `registerRendererBackend`), so React hosts can opt into CPU/WebGL (or custom) renderers without bespoke wiring.
+- **Composition + response forwarding (✅ Delivered).** `<Terminal />` still layers `RendererSurface`, `RendererSessionProvider`, and the hotkey boundary, now exposing `onRuntimeResponse` so transports can bridge DEC outputs without accessing diffs.
+- **Backend registry (✅ Delivered, needs follow-up).** `registerRendererBackend`, the `rendererBackend` prop, and the default import (`@nimbus/tui-react`) keep WebGL as the out-of-the-box renderer. Experimental entry points (`@nimbus/tui-react/webgl`, `/canvas`) are ready but the canvas variant is a placeholder until the CPU backend is fully integrated.
+- **Outstanding items.**
+  - **Configuration reconciliation (⚠️).** `RendererSessionProvider` still uses fallback metrics forever. We need a feedback loop (first-frame metadata, measurement hook, helper) so renderer-provided metrics update `renderer.configure`.
+  - **Runtime swapping semantics (⚠️).** Changing `rendererConfig.runtime` after mount updates refs without remounting. Decide whether to document the runtime as immutable or automatically tear down/recreate the session.
+  - **Finish CPU backend path (🚧).** Once the canvas renderer plugs into the registry, add coverage for backend switching (render output + response callbacks) and graduate the `/canvas` entry from “placeholder” status.
+- **Docs.** The integration guide now mentions backend selection; the README and release notes should explicitly describe the default import vs. `/webgl` vs. `/canvas` story when the CPU backend lands.
 
-## 4. Web Demo Integration (`apps/web-demo`)
+---
 
-* **Terminal not mounted** – The current app focuses on AWS discovery and SigV4 signing, but it never renders `<Terminal />`. Without the terminal widget on the page, we cannot validate end-to-end wiring, transport interactions, or runtime responses in a real scenario.
-* **Transport bridge missing** – `useSshSession` manages an SSH/WebSocket connection but never pushes data into a VT runtime or forwards runtime responses back to the socket. To demo the full stack we need a bridge that writes incoming PTY bytes into `TerminalRuntime.writeBytes`, listens for responses (mouse reports, bracketed paste), and sends them over the WebSocket.
+## 4. Web Demo (`apps/web-demo`)
 
-## 5. Key Opportunities
+- **Terminal still missing (⚠️ Critical).** The demo handles AWS discovery and SigV4 signing but never mounts `<Terminal />`. Without it we can’t validate the full pipeline (SSH → runtime → renderer) or showcase the new response callbacks.
+- **Transport bridge half-wired (🚧).** `useSshSession` now exposes `handleRuntimeResponse`, but no runtime feeds data into it. When the terminal mounts we must:
+  1. Pipe inbound PTY bytes into `TerminalRuntime.writeBytes`.
+  2. Forward `onRuntimeResponse` payloads over the WebSocket channel.
+  3. Add an integration/smoke test to keep the wiring covered.
 
-1. **Shared runtime bridge** – Extract the renderer-to-runtime translation helpers into a reusable module so every renderer and host speaks the same contract without duplication.
-2. **Automatic configuration helpers** – Provide utilities for DPI and cell-metric negotiation (`deriveRendererConfiguration`) and update the React provider to use renderer feedback after mount.
-3. **Backend flexibility** – Backend registry landed in `@nimbus/tui-react`, but we still need to publish lightweight entry points (e.g., canvas-only builds) and register additional backends.
-4. **Runtime response callbacks** – ✅ Delivered via the `onRuntimeResponse` hook exported through renderer sessions and React bindings.
-5. **Wire the demo** – Mount `<Terminal />` inside `apps/web-demo`, feed it the SSH session, and forward runtime responses to the transport. This will be the canonical example that exercises the full contract from VT to the browser UI.
-6. **Canvas backend parity** – Entry points exist (`@nimbus/tui-react/canvas`) but still need a full CPU renderer integration that matches the renderer contract.
+Until the demo exercises the stack end-to-end, regressions in transport↔runtime↔renderer integration can slip through.
 
-Addressing these items will move Nimbus closer to the “elegant default” experience we want—where a host can call a small number of high-level helpers (ideally a single function) and get a fully wired terminal with sensible defaults, while still retaining the depth and extensibility demanded by advanced users.
+---
+
+## 5. Next Moves (status snapshot)
+
+| Initiative | Status | Notes |
+| --- | --- | --- |
+| Renderer configuration helper | ⚠️ Outstanding | Ship a `deriveRendererConfiguration` helper and update React + other hosts to consume renderer-feedback metrics after mount. |
+| CPU renderer reboot | 🛑 Blocked | Stand up a new CPU renderer implementation, then wire it through the TUI React canvas backend with parity tests and documentation. |
+| Runtime response callbacks | ✅ Complete | VT runtime, renderers, and React all surface `onRuntimeResponse`. |
+| Web demo wiring | ⚠️ Outstanding | Mount `<Terminal />`, bridge runtime responses to SSH, and add a smoke test. |
+| Docs/spec refresh | 🚧 In progress | Update renderer spec, README, and release notes once the configuration helper and CPU backend are in place. |
+
+---
+
+**Summary:** The VT runtime and React bindings now deliver the “give me a terminal” experience (presets, structured responses, backend registry). To realise the full promise we still need a configuration helper, a production-ready CPU backend path, and a demo that exercises the entire stack. Closing those gaps will give consumers predictable ergonomics—choose a renderer, mount the component, and ship without extra glue.***

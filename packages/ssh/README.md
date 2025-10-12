@@ -6,7 +6,7 @@ This package contains the core, transport-agnostic implementation of the SSH pro
 
 This package manages the SSH state machine, handles cryptographic operations, and performs message serialization/deserialization. It is designed to be completely independent of any network transport, taking byte arrays in and producing byte arrays out.
 
-This strict separation of concerns allows for maximum testability, flexibility, and extensibility. It is consumed by higher-level packages (like `@nimbus/web`) to provide a complete client solution.
+This strict separation of concerns allows for maximum testability, flexibility, and extensibility. It is consumed by higher-level packages (like `@nimbus/tui-react` and the demo apps) to provide a complete client solution.
 
 ## Runtime dependencies
 
