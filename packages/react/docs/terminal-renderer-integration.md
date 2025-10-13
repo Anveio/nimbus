@@ -29,6 +29,33 @@ how we wire those requirements into the React host.
    - Send `response` payloads (e.g. DEC mouse reports) to transports through the
      existing instrumentation hooks (`emitData`).
 
+## Deriving Renderer Configuration
+
+React’s `RendererSessionProvider` measures display metrics by calling
+`deriveRendererConfiguration(canvas, options?)` from `@nimbus/webgl-renderer`. The
+helper waits for fonts to resolve, computes CSS pixel bounds, device pixel ratio, and
+cell metrics, then notifies subscribers whenever `ResizeObserver` or window DPR changes
+fire. Subscribers simply forward the emitted configuration back into the renderer via
+`session.dispatch({ type: 'renderer.configure', configuration })`.
+
+Hosts building outside of React can import the helper directly:
+
+```ts
+import { deriveRendererConfiguration } from '@nimbus/webgl-renderer'
+
+const controller = deriveRendererConfiguration(canvas)
+const unsubscribe = controller.subscribe((configuration) => {
+  session.dispatch({ type: 'renderer.configure', configuration })
+})
+
+// Re-run a measurement on demand.
+controller.refresh()
+
+// Clean up when the surface is removed.
+controller.dispose()
+unsubscribe()
+```
+
 ## Mapping DOM Events to `RendererEvent`
 
 The renderer contract expects a much richer payload than the previous thin key/text

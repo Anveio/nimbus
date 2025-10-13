@@ -1,5 +1,5 @@
-import { createContext, useContext } from 'react'
 import type { RendererRootContainer } from '@nimbus/webgl-renderer'
+import { createContext, useContext } from 'react'
 
 interface RendererSurfaceContextValue {
   readonly renderRoot: RendererRootContainer | null

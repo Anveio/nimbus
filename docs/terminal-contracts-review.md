@@ -53,7 +53,7 @@ Until the demo exercises the stack end-to-end, regressions in transport↔runtim
 
 | Initiative | Status | Notes |
 | --- | --- | --- |
-| Renderer configuration helper | ⚠️ Outstanding | Ship a `deriveRendererConfiguration` helper and update React + other hosts to consume renderer-feedback metrics after mount. |
+| Renderer configuration helper | ✅ Complete | Ship a `deriveRendererConfiguration` helper and update React + other hosts to consume renderer-feedback metrics after mount. |
 | CPU renderer reboot | 🛑 Blocked | Stand up a new CPU renderer implementation, then wire it through the React canvas backend with parity tests and documentation. |
 | Runtime response callbacks | ✅ Complete | VT runtime, renderers, and React all surface `onRuntimeResponse`. |
 | Web demo wiring | ⚠️ Outstanding | Mount `<Terminal />`, bridge runtime responses to SSH, and add a smoke test. |

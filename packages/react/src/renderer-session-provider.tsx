@@ -1,40 +1,25 @@
 import type {
-  RendererConfiguration,
+  RendererConfigurationController,
   RendererRoot,
   RendererSession,
   TerminalProfile,
   TerminalRuntime,
 } from '@nimbus/webgl-renderer'
+import { deriveRendererConfiguration } from '@nimbus/webgl-renderer'
 import type { JSX } from 'react'
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import './backends/webgl'
 import {
   getDefaultRendererBackendKey,
   getRendererBackend,
 } from './renderer-backend-registry'
 import type { RendererSessionProviderProps } from './renderer-contract'
-import './backends/webgl'
 import { RendererRootProvider } from './renderer-root-context'
 import {
   RendererSessionContextProvider,
   type RendererSessionContextValue,
 } from './renderer-session-context'
 import { useRendererSurface } from './renderer-surface-context'
-
-const FALLBACK_CELL_METRICS = Object.freeze({
-  width: 8,
-  height: 16,
-  baseline: 12,
-})
-
-const DEFAULT_CANVAS_WIDTH = 640
-const DEFAULT_CANVAS_HEIGHT = 384
 
 const extractRuntime = (config: unknown): TerminalRuntime | null => {
   if (config && typeof config === 'object' && 'runtime' in config) {
@@ -50,46 +35,6 @@ const extractProfile = (config: unknown): TerminalProfile | undefined => {
     return (config as { readonly profile?: TerminalProfile }).profile
   }
   return undefined
-}
-
-const computeFallbackConfiguration = (
-  canvas: HTMLCanvasElement,
-): RendererConfiguration => {
-  const rect =
-    typeof canvas.getBoundingClientRect === 'function'
-      ? canvas.getBoundingClientRect()
-      : { width: 0, height: 0 }
-  const cssWidth =
-    rect.width || canvas.clientWidth || canvas.width || DEFAULT_CANVAS_WIDTH
-  const cssHeight =
-    rect.height || canvas.clientHeight || canvas.height || DEFAULT_CANVAS_HEIGHT
-  const devicePixelRatio =
-    typeof window !== 'undefined' && window.devicePixelRatio
-      ? window.devicePixelRatio
-      : 1
-
-  const framebufferWidth = Math.max(1, Math.round(cssWidth * devicePixelRatio))
-  const framebufferHeight = Math.max(
-    1,
-    Math.round(cssHeight * devicePixelRatio),
-  )
-
-  const columns = Math.max(
-    1,
-    Math.floor(cssWidth / FALLBACK_CELL_METRICS.width),
-  )
-  const rows = Math.max(1, Math.floor(cssHeight / FALLBACK_CELL_METRICS.height))
-
-  return {
-    grid: { rows, columns },
-    cssPixels: { width: cssWidth, height: cssHeight },
-    devicePixelRatio,
-    framebufferPixels: {
-      width: framebufferWidth,
-      height: framebufferHeight,
-    },
-    cell: { ...FALLBACK_CELL_METRICS },
-  }
 }
 
 /**
@@ -125,6 +70,8 @@ export const RendererSessionProvider = (
   )
   const rootRef = useRef<RendererRoot | null>(null)
   const sessionRef = useRef<RendererSession | null>(null)
+  const configurationControllerRef =
+    useRef<RendererConfigurationController | null>(null)
 
   const [rootState, setRootState] = useState<RendererRoot | null>(null)
   const [sessionState, setSessionState] = useState<RendererSession | null>(null)
@@ -161,19 +108,6 @@ export const RendererSessionProvider = (
     profileRef.current = nextProfile
   }, [rendererConfig])
 
-  const computeConfiguration = useCallback((): RendererConfiguration => {
-    return computeFallbackConfiguration(canvas)
-  }, [canvas])
-
-  const dispatchConfiguration = useCallback(() => {
-    const session = sessionRef.current
-    if (!session) {
-      return
-    }
-    const configuration = computeConfiguration()
-    session.dispatch({ type: 'renderer.configure', configuration })
-  }, [computeConfiguration])
-
   useLayoutEffect(() => {
     if (backendKeyRef.current !== resolvedBackendKey) {
       runtimeRef.current = extractRuntime(rendererConfigRef.current)
@@ -187,12 +121,17 @@ export const RendererSessionProvider = (
       )
     }
 
+    const controller = deriveRendererConfiguration(canvas, {
+      minimumGrid: { rows: 1, columns: 1 },
+    })
+    configurationControllerRef.current = controller
+
     const runtimeInstance =
       runtimeRef.current ?? backend.createRuntime(rendererConfigRef.current)
     runtimeRef.current = runtimeInstance
     setRuntimeState(runtimeInstance)
 
-    const configuration = computeConfiguration()
+    const configuration = controller.refresh()
 
     const mounted = backend.mount({
       canvas,
@@ -206,6 +145,19 @@ export const RendererSessionProvider = (
     setRootState(mounted.root)
     sessionRef.current = mounted.session
     setSessionState(mounted.session)
+
+    const unsubscribeFromController = controller.subscribe(
+      (nextConfiguration) => {
+        const activeSession = sessionRef.current
+        if (!activeSession) {
+          return
+        }
+        activeSession.dispatch({
+          type: 'renderer.configure',
+          configuration: nextConfiguration,
+        })
+      },
+    )
 
     if (profileRef.current !== undefined) {
       mounted.session.dispatch({
@@ -226,15 +178,13 @@ export const RendererSessionProvider = (
       setSessionState(null)
       setRootState(null)
       mounted.root.dispose()
+      unsubscribeFromController()
+      if (configurationControllerRef.current === controller) {
+        configurationControllerRef.current = null
+      }
+      controller.dispose()
     }
-  }, [canvas, computeConfiguration, resolvedBackendKey])
-
-  useEffect(() => {
-    if (!sessionState) {
-      return
-    }
-    dispatchConfiguration()
-  }, [sessionState, dispatchConfiguration])
+  }, [canvas, resolvedBackendKey])
 
   useEffect(() => {
     const session = sessionState
@@ -259,29 +209,9 @@ export const RendererSessionProvider = (
     }
     return session.onResizeRequest((event) => {
       onResizeRequest?.(event)
-      dispatchConfiguration()
+      configurationControllerRef.current?.refresh()
     })
-  }, [sessionState, onResizeRequest, dispatchConfiguration])
-
-  useEffect(() => {
-    if (!sessionState) {
-      return
-    }
-
-    if (typeof ResizeObserver === 'undefined') {
-      return
-    }
-
-    const observer = new ResizeObserver(() => {
-      dispatchConfiguration()
-    })
-
-    observer.observe(canvas)
-
-    return () => {
-      observer.disconnect()
-    }
-  }, [sessionState, dispatchConfiguration, canvas])
+  }, [sessionState, onResizeRequest])
 
   useEffect(() => {
     const session = sessionState

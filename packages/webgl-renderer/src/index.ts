@@ -1,11 +1,16 @@
-export { createRendererRoot } from './renderer'
-export type * from './types'
-export { createTerminalRuntime } from '@nimbus/vt'
 export type {
-  TerminalRuntime,
-  TerminalSelection,
   SelectionPoint,
+  TerminalRuntime,
   TerminalRuntimeCursorMoveDirection,
   TerminalRuntimeCursorMoveOptions,
   TerminalRuntimeResponse,
+  TerminalSelection,
 } from '@nimbus/vt'
+export { createTerminalRuntime } from '@nimbus/vt'
+export {
+  type DeriveRendererConfigurationOptions,
+  deriveRendererConfiguration,
+  type RendererConfigurationController,
+} from './configuration/derive-renderer-configuration'
+export { createRendererRoot } from './renderer'
+export type * from './types'

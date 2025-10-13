@@ -1,5 +1,5 @@
-import { createContext, useContext } from 'react'
 import type { RendererRoot } from '@nimbus/webgl-renderer'
+import { createContext, useContext } from 'react'
 
 const RendererRootContext = createContext<RendererRoot | null>(null)
 

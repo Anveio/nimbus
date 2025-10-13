@@ -2,10 +2,8 @@ import type {
   RendererFrameEvent,
   RendererResizeRequestEvent,
   RendererRoot,
-  RendererRootContainer,
   RendererSession,
   TerminalRuntimeResponse,
-  WebglRendererConfig,
   WebglRendererSession,
 } from '@nimbus/webgl-renderer'
 import type { CanvasHTMLAttributes, ReactNode } from 'react'

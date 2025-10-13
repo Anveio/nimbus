@@ -63,8 +63,7 @@ async function collectStacks(client: CloudFormationClient) {
   for await (const page of paginator) {
     for (const summary of page.StackSummaries ?? []) {
       if (
-        summary.StackStatus &&
-        summary.StackStatus.endsWith('_COMPLETE') &&
+        summary.StackStatus?.endsWith('_COMPLETE') &&
         summary.StackStatus !== 'DELETE_COMPLETE' &&
         summary.StackName
       ) {
@@ -120,9 +119,6 @@ async function filterStacksByTag(
   }
   return matches
 }
-
-      continue
-    }
 async function deleteStacks(
   client: CloudFormationClient,
   stacks: Array<{ name: string; tags: Record<string, string> }>,

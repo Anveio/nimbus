@@ -4,9 +4,9 @@ import {
   type TerminalRuntimeResponse,
   type TerminalState,
 } from '@nimbus/vt'
-import { createWebglContext } from './gl/context'
-import { createFullScreenQuad, disposeFullScreenQuad } from './gl/quad'
-import { createProgram } from './gl/shader'
+import { createWebglContext } from './internal/gl/context'
+import { createFullScreenQuad, disposeFullScreenQuad } from './internal/gl/quad'
+import { createProgram } from './internal/gl/shader'
 import { TILE_HEIGHT_CELLS, TILE_WIDTH_CELLS } from './internal/constants'
 import { DamageTracker } from './internal/damage-tracker'
 import { FrameScheduler } from './internal/frame-scheduler'

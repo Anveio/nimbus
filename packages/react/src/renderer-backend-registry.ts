@@ -1,3 +1,4 @@
+import type { TerminalRuntime } from '@nimbus/vt'
 import type {
   RendererConfiguration,
   RendererRoot,
@@ -5,7 +6,6 @@ import type {
   RendererSession,
   TerminalProfile,
 } from '@nimbus/webgl-renderer'
-import type { TerminalRuntime } from '@nimbus/vt'
 
 export interface RendererBackendMountContext<TConfig = unknown> {
   readonly canvas: RendererRootContainer

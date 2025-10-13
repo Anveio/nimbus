@@ -20,6 +20,10 @@ Key capabilities:
   remount-safe state restoration.
 - Frame callbacks with GPU diagnostics mapped to the renderer-core schema.
 - Optional buffer serialization for pixel-perfect regression snapshots.
+- Host-facing configuration helper `deriveRendererConfiguration(canvas, options)`
+  that measures CSS pixel bounds, device pixel ratio, and cell metrics once
+  fonts settle. Hosts subscribe to the controller to feed canonical metrics back
+  into renderer sessions after resizes or zoom changes.
 
 See `src/index.ts` for the renderer root entry point and `src/internal` for
 helper utilities.

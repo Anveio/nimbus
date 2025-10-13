@@ -20,6 +20,98 @@ import {
 } from './renderer-backend-registry'
 import { Terminal } from './terminal'
 
+const {
+  baseConfiguration,
+  controllers,
+  deriveRendererConfigurationMock,
+  getLastController,
+} = vi.hoisted(() => {
+  type Listener = (configuration: RendererConfiguration) => void
+
+  const listenersMap = new WeakMap<object, Set<Listener>>()
+
+  const cloneConfiguration = (configuration: RendererConfiguration) =>
+    structuredClone(configuration) as RendererConfiguration
+
+  class MockController {
+    configuration: RendererConfiguration | null
+    refresh: ReturnType<typeof vi.fn<() => RendererConfiguration>>
+    subscribe: ReturnType<typeof vi.fn<(listener: Listener) => () => void>>
+    dispose: ReturnType<typeof vi.fn<() => void>>
+
+    constructor(initialConfiguration: RendererConfiguration) {
+      this.configuration = cloneConfiguration(initialConfiguration)
+      listenersMap.set(this, new Set())
+      this.refresh = vi.fn(() => {
+        const next = cloneConfiguration(initialConfiguration)
+        this.configuration = next
+        for (const listener of listenersMap.get(this) ?? []) {
+          listener(next)
+        }
+        return next
+      })
+      this.subscribe = vi.fn((listener: Listener) => {
+        const listeners = listenersMap.get(this)
+        if (!listeners) {
+          return () => {}
+        }
+        listeners.add(listener)
+        if (this.configuration) {
+          listener(this.configuration)
+        }
+        return () => {
+          listeners.delete(listener)
+        }
+      })
+      this.dispose = vi.fn(() => {
+        listenersMap.set(this, new Set())
+      })
+    }
+
+    emit(next: RendererConfiguration) {
+      this.configuration = cloneConfiguration(next)
+      for (const listener of listenersMap.get(this) ?? []) {
+        listener(this.configuration)
+      }
+    }
+  }
+
+  const baseConfiguration = Object.freeze({
+    grid: { rows: 24, columns: 80 },
+    cssPixels: { width: 640, height: 384 },
+    devicePixelRatio: 1,
+    framebufferPixels: { width: 640, height: 384 },
+    cell: { width: 8, height: 16, baseline: 12 },
+  }) as RendererConfiguration
+
+  const controllers: MockController[] = []
+
+  const deriveRendererConfigurationMock = vi.fn(() => {
+    const controller = new MockController(baseConfiguration)
+    controllers.push(controller)
+    return controller
+  })
+
+  const getLastController = () => controllers[controllers.length - 1] ?? null
+
+  return {
+    baseConfiguration,
+    controllers,
+    deriveRendererConfigurationMock,
+    getLastController,
+  }
+})
+
+vi.mock('@nimbus/webgl-renderer', async () => {
+  const actual = await vi.importActual<typeof import('@nimbus/webgl-renderer')>(
+    '@nimbus/webgl-renderer',
+  )
+  return {
+    ...actual,
+    deriveRendererConfiguration: deriveRendererConfigurationMock,
+  }
+})
+
 type FrameListener = Parameters<RendererSession['onFrame']>[0]
 type ResizeRequestListener = Parameters<
   NonNullable<RendererSession['onResizeRequest']>
@@ -186,87 +278,21 @@ const registerHarnessBackend = (
   })
 }
 
-const configuration: RendererConfiguration = {
-  grid: { rows: 24, columns: 80 },
-  cssPixels: { width: 640, height: 384 },
-  devicePixelRatio: 1,
-  framebufferPixels: { width: 640, height: 384 },
-  cell: { width: 8, height: 16, baseline: 12 },
-}
+const configuration = baseConfiguration as RendererConfiguration
 
 const ansiPalette = Array.from({ length: 16 }, (_, index) =>
   index % 2 === 0 ? '#000000' : '#ffffff',
 )
 
-const originalCanvasGetBoundingClientRect =
-  HTMLCanvasElement.prototype.getBoundingClientRect
-const devicePixelRatioDescriptor = Object.getOwnPropertyDescriptor(
-  window,
-  'devicePixelRatio',
-)
-
-const mockCanvasRect = () =>
-  ({
-    width: configuration.cssPixels.width,
-    height: configuration.cssPixels.height,
-    top: 0,
-    left: 0,
-    bottom: configuration.cssPixels.height,
-    right: configuration.cssPixels.width,
-    x: 0,
-    y: 0,
-    toJSON() {
-      return {}
-    },
-  }) as DOMRect
-
-class ResizeObserverMock {
-  readonly observe = vi.fn()
-  readonly unobserve = vi.fn()
-  readonly disconnect = vi.fn()
-
-  constructor(private readonly callback: ResizeObserverCallback) {}
-
-  trigger() {
-    this.callback([], this as unknown as ResizeObserver)
-  }
-}
-
-const resizeObservers: ResizeObserverMock[] = []
-
 beforeEach(() => {
   clearRendererBackendsForTests()
-  resizeObservers.length = 0
-  ;(globalThis as { ResizeObserver?: unknown }).ResizeObserver = vi
-    .fn()
-    .mockImplementation((callback: ResizeObserverCallback) => {
-      const instance = new ResizeObserverMock(callback)
-      resizeObservers.push(instance)
-      return instance
-    })
-  HTMLCanvasElement.prototype.getBoundingClientRect = mockCanvasRect
-  Object.defineProperty(window, 'devicePixelRatio', {
-    value: configuration.devicePixelRatio,
-    configurable: true,
-  })
+  controllers.length = 0
+  deriveRendererConfigurationMock.mockClear()
 })
 
 afterEach(() => {
   vi.clearAllMocks()
   clearRendererBackendsForTests()
-  delete (globalThis as { ResizeObserver?: unknown }).ResizeObserver
-  resizeObservers.length = 0
-  HTMLCanvasElement.prototype.getBoundingClientRect =
-    originalCanvasGetBoundingClientRect
-  if (devicePixelRatioDescriptor) {
-    Object.defineProperty(
-      window,
-      'devicePixelRatio',
-      devicePixelRatioDescriptor,
-    )
-  } else {
-    delete (window as unknown as { devicePixelRatio?: number }).devicePixelRatio
-  }
 })
 
 describe('<Terminal />', () => {
@@ -285,13 +311,16 @@ describe('<Terminal />', () => {
     const options = rendererHarness.options()
     expect(options?.configuration).toEqual(configuration)
     expect(options?.runtime).toBeDefined()
-    expect(resizeObservers).toHaveLength(1)
-    expect(resizeObservers[0]?.observe).toHaveBeenCalledWith(managed)
+    expect(deriveRendererConfigurationMock).toHaveBeenCalledTimes(1)
+    expect(controllers).toHaveLength(1)
+    const controller = getLastController()
+    expect(controller?.refresh).toHaveBeenCalledTimes(1)
+    expect(controller?.subscribe).toHaveBeenCalledTimes(1)
     expect(sessionHarness.unmount).not.toHaveBeenCalled()
     expect(sessionHarness.free).not.toHaveBeenCalled()
   })
 
-  it('dispatches configuration updates on resize and resize requests', () => {
+  it('dispatches configuration updates on helper notifications and resize requests', () => {
     const sessionHarness = createSessionHarness()
     const rendererHarness = createRendererHarness(sessionHarness.session)
     registerHarnessBackend(sessionHarness, rendererHarness)
@@ -306,14 +335,20 @@ describe('<Terminal />', () => {
     sessionHarness.emitFrame({ timestamp: 0, approxFrameDuration: null })
     expect(onFrame).toHaveBeenCalledTimes(1)
 
-    expect(resizeObservers).toHaveLength(1)
-    act(() => {
-      resizeObservers[0]?.trigger()
-    })
+    const controller = getLastController()
+    expect(controller).toBeTruthy()
+    sessionHarness.dispatch.mockClear()
+
+    const nextConfiguration: RendererConfiguration = {
+      ...configuration,
+      grid: { rows: 32, columns: 100 },
+    }
+
+    controller?.emit(nextConfiguration)
 
     expect(sessionHarness.dispatch).toHaveBeenCalledWith({
       type: 'renderer.configure',
-      configuration,
+      configuration: nextConfiguration,
     })
 
     const resizeEvent: RendererResizeRequestEvent = {
@@ -329,10 +364,8 @@ describe('<Terminal />', () => {
     })
 
     expect(onResizeRequest).toHaveBeenCalledWith(resizeEvent)
-    expect(sessionHarness.dispatch).toHaveBeenCalledWith({
-      type: 'renderer.configure',
-      configuration,
-    })
+    expect(controller?.refresh).toHaveBeenCalledTimes(2)
+    expect(sessionHarness.dispatch).toHaveBeenCalledTimes(1)
   })
 
   it('registers runtime response listeners', () => {

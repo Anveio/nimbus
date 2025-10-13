@@ -1,11 +1,11 @@
-import { forwardRef, useCallback, useMemo, useState } from 'react'
+import type { RendererRootContainer } from '@nimbus/webgl-renderer'
 import type {
   CanvasHTMLAttributes,
   ForwardedRef,
   ReactNode,
   RefAttributes,
 } from 'react'
-import type { RendererRootContainer } from '@nimbus/webgl-renderer'
+import { forwardRef, useCallback, useMemo, useState } from 'react'
 import {
   RendererSurfaceContextProvider,
   useRendererSurface,
