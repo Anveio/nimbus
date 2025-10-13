@@ -6,6 +6,8 @@
   "scripts": {
     "clean": "git clean -xfd .",
     "dev": "next dev",
+    "dev:https": "tsx ./scripts/dev-https.ts",
+    "dev:https:setup": "tsx ./scripts/dev-https-setup.ts",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
@@ -30,6 +32,7 @@
     "@aws-sdk/client-ec2": "^3.620.0",
     "@nimbus/react": "^0.0.1",
     "@tanstack/react-query": "^5.51.4",
+    "devcert": "^1.2.2",
     "next": "^15.0.3",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"

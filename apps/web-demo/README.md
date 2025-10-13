@@ -24,6 +24,7 @@ users through credential setup before connecting via EC2 Instance Connect.
 | Script | Description |
 | --- | --- |
 | `npm run dev` | Start Next.js locally (`http://localhost:3000`). |
+| `npm run dev:https` | Start the dev server over HTTPS (requires locally trusted certs). |
 | `npm run build` | Generate a production build. |
 | `npm run start` | Serve the production build. |
 | `npm run test` | Execute Playwright E2E tests. |
@@ -51,19 +52,34 @@ If `NIMBUS_WEB_DEMO_REGIONS` is omitted we fall back to `AWS_REGION`.
 Expected IAM permissions:
 
 - `ec2:DescribeInstances` (for discovery)
-- Optional: permissions required by the websocket signer / bridge if you plan to
+- Optional: permissions required by the websocket bridge if you plan to
   extend the UI with mutation flows.
 
 ## Development flow
 
-1. Start the Next.js dev server with `npm run dev`.
-2. Visit `http://localhost:3000` to view the EC2 roster. Authentication issues
+1. Start the Next.js dev server with `npm run dev` (or `npm run dev:https` if you
+   need HTTPS locally).
+2. Visit `http://localhost:3000` (or `https://localhost:3000`) to view the EC2 roster. Authentication issues
    are rendered inline with setup instructions.
-3. Click **Connect** to open the instance-specific route and experiment with the
-   Nimbus terminal preview (hook up the websocket bridge to complete the loop).
+3. Click **Connect** to open the instance-specific route. Use the terminal
+   preview alongside the `POST /api/sign` endpoint to generate SigV4 websocket
+   URLs that target your deployed bridge.
 
 Playwright tests assume the dev server runs on `localhost:3000`; adjust
 `PORT/HOST` env vars if you need a different binding.
+
+### Enabling HTTPS locally
+
+Browsers disallow `wss://` connections from an `http://` origin, so when
+bridging EC2 Instance Connect you should run the dev server over HTTPS:
+
+Run `npm run dev:https:setup` once to generate trusted certificates (it wraps
+`mkcert -install` and writes the files to `apps/web-demo/certs/`). If you prefer
+manual control, follow the same steps yourself and then run `npm run dev:https`.
+
+The `dev:https` script reads `NIMBUS_DEV_CERT` / `NIMBUS_DEV_KEY` or defaults to
+`apps/web-demo/certs/localhost-{cert,key}.pem`. Any additional flags passed to
+the script are forwarded to `next dev`.
 
 ## Cleaning up demo infrastructure
 
@@ -83,6 +99,7 @@ scripts tag resources with `nimbus:*` for deterministic cleanup (legacy
 
 - `app/` – Next.js routes (landing page + instance connect view).
 - `components/` – Shared React components (tables, instruction panels, terminal preview).
+- `app/api/sign/` – SigV4 signer route invoked by the UI to presign EC2 Instance Connect websockets.
 - `lib/` – Server utilities (EC2 discovery helpers).
 - `test/e2e/` – Playwright specs.
 - `public/` – Static assets.

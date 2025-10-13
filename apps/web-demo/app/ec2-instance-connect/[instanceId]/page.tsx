@@ -162,17 +162,17 @@ export default async function InstanceConnectPage(props: {
         <TerminalPreview />
         <InstructionPanel
           title="Connect Nimbus to EC2 Instance Connect"
-          description="Use the Nimbus websocket proxy to bridge the terminal runtime to EC2 Instance Connect. The helper scripts in apps/web-demo/infra automate this flow."
+          description="Use the websocket bridge deployed by the infra helpers and request a SigV4 signed websocket URL directly from this Next.js app."
           steps={[
             {
               heading: 'Provision the websocket proxy',
               detail:
-                'Run `npm run infra:deploy` or the testing equivalent to deploy the WebSocket/SSH bridge and signer Lambda.',
+                'Run `npm run infra:deploy` or the testing equivalent to deploy the WebSocket/SSH bridge. The bridge exposes an AQMP websocket endpoint compatible with EC2 Instance Connect.',
             },
             {
               heading: 'Request a signed WebSocket URL',
               detail:
-                'Call the signer endpoint with the target instance ID. The signer returns a SigV4 URL backing the AQMP websocket bridge.',
+                'POST to `/api/sign` with `{ endpoint, region, service, expiresIn }` (all optional) to obtain a SigV4 URL. The API uses the server-side AWS credentials, so no browser secrets are required.',
             },
             {
               heading: 'Forward runtime responses',

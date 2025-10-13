@@ -22,6 +22,8 @@
     "app",
     "components",
     "lib",
+    "scripts",
+    "types",
     "next-env.d.ts",
     "test",
     ".next/types/**/*.ts"

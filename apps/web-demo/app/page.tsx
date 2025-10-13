@@ -1,7 +1,7 @@
 import Link from 'next/link'
-import { listEc2Instances } from '@/lib/ec2'
 import { InstancesTable } from '@/components/InstancesTable'
 import { InstructionPanel } from '@/components/InstructionPanel'
+import { listEc2Instances } from '@/lib/ec2'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,23 +18,21 @@ export default async function HomePage(): Promise<React.ReactElement> {
       }}
     >
       {result.kind === 'success' && result.instances.length > 0 ? (
-        <>
-          <section>
-            <p
-              style={{
-                margin: 0,
-                marginBottom: '1rem',
-                fontSize: '1rem',
-                color: 'rgba(226, 232, 240, 0.78)',
-              }}
-            >
-              Select an instance to launch the Nimbus terminal. We automatically
-              pull metadata from the EC2 API so you always connect to the
-              correct host.
-            </p>
-            <InstancesTable instances={result.instances} />
-          </section>
-        </>
+        <section>
+          <p
+            style={{
+              margin: 0,
+              marginBottom: '1rem',
+              fontSize: '1rem',
+              color: 'rgba(226, 232, 240, 0.78)',
+            }}
+          >
+            Select an instance to launch the Nimbus terminal. We automatically
+            pull metadata from the EC2 API so you always connect to the correct
+            host.
+          </p>
+          <InstancesTable instances={result.instances} />
+        </section>
       ) : null}
 
       {result.kind === 'success' && result.instances.length === 0 ? (

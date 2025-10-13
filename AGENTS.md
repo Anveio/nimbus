@@ -106,3 +106,7 @@ The workspace runs on Node 24 with npm. Each package is a shippable unit followi
 - All tests: `npm run test`
 - Typecheck: `npm run typecheck`
 - Lint (write): `npm run lint:fix`
+
+# Common mistakes to avoid
+- Never write .mjs, .cjs, or .js files for node scripts. Our current version of node can execute typescript files directly.
+
