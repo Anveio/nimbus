@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test'
 import { connect as connectNode } from '../src/client/node'
 
 const packageRoot = path.resolve(__dirname, '..')
-const webClientEntry = path.resolve(packageRoot, 'src/client/browser.ts')
+const webClientEntry = path.resolve(packageRoot, 'src/client/web/index.ts')
 const sshRoot = path.resolve(packageRoot, '../ssh')
 
 let browserBundle: Promise<string> | null = null

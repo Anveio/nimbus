@@ -8,27 +8,21 @@
   ],
   "exports": {
     ".": null,
-    "./client/browser": {
-      "types": "./src/client/browser.ts",
-      "source": "./src/client/browser.ts",
-      "import": "./dist/client/browser.js",
-      "require": "./dist/client/browser.cjs"
-    },
     "./client/node": {
-      "types": "./src/client/node.ts",
-      "source": "./src/client/node.ts",
+      "types": "./src/client/node/index.ts",
+      "source": "./src/client/node/index.ts",
       "import": "./dist/client/node.js",
       "require": "./dist/client/node.cjs"
     },
     "./client/web": {
-      "types": "./src/client/web.ts",
-      "source": "./src/client/web.ts",
+      "types": "./src/client/web/index.ts",
+      "source": "./src/client/web/index.ts",
       "import": "./dist/client/web.js",
       "require": "./dist/client/web.cjs"
     },
     "./server/node": {
-      "types": "./src/server/node.ts",
-      "source": "./src/server/node.ts",
+      "types": "./src/server/node/index.ts",
+      "source": "./src/server/node/index.ts",
       "import": "./dist/server/node.js",
       "require": "./dist/server/node.cjs"
     }
@@ -36,7 +30,12 @@
   "scripts": {
     "clean": "git clean -xfd .",
     "clean:artifacts": "rm -rf dist",
-    "build": "npm run clean:artifacts && npm exec -- vite build --mode index && npm exec -- vite build --mode protocol && npm exec -- vite build --mode client-browser && npm exec -- vite build --mode client-web && npm exec -- vite build --mode client-node && npm exec -- vite build --mode server-node && npm exec -- vite build --mode client-browser-iife",
+    "build": "npm run clean:artifacts && npm run build:protocol && npm run build:client-web && npm run build:client-web:iife && npm run build:client-node && npm run build:server-node",
+    "build:protocol": "vite build --config vite.config.protocol.ts",
+    "build:client-web": "vite build --config vite.config.client-web.ts",
+    "build:client-web:iife": "vite build --config vite.config.client-web-iife.ts",
+    "build:client-node": "vite build --config vite.config.client-node.ts",
+    "build:server-node": "vite build --config vite.config.server-node.ts",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest --watch",

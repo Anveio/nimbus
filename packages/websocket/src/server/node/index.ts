@@ -1,8 +1,8 @@
 import {
   ServerConnection,
   type ServerConnectionOptions,
-} from './internal/connection'
-export type { ServerConnectionOptions } from './internal/connection'
+} from '../internal/connection'
+export type { ServerConnectionOptions } from '../internal/connection'
 
 export interface WebSocketServerLike {
   on(event: 'connection', listener: (socket: unknown) => void): void

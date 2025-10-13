@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { DiagnosticEvent } from '../../protocol/diagnostics'
-import { type NodeSshBridgeOptions, openSshSession } from '../node'
+
+import { type BrowserSshBridgeOptions, openSshSession } from '..'
 import {
   createMockChannel,
   createMockConnection,
   flushMicrotasks as flush,
   type MockConnection,
-} from './ssh-bridge.test-utils'
+} from '../../testing/ssh-bridge.test-utils'
+import type { DiagnosticEvent } from '../../../protocol/diagnostics'
 
 const hoisted = vi.hoisted(() => {
   const disposeSpy = vi.fn()
@@ -43,9 +44,8 @@ const hoisted = vi.hoisted(() => {
   return { disposeSpy, state, connectMock }
 })
 
-vi.mock('@nimbus/ssh/client/node', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('@nimbus/ssh/client/node')>()
+vi.mock('@nimbus/ssh/client/web', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@nimbus/ssh/client/web')>()
   return {
     ...actual,
     connectSSH: hoisted.connectMock,
@@ -61,25 +61,25 @@ beforeEach(() => {
   state.received.splice(0, state.received.length)
 })
 
-describe('openSshSession (node)', () => {
+describe('openSshSession (browser)', () => {
   it('bridges channel traffic into the SSH transport', async () => {
     const channel = createMockChannel()
     const connection = createMockConnection(channel)
 
     const { dispose } = await openSshSession(connection, {
-      target: { host: 'node.demo', port: 22 },
-      user: { username: 'bob', auth: { type: 'password' } },
+      target: { host: 'demo.example', port: 22 },
+      user: { username: 'alice', auth: {} },
     })
 
     expect(connectMock).toHaveBeenCalledTimes(1)
     const transport = state.transport
     expect(transport).toBeDefined()
     expect(connectMock.mock.calls[0]?.[0]?.host).toEqual({
-      host: 'node.demo',
+      host: 'demo.example',
       port: 22,
     })
 
-    const payload = new Uint8Array([7, 8, 9])
+    const payload = new Uint8Array([1, 2, 3])
     channel.emit('data', payload)
     expect(state.received).toHaveLength(1)
     expect(state.received[0]).toEqual(payload)
@@ -89,7 +89,7 @@ describe('openSshSession (node)', () => {
       sent.push(data)
     })
 
-    transport?.send(new Uint8Array([10, 11]))
+    transport?.send(new Uint8Array([4, 5]))
     await flush()
     expect(sent).toHaveLength(1)
 
@@ -97,19 +97,19 @@ describe('openSshSession (node)', () => {
     expect(disposeSpy).toHaveBeenCalledTimes(1)
     expect(channel.closedWith).toEqual(['ssh-session-disposed'])
 
-    channel.emit('data', new Uint8Array([1]))
+    channel.emit('data', new Uint8Array([9]))
     expect(state.received).toHaveLength(1)
   })
 
   it('emits diagnostics when channel send fails', async () => {
     const channel = createMockChannel()
     channel.overrideSend(async () => {
-      throw new Error('send-failed')
+      throw new Error('boom')
     })
     const connection = createMockConnection(channel)
 
     const diagnostics: unknown[] = []
-    const sshOptions: NodeSshBridgeOptions = {
+    const sshOptions: BrowserSshBridgeOptions = {
       callbacks: {
         onDiagnostic(record: unknown) {
           diagnostics.push(record)
@@ -120,8 +120,8 @@ describe('openSshSession (node)', () => {
     const { dispose } = await openSshSession(
       connection,
       {
-        target: { host: 'node.demo', port: 22 },
-        user: { username: 'bob', auth: {} },
+        target: { host: 'demo.example', port: 22 },
+        user: { username: 'alice', auth: {} },
       },
       sshOptions,
     )
@@ -134,7 +134,7 @@ describe('openSshSession (node)', () => {
     await dispose()
   })
 
-  it('subscribes and unsubscribes connection diagnostics', async () => {
+  it('wires connection diagnostics when requested', async () => {
     const channel = createMockChannel()
     const connection = createMockConnection(channel)
     const events: DiagnosticEvent[] = []
@@ -142,8 +142,8 @@ describe('openSshSession (node)', () => {
     const { dispose } = await openSshSession(
       connection,
       {
-        target: { host: 'diag.node', port: 22 },
-        user: { username: 'dave', auth: {} },
+        target: { host: 'diag.example', port: 22 },
+        user: { username: 'carol', auth: {} },
       },
       {
         onConnectionDiagnostic(event) {
@@ -156,7 +156,7 @@ describe('openSshSession (node)', () => {
       type: 'buffer_state',
       timestamp: Date.now(),
       state: 'high',
-      bufferedAmount: 2048,
+      bufferedAmount: 1024,
       threshold: 4096,
     }
     ;(connection as MockConnection).emit('diagnostic', highEvent)

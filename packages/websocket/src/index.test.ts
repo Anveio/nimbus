@@ -1,11 +1,10 @@
-import { connect as connectViaBrowserSubpath } from '@nimbus/websocket/client/browser'
 import type { NodeConnectOptions as NodeConnectOptionsFromNode } from '@nimbus/websocket/client/node'
 import { connect as connectViaNodeSubpath } from '@nimbus/websocket/client/node'
 import type { BrowserConnectOptions as BrowserConnectOptionsFromWeb } from '@nimbus/websocket/client/web'
 import { connect as connectViaWebSubpath } from '@nimbus/websocket/client/web'
 import { createNodeWebSocketServer as serverFactorySubpath } from '@nimbus/websocket/server/node'
 import { describe, expect, expectTypeOf, it } from 'vitest'
-import type { BrowserConnectOptions as BrowserConnectOptionsFromBrowser } from './client/browser'
+import type { BrowserConnectOptions as BrowserConnectOptionsFromSource } from './client/web'
 import type { NodeConnectOptions as NodeConnectOptionsFromSource } from './client/node'
 import { connectNode, connectWeb, createNodeWebSocketServer } from './index'
 import { ensureDefaultProfiles, getProfile } from './protocol'
@@ -28,13 +27,12 @@ describe('public exports', () => {
     expect(getProfile('nimbus.v1')).toBeDefined()
   })
 
-  it('exposes browser client through subpath exports', () => {
+  it('exposes web client through subpath exports', () => {
     expect(typeof connectViaWebSubpath).toBe('function')
-    expect(typeof connectViaBrowserSubpath).toBe('function')
   })
 
-  it('aliases browser client types through /client/web', () => {
-    expectTypeOf<BrowserConnectOptionsFromWeb>().toEqualTypeOf<BrowserConnectOptionsFromBrowser>()
+  it('aliases web client types through /client/web', () => {
+    expectTypeOf<BrowserConnectOptionsFromWeb>().toEqualTypeOf<BrowserConnectOptionsFromSource>()
   })
 
   it('exposes node client through subpath exports', () => {

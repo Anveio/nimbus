@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { nimbusV1Profile } from '../../protocol'
-import { connect, type NodeConnectOptions } from '../node'
+import { nimbusV1Profile } from '../../../protocol'
+import { connect, type NodeConnectOptions } from '..'
 
 class MockNodeSocket {
   static instances: MockNodeSocket[] = []

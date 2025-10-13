@@ -1,27 +1,27 @@
-import { createEventBus, type EventBus } from './event-bus'
-import {
-  applyInboundData,
-  createProtocolHarness,
-  maybeGrantCredit,
-  type HarnessEvents,
-  type ProtocolHarness,
-} from './protocol-harness'
-import type { RuntimeWebSocket } from './socket'
-import type { WireProfile, Ctl, DataFrame } from '../../protocol'
-import { getProfile, ensureDefaultProfiles } from '../../protocol'
+import type { Ctl, DataFrame, WireProfile } from '../../protocol'
+import { ensureDefaultProfiles, getProfile } from '../../protocol'
+import { registerChannel } from '../../protocol/flow'
 import type {
   AuthProvider,
   Channel,
   ChannelEvents,
-  ConnectOptions,
   Connection,
   ConnectionEvents,
   ConnectionState,
+  ConnectOptions,
   ResumeHooks,
   ResumePersistState,
 } from '../types'
+import { createEventBus, type EventBus } from './event-bus'
+import {
+  applyInboundData,
+  createProtocolHarness,
+  type HarnessEvents,
+  maybeGrantCredit,
+  type ProtocolHarness,
+} from './protocol-harness'
 import { createResumeStore } from './resume-store'
-import { registerChannel } from '../../protocol/flow'
+import type { RuntimeWebSocket } from './socket'
 
 interface PendingOpen {
   readonly resolve: (channel: Channel) => void
@@ -144,7 +144,6 @@ function attachSocketHandlers(context: ConnectionContext): void {
     authProvider,
     pendingOpens,
     resumeStorage,
-    resumeHooks,
   } = context
 
   const stopBufferedMonitor = startBufferedAmountMonitor(context)

@@ -1,20 +1,20 @@
-import { ensureDefaultProfiles, getProfile } from '../protocol'
-import { initialiseConnection } from './internal/connection'
-import { createChannelTransport } from './internal/ssh-bridge'
-import { makeFactory, type RuntimeWebSocket } from './internal/socket'
+import { ensureDefaultProfiles, getProfile } from '../../protocol'
+import { initialiseConnection } from '../internal/connection'
+import { createChannelTransport } from '../internal/ssh-bridge'
+import { makeFactory, type RuntimeWebSocket } from '../internal/socket'
 import type {
   Connection,
   ConnectOptions,
   WebSocketConstructor,
   Channel,
-} from './types'
+} from '../types'
 import {
   connectSSH as connectSsh,
   type HostIdentity,
   type NodeConnectOptions as SshNodeConnectOptions,
 } from '@nimbus/ssh/client/node'
 import type { DiagnosticRecord } from '@nimbus/ssh/client/node'
-import type { DiagnosticEvent } from '../protocol/diagnostics'
+import type { DiagnosticEvent } from '../../protocol/diagnostics'
 
 type SshConnectedSession = Awaited<ReturnType<typeof connectSsh>>
 
@@ -183,7 +183,7 @@ export type {
   ConnectionState,
   ConnectOptions,
   WebSocketConstructor,
-} from './types'
+} from '../types'
 
 function emitDiagnostic(
   callbacks: SshNodeConnectOptions['callbacks'],

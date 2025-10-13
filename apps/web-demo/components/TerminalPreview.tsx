@@ -1,8 +1,9 @@
-"use client"
+'use client'
 
-import React, { useEffect, useMemo, useRef } from 'react'
 import { Terminal } from '@nimbus/react'
 import { createDefaultTerminalRuntime } from '@nimbus/vt'
+import type React from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 
 export function TerminalPreview(): React.ReactElement {
   const runtimeRef = useRef(createDefaultTerminalRuntime())

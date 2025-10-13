@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { nimbusV1Profile } from '../protocol'
-import { createNodeWebSocketServer } from './node'
+import { nimbusV1Profile } from '../../../protocol'
+import { createNodeWebSocketServer } from '..'
 
 class MockServer {
   listeners: { connection?: (socket: MockSocket) => void } = {}

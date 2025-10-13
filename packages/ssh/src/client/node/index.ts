@@ -5,12 +5,9 @@ import type {
   SshIdentityConfig,
 } from '../../api'
 import {
-  buildClientConfig,
   type ConnectCallbacks,
   type ConnectedSession,
   connectWithRuntime,
-  createDefaultAlgorithmCatalog,
-  createDefaultIdentification,
   createMemoryHostKeyStore,
   type RuntimeConfigOverrides,
   type RuntimeConnectOptions,

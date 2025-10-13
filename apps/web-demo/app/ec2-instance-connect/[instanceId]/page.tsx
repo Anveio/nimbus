@@ -1,8 +1,8 @@
 import Link from 'next/link'
-import { getEc2InstanceById } from '@/lib/ec2'
 import { InstanceSummary } from '@/components/InstanceSummary'
 import { InstructionPanel } from '@/components/InstructionPanel'
 import { TerminalPreview } from '@/components/TerminalPreview'
+import { getEc2InstanceById } from '@/lib/ec2'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,9 +10,9 @@ interface PageParams {
   readonly instanceId: string
 }
 
-export default async function InstanceConnectPage(
-  props: { readonly params: Promise<PageParams> },
-): Promise<React.ReactElement> {
+export default async function InstanceConnectPage(props: {
+  readonly params: Promise<PageParams>
+}): Promise<React.ReactElement> {
   const { instanceId } = await props.params
   const result = await getEc2InstanceById(instanceId)
 

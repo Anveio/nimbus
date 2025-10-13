@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { nimbusV1Profile } from '../../protocol'
-import { type BrowserConnectOptions, connect } from '../browser'
+import { nimbusV1Profile } from '../../../protocol'
+import { type BrowserConnectOptions, connect } from '..'
 
 class MockSocket {
   static instances: MockSocket[] = []

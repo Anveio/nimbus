@@ -4,17 +4,17 @@ import {
   type HostIdentity,
   type WebConnectOptions as SshWebConnectOptions,
 } from '@nimbus/ssh/client/web'
-import { ensureDefaultProfiles, getProfile } from '../protocol'
-import type { DiagnosticEvent } from '../protocol/diagnostics'
-import { initialiseConnection } from './internal/connection'
-import { makeFactory, type RuntimeWebSocket } from './internal/socket'
-import { createChannelTransport } from './internal/ssh-bridge'
+import { ensureDefaultProfiles, getProfile } from '../../protocol'
+import type { DiagnosticEvent } from '../../protocol/diagnostics'
+import { initialiseConnection } from '../internal/connection'
+import { makeFactory, type RuntimeWebSocket } from '../internal/socket'
+import { createChannelTransport } from '../internal/ssh-bridge'
 import type {
   Channel,
   Connection,
   ConnectOptions,
   WebSocketConstructor,
-} from './types'
+} from '../types'
 
 type SshConnectedSession = Awaited<ReturnType<typeof connectSsh>>
 
@@ -212,7 +212,7 @@ export type {
   ConnectionState,
   ConnectOptions,
   WebSocketConstructor,
-} from './types'
+} from '../types'
 
 function emitDiagnostic(
   callbacks: SshWebConnectOptions['callbacks'],
