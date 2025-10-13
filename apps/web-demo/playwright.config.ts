@@ -1,12 +1,12 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = Number(process.env.PORT ?? 5173)
-const HOST = '127.0.0.1'
+const PORT = Number(process.env.PORT ?? 3000)
+const HOST = process.env.HOST ?? '127.0.0.1'
 const BASE_URL = `http://${HOST}:${PORT}`
 
 export default defineConfig({
   testDir: './test/e2e',
-  timeout: 2_000,
+  timeout: 30_000,
   fullyParallel: true,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [['json', { open: 'never' }]] : [['list']],
@@ -21,14 +21,11 @@ export default defineConfig({
     permissions: ['clipboard-read', 'clipboard-write'],
   },
   webServer: {
-    command: `npm run dev -- --host ${HOST} --port ${PORT}`,
+    command: `npm run dev -- --hostname ${HOST} --port ${PORT}`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     stdout: 'pipe',
     stderr: 'pipe',
-    timeout: 2_000,
-    env: {
-      VITE_E2E: '1',
-    },
+    timeout: 30_000,
   },
 })

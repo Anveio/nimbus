@@ -1,28 +1,73 @@
-# Web Demo
+# Nimbus Web Demo
 
-This package hosts the interactive browser demo for the Nimbus stack. It renders a `<Terminal />` component from `@nimbus/react`, wires keyboard and paste events, and demonstrates how the React renderer can operate in a standalone setting (using local echo) before being connected to a real host.
+The web demo is now a Next.js application that discovers EC2 instances and
+launches the Nimbus terminal experience directly in the browser. Instead of a
+local-echo sandbox, the landing page queries AWS for EC2 inventory and guides
+users through credential setup before connecting via EC2 Instance Connect.
 
-## What it showcases
+## What’s new
 
-- Drop-in usage of `@nimbus/react`: the app renders a self-contained terminal widget that internally manages the VT parser, interpreter, and canvas renderer.
-- Input plumbing: keystrokes and clipboard events are captured and translated into byte streams that `onData` could forward to a transport (e.g. WebSocket, WebRTC).
-- Renderer integration: the canvas renderer paints the terminal output, driven by the updates emitted from the interpreter.
+- **Host discovery.** The `/` route calls EC2’s `DescribeInstances` API (across
+  `NIMBUS_WEB_DEMO_REGIONS` or `AWS_REGION`) and renders a roster with connect
+  CTAs. Authentication failures are surfaced explicitly so developers know when
+  to configure AWS credentials.
+- **Per-instance terminal route.** Selecting a host navigates to
+  `/ec2-instance-connect/{instanceId}`, where we display instance metadata and a
+  live Nimbus terminal canvas. The preview runtime is ready to wire into the
+  websocket bridge deployed by the infra scripts.
+- **Instructions-first UX.** When we can’t find hosts, we present actionable
+  guidance on provisioning EC2 instances with EC2 Instance Connect, opening port
+  22, and attaching IAM roles.
 
 ## Scripts
 
 | Script | Description |
 | --- | --- |
-| `npm run dev` | Launches the Vite dev server (`http://localhost:5173`). |
-| `npm run build` | Builds the production bundle via Vite. |
-| `npm run preview` | Serves the production build locally. |
-| `npm run test` | Runs unit tests via Vitest (jsdom). |
-| `npm run test:e2e` | Executes Playwright end-to-end tests (headless). |
-| `npm run test:e2e:headed` | Runs the same Playwright suite with a headed browser. |
-| `npm run test:e2e:ui` | Opens Playwright’s interactive test runner UI. |
+| `npm run dev` | Start Next.js locally (`http://localhost:3000`). |
+| `npm run build` | Generate a production build. |
+| `npm run start` | Serve the production build. |
+| `npm run test` | Execute Playwright E2E tests. |
+| `npm run test:e2e:headed` | Run the Playwright suite in a headed browser. |
+| `npm run test:e2e:ui` | Launch the Playwright interactive UI. |
+| `npm run typecheck` | Run `tsc --noEmit` against the app. |
+
+The infra helper commands (`npm run infra:*`) remain unchanged and deploy the
+AWS side of the demo (signer Lambda, websocket bridge, testing stacks).
+
+## AWS configuration
+
+The EC2 roster relies on standard AWS credential resolution (env vars, shared
+credentials file, IMDS, etc.). To scan specific regions set:
+
+```bash
+export AWS_ACCESS_KEY_ID=...
+export AWS_SECRET_ACCESS_KEY=...
+export AWS_SESSION_TOKEN=...        # if using temporary credentials
+export NIMBUS_WEB_DEMO_REGIONS="us-west-2,us-east-1"
+```
+
+If `NIMBUS_WEB_DEMO_REGIONS` is omitted we fall back to `AWS_REGION`.
+
+Expected IAM permissions:
+
+- `ec2:DescribeInstances` (for discovery)
+- Optional: permissions required by the websocket signer / bridge if you plan to
+  extend the UI with mutation flows.
+
+## Development flow
+
+1. Start the Next.js dev server with `npm run dev`.
+2. Visit `http://localhost:3000` to view the EC2 roster. Authentication issues
+   are rendered inline with setup instructions.
+3. Click **Connect** to open the instance-specific route and experiment with the
+   Nimbus terminal preview (hook up the websocket bridge to complete the loop).
+
+Playwright tests assume the dev server runs on `localhost:3000`; adjust
+`PORT/HOST` env vars if you need a different binding.
 
 ## Cleaning up demo infrastructure
 
-If you provision the AWS demo stacks, tear them down when you’re finished to avoid stray instances or buckets. From `apps/web-demo`:
+If you deploy the supporting AWS stacks, remember to tear them down when done:
 
 ```bash
 npm run infra:testing-destroy               # remove the testing stack
@@ -30,31 +75,18 @@ npm run infra:destroy                       # remove the dev stack
 npm run infra:cleanup-tagged -- --wait      # sweep any remaining tagged stacks
 ```
 
-Run `npm run infra:cleanup-tagged -- --dry-run` first if you want a preview of what will be deleted. All helper scripts tag resources with `nimbus:*` keys so cleanup is deterministic; legacy `mana:*` tags remain readable for backwards compatibility during the migration.
-
-## Connecting to a real host
-
-The current demo echoes data locally, but the structured props make it simple to connect to a real host.
-
-1. Either hand the component a `transport` configuration (e.g. `{ kind: 'websocket', endpoint: 'wss://...' }`) or supply your own plumbing via `instrumentation.onData` + `terminalRef.current?.write(remoteBytes)`.
-2. Toggle `styling.localEcho` depending on whether the transport echoes characters or you want optimistic rendering.
-3. Observe render telemetry through `instrumentation.onFrame` and `terminalRef.current?.getRendererBackend()` when debugging backends.
-
-### Generate AWS SigV4 signed URLs
-
-The Connect panel now includes a SigV4 helper backed by the dev infra’s signer Lambda so you can presign the Instance Connect websocket endpoint without pasting AWS credentials.
-
-- Paste the base websocket endpoint (defaults to the Nimbus demo deployment) or adjust region/service overrides if needed.
-- Click **Request signed URL** to call the signer; the result is injected into the main "Signed WebSocket URL" field.
-- The signer API also exposes `/discovery`, which returns Nimbus-tagged instances, VPCs, and EC2 Instance Connect endpoints so tooling can auto-populate connection metadata.
-
-The helper reads signer metadata from `.nimbus/web-demo/signer.json`. Redeploy the stack (or delete the cache file) to rotate the signer token. The Vite build config inlines both the signer and discovery endpoints (deriving `/discovery` from older caches that only know about `/sign`), so no manual `VITE_*` environment wiring is required once the helper file exists.
+Run `npm run infra:cleanup-tagged -- --dry-run` first for a preview. The helper
+scripts tag resources with `nimbus:*` for deterministic cleanup (legacy
+`mana:*` tags are still recognised).
 
 ## Folder layout
 
-- `src/` – React entry point and styling.
-- `test/` – Vitest unit tests (jsdom).
-- `e2e/` – Playwright end-to-end specs.
-- `vitest.config.ts`/`playwright.config.ts` – testing configuration.
+- `app/` – Next.js routes (landing page + instance connect view).
+- `components/` – Shared React components (tables, instruction panels, terminal preview).
+- `lib/` – Server utilities (EC2 discovery helpers).
+- `test/e2e/` – Playwright specs.
+- `public/` – Static assets.
 
-This app is intentionally minimal; it serves as a reference integration for consumers embedding the terminal inside their own React applications.
+This app serves as the canonical example of how a host can discover infrastructure,
+communicate status to the user, and drop them into the Nimbus terminal with a
+single click.

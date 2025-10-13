@@ -2,11 +2,31 @@
   "extends": "@nimbus/tsconfig/workspace-app-config.json",
   "compilerOptions": {
     "baseUrl": ".",
-    "jsx": "react-jsx",
+    "jsx": "preserve",
+    "moduleResolution": "bundler",
+    "allowJs": false,
+    "incremental": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": [
+        "./app/*"
+      ],
+      "@/lib/*": [
+        "./lib/*"
+      ],
+      "@/components/*": [
+        "./components/*"
+      ]
     }
   },
-  "include": ["src", "test", "test"],
-  "exclude": ["node_modules"]
+  "include": [
+    "app",
+    "components",
+    "lib",
+    "next-env.d.ts",
+    "test",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

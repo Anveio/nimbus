@@ -67,8 +67,8 @@ The workspace runs on Node 24 with npm. Each package is a shippable unit followi
 - Group related state into objects managed by a single reducer or hook instead of scattering scalar `useState` calls. Model async flows with discriminated unions (e.g. `{ status: 'connecting' | 'connected' | 'error'; error?: string }`). Prefer custom hooks (`useSshSession`, `useWebsocket`, `useTerminalLog`) to encapsulate effects and shared state. 
 - Move state up -- if two composable hooks depend on some shared state, create a shared context provider for them to write to and read from. Make sure these are rendered in the React tree.
 - You should care about minimizing re-renders, but not when doing so harms readability. Don't pass a function call into a prop because it'll trigger a rerender every time even if the prop doesn't change.
-- useEffect's are extremely tricky to get right, so know what you're getting into. Remember how the React layer orchestrates useEffect within its runtime -- remember, for example, that effects will be called twice in development. That shouldn't matter for most things, but for somethings it does. How would we guard against caveats like these? 
-- Every new React contribution should explain its state topology in PR/commit notes (which hook owns what, how data travels). If the graph becomes complex, add diagrams or ADR snippets to the package README/AGENTS.
+- useEffect's are extremely tricky to get right, so know what you're getting into. Remember how the React layer orchestrates useEffect within its runtime -- remember, for example, that effects will be called twice in development, which can lead to very unexpected results. Ensure you have a plan to keep effects idempotent and prevent infinite loops.
+- Every new React contribution should explain its state topology in PR/commit notes (which hook owns what, how data travels). If the graph becomes complex, add diagrams or ADR snippets colocated with the top-level component.
 
 # Testing
 - Unit: Vitest for logic (parser fixtures, diff reducers, React hooks). Property-based tests where state spaces explode.

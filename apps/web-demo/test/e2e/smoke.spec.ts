@@ -1,18 +1,10 @@
 import { expect, test } from '@playwright/test'
 
-test('smoke: renders terminal shell', async ({ page }) => {
+test('smoke: renders landing page', async ({ page }) => {
   await page.goto('/')
 
-  const html = await page.content()
-  console.log('page content after goto:', html.slice(0, 200))
-
-  await page.getByRole('heading', { name: 'Nimbus Web Terminal' }).waitFor({
-    state: 'visible',
-  })
-
-  const canvas = await page.waitForSelector('canvas', {
-    state: 'attached',
-    timeout: 5000,
-  })
-  expect(canvas).toBeTruthy()
+  await expect(
+    page.getByRole('heading', { name: 'Nimbus Terminal Demo' }),
+  ).toBeVisible()
+  await expect(page.locator('main')).toBeVisible()
 })
