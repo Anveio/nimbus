@@ -23,8 +23,7 @@ users through credential setup before connecting via EC2 Instance Connect.
 
 | Script | Description |
 | --- | --- |
-| `npm run dev` | Start Next.js locally (`http://localhost:3000`). |
-| `npm run dev:https` | Start the dev server over HTTPS (requires locally trusted certs). |
+| `npm run dev` | Start the HTTPS-enabled Next.js dev server (auto-generates trusted certs if missing). |
 | `npm run build` | Generate a production build. |
 | `npm run start` | Serve the production build. |
 | `npm run test` | Execute Playwright E2E tests. |
@@ -38,16 +37,10 @@ AWS side of the demo (signer Lambda, websocket bridge, testing stacks).
 ## AWS configuration
 
 The EC2 roster relies on standard AWS credential resolution (env vars, shared
-credentials file, IMDS, etc.). To scan specific regions set:
-
-```bash
-export AWS_ACCESS_KEY_ID=...
-export AWS_SECRET_ACCESS_KEY=...
-export AWS_SESSION_TOKEN=...        # if using temporary credentials
-export NIMBUS_WEB_DEMO_REGIONS="us-west-2,us-east-1"
-```
-
-If `NIMBUS_WEB_DEMO_REGIONS` is omitted we fall back to `AWS_REGION`.
+credentials file, IMDS, etc.). Provide credentials via your preferred method
+(`aws sso login`, `aws configure`, environment variables) before starting the
+dev server. The demo defaults to querying `us-west-2`, but you can append
+`?region=<aws-region>` to the URL or use the dropdown to switch.
 
 Expected IAM permissions:
 
@@ -57,29 +50,31 @@ Expected IAM permissions:
 
 ## Development flow
 
-1. Start the Next.js dev server with `npm run dev` (or `npm run dev:https` if you
-   need HTTPS locally).
-2. Visit `http://localhost:3000` (or `https://localhost:3000`) to view the EC2 roster. Authentication issues
+1. Start the Next.js dev server with `npm run dev`.
+2. Visit `https://localhost:3000` to view the EC2 roster. Authentication issues
    are rendered inline with setup instructions.
-3. Click **Connect** to open the instance-specific route. Use the terminal
+3. Use the region selector (or append `?region=us-east-1`) to query other AWS
+   regions. The demo defaults to `us-west-2`.
+4. Click **Connect** to open the instance-specific route. Use the terminal
    preview alongside the `POST /api/sign` endpoint to generate SigV4 websocket
    URLs that target your deployed bridge.
 
 Playwright tests assume the dev server runs on `localhost:3000`; adjust
 `PORT/HOST` env vars if you need a different binding.
 
-### Enabling HTTPS locally
+### HTTPS in development
 
-Browsers disallow `wss://` connections from an `http://` origin, so when
-bridging EC2 Instance Connect you should run the dev server over HTTPS:
+Browsers reject `wss://` connections from an `http://` origin, so the dev server
+always runs over HTTPS. The `npm run dev` script:
 
-Run `npm run dev:https:setup` once to generate trusted certificates (it wraps
-`mkcert -install` and writes the files to `apps/web-demo/certs/`). If you prefer
-manual control, follow the same steps yourself and then run `npm run dev:https`.
+1. Generates trusted certificates via `devcert` (prompting for your password if
+   the local CA needs to be installed).
+2. Stores the key/cert pair under `apps/web-demo/certs/` (override with
+   `NIMBUS_DEV_CERT` / `NIMBUS_DEV_KEY` if desired).
+3. Launches `next dev` bound to `https://localhost:3000`.
 
-The `dev:https` script reads `NIMBUS_DEV_CERT` / `NIMBUS_DEV_KEY` or defaults to
-`apps/web-demo/certs/localhost-{cert,key}.pem`. Any additional flags passed to
-the script are forwarded to `next dev`.
+Remove the generated files if you ever need to regenerate them (e.g., switching
+machines or hostnames).
 
 ## Cleaning up demo infrastructure
 

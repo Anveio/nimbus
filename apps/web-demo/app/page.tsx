@@ -1,12 +1,32 @@
 import Link from 'next/link'
+import type { ReactElement } from 'react'
 import { InstancesTable } from '@/components/InstancesTable'
 import { InstructionPanel } from '@/components/InstructionPanel'
+import { RegionSelector } from '@/components/RegionSelector'
 import { listEc2Instances } from '@/lib/ec2'
 
 export const dynamic = 'force-dynamic'
 
-export default async function HomePage(): Promise<React.ReactElement> {
-  const result = await listEc2Instances()
+interface PageProps {
+  readonly searchParams?: Promise<Record<string, string | string[] | undefined>>
+}
+
+export default async function HomePage({
+  searchParams,
+}: PageProps): Promise<ReactElement> {
+  const params = (await searchParams) ?? {}
+  const rawRegion =
+    typeof params.region === 'string' ? params.region : undefined
+  const REGION_CHOICES = ['us-west-2', 'us-east-1', 'eu-west-1'] as const
+
+  const selectedRegion =
+    rawRegion && rawRegion.length > 0 ? rawRegion.trim() : REGION_CHOICES[0]
+
+  const availableRegions = Array.from(
+    new Set<string>([selectedRegion, ...REGION_CHOICES]),
+  )
+
+  const result = await listEc2Instances(selectedRegion)
 
   return (
     <div
@@ -17,6 +37,11 @@ export default async function HomePage(): Promise<React.ReactElement> {
         gap: '2.5rem',
       }}
     >
+      <RegionSelector
+        regions={availableRegions}
+        selectedRegion={selectedRegion}
+      />
+
       {result.kind === 'success' && result.instances.length > 0 ? (
         <section>
           <p
@@ -77,7 +102,7 @@ export default async function HomePage(): Promise<React.ReactElement> {
             {
               heading: 'Specify the regions to scan',
               detail:
-                'Set NIMBUS_WEB_DEMO_REGIONS="us-west-2,us-east-1" (comma separated) or rely on AWS_REGION. The demo queries each configured region.',
+                'Set NIMBUS_WEB_DEMO_REGIONS="us-west-2,us-east-1" (comma separated). If unset we fall back to AWS_REGION, and finally to us-west-2.',
             },
           ]}
           action={

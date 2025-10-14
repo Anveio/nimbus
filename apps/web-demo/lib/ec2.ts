@@ -1,9 +1,10 @@
 import {
   DescribeInstancesCommand,
   EC2Client,
-  paginateDescribeInstances,
   type Instance,
+  paginateDescribeInstances,
 } from '@aws-sdk/client-ec2'
+import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts'
 
 export interface Ec2InstanceSummary {
   readonly instanceId: string
@@ -50,26 +51,14 @@ export type FetchInstanceResult =
       readonly message: string
     }
 
-function getConfiguredRegions(): readonly string[] {
-  const configured =
-    process.env.NIMBUS_WEB_DEMO_REGIONS ??
-    process.env.WEB_DEMO_REGIONS ?? // legacy
-    ''
-  const regions = configured
-    .split(',')
-    .map((region) => region.trim())
-    .filter((region) => region.length > 0)
-
-  if (regions.length > 0) {
-    return regions
+export function getConfiguredRegions(
+  regionParam?: string | null,
+): readonly string[] {
+  const trimmed = regionParam?.trim()
+  if (trimmed && trimmed.length > 0) {
+    return [trimmed]
   }
-
-  const fallback =
-    process.env.AWS_REGION ??
-    process.env.AWS_DEFAULT_REGION ??
-    process.env.CDK_DEFAULT_REGION
-
-  return fallback ? [fallback] : []
+  return ['us-west-2']
 }
 
 function normalizeTags(instance: Instance): Record<string, string> {
@@ -87,7 +76,7 @@ function toSummary(instance: Instance, region: string): Ec2InstanceSummary {
   return {
     instanceId: instance.InstanceId ?? 'unknown',
     region,
-    name: tags.Name ?? tags['Name'],
+    name: tags.Name ?? tags.Name,
     state: instance.State?.Name,
     instanceType: instance.InstanceType,
     availabilityZone: instance.Placement?.AvailabilityZone,
@@ -150,6 +139,29 @@ function describeError(error: unknown): string {
   }
 }
 
+let identityChecked = false
+
+async function ensureAwsIdentity(region: string): Promise<void> {
+  if (identityChecked) {
+    return
+  }
+  const sts = new STSClient({ region })
+  try {
+    const identity = await sts.send(new GetCallerIdentityCommand({}))
+    console.info('[aws:identity] Using credentials', {
+      account: identity.Account,
+      arn: identity.Arn,
+      userId: identity.UserId,
+    })
+    identityChecked = true
+  } catch (error) {
+    console.error('[aws:identity] Failed to resolve identity', {
+      error: describeError(error),
+    })
+    throw error
+  }
+}
+
 async function collectRegionInstances(
   region: string,
   instanceIds?: readonly string[],
@@ -179,20 +191,20 @@ async function collectRegionInstances(
   return instances
 }
 
-export async function listEc2Instances(): Promise<ListInstancesResult> {
-  const regions = getConfiguredRegions()
-  if (regions.length === 0) {
-    return {
-      kind: 'error',
-      message:
-        'No AWS region configured. Set NIMBUS_WEB_DEMO_REGIONS or AWS_REGION in the deployment environment.',
-    }
-  }
+export async function listEc2Instances(
+  regionOverride?: string | null,
+): Promise<ListInstancesResult> {
+  const regions = getConfiguredRegions(regionOverride)
 
   try {
+    await ensureAwsIdentity(regions[0] ?? 'us-west-2')
     const summaries: Ec2InstanceSummary[] = []
     for (const region of regions) {
       const instances = await collectRegionInstances(region)
+      console.debug('[ec2:list] Retrieved instances', {
+        region,
+        count: instances.length,
+      })
       summaries.push(
         ...instances
           .filter((instance) => instance.InstanceId)
@@ -200,8 +212,14 @@ export async function listEc2Instances(): Promise<ListInstancesResult> {
       )
     }
     summaries.sort((a, b) => a.instanceId.localeCompare(b.instanceId))
+    console.info('[ec2:list] Discovery complete', {
+      totalInstances: summaries.length,
+    })
     return { kind: 'success', instances: summaries }
   } catch (error) {
+    console.error('[ec2:list] Discovery failed', {
+      error: describeError(error),
+    })
     if (isAuthError(error)) {
       return {
         kind: 'auth-error',
@@ -218,20 +236,15 @@ export async function listEc2Instances(): Promise<ListInstancesResult> {
 
 export async function getEc2InstanceById(
   instanceId: string,
+  regionOverride?: string | null,
 ): Promise<FetchInstanceResult> {
-  const regions = getConfiguredRegions()
-  if (regions.length === 0) {
-    return {
-      kind: 'error',
-      message:
-        'No AWS region configured. Set NIMBUS_WEB_DEMO_REGIONS or AWS_REGION in the deployment environment.',
-    }
-  }
+  const regions = getConfiguredRegions(regionOverride)
   const trimmedId = instanceId.trim()
   if (!trimmedId) {
     return { kind: 'not-found' }
   }
   try {
+    await ensureAwsIdentity(regions[0] ?? 'us-west-2')
     for (const region of regions) {
       const matches = await collectRegionInstances(region, [trimmedId])
       const match = matches.find(

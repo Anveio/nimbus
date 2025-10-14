@@ -10,11 +10,20 @@ interface PageParams {
   readonly instanceId: string
 }
 
-export default async function InstanceConnectPage(props: {
+interface PageProps {
   readonly params: Promise<PageParams>
-}): Promise<React.ReactElement> {
+  readonly searchParams?: Promise<Record<string, string | string[] | undefined>>
+}
+
+export default async function InstanceConnectPage(
+  props: PageProps,
+): Promise<React.ReactElement> {
   const { instanceId } = await props.params
-  const result = await getEc2InstanceById(instanceId)
+  const query = (await props.searchParams) ?? {}
+  const regionParam =
+    typeof query.region === 'string' ? query.region.trim() : undefined
+
+  const result = await getEc2InstanceById(instanceId, regionParam)
 
   if (result.kind === 'auth-error') {
     return (

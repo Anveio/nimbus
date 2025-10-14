@@ -8,15 +8,14 @@ import { certificateFor } from 'devcert'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const workspaceRoot = path.resolve(path.join(__dirname, '..'))
-
-const defaultCertDir = path.join(workspaceRoot, 'certs')
-const defaultCertPath = path.join(defaultCertDir, 'localhost-cert.pem')
-const defaultKeyPath = path.join(defaultCertDir, 'localhost-key.pem')
+const certDir = path.join(workspaceRoot, 'certs')
+const defaultCertPath = path.join(certDir, 'localhost-cert.pem')
+const defaultKeyPath = path.join(certDir, 'localhost-key.pem')
 
 const certPath = process.env.NIMBUS_DEV_CERT ?? defaultCertPath
 const keyPath = process.env.NIMBUS_DEV_KEY ?? defaultKeyPath
 
-async function ensureCertificate(): Promise<void> {
+async function ensureCertificates(): Promise<void> {
   const missing: string[] = []
   if (!existsSync(certPath)) {
     missing.push(certPath)
@@ -26,20 +25,24 @@ async function ensureCertificate(): Promise<void> {
   }
 
   if (missing.length === 0) {
+    console.log(
+      [
+        'Nimbus dev HTTPS: existing certificate detected.',
+        `  Certificate: ${certPath}`,
+        `  Key:         ${keyPath}`,
+      ].join('\n'),
+    )
     return
   }
 
   console.log(
     [
-      'Nimbus dev HTTPS: generating certificates via devcert...',
+      'Nimbus dev HTTPS: generating trusted certificates via devcert.',
       'You may be prompted for your password so devcert can install the local CA.',
     ].join('\n'),
   )
 
-  const certificate = await certificateFor('localhost', {
-    getCaPath: true,
-  })
-
+  const certificate = await certificateFor('localhost', { getCaPath: true })
   mkdirSync(path.dirname(certPath), { recursive: true })
   writeFileSync(certPath, certificate.cert)
   writeFileSync(keyPath, certificate.key)
@@ -54,7 +57,7 @@ async function ensureCertificate(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  await ensureCertificate()
+  await ensureCertificates()
 
   const host = process.env.HOST ?? '127.0.0.1'
   const port = process.env.PORT ?? '3000'
@@ -72,6 +75,16 @@ async function main(): Promise<void> {
     keyPath,
     ...process.argv.slice(2),
   ]
+
+  console.log('args', args.join(' '))
+
+  console.log(
+    [
+      '',
+      'Nimbus dev HTTPS: launching Next.js dev server.',
+      `  URL: https://${host}:${port}`,
+    ].join('\n'),
+  )
 
   const child = spawn('next', args, {
     stdio: 'inherit',

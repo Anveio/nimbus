@@ -5,9 +5,8 @@
   "description": "A web-based terminal application to demonstrate and test the NimbusSSHWeb library.",
   "scripts": {
     "clean": "git clean -xfd .",
-    "dev": "next dev",
-    "dev:https": "tsx ./scripts/dev-https.ts",
-    "dev:https:setup": "tsx ./scripts/dev-https-setup.ts",
+    "dev": "tsx ./scripts/run-dev-server.ts",
+    "dev:next": "next dev",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
