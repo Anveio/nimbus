@@ -36,10 +36,17 @@ export const createWebglContext = (
   return {
     gl,
     dispose: () => {
+      /**
+       * React 19 Strict Mode remounts components twice. If we deliberately lose
+       * the WebGL context here, the follow-up mount reuses the same canvas
+       * while the context is still “lost”, causing shader compilation to fail.
+       * We therefore limit teardown to removing listeners and let the browser
+       * release the context naturally. Hosts that need an explicit loss can add
+       * their own `WEBGL_lose_context` handling.
+       */
       if ('removeEventListener' in canvas) {
         canvas.removeEventListener('webglcontextlost', handleContextLost)
       }
-      gl.getExtension('WEBGL_lose_context')?.loseContext()
     },
   }
 }

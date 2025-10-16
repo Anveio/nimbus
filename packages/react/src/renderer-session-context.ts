@@ -1,13 +1,18 @@
-import type { RendererSession, TerminalRuntime } from '@nimbus/webgl-renderer'
+import type {
+  RendererConfiguration,
+  RendererSession,
+  TerminalRuntime,
+} from '@nimbus/webgl-renderer'
 import { createContext, useContext } from 'react'
 
 export interface RendererSessionContextValue {
   readonly session: RendererSession | null
   readonly runtime: TerminalRuntime | null
+  readonly configuration: RendererConfiguration | null
 }
 
 const RendererSessionContext = createContext<RendererSessionContextValue>(
-  Object.freeze({ session: null, runtime: null }),
+  Object.freeze({ session: null, runtime: null, configuration: null }),
 )
 
 export const RendererSessionContextProvider = RendererSessionContext.Provider

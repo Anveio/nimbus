@@ -11,9 +11,17 @@ import type {
   WebglRendererConfig,
   WebglRendererRootOptions,
 } from '@nimbus/webgl-renderer'
-import { render } from '@testing-library/react'
+import { fireEvent, render } from '@testing-library/react'
 import { act } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  vi,
+} from 'vitest'
 import {
   clearRendererBackendsForTests,
   registerRendererBackend,
@@ -431,6 +439,231 @@ describe('<Terminal />', () => {
       type: 'profile.update',
       profile: profileB,
     })
+  })
+
+  it('dispatches runtime pointer and wheel events from canvas interactions', async () => {
+    const sessionHarness = createSessionHarness()
+    const rendererHarness = createRendererHarness(sessionHarness.session)
+    registerHarnessBackend(sessionHarness, rendererHarness)
+
+    const listeners = new Map<string, EventListener>()
+    const addEventListenerSpy = vi
+      .spyOn(HTMLCanvasElement.prototype, 'addEventListener')
+      .mockImplementation(function (
+        this: HTMLCanvasElement,
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+      ) {
+        let handler: EventListener | null = null
+        if (typeof listener === 'function') {
+          handler = listener
+        } else if (
+          listener &&
+          typeof (listener as EventListenerObject).handleEvent === 'function'
+        ) {
+          handler = (listener as EventListenerObject).handleEvent.bind(listener)
+        }
+        if (handler) {
+          listeners.set(type, handler)
+        }
+        return undefined
+      })
+
+    const removeEventListenerSpy = vi
+      .spyOn(HTMLCanvasElement.prototype, 'removeEventListener')
+      .mockImplementation(function (this: HTMLCanvasElement, type: string) {
+        listeners.delete(type)
+        return undefined
+      })
+
+    try {
+      const { container: host } = render(<Terminal />)
+      const managed = host.querySelector('canvas') as HTMLCanvasElement
+
+      Object.defineProperty(managed, 'getBoundingClientRect', {
+        value: () => ({
+          left: 0,
+          top: 0,
+          width: configuration.cssPixels.width,
+          height: configuration.cssPixels.height,
+          right: configuration.cssPixels.width,
+          bottom: configuration.cssPixels.height,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }),
+        configurable: true,
+      })
+
+      Object.defineProperty(managed, 'setPointerCapture', {
+        value: vi.fn(),
+        configurable: true,
+      })
+      Object.defineProperty(managed, 'releasePointerCapture', {
+        value: vi.fn(),
+        configurable: true,
+      })
+
+      await act(async () => {
+        await Promise.resolve()
+      })
+
+      sessionHarness.dispatch.mockClear()
+
+      const pointerDown = listeners.get('pointerdown')
+      expect(pointerDown).toBeDefined()
+      pointerDown!({
+        pointerId: 5,
+        button: 0,
+        buttons: 1,
+        clientX: 4,
+        clientY: 4,
+        altKey: false,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+        preventDefault: vi.fn(),
+      } as unknown as PointerEvent)
+
+      expect(sessionHarness.dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'runtime.pointer',
+          action: 'down',
+          pointerId: 5,
+          button: 'left',
+          buttons: 1,
+          cell: { row: 1, column: 1 },
+          position: { x: 4, y: 4 },
+        }),
+      )
+      expect(
+        (managed.setPointerCapture as unknown as Mock).mock.calls,
+      ).toContainEqual([5])
+
+      sessionHarness.dispatch.mockClear()
+
+      const pointerMove = listeners.get('pointermove')
+      expect(pointerMove).toBeDefined()
+      pointerMove!({
+        pointerId: 5,
+        button: 0,
+        buttons: 1,
+        clientX: 20,
+        clientY: 18,
+        altKey: true,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: true,
+        preventDefault: vi.fn(),
+      } as unknown as PointerEvent)
+
+      expect(sessionHarness.dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'runtime.pointer',
+          action: 'move',
+          pointerId: 5,
+          cell: { row: 2, column: 3 },
+          modifiers: expect.objectContaining({ alt: true, shift: true }),
+        }),
+      )
+
+      sessionHarness.dispatch.mockClear()
+
+      const pointerUp = listeners.get('pointerup')
+      expect(pointerUp).toBeDefined()
+      pointerUp!({
+        pointerId: 5,
+        button: 0,
+        buttons: 0,
+        clientX: 12,
+        clientY: 16,
+        altKey: false,
+        ctrlKey: true,
+        metaKey: false,
+        shiftKey: false,
+        preventDefault: vi.fn(),
+      } as unknown as PointerEvent)
+
+      expect(sessionHarness.dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'runtime.pointer',
+          action: 'up',
+          pointerId: 5,
+          buttons: 0,
+        }),
+      )
+      expect(
+        (managed.releasePointerCapture as unknown as Mock).mock.calls,
+      ).toContainEqual([5])
+
+      sessionHarness.dispatch.mockClear()
+
+      const wheel = listeners.get('wheel')
+      expect(wheel).toBeDefined()
+      const wheelPreventDefault = vi.fn()
+      wheel!({
+        deltaX: 15,
+        deltaY: -30,
+        clientX: 24,
+        clientY: 32,
+        altKey: false,
+        ctrlKey: true,
+        metaKey: false,
+        shiftKey: false,
+        preventDefault: wheelPreventDefault,
+      } as unknown as WheelEvent)
+
+      expect(sessionHarness.dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'runtime.wheel',
+          deltaX: 15,
+          deltaY: -30,
+          cell: { row: 3, column: 4 },
+          modifiers: expect.objectContaining({ ctrl: true }),
+        }),
+      )
+      expect(wheelPreventDefault).toHaveBeenCalledTimes(1)
+    } finally {
+      addEventListenerSpy.mockRestore()
+      removeEventListenerSpy.mockRestore()
+    }
+  })
+
+  it('dispatches runtime paste events from clipboard interactions', async () => {
+    const sessionHarness = createSessionHarness()
+    const rendererHarness = createRendererHarness(sessionHarness.session)
+    registerHarnessBackend(sessionHarness, rendererHarness)
+
+    const { getAllByTestId } = render(<Terminal />)
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    sessionHarness.dispatch.mockClear()
+
+    const boundaries = getAllByTestId('terminal-hotkeys-boundary')
+    const boundary = boundaries[boundaries.length - 1] as
+      | HTMLElement
+      | undefined
+    if (!boundary) {
+      throw new Error('Terminal hotkey boundary not found')
+    }
+    boundary.focus()
+
+    const clipboardData = {
+      getData: (type: string) =>
+        type === 'text' || type === 'text/plain' ? 'terminal paste' : '',
+    }
+
+    fireEvent.paste(boundary, { clipboardData })
+
+    expect(sessionHarness.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'runtime.paste',
+        text: 'terminal paste',
+      }),
+    )
   })
 
   it('disposes the renderer root on unmount', () => {

@@ -3,6 +3,7 @@ import type {
   ForwardedRef,
   JSX,
   CompositionEvent as ReactCompositionEvent,
+  ClipboardEvent as ReactClipboardEvent,
   ReactElement,
   KeyboardEvent as ReactKeyboardEvent,
   ReactNode,
@@ -22,6 +23,7 @@ import { useRendererRoot } from './renderer-root-context'
 import { useRendererSessionContext } from './renderer-session-context'
 import { RendererSessionProvider } from './renderer-session-provider'
 import { RendererSurface } from './renderer-surface'
+import { RendererEventBridge } from './renderer-event-bridge'
 
 /**
  * Bridges the forwarded `TerminalSessionHandle` to the active renderer root,
@@ -265,6 +267,22 @@ const TerminalHotkeyBoundary = (props: {
     [session],
   )
 
+  const handlePaste = useCallback(
+    (event: ReactClipboardEvent<HTMLDivElement>) => {
+      if (!session) {
+        return
+      }
+      const text = event.clipboardData?.getData('text') ?? ''
+      if (text.length === 0) {
+        return
+      }
+      event.preventDefault()
+      event.stopPropagation()
+      session.dispatch({ type: 'runtime.paste', text })
+    },
+    [session],
+  )
+
   return (
     <div
       data-testid="terminal-hotkeys-boundary"
@@ -275,6 +293,7 @@ const TerminalHotkeyBoundary = (props: {
       onCompositionStart={handleCompositionStart}
       onCompositionUpdate={handleCompositionUpdate}
       onCompositionEnd={handleCompositionEnd}
+      onPaste={handlePaste}
     >
       {children}
     </div>
@@ -296,6 +315,7 @@ const TerminalInner = (
   return (
     <RendererSurface renderRootProps={renderRootProps}>
       <RendererSessionProvider {...sessionProps}>
+        <RendererEventBridge />
         <TerminalHotkeyBoundary>
           <TerminalHandleBinder ref={ref}>{children}</TerminalHandleBinder>
         </TerminalHotkeyBoundary>

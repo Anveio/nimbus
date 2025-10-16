@@ -1,4 +1,5 @@
 import type {
+  RendererConfiguration,
   RendererConfigurationController,
   RendererRoot,
   RendererSession,
@@ -78,6 +79,8 @@ export const RendererSessionProvider = (
   const [runtimeState, setRuntimeState] = useState<TerminalRuntime | null>(
     runtimeRef.current,
   )
+  const [configurationState, setConfigurationState] =
+    useState<RendererConfiguration | null>(null)
 
   const resolvedBackendKey = useMemo(() => {
     if (rendererBackend) {
@@ -132,6 +135,7 @@ export const RendererSessionProvider = (
     setRuntimeState(runtimeInstance)
 
     const configuration = controller.refresh()
+    setConfigurationState(configuration)
 
     const mounted = backend.mount({
       canvas,
@@ -148,6 +152,7 @@ export const RendererSessionProvider = (
 
     const unsubscribeFromController = controller.subscribe(
       (nextConfiguration) => {
+        setConfigurationState(nextConfiguration)
         const activeSession = sessionRef.current
         if (!activeSession) {
           return
@@ -177,6 +182,7 @@ export const RendererSessionProvider = (
       rootRef.current = null
       setSessionState(null)
       setRootState(null)
+      setConfigurationState(null)
       mounted.root.dispose()
       unsubscribeFromController()
       if (configurationControllerRef.current === controller) {
@@ -229,10 +235,11 @@ export const RendererSessionProvider = (
 
   const contextValue: RendererSessionContextValue = useMemo(
     () => ({
-      session: sessionRef.current,
+      session: sessionState,
       runtime: runtimeState,
+      configuration: configurationState,
     }),
-    [runtimeState],
+    [sessionState, runtimeState, configurationState],
   )
 
   if (!rootState || !sessionState) {

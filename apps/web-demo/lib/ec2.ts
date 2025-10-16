@@ -150,7 +150,6 @@ async function ensureAwsIdentity(region: string): Promise<void> {
     const identity = await sts.send(new GetCallerIdentityCommand({}))
     console.info('[aws:identity] Using credentials', {
       account: identity.Account,
-      arn: identity.Arn,
       userId: identity.UserId,
     })
     identityChecked = true
