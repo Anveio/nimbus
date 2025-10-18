@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest'
 
 import type { HostKeyDecision, SshEvent } from '../src/api'
-import { createBaudRate, createClientSession } from '../src/api'
+import { createBaudRate, createClientSession, TokenBucket } from '../src/api'
 import {
   RecordingHostKeyStore,
   TEST_ALGORITHMS,
@@ -244,6 +244,8 @@ describe('RFC 5656 §4.1 curve25519 key exchange', () => {
       source: 'known-hosts',
     })
 
+    const clock = () => Date.now()
+
     const randomBytes = vi.fn((length: number) => {
       if (length === 16) {
         return new Uint8Array(16)
@@ -260,65 +262,74 @@ describe('RFC 5656 §4.1 curve25519 key exchange', () => {
         randomBytes,
         crypto: createBypassSignatureCrypto(),
         guards: { disableAutoUserAuth: true },
+        clock,
       }),
     )
 
-    session.nextEvent()
-    session.nextEvent()
-    session.flushOutbound()
+    const advanceTime = async (ms: number) => {
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, ms)
+      })
+      await session.waitForIdle()
+    }
 
-    const serverIdentification = encodeIdentificationLine('SSH-2.0-OpenSSH_9.6')
-    const serverKexInitPacket = buildServerKexInitPacket()
-    const combined = new Uint8Array(
-      serverIdentification.length + serverKexInitPacket.length,
-    )
-    combined.set(serverIdentification)
-    combined.set(serverKexInitPacket, serverIdentification.length)
+      session.nextEvent()
+      session.nextEvent()
+      session.flushOutbound()
 
-    session.receive(combined)
-    await session.waitForIdle()
-    await session.waitForIdle()
+      const serverIdentification =
+        encodeIdentificationLine('SSH-2.0-OpenSSH_9.6')
+      const serverKexInitPacket = buildServerKexInitPacket()
+      const combined = new Uint8Array(
+        serverIdentification.length + serverKexInitPacket.length,
+      )
+      combined.set(serverIdentification)
+      combined.set(serverKexInitPacket, serverIdentification.length)
 
-    const negotiationEvents = drainSessionEvents(session)
-    expectEventTypes(negotiationEvents, [
-      'identification-received',
-      'kex-init-sent',
-      'kex-init-received',
-      'outbound-data',
-      'client-public-key-ready',
-      'outbound-data',
-    ])
-    const expectedClientKexPayload = buildClientKexInitPayload(
-      TEST_ALGORITHMS,
-      randomBytes,
-    )
-    const outboundPackets = session.flushOutbound()
-    expect(outboundPackets).toHaveLength(2)
-    const [clientKexPacket, ecdhInitPacket] = outboundPackets as [
-      Uint8Array,
-      Uint8Array,
-    ]
-    const clientKexPayload = unwrapPayload(clientKexPacket!)
-    expect(clientKexPayload).toEqual(expectedClientKexPayload)
-    const serverKexPayload = unwrapPayload(serverKexInitPacket)
-    const ecdhPayload = unwrapPayload(ecdhInitPacket)
-    const serverHostKey = buildEd25519HostKeyBlob()
+      session.receive(combined)
+      await session.waitForIdle()
+      await session.waitForIdle()
 
-    session.receive(buildCurve25519ReplyPacket())
-    await session.waitForIdle()
-    await session.waitForIdle()
+      const negotiationEvents = drainSessionEvents(session)
+      expectEventTypes(negotiationEvents, [
+        'identification-received',
+        'kex-init-sent',
+        'kex-init-received',
+        'outbound-data',
+        'client-public-key-ready',
+        'outbound-data',
+      ])
+      const expectedClientKexPayload = buildClientKexInitPayload(
+        TEST_ALGORITHMS,
+        randomBytes,
+      )
+      const outboundPackets = session.flushOutbound()
+      expect(outboundPackets).toHaveLength(2)
+      const [clientKexPacket, ecdhInitPacket] = outboundPackets as [
+        Uint8Array,
+        Uint8Array,
+      ]
+      const clientKexPayload = unwrapPayload(clientKexPacket!)
+      expect(clientKexPayload).toEqual(expectedClientKexPayload)
+      const serverKexPayload = unwrapPayload(serverKexInitPacket)
+      const ecdhPayload = unwrapPayload(ecdhInitPacket)
+      const serverHostKey = buildEd25519HostKeyBlob()
 
-    const postKexEvents = drainSessionEvents(session)
-    expectEventTypes(postKexEvents, ['keys-established', 'outbound-data'])
-    const outboundAfterReply = session.flushOutbound()
-    expect(outboundAfterReply).toHaveLength(1)
-    const newKeysPayload = unwrapPayload(outboundAfterReply[0]!)
-    expect(newKeysPayload[0]).toBe(SSH_MSG_NEWKEYS)
+      session.receive(buildCurve25519ReplyPacket())
+      await session.waitForIdle()
+      await session.waitForIdle()
 
-    session.receive(buildNewKeysPacket())
-    await session.waitForIdle()
-    expect(session.inspect().phase).toBe('authenticated')
-    drainSessionEvents(session)
+      const postKexEvents = drainSessionEvents(session)
+      expectEventTypes(postKexEvents, ['keys-established', 'outbound-data'])
+      const outboundAfterReply = session.flushOutbound()
+      expect(outboundAfterReply).toHaveLength(1)
+      const newKeysPayload = unwrapPayload(outboundAfterReply[0]!)
+      expect(newKeysPayload[0]).toBe(SSH_MSG_NEWKEYS)
+
+      session.receive(buildNewKeysPacket())
+      await session.waitForIdle()
+      expect(session.inspect().phase).toBe('authenticated')
+      drainSessionEvents(session)
 
     const clientPrivate = clampScalar(CURVE25519_CLIENT_SCALAR)
     const sharedSecretBytes = scalarMult(
@@ -505,6 +516,15 @@ describe('RFC 5656 §4.1 curve25519 key exchange', () => {
     expectEventTypes(confirmationEvents, ['channel-open'])
 
     const defaultBaud = createBaudRate(115200)
+    const throttlePolicy = {
+      requested: { input: defaultBaud, output: defaultBaud },
+      enforced: { input: defaultBaud, output: defaultBaud },
+      throttler: new TokenBucket({
+        capacity: 16,
+        refillPerSecond: 16,
+        initialTokens: 8,
+      }),
+    } as const
     const ptyRequest = {
       type: 'pty-req',
       columns: 80,
@@ -512,6 +532,7 @@ describe('RFC 5656 §4.1 curve25519 key exchange', () => {
       widthPixels: 640,
       heightPixels: 480,
       speed: { input: defaultBaud, output: defaultBaud },
+      baudPolicy: throttlePolicy,
     } as const
 
     session.command({
@@ -571,6 +592,54 @@ describe('RFC 5656 §4.1 curve25519 key exchange', () => {
     expect(ptyEvent.status).toBe('success')
     expect(ptyEvent.requestType).toBe('pty-req')
     expect(ptyEvent.request).toEqual(ptyRequest)
+
+    const throttlePayload = new TextEncoder().encode(
+      'serial throttle pacing sample',
+    )
+    session.command({
+      type: 'send-channel-data',
+      channelId: localChannelId,
+      data: throttlePayload,
+    })
+    await session.waitForIdle()
+    const throttleImmediateEvents = drainSessionEvents(session)
+    expect(throttleImmediateEvents).toEqual([])
+    const throttleSnapshot = throttlePolicy.throttler!.inspect(clock())
+    expect(throttleSnapshot.debt).toBeGreaterThan(0)
+    const waitMs = Math.ceil(
+      (throttleSnapshot.debt / throttleSnapshot.refillPerSecond) * 1000,
+    )
+
+    await advanceTime(waitMs + 5)
+    const postAdvanceSnapshot = throttlePolicy.throttler!.inspect(clock())
+    expect(postAdvanceSnapshot.debt).toBe(0)
+    const throttleEvents = drainSessionEvents(session)
+    if (throttleEvents.length > 0) {
+      expectEventTypes(throttleEvents, ['outbound-data'])
+    }
+    expect(session.inspect().pendingOutboundPackets).toBe(1)
+    expect(session.inspect().openChannels[0]!.windowSize).toBe(
+      remoteWindow - throttlePayload.length,
+    )
+    const throttlePackets = session.flushOutbound()
+    expect(throttlePackets).toHaveLength(1)
+    const throttlePayloadBytes = await decryptClientPacket(
+      throttlePackets[0]!,
+    )
+    const throttleReader = new BinaryReader(throttlePayloadBytes)
+    expect(throttleReader.readUint8()).toBe(SSH_MSG_CHANNEL_DATA)
+    expect(throttleReader.readUint32()).toBe(remoteChannelId)
+    const throttleLength = throttleReader.readUint32()
+    expect(throttleLength).toBe(throttlePayload.length)
+    const throttleCopy = throttleReader.readBytes(throttleLength)
+    expect(new TextDecoder().decode(throttleCopy)).toBe(
+      new TextDecoder().decode(throttlePayload),
+    )
+    const channelSnapshotAfterThrottle = session.inspect().openChannels[0]!
+    expect(channelSnapshotAfterThrottle.windowSize).toBe(
+      remoteWindow - throttlePayload.length,
+    )
+    expect(session.inspect().pendingOutboundPackets).toBe(0)
 
     const execRequest = {
       type: 'exec',
@@ -701,7 +770,9 @@ describe('RFC 5656 §4.1 curve25519 key exchange', () => {
     const finalSnapshot = finalChannels[0]!
     expect(finalSnapshot.status).toBe('closed')
     expect(finalSnapshot.remoteId).toBe(remoteChannelId)
-    expect(finalSnapshot.windowSize).toBe(remoteWindow)
+    expect(finalSnapshot.windowSize).toBe(
+      remoteWindow - throttlePayload.length,
+    )
     expect(finalSnapshot.maxPacketSize).toBe(remoteMaxPacket)
     expect(session.inspect().phase).toBe('connected')
   })

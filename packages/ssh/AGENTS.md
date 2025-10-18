@@ -77,3 +77,6 @@ Curated raw spec corpus under `context/`, agreed to focus interoperability on Op
 
 ### 2025-10-05 — Serial console bauplan
 - Logged AWS EC2 Serial Console requirement: honor 115200 baud, encode ISPEED/OSPEED in PTY modes, expose throttling hook downstream.
+
+### 2025-10-17 — Channel throttle window semantics
+- Documented that once the baud bucket has capacity, the engine dispatches immediately and shrinks the outbound window (`remoteWindow - payloadLength`). Test harness now inspects token debt clearing before expecting the queued packet.
