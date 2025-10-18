@@ -295,10 +295,10 @@ export class GlyphAtlas {
     padding: number
     isColor: boolean
   } {
-    const dpr = this.metrics.devicePixelRatio
-    const cellWidthPx = Math.ceil(this.metrics.cell.width * dpr)
-    const cellHeightPx = Math.ceil(this.metrics.cell.height * dpr)
-    const baselinePx = Math.ceil(this.metrics.cell.baseline * dpr)
+    const density = this.metrics.surfaceDensity
+    const cellWidthPx = Math.ceil(this.metrics.cell.width * density)
+    const cellHeightPx = Math.ceil(this.metrics.cell.height * density)
+    const baselinePx = Math.ceil(this.metrics.cell.baseline * density)
     const padding = GLYPH_PADDING
     const textureWidth = cellWidthPx + padding * 2
     const textureHeight = cellHeightPx + padding * 2

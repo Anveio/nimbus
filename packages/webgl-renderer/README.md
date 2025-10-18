@@ -13,9 +13,10 @@ npm install @nimbus/webgl-renderer
 ## Quickstart
 
 Use `deriveRendererConfiguration` to measure the canvas before mounting a
-renderer session. The helper waits for fonts to settle, publishes device pixel
-ratio, CSS pixel bounds, framebuffer size, and cell metrics, and keeps emitting
-updates when the canvas resizes or the DPR changes.
+renderer session. The helper waits for fonts to settle, publishes surface
+dimensions (host-defined logical units), surface density, framebuffer size, and
+cell metrics, and keeps emitting updates when the canvas resizes or the density
+changes.
 
 ```ts
 import {

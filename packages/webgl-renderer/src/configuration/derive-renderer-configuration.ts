@@ -8,7 +8,7 @@ export interface RendererConfigurationController {
 }
 
 export interface DeriveRendererConfigurationOptions {
-  readonly devicePixelRatio?: number
+  readonly surfaceDensity?: number
   readonly minimumGrid?: {
     readonly rows?: number
     readonly columns?: number
@@ -118,9 +118,10 @@ const areConfigurationsEqual = (
     return false
   }
   if (
-    a.devicePixelRatio !== b.devicePixelRatio ||
-    Math.abs(a.cssPixels.width - b.cssPixels.width) > EPSILON ||
-    Math.abs(a.cssPixels.height - b.cssPixels.height) > EPSILON
+    a.surfaceDensity !== b.surfaceDensity ||
+    Math.abs(a.surfaceDimensions.width - b.surfaceDimensions.width) > EPSILON ||
+    Math.abs(a.surfaceDimensions.height - b.surfaceDimensions.height) > EPSILON ||
+    a.surfaceOrientation !== b.surfaceOrientation
   ) {
     return false
   }
@@ -171,13 +172,13 @@ export const deriveRendererConfiguration = (
 
   const measure = (): RendererConfiguration => {
     const ownerDocument = canvas.ownerDocument ?? document
-    const defaultDevicePixelRatio =
+    const defaultSurfaceDensity =
       typeof ownerDocument.defaultView !== 'undefined' &&
       ownerDocument.defaultView
         ? ownerDocument.defaultView.devicePixelRatio ?? 1
         : 1
-    const devicePixelRatio =
-      options.devicePixelRatio ?? clampPositive(defaultDevicePixelRatio, 1)
+    const surfaceDensity =
+      options.surfaceDensity ?? clampPositive(defaultSurfaceDensity, 1)
 
     const rect = canvas.getBoundingClientRect?.()
     const cssWidth = clampPositive(
@@ -190,11 +191,11 @@ export const deriveRendererConfiguration = (
     )
 
     const framebufferWidth = clampPositive(
-      Math.round(cssWidth * devicePixelRatio),
+      Math.round(cssWidth * surfaceDensity),
       1,
     )
     const framebufferHeight = clampPositive(
-      Math.round(cssHeight * devicePixelRatio),
+      Math.round(cssHeight * surfaceDensity),
       1,
     )
 
@@ -225,16 +226,26 @@ export const deriveRendererConfiguration = (
       Math.floor(cssHeight / Math.max(cellMetrics.height, EPSILON)),
     )
 
+    let surfaceOrientation: RendererConfiguration['surfaceOrientation']
+    if (Math.abs(cssWidth - cssHeight) <= EPSILON) {
+      surfaceOrientation = 'square'
+    } else if (cssWidth > cssHeight) {
+      surfaceOrientation = 'landscape'
+    } else {
+      surfaceOrientation = 'portrait'
+    }
+
     return Object.freeze({
       grid: {
         rows: rows > 0 ? rows : minimumRows,
         columns: columns > 0 ? columns : minimumColumns,
       },
-      cssPixels: {
+      surfaceDimensions: {
         width: cssWidth,
         height: cssHeight,
       },
-      devicePixelRatio,
+      surfaceDensity,
+      surfaceOrientation,
       framebufferPixels: {
         width: framebufferWidth,
         height: framebufferHeight,

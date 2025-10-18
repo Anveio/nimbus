@@ -118,9 +118,10 @@ describe('deriveRendererConfiguration', () => {
 
     const configuration = controller.configuration as RendererConfiguration
     expect(configuration).toBeTruthy()
-    expect(configuration.devicePixelRatio).toBe(2)
-    expect(configuration.cssPixels.width).toBe(800)
-    expect(configuration.cssPixels.height).toBe(600)
+    expect(configuration.surfaceDensity).toBe(2)
+    expect(configuration.surfaceDimensions.width).toBe(800)
+    expect(configuration.surfaceDimensions.height).toBe(600)
+    expect(configuration.surfaceOrientation).toBe('landscape')
     expect(configuration.framebufferPixels?.width).toBe(1600)
     expect(configuration.framebufferPixels?.height).toBe(1200)
     expect(configuration.grid.columns).toBe(Math.floor(800 / 8))

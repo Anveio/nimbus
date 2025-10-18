@@ -19,8 +19,23 @@ import type {
  */
 export interface RendererConfiguration {
   readonly grid: { readonly rows: number; readonly columns: number }
-  readonly cssPixels: { readonly width: number; readonly height: number }
-  readonly devicePixelRatio: number
+  /**
+   * Host-reported logical size of the renderable surface. Units are host-defined
+   * (DOM hosts typically supply CSS pixels; print hosts could use points).
+   */
+  readonly surfaceDimensions: {
+    readonly width: number
+    readonly height: number
+  }
+  /**
+   * Scaling factor that maps {@link surfaceDimensions} to the renderer's native
+   * pixel buffer. DOM hosts usually forward `window.devicePixelRatio`.
+   */
+  readonly surfaceDensity: number
+  /**
+   * Optional orientation hint derived from the host surface geometry.
+   */
+  readonly surfaceOrientation?: 'landscape' | 'portrait' | 'square'
   readonly framebufferPixels?: {
     readonly width: number
     readonly height: number
@@ -109,7 +124,7 @@ export interface RendererCellMetrics {
 }
 
 export interface RendererMetrics {
-  readonly devicePixelRatio: number
+  readonly surfaceDensity: number
   readonly font: RendererFontMetrics
   readonly cell: RendererCellMetrics
 }
@@ -279,7 +294,12 @@ export interface WebglRendererFrameMetadata extends Record<string, unknown> {
   readonly drawCallCount?: number
   readonly bytesUploaded?: number
   readonly grid?: { readonly rows: number; readonly columns: number }
-  readonly cssPixels?: { readonly width: number; readonly height: number }
+  readonly surfaceDimensions?: {
+    readonly width: number
+    readonly height: number
+  }
+  readonly surfaceDensity?: number
+  readonly surfaceOrientation?: 'landscape' | 'portrait' | 'square'
   readonly framebufferPixels?: {
     readonly width: number
     readonly height: number

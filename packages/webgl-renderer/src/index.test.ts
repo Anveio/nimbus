@@ -78,8 +78,9 @@ const { createRendererRoot } = await import('./index')
 
 const createConfiguration = (): RendererConfiguration => ({
   grid: { rows: 24, columns: 80 },
-  cssPixels: { width: 800, height: 600 },
-  devicePixelRatio: 2,
+  surfaceDimensions: { width: 800, height: 600 },
+  surfaceDensity: 2,
+  surfaceOrientation: 'landscape',
   framebufferPixels: { width: 1600, height: 1200 },
   cell: { width: 8, height: 12, baseline: 9 },
 })

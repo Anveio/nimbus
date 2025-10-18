@@ -344,8 +344,8 @@ class WebglRendererSessionImpl implements WebglRendererSession {
 
     canvas.width = width
     canvas.height = height
-    canvas.style.width = `${configuration.cssPixels.width}px`
-    canvas.style.height = `${configuration.cssPixels.height}px`
+    canvas.style.width = `${configuration.surfaceDimensions.width}px`
+    canvas.style.height = `${configuration.surfaceDimensions.height}px`
     this.textRenderer.resize(width, height)
   }
 
@@ -356,7 +356,7 @@ class WebglRendererSessionImpl implements WebglRendererSession {
     return Math.max(
       1,
       Math.round(
-        configuration.cssPixels.width * configuration.devicePixelRatio,
+        configuration.surfaceDimensions.width * configuration.surfaceDensity,
       ),
     )
   }
@@ -368,7 +368,7 @@ class WebglRendererSessionImpl implements WebglRendererSession {
     return Math.max(
       1,
       Math.round(
-        configuration.cssPixels.height * configuration.devicePixelRatio,
+        configuration.surfaceDimensions.height * configuration.surfaceDensity,
       ),
     )
   }
@@ -447,7 +447,7 @@ class WebglRendererSessionImpl implements WebglRendererSession {
       this.needsFullRedraw = false
     } else {
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
-      const dpr = this._configuration.devicePixelRatio
+      const density = this._configuration.surfaceDensity
       const cellWidth = this._configuration.cell.width
       const cellHeight = this._configuration.cell.height
       for (const region of regions) {
@@ -455,10 +455,10 @@ class WebglRendererSessionImpl implements WebglRendererSession {
         const yCss = region.rowStart * cellHeight
         const widthCss = (region.columnEnd - region.columnStart) * cellWidth
         const heightCss = (region.rowEnd - region.rowStart) * cellHeight
-        const xPx = Math.floor(xCss * dpr)
-        const yPx = Math.floor(yCss * dpr)
-        const widthPx = Math.max(1, Math.ceil(widthCss * dpr))
-        const heightPx = Math.max(1, Math.ceil(heightCss * dpr))
+        const xPx = Math.floor(xCss * density)
+        const yPx = Math.floor(yCss * density)
+        const widthPx = Math.max(1, Math.ceil(widthCss * density))
+        const heightPx = Math.max(1, Math.ceil(heightCss * density))
         gl.texSubImage2D(
           gl.TEXTURE_2D,
           0,
@@ -508,7 +508,9 @@ class WebglRendererSessionImpl implements WebglRendererSession {
         reason,
         drawCallCount: 1,
         grid: { rows: gridConfig.rows, columns: gridConfig.columns },
-        cssPixels: this._configuration.cssPixels,
+        surfaceDimensions: this._configuration.surfaceDimensions,
+        surfaceDensity: this._configuration.surfaceDensity,
+        surfaceOrientation: this._configuration.surfaceOrientation,
         framebufferPixels: this._configuration.framebufferPixels ?? {
           width,
           height,
@@ -614,7 +616,7 @@ class WebglRendererSessionImpl implements WebglRendererSession {
     const uniqueRows = new Set<number>()
     const uniqueColumns = new Set<number>()
     let uploadedBytes = 0
-    const dpr = this._configuration!.devicePixelRatio
+    const density = this._configuration!.surfaceDensity
     const cellWidth = this._configuration!.cell.width
     const cellHeight = this._configuration!.cell.height
     for (const region of regions) {
@@ -630,8 +632,8 @@ class WebglRendererSessionImpl implements WebglRendererSession {
       }
       const widthCss = (region.columnEnd - region.columnStart) * cellWidth
       const heightCss = (region.rowEnd - region.rowStart) * cellHeight
-      const widthPx = Math.max(1, Math.ceil(widthCss * dpr))
-      const heightPx = Math.max(1, Math.ceil(heightCss * dpr))
+      const widthPx = Math.max(1, Math.ceil(widthCss * density))
+      const heightPx = Math.max(1, Math.ceil(heightCss * density))
       uploadedBytes += widthPx * heightPx * 4
     }
     const totalPixels =

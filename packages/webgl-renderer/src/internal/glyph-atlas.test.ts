@@ -64,7 +64,7 @@ type MetricsOverrides = Partial<Omit<RendererMetrics, 'cell' | 'font'>> & {
 }
 
 const createMetrics = (overrides: MetricsOverrides = {}): RendererMetrics => ({
-  devicePixelRatio: overrides.devicePixelRatio ?? 1,
+  surfaceDensity: overrides.surfaceDensity ?? 1,
   cell: {
     width: overrides.cell?.width ?? 10,
     height: overrides.cell?.height ?? 20,

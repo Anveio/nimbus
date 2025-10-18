@@ -152,8 +152,9 @@ Hosts remain the canonical authority for geometry, DPI, and cell metrics. Sessio
 ```ts
 type RendererConfiguration = {
   grid: { rows: number; columns: number };
-  cssPixels: { width: number; height: number };
-  devicePixelRatio: number;
+  surfaceDimensions: { width: number; height: number };
+  surfaceDensity: number;
+  surfaceOrientation?: 'landscape' | 'portrait' | 'square';
   framebufferPixels?: { width: number; height: number };
   cell: { width: number; height: number; baseline?: number };
 };
@@ -165,14 +166,17 @@ interface RendererResizeRequestEvent {
 }
 ```
 
+`surfaceDimensions` intentionally avoids DOM terminology: it represents the logical span of the renderable surface, expressed in host-defined units. A WebGL host may forward CSS pixels, a print renderer may use typographic points, and a character-cell renderer could report whole-tile extents. `surfaceDensity` bridges those logical units to the renderer’s native raster density (physical pixels for WebGL, dots-per-inch for print, etc.). `surfaceOrientation` is a host-provided hint derived from the same measurements and is optional. Hosts SHOULD document which unit system they emit so downstream layers can convert appropriately; renderers MUST treat these numbers as opaque surface units and avoid baking in DOM-specific assumptions.
+
 Normative requirements:
 
 1. Upon receiving `renderer.configure`, the session MUST immediately treat `grid.rows` and `grid.columns` as authoritative until another configuration is applied.
-2. Sessions MUST interpret `cssPixels` as the viewport size measured in CSS pixels.
-3. Sessions MUST scale their backing buffers using `devicePixelRatio` when `framebufferPixels` is omitted. When `framebufferPixels` is supplied, sessions MUST use those exact dimensions and MUST NOT override them.
+2. Sessions MUST treat `surfaceDimensions` as host-authoritative logical dimensions and MUST NOT assume the unit system is CSS-specific.
+3. Sessions MUST scale their backing buffers using `surfaceDensity` when `framebufferPixels` is omitted. When `framebufferPixels` is supplied, sessions MUST use those exact dimensions and MUST NOT override them.
 4. Sessions MUST respect the provided `cell` metrics when mapping overlays or pointer input.
-5. When the runtime requests a resize (e.g., via CSI 8), the session SHOULD emit an event through `onResizeRequest`. Hosts MUST reconcile the request with local constraints and respond with a `renderer.configure` dispatch.
-6. Until a new configuration is applied, the previous configuration remains canonical; sessions MUST continue rendering using the last applied configuration.
+5. Sessions MAY read `surfaceOrientation` as a hint but MUST continue to rely on explicit geometry for layout.
+6. When the runtime requests a resize (e.g., via CSI 8), the session SHOULD emit an event through `onResizeRequest`. Hosts MUST reconcile the request with local constraints and respond with a `renderer.configure` dispatch; renderers MUST NOT author geometry changes independently.
+7. Until a new configuration is applied, the previous configuration remains canonical; sessions MUST continue rendering using the last applied configuration.
 
 ## 10. Profile Semantics
 
@@ -340,17 +344,24 @@ useLayoutEffect(() => {
     request?: RendererResizeRequestEvent,
   ): RendererConfiguration => {
     const rect = canvas.getBoundingClientRect();
-    const devicePixelRatio = window.devicePixelRatio ?? 1;
+    const surfaceDensity = window.devicePixelRatio ?? 1;
+    const surfaceOrientation =
+      rect.width === rect.height
+        ? 'square'
+        : rect.width > rect.height
+          ? 'landscape'
+          : 'portrait';
 
     return {
       grid: request
         ? { rows: request.rows, columns: request.columns }
         : inferGridFromLayout(rect),
-      cssPixels: { width: rect.width, height: rect.height },
-      devicePixelRatio,
+      surfaceDimensions: { width: rect.width, height: rect.height },
+      surfaceDensity,
+      surfaceOrientation,
       framebufferPixels: {
-        width: Math.round(rect.width * devicePixelRatio),
-        height: Math.round(rect.height * devicePixelRatio),
+        width: Math.round(rect.width * surfaceDensity),
+        height: Math.round(rect.height * surfaceDensity),
       },
       cell: measureCellMetrics(),
     };

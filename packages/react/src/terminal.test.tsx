@@ -86,8 +86,9 @@ const {
 
   const baseConfiguration = Object.freeze({
     grid: { rows: 24, columns: 80 },
-    cssPixels: { width: 640, height: 384 },
-    devicePixelRatio: 1,
+    surfaceDimensions: { width: 640, height: 384 },
+    surfaceDensity: 1,
+    surfaceOrientation: 'landscape',
     framebufferPixels: { width: 640, height: 384 },
     cell: { width: 8, height: 16, baseline: 12 },
   }) as RendererConfiguration
@@ -484,10 +485,10 @@ describe('<Terminal />', () => {
         value: () => ({
           left: 0,
           top: 0,
-          width: configuration.cssPixels.width,
-          height: configuration.cssPixels.height,
-          right: configuration.cssPixels.width,
-          bottom: configuration.cssPixels.height,
+          width: configuration.surfaceDimensions.width,
+          height: configuration.surfaceDimensions.height,
+          right: configuration.surfaceDimensions.width,
+          bottom: configuration.surfaceDimensions.height,
           x: 0,
           y: 0,
           toJSON: () => ({}),

@@ -191,8 +191,8 @@ export class TextSurfaceRenderer {
     const width = this.width
     const height = this.height
 
-    const logicalWidth = configuration.cssPixels.width
-    const logicalHeight = configuration.cssPixels.height
+    const logicalWidth = configuration.surfaceDimensions.width
+    const logicalHeight = configuration.surfaceDimensions.height
     const scaleX = width / logicalWidth
     const scaleY = height / logicalHeight
 
