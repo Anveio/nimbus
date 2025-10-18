@@ -8,6 +8,10 @@ const targets = {
   'client-web': { entry: 'src/client/web/index.ts', fileBase: 'client/web' },
   'client-node': { entry: 'src/client/node/index.ts', fileBase: 'client/node' },
   'server-node': { entry: 'src/server/node/index.ts', fileBase: 'server/node' },
+  'line-discipline': {
+    entry: 'src/public/line-discipline.ts',
+    fileBase: 'line-discipline/index',
+  },
 } as const
 
 type TargetKey = keyof typeof targets
@@ -35,7 +39,7 @@ export default defineConfig(({ mode }) => {
       }),
     ],
     build: {
-      target: 'es2022',
+      target: 'es2020',
       outDir: path.resolve(rootDir, 'dist'),
       emptyOutDir: false,
       sourcemap: true,

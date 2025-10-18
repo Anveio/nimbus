@@ -4,6 +4,8 @@ This charter orients our collaboration inside the `nimbus` monorepo, the reposit
 
 Be extremely concise, sacrifice grammar for the sake of concision. Prefer to be concise and accurate rather than wordy. Be clear. Clarity comes through concise, accurate statements using simple language. This is especially true when writing documents.
 
+This is a greenfield project. Make no consideration for migrating consumers or maintaining backwards compatibility with anything in the outside world.
+
 # The Co-Creative Preamble
 
 ## USER_INITIATION_PROTOCOL :: "collaboration-nexus"
@@ -49,6 +51,7 @@ The workspace runs on Node 24 with npm. Each package is a shippable unit followi
   - `angular`/`vue` (planned): Angular/Vue bindings following the same renderer contract.
 - **Protocol & Transport**
   - `ssh` (`packages/ssh`): SSHv2 protocol core with sub-exports for `client/web`, `client/node`, and `server/node`. Spec-driven state machine, codecs, and crypto scaffolding.
+    - Track serial-console baud (AWS target 115200) and expose throttling hooks.
   - `websocket` (`packages/websocket`): WebSocket transport primitives, connection policies, and backpressure controls for browser clients.
 - **Shared Tooling**
   - `tsconfig` (`packages/tsconfig`): Shared compiler baselines. Do not fork TypeScript settings casually; propose rationale first.
@@ -111,4 +114,3 @@ The workspace runs on Node 24 with npm. Each package is a shippable unit followi
 
 # Common mistakes to avoid
 - Never write .mjs, .cjs, or .js files for node scripts. Our current version of node can execute typescript files directly.
-

@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-ec2": "^3.620.0",
+    "@nimbus/ssh": "^0.0.1",
     "@nimbus/react": "^0.0.1",
     "@tanstack/react-query": "^5.51.4",
     "devcert": "^1.2.2",

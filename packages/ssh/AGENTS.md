@@ -74,3 +74,6 @@ Curated raw spec corpus under `context/`, agreed to focus interoperability on Op
 - ✅ Hardened AES-GCM send/receive (sequence guards, padding alignment) and replay fixtures.
 - ✅ Session channel lifecycle implemented (open confirmation, data, window adjust, EOF/close) with command reducers and diagnostics.
 - Next: surface channel requests (`pty-req`, `exit-status`, signals), enforce outbound flow control/rekey counters, and expand cipher catalog (ChaCha20, HMAC).
+
+### 2025-10-05 — Serial console bauplan
+- Logged AWS EC2 Serial Console requirement: honor 115200 baud, encode ISPEED/OSPEED in PTY modes, expose throttling hook downstream.

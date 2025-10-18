@@ -21,12 +21,144 @@ import {
   scalarMult,
   scalarMultBase,
 } from './internal/crypto/x25519'
+import {
+  encodeTerminalModes,
+  TERMINAL_MODE_END,
+  TERMINAL_MODE_ISPEED,
+  TERMINAL_MODE_OSPEED,
+} from './internal/terminal-modes'
 
 export type AlgorithmName = string & { readonly __brand: 'AlgorithmName' }
 
 export type ChannelId = number & { readonly __brand: 'ChannelId' }
 
 export type CipherStateLabel = 'initial' | 'rekey'
+
+export type BaudRate = number & { readonly __brand: 'BaudRate' }
+
+export interface TerminalSpeed {
+  readonly input: BaudRate
+  readonly output: BaudRate
+}
+
+export interface TokenBucketOptions {
+  readonly capacity: number
+  readonly refillPerSecond: number
+  readonly initialTokens?: number
+}
+
+export interface TokenBucketSnapshot {
+  readonly capacity: number
+  readonly refillPerSecond: number
+  readonly available: number
+  readonly debt: number
+  readonly timestamp: number
+}
+
+export class TokenBucket {
+  readonly #capacity: number
+  readonly #refillPerSecond: number
+  #tokens: number
+  #lastTimestamp: number | null
+
+  constructor(options: TokenBucketOptions) {
+    const { capacity, refillPerSecond } = options
+    if (!Number.isFinite(capacity) || capacity <= 0) {
+      throw new SshInvariantViolation(
+        'Token bucket capacity must be positive',
+      )
+    }
+    if (!Number.isFinite(refillPerSecond) || refillPerSecond <= 0) {
+      throw new SshInvariantViolation(
+        'Token bucket refill rate must be positive',
+      )
+    }
+    const initialTokens = options.initialTokens ?? capacity
+    if (!Number.isFinite(initialTokens) || initialTokens < 0) {
+      throw new SshInvariantViolation(
+        'Token bucket initial tokens must be non-negative',
+      )
+    }
+    this.#capacity = capacity
+    this.#refillPerSecond = refillPerSecond
+    this.#tokens = Math.min(initialTokens, capacity)
+    this.#lastTimestamp = null
+  }
+
+  take(amount: number, now: number): number {
+    if (!Number.isFinite(amount)) {
+      throw new SshInvariantViolation(
+        'Token bucket request amount must be finite',
+      )
+    }
+    if (amount <= 0) {
+      return 0
+    }
+    this.#refill(now)
+    this.#tokens -= amount
+    if (this.#tokens >= 0) {
+      return 0
+    }
+    const deficit = -this.#tokens
+    const waitSeconds = deficit / this.#refillPerSecond
+    return Math.ceil(waitSeconds * 1000)
+  }
+
+  inspect(now: number): TokenBucketSnapshot {
+    this.#refill(now)
+    const available =
+      this.#tokens >= 0 ? Math.min(this.#tokens, this.#capacity) : 0
+    const debt = this.#tokens < 0 ? -this.#tokens : 0
+    return {
+      capacity: this.#capacity,
+      refillPerSecond: this.#refillPerSecond,
+      available,
+      debt,
+      timestamp: this.#lastTimestamp ?? now,
+    }
+  }
+
+  reset(tokens: number, now: number): void {
+    if (!Number.isFinite(tokens) || tokens < 0) {
+      throw new SshInvariantViolation('Token bucket reset must be non-negative')
+    }
+    if (!Number.isFinite(now)) {
+      throw new SshInvariantViolation('Token bucket timestamp must be finite')
+    }
+    this.#tokens = Math.min(tokens, this.#capacity)
+    this.#lastTimestamp = now
+  }
+
+  #refill(now: number): void {
+    if (!Number.isFinite(now)) {
+      throw new SshInvariantViolation('Token bucket timestamp must be finite')
+    }
+    if (this.#lastTimestamp === null) {
+      this.#lastTimestamp = now
+      return
+    }
+    if (now <= this.#lastTimestamp) {
+      return
+    }
+    const deltaMs = now - this.#lastTimestamp
+    const refill = (deltaMs / 1000) * this.#refillPerSecond
+    this.#tokens = Math.min(this.#capacity, this.#tokens + refill)
+    this.#lastTimestamp = now
+  }
+}
+
+export interface BaudPolicy {
+  readonly requested: TerminalSpeed
+  readonly enforced: TerminalSpeed
+  readonly throttler?: TokenBucket
+}
+
+export function createBaudRate(value: number): BaudRate {
+  assertBaudRate(value, 'baud rate')
+  return value as BaudRate
+}
+
+const DEFAULT_TERMINAL_MODES = Uint8Array.of(TERMINAL_MODE_END)
 
 export type SessionPhase =
   | 'initial'
@@ -259,6 +391,7 @@ export type ChannelRequestPayload =
       readonly rows: number
       readonly widthPixels?: number
       readonly heightPixels?: number
+      readonly speed?: TerminalSpeed
       readonly modes?: Uint8Array
     }
   | { readonly type: 'shell'; readonly wantReply?: boolean }
@@ -300,6 +433,28 @@ export type ChannelOpenRequest =
       readonly path: string
       readonly reserved?: Uint8Array
     }
+
+function assertBaudRate(value: number, context: string): number {
+  if (!Number.isFinite(value)) {
+    throw new SshInvariantViolation(`${context} must be finite`)
+  }
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new SshInvariantViolation(`${context} must be a positive integer`)
+  }
+  if (value > 0xffff_ffff) {
+    throw new SshInvariantViolation(`${context} exceeds 32-bit range`)
+  }
+  return value
+}
+
+function encodeTerminalSpeed(speed: TerminalSpeed): Uint8Array {
+  const input = assertBaudRate(speed.input, 'terminal input baud')
+  const output = assertBaudRate(speed.output, 'terminal output baud')
+  return encodeTerminalModes([
+    { opcode: TERMINAL_MODE_ISPEED, argument: input },
+    { opcode: TERMINAL_MODE_OSPEED, argument: output },
+  ])
+}
 
 export interface DisconnectOptions {
   readonly code?: number
@@ -2477,7 +2632,11 @@ class ClientSessionImpl implements SshSession {
         const heightChars = request.rows >>> 0
         const widthPixels = (request.widthPixels ?? 0) >>> 0
         const heightPixels = (request.heightPixels ?? 0) >>> 0
-        const modes = request.modes ?? Uint8Array.of(0)
+        const modes =
+          request.modes ??
+          (request.speed
+            ? encodeTerminalSpeed(request.speed)
+            : DEFAULT_TERMINAL_MODES)
         writer.writeString(term)
         writer.writeUint32(widthChars)
         writer.writeUint32(heightChars)

@@ -7,15 +7,18 @@
     "allowJs": false,
     "incremental": true,
     "paths": {
-      "@/*": [
-        "./app/*"
+      "@/*": ["./app/*"],
+      "@/lib/*": ["./lib/*"],
+      "@/components/*": ["./components/*"],
+      "@nimbus/ssh": ["../../packages/ssh/src/index.ts"],
+      "@nimbus/ssh/line-discipline": [
+        "../../packages/ssh/src/public/line-discipline.ts"
       ],
-      "@/lib/*": [
-        "./lib/*"
+      "@nimbus/ssh/*": [
+        "../../packages/ssh/src/*",
+        "../../packages/ssh/src/public/*"
       ],
-      "@/components/*": [
-        "./components/*"
-      ]
+      "@nimbus/*": ["../../packages/*"]
     }
   },
   "include": [
@@ -28,7 +31,5 @@
     "test",
     ".next/types/**/*.ts"
   ],
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }

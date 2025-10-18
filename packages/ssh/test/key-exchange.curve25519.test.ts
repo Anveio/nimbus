@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest'
 
 import type { HostKeyDecision, SshEvent } from '../src/api'
-import { createClientSession } from '../src/api'
+import { createBaudRate, createClientSession } from '../src/api'
 import {
   RecordingHostKeyStore,
   TEST_ALGORITHMS,
@@ -30,6 +30,11 @@ import {
   scalarMult,
   scalarMultBase,
 } from '../src/internal/crypto/x25519'
+import {
+  TERMINAL_MODE_END,
+  TERMINAL_MODE_ISPEED,
+  TERMINAL_MODE_OSPEED,
+} from '../src/internal/terminal-modes'
 
 const SSH_MSG_KEX_ECDH_INIT = 30
 const SSH_MSG_KEX_ECDH_REPLY = 31
@@ -499,12 +504,14 @@ describe('RFC 5656 §4.1 curve25519 key exchange', () => {
     const confirmationEvents = drainSessionEvents(session)
     expectEventTypes(confirmationEvents, ['channel-open'])
 
+    const defaultBaud = createBaudRate(115200)
     const ptyRequest = {
       type: 'pty-req',
       columns: 80,
       rows: 24,
       widthPixels: 640,
       heightPixels: 480,
+      speed: { input: defaultBaud, output: defaultBaud },
     } as const
 
     session.command({
@@ -530,8 +537,22 @@ describe('RFC 5656 §4.1 curve25519 key exchange', () => {
     expect(ptyReader.readUint32()).toBe(480)
     const modesLength = ptyReader.readUint32()
     const modes = ptyReader.readBytes(modesLength)
-    expect(modes.length).toBeGreaterThan(0)
-    expect(modes[modes.length - 1]).toBe(0)
+    expect(modesLength).toBe(11)
+    expect(modes).toEqual(
+      Uint8Array.of(
+        TERMINAL_MODE_ISPEED,
+        0,
+        1,
+        194,
+        0,
+        TERMINAL_MODE_OSPEED,
+        0,
+        1,
+        194,
+        0,
+        TERMINAL_MODE_END,
+      ),
+    )
 
     const successWriter = new BinaryWriter()
     successWriter.writeUint8(SSH_MSG_CHANNEL_SUCCESS)
