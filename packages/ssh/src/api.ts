@@ -392,6 +392,7 @@ export type ChannelRequestPayload =
       readonly widthPixels?: number
       readonly heightPixels?: number
       readonly speed?: TerminalSpeed
+      readonly baudPolicy?: BaudPolicy
       readonly modes?: Uint8Array
     }
   | { readonly type: 'shell'; readonly wantReply?: boolean }
@@ -681,6 +682,18 @@ type CipherDirectionState =
 
 type ChannelStatus = 'opening' | 'open' | 'closing' | 'closed'
 
+interface QueuedChannelPayload {
+  readonly data: Uint8Array
+  readonly readyAt: number
+}
+
+interface ChannelThrottleState {
+  readonly policy: BaudPolicy
+  backlog: QueuedChannelPayload[]
+  timer: ReturnType<typeof setTimeout> | null
+  pending: boolean
+}
+
 interface ChannelState {
   readonly localId: ChannelId
   remoteId: number | null
@@ -693,6 +706,7 @@ interface ChannelState {
   remoteEof: boolean
   exitStatus: number | null
   pendingRequests: PendingChannelRequest[]
+  throttle?: ChannelThrottleState
 }
 
 interface PendingChannelRequest {
@@ -949,6 +963,9 @@ class ClientSessionImpl implements SshSession {
     if (this.#closed) return
     this.#closed = true
     this.#phase = 'closed'
+    for (const state of this.#channels.values()) {
+      this.#clearChannelThrottle(state)
+    }
     this.#eventQueue.close()
   }
 
@@ -2301,6 +2318,7 @@ class ClientSessionImpl implements SshSession {
       channelId: state.localId,
       delta,
     })
+    this.#maybeFlushChannelThrottle(state)
   }
 
   #handleChannelData(reader: BinaryReader, extended: boolean): void {
@@ -2364,6 +2382,7 @@ class ClientSessionImpl implements SshSession {
       writer.writeUint32(state.remoteId >>> 0)
       this.#sendPacket(writer.toUint8Array())
     }
+    this.#clearChannelThrottle(state)
     state.status = 'closed'
     this.#emit({
       type: 'channel-close',
@@ -2506,14 +2525,134 @@ class ClientSessionImpl implements SshSession {
       throw new SshProtocolError('Channel data exceeds remote max packet size')
     }
 
+    const throttle = state.throttle
+    const throttler = throttle?.policy.throttler
+    if (throttle && throttler) {
+      const now = this.#config.clock()
+      const delay = throttler.take(data.length, now)
+      if (delay > 0) {
+        throttle.backlog.push({
+          data: data.slice(),
+          readyAt: now + delay,
+        })
+        this.#scheduleChannelThrottle(state, delay)
+        return
+      }
+    }
+
+    this.#dispatchChannelData(state, data)
+    this.#maybeFlushChannelThrottle(state)
+  }
+
+  #dispatchChannelData(state: ChannelState, data: Uint8Array): void {
+    if (state.remoteId === null) {
+      throw new SshInvariantViolation(
+        `Channel ${Number(state.localId)} is missing remote identifier`,
+      )
+    }
+    if (data.length > state.outboundWindow) {
+      throw new SshProtocolError('Channel remote window exhausted')
+    }
+    if (
+      state.maxOutboundPacketSize > 0 &&
+      data.length > state.maxOutboundPacketSize
+    ) {
+      throw new SshProtocolError('Channel data exceeds remote max packet size')
+    }
     const writer = new BinaryWriter()
     writer.writeUint8(SSH_MSG_CHANNEL_DATA)
     writer.writeUint32(state.remoteId >>> 0)
     writer.writeUint32(data.length >>> 0)
     writer.writeBytes(data)
     this.#sendPacket(writer.toUint8Array())
-
     state.outboundWindow -= data.length
+  }
+
+  #scheduleChannelThrottle(state: ChannelState, initialDelay: number): void {
+    const throttle = state.throttle
+    if (!throttle) {
+      return
+    }
+    if (throttle.timer !== null || throttle.pending) {
+      return
+    }
+    throttle.pending = true
+    const delay = initialDelay > 0 ? initialDelay : 0
+    throttle.timer = setTimeout(() => {
+      throttle.timer = null
+      this.#queueTask(() => {
+        throttle.pending = false
+        const nextDelay = this.#drainChannelThrottle(state)
+        if (nextDelay !== null) {
+          this.#scheduleChannelThrottle(state, nextDelay)
+        }
+      })
+    }, delay)
+  }
+
+  #drainChannelThrottle(state: ChannelState): number | null {
+    const throttle = state.throttle
+    if (!throttle) {
+      return null
+    }
+    if (state.status !== 'open') {
+      throttle.backlog.length = 0
+      return null
+    }
+    let now = this.#config.clock()
+    while (throttle.backlog.length > 0) {
+      const next = throttle.backlog[0]!
+      if (now < next.readyAt) {
+        return next.readyAt - now
+      }
+      if (next.data.length > state.outboundWindow) {
+        return null
+      }
+      throttle.backlog.shift()
+      this.#dispatchChannelData(state, next.data)
+      now = this.#config.clock()
+    }
+    return null
+  }
+
+  #maybeFlushChannelThrottle(state: ChannelState): void {
+    const throttle = state.throttle
+    if (!throttle || throttle.backlog.length === 0) {
+      return
+    }
+    if (throttle.pending) {
+      return
+    }
+    const now = this.#config.clock()
+    const nextReady = throttle.backlog[0]!.readyAt
+    const delay = nextReady > now ? nextReady - now : 0
+    this.#scheduleChannelThrottle(state, delay)
+  }
+
+  #configureChannelThrottle(
+    state: ChannelState,
+    policy: BaudPolicy,
+  ): void {
+    this.#clearChannelThrottle(state)
+    state.throttle = {
+      policy,
+      backlog: [],
+      timer: null,
+      pending: false,
+    }
+  }
+
+  #clearChannelThrottle(state: ChannelState): void {
+    const throttle = state.throttle
+    if (!throttle) {
+      return
+    }
+    if (throttle.timer !== null) {
+      clearTimeout(throttle.timer)
+      throttle.timer = null
+    }
+    throttle.backlog.length = 0
+    state.throttle = undefined
   }
 
   #handleCommandAdjustWindow(channelId: ChannelId, delta: number): void {
@@ -2587,6 +2726,7 @@ class ClientSessionImpl implements SshSession {
       writer.writeUint32(state.remoteId >>> 0)
       this.#sendPacket(writer.toUint8Array())
     }
+    this.#clearChannelThrottle(state)
     state.status = 'closing'
   }
 
@@ -2672,6 +2812,12 @@ class ClientSessionImpl implements SshSession {
     }
     const pending = state.pendingRequests.shift()
     const requestType = pending?.requestType ?? 'unknown'
+    if (
+      pending?.request?.type === 'pty-req' &&
+      pending.request.baudPolicy !== undefined
+    ) {
+      this.#configureChannelThrottle(state, pending.request.baudPolicy)
+    }
     this.#recordDiagnostic(
       'info',
       'channel-request-success',
