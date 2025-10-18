@@ -57,7 +57,7 @@ The workspace runs on Node 24 with npm. Each package is a shippable unit followi
   - `tsconfig` (`packages/tsconfig`): Shared compiler baselines. Do not fork TypeScript settings casually; propose rationale first.
 
 ## Apps
-- `apps/web-demo`: Reference terminal experience. Must remain production-grade: Playwright E2E coverage, deterministic assets, telemetry hooks.
+- `apps/web-demo`: Reference terminal experience. Must remain production-grade: Playwright E2E coverage, deterministic assets, telemetry hooks. EC2 Instance Connect requires browser-side AWS SigV4 presign helpers that default to `UNSIGNED-PAYLOAD` yet hash concrete payloads, sort query params, and document adapter divergences inline.
 - `apps/proxy-server`: WebSocket⇄TCP bridge for SSH. Harden for AWS threat models; treat it like shipping infrastructure.
 - `apps/simulated-instance`: Finch/Docker-managed SSH target. Source of deterministic host behavior for tests and demos.
 

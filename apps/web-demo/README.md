@@ -55,9 +55,9 @@ Expected IAM permissions:
    are rendered inline with setup instructions.
 3. Use the region selector (or append `?region=us-east-1`) to query other AWS
    regions. The demo defaults to `us-west-2`.
-4. Click **Connect** to open the instance-specific route. Use the terminal
-   preview alongside the `POST /api/sign` endpoint to generate SigV4 websocket
-   URLs that target your deployed bridge.
+4. Click **Connect** to open the instance-specific route. The page invokes a
+   server action to presign the EC2 Instance Connect websocket and surfaces the
+   URL inline; `POST /api/sign` remains available for programmatic access.
 
 Playwright tests assume the dev server runs on `localhost:3000`; adjust
 `PORT/HOST` env vars if you need a different binding.
@@ -94,7 +94,7 @@ scripts tag resources with `nimbus:*` for deterministic cleanup (legacy
 
 - `app/` – Next.js routes (landing page + instance connect view).
 - `components/` – Shared React components (tables, instruction panels, terminal preview).
-- `app/api/sign/` – SigV4 signer route invoked by the UI to presign EC2 Instance Connect websockets.
+- `app/api/sign/` – SigV4 signer route (now backed by the shared presign helper) for remote clients that need EC2 Instance Connect URLs.
 - `lib/` – Server utilities (EC2 discovery helpers).
 - `test/e2e/` – Playwright specs.
 - `public/` – Static assets.

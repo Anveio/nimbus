@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import type { ReactElement } from 'react'
 import { InstancesTable } from '@/components/InstancesTable'
 import { InstructionPanel } from '@/components/InstructionPanel'
@@ -27,6 +28,13 @@ export default async function HomePage({
   )
 
   const result = await listEc2Instances(selectedRegion)
+
+  if (result.kind === 'success') {
+    const soleInstance = result.instances.at(0)
+    if (soleInstance && result.instances.length === 1) {
+      redirect(`/ec2-instance-connect/${soleInstance.instanceId}`)
+    }
+  }
 
   return (
     <div

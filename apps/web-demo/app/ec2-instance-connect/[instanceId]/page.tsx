@@ -3,6 +3,8 @@ import { InstanceSummary } from '@/components/InstanceSummary'
 import { InstructionPanel } from '@/components/InstructionPanel'
 import { TerminalPreview } from '@/components/TerminalPreview'
 import { getEc2InstanceById } from '@/lib/ec2'
+import type { InstanceConnectPresignResult } from '@/lib/instance-connect-presign'
+import { generateInstanceConnectUrlAction } from './actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -136,6 +138,20 @@ export default async function InstanceConnectPage(
   }
 
   const { instance } = result
+  let presignResult: InstanceConnectPresignResult | null = null
+  let presignError: string | null = null
+
+  try {
+    presignResult = await generateInstanceConnectUrlAction({
+      instanceId,
+      region: instance.region ?? regionParam,
+      addressFamily: 'ipv4',
+      port: 22,
+    })
+  } catch (error) {
+    presignError =
+      error instanceof Error ? error.message : String(error ?? 'Unknown error')
+  }
 
   return (
     <div
@@ -171,7 +187,7 @@ export default async function InstanceConnectPage(
         <TerminalPreview />
         <InstructionPanel
           title="Connect Nimbus to EC2 Instance Connect"
-          description="Use the websocket bridge deployed by the infra helpers and request a SigV4 signed websocket URL directly from this Next.js app."
+          description="Use the websocket bridge deployed by the infra helpers and request a SigV4 signed websocket URL directly from this page."
           steps={[
             {
               heading: 'Provision the websocket proxy',
@@ -179,9 +195,9 @@ export default async function InstanceConnectPage(
                 'Run `npm run infra:deploy` or the testing equivalent to deploy the WebSocket/SSH bridge. The bridge exposes an AQMP websocket endpoint compatible with EC2 Instance Connect.',
             },
             {
-              heading: 'Request a signed WebSocket URL',
+              heading: 'Trigger the server action signer',
               detail:
-                'POST to `/api/sign` with `{ endpoint, region, service, expiresIn }` (all optional) to obtain a SigV4 URL. The API uses the server-side AWS credentials, so no browser secrets are required.',
+                'This page invokes `generateInstanceConnectUrlAction` on the server to presign a websocket URL using your configured AWS credentials.',
             },
             {
               heading: 'Forward runtime responses',
@@ -190,6 +206,98 @@ export default async function InstanceConnectPage(
             },
           ]}
         />
+        <section
+          style={{
+            borderRadius: '16px',
+            padding: '1.75rem',
+            backgroundColor: 'rgba(15, 23, 42, 0.7)',
+            border: '1px solid rgba(59, 130, 246, 0.35)',
+            color: 'rgba(226, 232, 240, 0.92)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.85rem',
+          }}
+        >
+          <h3
+            style={{
+              margin: 0,
+              fontSize: '1.05rem',
+              fontWeight: 600,
+            }}
+          >
+            Server action presigned URL
+          </h3>
+          {presignResult ? (
+            <>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: '0.9rem',
+                  color: 'rgba(191, 219, 254, 0.85)',
+                }}
+              >
+                Expires in {presignResult.expiresIn} seconds using service{' '}
+                <code
+                  style={{
+                    fontSize: '0.85rem',
+                    backgroundColor: 'rgba(30, 64, 175, 0.25)',
+                    padding: '0.05rem 0.35rem',
+                    borderRadius: '6px',
+                  }}
+                >
+                  {presignResult.service}
+                </code>{' '}
+                in region{' '}
+                <code
+                  style={{
+                    fontSize: '0.85rem',
+                    backgroundColor: 'rgba(30, 64, 175, 0.25)',
+                    padding: '0.05rem 0.35rem',
+                    borderRadius: '6px',
+                  }}
+                >
+                  {presignResult.region}
+                </code>
+                .
+              </p>
+              <code
+                style={{
+                  display: 'block',
+                  fontSize: '0.82rem',
+                  lineHeight: 1.5,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-all',
+                  padding: '1rem',
+                  borderRadius: '12px',
+                  backgroundColor: 'rgba(30, 41, 59, 0.75)',
+                  border: '1px solid rgba(59, 130, 246, 0.25)',
+                }}
+              >
+                {presignResult.url}
+              </code>
+            </>
+          ) : (
+            <p
+              style={{
+                margin: 0,
+                fontSize: '0.9rem',
+                color: 'rgba(248, 113, 113, 0.85)',
+              }}
+            >
+              Unable to generate presigned URL: {presignError ?? 'unknown error'}
+            </p>
+          )}
+          <p
+            style={{
+              margin: 0,
+              fontSize: '0.82rem',
+              color: 'rgba(148, 163, 184, 0.85)',
+            }}
+          >
+            Need programmatic access? The legacy `/api/sign` route now proxies
+            the same helper, so remote clients can still request signed URLs.
+          </p>
+        </section>
       </div>
     </div>
   )

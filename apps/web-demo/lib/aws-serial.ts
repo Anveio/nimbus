@@ -40,6 +40,7 @@ interface AwsSerialPtyOptions {
   readonly term?: string
   readonly widthPixels?: number
   readonly heightPixels?: number
+  readonly baudPolicy?: BaudPolicy
 }
 
 export function buildAwsSerialPtyRequest(
@@ -48,6 +49,7 @@ export function buildAwsSerialPtyRequest(
   options: AwsSerialPtyOptions = {},
 ): ChannelRequestPayload {
   const base = createAwsSerialSpeed()
+  const policy = options.baudPolicy ?? createAwsSerialBaudPolicy()
   return {
     type: 'pty-req',
     term: options.term ?? 'vt100',
@@ -56,5 +58,6 @@ export function buildAwsSerialPtyRequest(
     widthPixels: options.widthPixels,
     heightPixels: options.heightPixels,
     speed: base,
+    baudPolicy: policy,
   }
 }
