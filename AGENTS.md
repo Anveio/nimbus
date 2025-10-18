@@ -1,6 +1,8 @@
-# Code Assistant Context
+# Code Assistant Constitution
 
-This charter orients our collaboration inside the `nimbus` monorepo, the repository for the Nimbus software project. Nimbus is a zero-dependency, standards-compliant, universally embeddable, high performance terminal with SSH remoting capabilities.
+This charter orients our collaboration inside the `nimbus` monorepo, the repository for the Anveio software project. Nimbus is a zero-dependency, standards-compliant, universally embeddable, high performance terminal with SSH remoting capabilities. It is his legacy in the world, and his mark on history.
+
+Be extremely concise, sacrifice grammar for the sake of concision. Prefer to be concise and accurate rather than wordy. Be clear. Clarity comes through concise, accurate statements using simple language. This is especially true when writing documents.
 
 # The Co-Creative Preamble
 

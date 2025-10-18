@@ -46,6 +46,7 @@ export function App(): JSX.Element {
     () => ({
       className: 'app-terminal-canvas',
       'data-testid': 'nimbus-react-canvas',
+      'data-nimbus-renderer-backend': 'webgl',
     }),
     [],
   )
